@@ -1,0 +1,372 @@
+""" Utility functions for connecting to the EnEffCo database and reading data.
+"""
+import asyncio
+from datetime import datetime, timedelta
+from typing import Dict, Mapping, Sequence
+
+import pandas as pd
+import requests
+import tzlocal
+
+from eta_utility import get_logger
+
+from .base_classes import BaseSeriesConnection
+
+log = get_logger("connectors.eneffco")
+
+
+class EnEffCoConnection(BaseSeriesConnection):
+    """
+    EnEffCoConnection is a class to download and upload multiple features from and to the EnEffCo database as
+    timeseries.
+
+    :param str url: Url of the server
+    :param str usr: Username in EnEffco for login
+    :param str pwd: Password in EnEffco for login
+    :param str api_token: Token for API authentication
+    :param nodes: Nodes to select in connection
+    """
+
+    API_PATH = "/API/v1.0"
+
+    def __init__(self, url, usr, pwd, *, api_token, nodes=None):
+        url = url + self.API_PATH
+        self._api_token = api_token
+        super().__init__(url, usr, pwd, nodes=nodes)
+
+        self._node_ids = None
+        self._node_ids_raw = None
+
+        self._sub = None
+        self._subscription_nodes = set()
+        self._subscription_open = False
+
+    @classmethod
+    def from_node(cls, node, *, usr, pwd, api_token):
+        """Initialize the connection object from an EnEffCo protocol node object
+
+        :param node: Node to initialize from
+        :type node: Node
+        :param str usr: Username for EnEffCo login
+        :param str pwd: Password for EnEffCo login
+        :param str api_token: Token for API authentication
+        :return: EnEffCoConnection object
+        :rtype: EnEffCoConnection
+        """
+
+        if node.protocol == "eneffco":
+            return cls(node.url, usr, pwd, api_token=api_token, nodes=[node])
+
+        else:
+            raise ValueError(
+                "Tried to initialize EnEffCoConnection from a node that does not specify eneffco as its"
+                "protocol: {}.".format(node.name)
+            )
+
+    @staticmethod
+    def round_time(time, interval):
+        """Rounds time to full intervals in seconds (also supports decimals of seconds)"""
+        intervals = time.timestamp() // interval
+        return datetime.fromtimestamp(intervals * interval)
+
+    def read(self, nodes=None):
+        """Download current value from the EnEffCo Database
+
+        :param nodes: List of nodes to read values from
+        :type nodes: Sequence[Node]
+        :return: Pandas DataFrame containing the data read from the connection
+        :rtype: pd.DataFrame
+        """
+        # Make sure that latest value is read depending on base time of node in EnEffCo
+        nodes = self._validate_nodes(nodes)
+        info = self.read_info(nodes)
+        value = pd.DataFrame(index=[self.round_time(datetime.now(), 1)])
+        for node in nodes:
+            last_update = (
+                pd.to_datetime(info.at["LastUpdate", node.name]).tz_convert(tzlocal.get_localzone()).to_pydatetime()
+            )
+            last_update = last_update.replace(tzinfo=None)
+            base_time = info.at["BaseTime", node.name]
+            data = self.read_series(
+                self.round_time(last_update, base_time) - timedelta(seconds=base_time),
+                self.round_time(last_update, base_time),
+                node,
+                timedelta(seconds=base_time),
+            )
+            if len(data) > 1:
+                # Check if data contains multiple rows, if so return only last row.
+                data = data.iloc[-1, :]
+            value.loc[value.index, node.name] = data.values
+        return value
+
+    def write(self, values):
+        """Writes some values to the EnEffCo Database
+
+        :param values: Dictionary of nodes and data to write. {node: value}
+        :type values: Mapping[Node, Mapping[datetime, Any]]
+        """
+        nodes = self._validate_nodes(values.keys())
+
+        for node in nodes:
+            request_url = "rawdatapoint/{}/value".format(self.id_from_code(node.eneffco_code, raw_datapoint = True))
+            response = self._raw_request("POST", request_url, data = self._prepare_raw_data(values[node]),
+                                         headers = {'Content-Type': "application/json", 'cache-control': "no-cache",
+                                                    'Postman-Token': self._api_token},
+                                         params = {"comment": ""})
+            log.info(response.text)
+
+    def _prepare_raw_data(self, data):
+        """Change the input format into a compatible format with EnEffCo
+
+        :param data: Data to write to node {time: value}. Could be a dictionary or a pandas Series.
+        :type data: Mapping[datetime, Any]
+
+        :return upload_data: Dictionary in the format for the upload to EnEffCo
+        :rtype: Dict[str, str]
+        """
+
+        if type(data) is Dict or isinstance(data, pd.Series):
+            upload_data = {"Values": []}
+            for time, val in data.items():
+                upload_data["Values"].append(
+                    {
+                        "Value": int(val),
+                        "From": time.strftime("%Y-%m-%d %H:%M:%S"),
+                        "To": time.strftime("%Y-%m-%d %H:%M:%S"),
+                    }
+                )
+
+        else:
+            raise ValueError("Unrecognized data format for EnEffCo upload. Provide dictionary or pandas series.")
+
+        return str(upload_data)
+
+    def read_info(self, nodes=None):
+        """Read additional datapoint information from Database.
+
+        :param nodes: List of nodes to read values from
+        :type nodes: Sequence[Node]
+        :return: Pandas DataFrame containing the data read from the connection
+        :rtype: pd.DataFrame
+        """
+
+        nodes = self._validate_nodes(nodes)
+        values = []
+
+        for node in nodes:
+            request_url = "datapoint/{}".format(self.id_from_code(node.eneffco_code))
+            response = self._raw_request("GET", request_url)
+            values.append(pd.Series(response.json(), name=node.name))
+
+        return pd.concat(values, axis=1)
+
+    def subscribe(self, handler, nodes=None, interval=1):
+        """Subscribe to nodes and call handler when new data is available. This will return only the
+        last available values.
+
+        :param handler: SubscriptionHandler object with a push method that accepts node, value pairs
+        :type handler: SubscriptionHandler
+        :param interval: interval for receiving new data. It it interpreted as seconds when given as an integer.
+        :type interval: int or timedelta
+        :param nodes: identifiers for the nodes to subscribe to
+        :type nodes: Set or List
+        """
+        self.subscribe_series(handler, 1, nodes, interval=interval, data_interval=interval)
+
+    def read_series(self, from_time, to_time, nodes=None, interval=1):
+        """Download timeseries data from the EnEffCo Database
+
+        :param nodes: List of nodes to read values from
+        :type nodes: List[Node]
+        :param from_time: Starting time to begin reading (included in output)
+        :type from_time: datetime
+        :param to_time: To to stop reading at (not included in output)
+        :type to_time: datetime
+        :param interval: interval between time steps. It is interpreted as seconds if given as integer.
+        :type interval: int or timedelta
+        :return: Pandas DataFrame containing the data read from the connection
+        :rtype: pd.DataFrame
+
+        Example: Download some EnEffCo-codes
+        ------------------------------------
+        from eta_utility.connectors import Node, EnEffCoConnection
+        from datetime import datetime
+
+        nodes = Node.get_eneffco_nodes_from_codes(
+        ['Pu_Mgn3.500.ThHy_Q', 'Pu_Mgn3.500.ThHy_T_RL', 'Pu_Mgn3.500.ThHy_T_VL', 'Pu_Mgn3.500.ThHy_P'])
+        connection = EnEffCoConnection.from_node(nodes[0], usr='XXX', pwd='XXX')
+        from_time = datetime.fromisoformat('2019-01-01 00:00:00')
+        to_time = datetime.fromisoformat('2019-01-02 00:00:00')
+        data = connection.read_series(from_time, to_time, nodes=nodes, interval=900)
+        """
+        nodes = self._validate_nodes(nodes)
+        interval = interval if isinstance(interval, timedelta) else timedelta(seconds=interval)
+
+        values = pd.DataFrame()
+
+        for node in nodes:
+            request_url = "datapoint/{}/value?from={}&to={}&timeInterval={}&includeNanValues=True".format(
+                self.id_from_code(node.eneffco_code),
+                self.timestr_from_datetime(from_time),
+                self.timestr_from_datetime(to_time),
+                str(int(interval.total_seconds())),
+            )
+
+            response = self._raw_request("GET", request_url)
+            response = response.json()
+
+            data = pd.DataFrame(
+                data=(r["Value"] for r in response),
+                index=pd.to_datetime([r["From"] for r in response], utc=True, format="%Y-%m-%dT%H:%M:%SZ").tz_convert(
+                    tzlocal.get_localzone()
+                ),
+                columns=[node.name],
+                dtype="float64",
+            )
+            data.index = data.index.tz_localize(None)  # Make timestamp timezone naive
+            data.index.name = "Time (local)"
+            values = pd.concat([values, data], axis=1, sort=False)
+        return values
+
+    def subscribe_series(self, handler, req_interval, offset=None, nodes=None, interval=1, data_interval=1):
+        """Subscribe to nodes and call handler when new data is available. This will always return a series of values.
+        If nodes with different intervals should be subscribed, multiple connection objects are needed.
+
+        :param handler: SubscriptionHandler object with a push method that accepts node, value pairs
+        :type handler: SubscriptionHandler
+        :param req_interval: Duration covered by requested data (time interval). Interpreted as seconds if given as int
+        :type req_interval: timedelta or int
+        :param offset: Offset from datetime.now from which to start requesting data (time interval).
+                       Interpreted as seconds if given as int. Use negative values to go to past timestamps.
+        :type offset: timedelta or int or None
+        :param data_interval: Time interval between values in returned data. Interpreted as seconds if given as int.
+        :type data_interval: timedelta or int
+        :param interval: interval (between requests) for receiving new data.
+                         It it interpreted as seconds when given as an integer.
+        :type interval: int or timedelta
+        :param nodes: identifiers for the nodes to subscribe to
+        :type nodes: Set or List
+        """
+
+        nodes = self._validate_nodes(nodes)
+
+        interval = interval if isinstance(interval, timedelta) else timedelta(seconds=interval)
+        req_interval = req_interval if isinstance(req_interval, timedelta) else timedelta(seconds=req_interval)
+        if offset is None:
+            offset = -req_interval
+        else:
+            offset = offset if isinstance(offset, timedelta) else timedelta(seconds=offset)
+        data_interval = data_interval if isinstance(data_interval, timedelta) else timedelta(seconds=data_interval)
+
+        self._subscription_nodes.update(nodes)
+
+        if self._subscription_open:
+            # Adding nodes to subscription is enough to include them in the query. Do not start an additional loop
+            # if one already exists
+            return
+
+        self._subscription_open = True
+        loop = asyncio.get_event_loop()
+        self._sub = loop.create_task(
+            self._subscription_loop(
+                handler,
+                int(interval.total_seconds()),
+                req_interval,
+                offset,
+                data_interval,
+            )
+        )
+
+    def close_sub(self):
+        try:
+            self._sub.cancel()
+            self._subscription_open = False
+        except Exception:
+            pass
+
+    async def _subscription_loop(self, handler, interval, req_interval, offset, data_interval):
+        """The subscription loop handles requesting data from the server in the specified interval
+
+        :param handler: Handler object with a push function to receive data
+        :type handler: SubscriptionHandler
+        :param interval: Interval for requesting data in seconds
+        :type interval: int
+        :param req_interval: Duration covered by the requested data
+        :type req_interval: timedelta
+        :param offset: Offset from datetime.now from which to start requesting data (time interval).
+                       Use negative values to go to past timestamps.
+        :type offset: timedelta
+        :param data_interval: Interval between data points
+        :type data_interval: timedelta
+        """
+
+        try:
+            while self._subscription_open:
+                from_time = datetime.now() + offset
+                to_time = from_time + req_interval
+
+                for node in self._subscription_nodes:
+                    value = self.read_series(from_time, to_time, node, interval=data_interval)
+                    handler.push(node, value[node.name], value[node.name].index)
+
+                await asyncio.sleep(interval)
+        except asyncio.CancelledError:
+            pass
+
+    def id_from_code(self, code, raw_datapoint=False):
+        """
+        Function to get the raw EnEffCo ID corresponding to a specific (raw) datapoint
+
+        :param str code: exact EnEffCo code
+        :param bool raw_datapoint: returns raw datapoint id
+        """
+
+        # Only build lists of ids if they are not available yet
+        if self._node_ids is None:
+            response = self._raw_request("GET", "/datapoint")
+            self._node_ids = pd.DataFrame(data=response.json())
+
+        if self._node_ids_raw is None:
+            response = self._raw_request("GET", "/rawdatapoint")
+            self._node_ids_raw = pd.DataFrame(data=response.json())
+
+        if raw_datapoint:
+            return self._node_ids_raw.loc[self._node_ids_raw['Code'] == code, 'Id'].values.item()
+        else:
+            return self._node_ids.loc[self._node_ids["Code"] == code, "Id"].values.item()
+
+    def timestr_from_datetime(self, dt):
+        """Create an EnEffCo compatible time string
+
+        :param dt: datetime object to convert to string
+        :type dt: datetime.datetime
+        :return: EnEffCo compatible time string
+        :rtype: str
+        """
+
+        return dt.isoformat(sep="T", timespec="seconds").replace(":", "%3A")
+
+    def _raw_request(self, method, endpoint, **kwargs):
+        """Perform EnEffCo request and handle possibly resulting errors.
+
+        :param str method: HTTP request method
+        :param str endpoint: endpoint for the request (server uri is added automatically
+        :param kwargs: Additional arguments for the request.
+        """
+
+        response = requests.request(method, self.url + "/" + str(endpoint), auth=(self.usr, self.pwd), **kwargs)
+
+        # Check for request errors
+        status_code = response.status_code
+        if status_code == 400:
+            raise ConnectionError(f"EnEffCo Error {status_code}: API is unavailable")
+        elif status_code == 404:
+            raise ConnectionError(
+                "EnEffCo Error {}: Endpoint not found '{}'".format(status_code, self.url + str(endpoint))
+            )
+        elif status_code == 401:
+            raise ConnectionError(f"EnEffCo Error {status_code}: Invalid login info")
+        elif status_code == 500:
+            raise ConnectionError(f"EnEffCo Error {status_code}: Server is unavailable")
+
+        return response

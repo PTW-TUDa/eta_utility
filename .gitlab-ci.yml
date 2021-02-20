@@ -1,0 +1,102 @@
+# Setup pip cache so that it can be reused between jobs
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+stages:
+  - check
+  - test
+  - build
+
+default:
+  tags:
+    - python
+    - docker
+
+  image: python:3.7
+
+  before_script:
+    - python -V  # Print out python version for debugging
+    - python3 -m venv venv
+    - source venv/bin/activate
+    - pip install --upgrade pip
+    - pip install .
+
+  # Make sure that the installation is cached between jobs
+  cache:
+    paths:
+      - .cache/pip
+      - venv
+    #when: 'always'
+
+isort:
+  stage: check
+  script:
+    - pip install isort
+    - isort -c -v .
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: always
+
+black:
+  stage: check
+  script:
+    - pip install black
+    - black --check --config pyproject.toml eta_utility/ test/
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: always
+
+flake8:
+  stage: check
+  script:
+    - pip install flake8
+    - flake8 eta_utility/
+    - flake8 --ignore=F405 test/
+  allow_failure: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: always
+
+test:
+  stage: test
+  script:
+    - pip install pytest
+    - pytest
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: always
+
+# build the sources
+build:
+  stage: build
+  script:
+    - pip install build
+    - python -m build --sdist --wheel
+  artifacts:
+    name: "eta_utility-build-$CI_COMMIT_REF_NAME-$CI_JOB_STATUS"
+    paths:
+      - dist/
+      - eta_utility.egg-info/
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "development"'
+      when: always
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: always
+
+# Create sphinx html documentation
+doc:
+  stage: build
+  script:
+    - pip install sphinx sphinx-rtd-theme
+    - cd docs
+    - make html
+    - mv _build/html ../html_doc
+  artifacts:
+    name: "eta_utility-docs-$CI_COMMIT_REF_NAME"
+    paths:
+      - html_doc/
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "development"'
+      when: always
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: always

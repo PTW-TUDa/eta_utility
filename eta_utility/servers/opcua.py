@@ -1,0 +1,118 @@
+import socket
+from typing import Mapping
+
+from opcua import Server, ua
+
+from eta_utility import get_logger
+
+log = get_logger("servers.opcua")
+
+
+class OpcUaServer:
+    """Provides an OPC UA server with a number of specified nodes. Each node can contain single values or arrays.
+
+    :param name: Namespace of the OPC UA Server
+    :type name: str, int
+    :param int port: Port to listen on
+    """
+
+    def __init__(self, name, port=4840):
+        #: url: IP Address of the OPC UA Server
+        self.url = "opc.tcp://{}:{}".format(socket.gethostbyname(socket.gethostname()), port)
+        log.info(f"Server Address is {self.url}")
+
+        self._server = Server()
+        self._server.set_endpoint(self.url)
+
+        self.idx = self._server.register_namespace(str(name))  #: idx: Namespace of the OPC UA _server
+        log.debug(f'Server Namespace set to "{name}"')
+
+        self._server.set_security_policy([ua.SecurityPolicyType.NoSecurity])
+        self._server.start()
+
+    def write(self, values):
+        """
+        Writes some values directly to the OPCUA server
+
+        :param values: Dictionary of data to write. {node.name: value}
+        :type values: Mapping[Node, Any]
+        """
+
+        nodes = self._validate_nodes(values.keys())
+
+        for node in nodes:
+            var = self._server.get_node(node.opc_id)
+            opc_type = var.get_data_type_as_variant_type()
+            var.set_value(ua.Variant(values[node], opc_type))
+
+    def create_nodes(self, nodes):
+        """Create nodes on the server from a list of nodes. This will try to create the entire node path.
+
+        :param nodes: List or set of nodes to create
+        :type nodes: Node or Sequence[Node]
+        """
+
+        def create_object(parent, child):
+            for obj in parent.get_children():
+                ident = (
+                    obj.nodeid.Identifier.strip(" .") if type(obj.nodeid.Identifier) is str else obj.nodeid.Identifier
+                )
+                if child.opc_path_str == ident:
+                    return obj
+            else:
+                return parent.add_object(child.opc_id, child.opc_name)
+
+        nodes = self._validate_nodes(nodes)
+
+        for node in nodes:
+            last_obj = create_object(self._server.get_objects_node(), node.opc_path[0])
+
+            for key in range(1, len(node.opc_path) + 1):
+                if key < len(node.opc_path):
+                    last_obj = create_object(last_obj, node.opc_path[key])
+                else:
+                    init_val = 0.0
+                    if not hasattr(node, "dtype"):
+                        pass
+                    elif node.dtype is int:
+                        init_val = 0
+                    elif node.dtype is bool:
+                        init_val = False
+
+                    last_obj.add_variable(node.opc_id, node.opc_name, init_val)
+                    log.debug(f"OPC UA Node created: {node.opc_id}")
+
+    def delete_nodes(self, nodes):
+        """Delete the given nodes and their parents (if the parents do not have other children).
+
+        :param nodes: List or set of nodes to be deleted
+        :type nodes: Node or Sequence[Node]
+        """
+
+        def delete_node_parents(node, depth=20):
+            parents = node.get_references(direction=ua.BrowseDirection.Inverse)
+            if not node.get_children():
+                node.delete(delete_references=True)
+                log.info(f"Deleted Node {node.nodeid} from server {self.url}.")
+            else:
+                log.info(f"Node {node.nodeid} on server {self.url} has remaining children and was not deleted.")
+            for parent in parents:
+                if depth > 0:
+                    delete_node_parents(self._server.get_node(parent.NodeId), depth=depth - 1)
+
+        nodes = self._validate_nodes(nodes)
+
+        for node in nodes:
+            delete_node_parents(self._server.get_node(node.opc_id))
+
+    def stop(self):
+        """This should always be called, when the server is not needed anymore. It stops the server."""
+        self._server.stop()
+
+    def _validate_nodes(self, nodes):
+        if not hasattr(nodes, "__len__"):
+            nodes = {nodes}
+        else:
+            if len(nodes) == 0:
+                raise ValueError("Some nodes to read from must be specified.")
+        return nodes
