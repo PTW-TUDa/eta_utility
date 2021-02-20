@@ -195,8 +195,8 @@ class DFSubHandler(SubscriptionHandler):
     :param int keep_data_rows: Number of rows to keep in internal _data memory. Default 100.
     """
 
-    def __init__(self, write_interval = 1, keep_data_rows = 100):
-        super().__init__(write_interval = write_interval)
+    def __init__(self, write_interval=1, keep_data_rows=100):
+        super().__init__(write_interval=write_interval)
         self._data = pd.DataFrame()
         self.keep_data_rows = keep_data_rows
 
@@ -253,10 +253,8 @@ class DFSubHandler(SubscriptionHandler):
         log.info("Subscribed DataFrame {} was reset successfully.".format(hash(self._data)))
 
     def housekeeping(self):
-        """Keep internal data short by only keeping last rows as specified in self.keep_data_rows
-
-        """
-        self._data.drop(index=self._data.index[:-self.keep_data_rows], inplace=True)
+        """Keep internal data short by only keeping last rows as specified in self.keep_data_rows"""
+        self._data.drop(index=self._data.index[: -self.keep_data_rows], inplace=True)
 
     def close(self):
         """This is just here to satisfy the interface, not needed in this case."""

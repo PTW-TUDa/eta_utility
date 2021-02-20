@@ -108,11 +108,18 @@ class EnEffCoConnection(BaseSeriesConnection):
         nodes = self._validate_nodes(values.keys())
 
         for node in nodes:
-            request_url = "rawdatapoint/{}/value".format(self.id_from_code(node.eneffco_code, raw_datapoint = True))
-            response = self._raw_request("POST", request_url, data = self._prepare_raw_data(values[node]),
-                                         headers = {'Content-Type': "application/json", 'cache-control': "no-cache",
-                                                    'Postman-Token': self._api_token},
-                                         params = {"comment": ""})
+            request_url = "rawdatapoint/{}/value".format(self.id_from_code(node.eneffco_code, raw_datapoint=True))
+            response = self._raw_request(
+                "POST",
+                request_url,
+                data=self._prepare_raw_data(values[node]),
+                headers={
+                    "Content-Type": "application/json",
+                    "cache-control": "no-cache",
+                    "Postman-Token": self._api_token,
+                },
+                params={"comment": ""},
+            )
             log.info(response.text)
 
     def _prepare_raw_data(self, data):
@@ -331,7 +338,7 @@ class EnEffCoConnection(BaseSeriesConnection):
             self._node_ids_raw = pd.DataFrame(data=response.json())
 
         if raw_datapoint:
-            return self._node_ids_raw.loc[self._node_ids_raw['Code'] == code, 'Id'].values.item()
+            return self._node_ids_raw.loc[self._node_ids_raw["Code"] == code, "Id"].values.item()
         else:
             return self._node_ids.loc[self._node_ids["Code"] == code, "Id"].values.item()
 

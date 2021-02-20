@@ -69,19 +69,31 @@ class ETAx:
     :type relpath_config: str or os.Pathlike
     """
 
-    _req_settings = {'setup': {'agent_package', 'agent_class',
-                               'environment_package', 'environment_class'},
-                     'settings': {}, 'paths': {}, 'environment_specific': {}, 'agent_specific': {}}
+    _req_settings = {
+        "setup": {"agent_package", "agent_class", "environment_package", "environment_class"},
+        "settings": {},
+        "paths": {},
+        "environment_specific": {},
+        "agent_specific": {},
+    }
 
-    _default_settings = {'setup': {'tensorboard_log': False, 'monitor_wrapper': False,
-                                   'norm_wrapper_obs': False, 'norm_wrapper_reward': False,
-                                   'policy_package': 'agents.common.policies', 'policy_class': 'NoPolicy',
-                                   'vectorizer_package': 'stable_baselines.common.vec_env.dummy_vec_env',
-                                   'vectorizer_class': 'DummyVecEnv'},
-                         'settings': {'verbose': 2, 'seed': None},
-                         'environment_specific': {'plot_interval': 1}, 'agent_specific': {}}
+    _default_settings = {
+        "setup": {
+            "tensorboard_log": False,
+            "monitor_wrapper": False,
+            "norm_wrapper_obs": False,
+            "norm_wrapper_reward": False,
+            "policy_package": "agents.common.policies",
+            "policy_class": "NoPolicy",
+            "vectorizer_package": "stable_baselines.common.vec_env.dummy_vec_env",
+            "vectorizer_class": "DummyVecEnv",
+        },
+        "settings": {"verbose": 2, "seed": None},
+        "environment_specific": {"plot_interval": 1},
+        "agent_specific": {},
+    }
 
-    def __init__(self, config_name, config_overwrite = None, relpath_config = "config/"):
+    def __init__(self, config_name, config_overwrite=None, relpath_config="config/"):
         # initial states
         self._modules_imported = False
         self._environment_vectorized = False
@@ -96,11 +108,12 @@ class ETAx:
         self.run_description: Optional[str] = None  #: Description of the run
 
         # default paths
-        self.path_root: Optional[pathlib.Path] = \
-            pathlib.Path.cwd()  #: Root path of the application
-        self.path_config: Optional[pathlib.Path] = \
-            (self.path_root / relpath_config if not isinstance(relpath_config, pathlib.Path)
-             else relpath_config) / (config_name + '.json')  #: Config file path
+        self.path_root: Optional[pathlib.Path] = pathlib.Path.cwd()  #: Root path of the application
+        self.path_config: Optional[pathlib.Path] = (
+            self.path_root / relpath_config if not isinstance(relpath_config, pathlib.Path) else relpath_config
+        ) / (
+            config_name + ".json"
+        )  #: Config file path
 
         self.path_results: Optional[pathlib.Path] = None  #: General results folder
         self.path_series_results: Optional[pathlib.Path] = None  #: Results folder for the series
