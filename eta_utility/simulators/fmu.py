@@ -1,5 +1,6 @@
 """ The FMUSimulator class enables easy simulation of FMU files.
 """
+import logging
 import pathlib
 import shutil
 from datetime import timedelta
@@ -7,12 +8,11 @@ from typing import Dict, Mapping, Sequence
 
 import numpy as np
 from fmpy import extract, read_model_description
-from fmpy.fmi2 import FMU2Slave
+from fmpy.fmi2 import FMU2Model, FMU2Slave
 from fmpy.simulation import apply_start_values
+from fmpy.sundials import CVodeSolver
 
-from eta_utility import get_logger
-
-log = get_logger("simulators.fmu")
+log = logging.getLogger("eta_utility.simulators.FMUSimulator")
 
 
 class FMUSimulator:
@@ -37,17 +37,7 @@ class FMUSimulator:
     :type init_values:  Mapping[str, float]
     """
 
-    def __init__(
-        self,
-        _id,
-        fmu_path,
-        start_time,
-        stop_time,
-        step_size,
-        names_inputs,
-        names_outputs,
-        init_values=None,
-    ):
+    def __init__(self, _id, fmu_path, start_time, stop_time, step_size, names_inputs, names_outputs, init_values=None):
         # read the model description and input/outputs
         self.path_to_FMU = fmu_path
         self.start_time = start_time
@@ -124,12 +114,7 @@ class FMUSimulator:
         self.fmu.enterInitializationMode()
 
         init_values = {} if init_values is None else init_values
-        apply_start_values(
-            self.fmu,
-            self.model_description,
-            start_values=init_values,
-            apply_default_start_values=False,
-        )
+        apply_start_values(self.fmu, self.model_description, start_values=init_values, apply_default_start_values=False)
 
         self.fmu.exitInitializationMode()
         self.time = start_time
@@ -204,10 +189,7 @@ class FMUSimulator:
         self.fmu.enterInitializationMode()
 
         apply_start_values(
-            self.fmu,
-            self.model_description,
-            start_values=init_values,
-            apply_default_start_values=False,
+            self.fmu, self.model_description, start_values=init_values, apply_default_start_values=False
         )  # new
 
         self.fmu.exitInitializationMode()
@@ -217,3 +199,130 @@ class FMUSimulator:
         self.fmu.terminate()
         self.fmu.freeInstance()
         shutil.rmtree(self.unzipdir)  # clean up unzipped files
+
+
+class FMU2_ME_Slave(FMU2Model):
+    """Helper class for simulation of FMU2 FMUs. This is as wrapper for FMU2Model.
+    It can be used to wrap model exchange FMUs such that they can be simulated similar to a co-simulation FMU. THis
+    is especially helpful for testing model exchange FMUs.
+
+    It exposes an interface that emulates part of the original FMU2Slave class from fmpy.
+    """
+
+    # Define some constants that might be needed according to the FMI Standard
+    fmi2True = 1
+    fmi2False = 0
+
+    fmi2OK = 0
+    fmi2Warning = 1
+    fmi2Discard = 2
+    fmi2Error = 3
+    fmi2Fatal = 4
+    fmi2Pending = 5
+
+    def __init__(self, **kwargs) -> None:
+        """Initialize the FMU2Slave object
+
+        .. seealso:: fmpy.fmi2.FMU2Model
+
+        :param Any **kwargs: Accepts any parameters that fmpy.FMU2Model accepts.
+        """
+        super().__init__(**kwargs)
+        self._model_description = read_model_description(kwargs["unzipDirectory"])
+        self._solver = None
+        self._tolerance = 0.0
+        self._stop_time = 0.0
+        self._start_time = 0.0
+
+    def setupExperiment(self, tolerance: float = None, startTime: float = 0.0, stopTime: float = None, **kwargs) -> int:
+        """Experiment setup and storage of required values.
+
+        .. seealso:: fmpy.fmi2.FMU2Model.setupExperiment
+
+        :param float tolerance: Solver tolerance, default value is 1e-5
+        :param float startTime: Starting time for the experiment
+        :param float stopTime: Ending time for the experiment
+        :param Any **kwargs: Other keyword arguments that might be required for FMU2Model.setupExperiment in the future.
+        :return: FMI2 return value
+        :rtype: int
+        """
+        self._tolerance = 1e-5 if tolerance is None else tolerance
+        self._stop_time = 0.0 if stopTime is None else stopTime
+        self._start_time = startTime
+        self._stop_time = stopTime
+
+        kwargs["tolerance"] = tolerance
+        kwargs["stopTime"] = stopTime
+        kwargs["startTime"] = startTime
+
+        return super().setupExperiment(**kwargs)
+
+    def exitInitializationMode(self, **kwargs) -> int:
+        """Exit the initialization mode and setup the cvode solver.
+
+        .. seealso:: fmpy.fmi2.FMU2Model.exitInitializationMode
+
+        :param Any **kwargs: Keyword arguments accepted by FMU2Model.exitInitializationMode
+        :return: FMI2 return value
+        :rtype: int
+        """
+        ret = super().exitInitializationMode(**kwargs)
+
+        # Collect discrete states from FMU
+        self.eventInfo.newDiscreteStatesNeeded = self.fmi2True
+        self.eventInfo.terminateSimulation = self.fmi2False
+
+        while (
+            self.eventInfo.newDiscreteStatesNeeded == self.fmi2True
+            and self.eventInfo.terminateSimulation == self.fmi2False
+        ):
+            # update discrete states
+            self.newDiscreteStates()
+        self.enterContinuousTimeMode()
+
+        # Initialize solver
+        self._solver = CVodeSolver(
+            set_time=self.setTime,
+            startTime=self._start_time,
+            maxStep=(self._stop_time - self._start_time) / 50.0,
+            relativeTolerance=self._tolerance,
+            nx=self._model_description.numberOfContinuousStates,
+            nz=self._model_description.numberOfEventIndicators,
+            get_x=self.getContinuousStates,
+            set_x=self.setContinuousStates,
+            get_dx=self.getDerivatives,
+            get_z=self.getEventIndicators,
+        )
+
+        return ret
+
+    def doStep(
+        self,
+        currentCommunicationPoint: float,
+        communicationStepSize: float,
+        noSetFMUStatePriorToCurrentPoint: int = None,
+    ) -> int:
+        """Perform a simulation step. Advance simulation from currentCommunicationPoint by communicationStepSize
+
+        .. seealso: FMI2 Standard documentation
+
+        :param float currentCommunicationPoint: current time stamp (starting point for simulation step)
+        :param float communicationStepSize: time step size
+        :param int noSetFMUStatePriorToCurrentPoint: Determine whether a reset before the currentCommunicationPoint is
+                                                     possible. Must be either fmi2True or fmi2False
+        :return: FMU2 return value
+        :rtype: int
+        """
+        time = currentCommunicationPoint
+        step_size = communicationStepSize
+        set_fmu_state = (
+            noSetFMUStatePriorToCurrentPoint if noSetFMUStatePriorToCurrentPoint is not None else self.fmi2True
+        )
+
+        # Perform a solver step and reset the FMU Model time.
+        _, time = self._solver.step(time, time + step_size)
+        self.setTime(time)
+        # Check for events that might have occured during the step
+        step_event, _ = self.completedIntegratorStep()
+
+        return self.fmi2OK

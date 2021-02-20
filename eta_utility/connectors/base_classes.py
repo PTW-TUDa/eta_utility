@@ -157,16 +157,6 @@ class SubscriptionHandler(ABC):
         :return: Rounded datetime object without timezone information
         :rtype: datetime
         """
-        # if 60 <= self._write_interval < 3600:
-        #     intervals = timestamp.minute // (self._write_interval / 60)
-        #     timestamp = timestamp.replace(minute = int(intervals * (self._write_interval / 60)), second = 0,
-        #                                   microsecond = 0, tzinfo = None)
-        # elif 1 <= self._write_interval < 60:
-        #     intervals = timestamp.second // self._write_interval
-        #     timestamp = timestamp.replace(second = intervals * self._write_interval, microsecond = 0, tzinfo = None)
-        # elif 0 < self._write_interval < 1:
-        #     intervals = timestamp.microsecond // (self._write_interval * 1000000)
-        #     timestamp = timestamp.replace(microsecond = intervals * self._write_interval * 1000000, tzinfo = None)
 
         intervals = timestamp.timestamp() // self._write_interval
         return datetime.fromtimestamp(intervals * self._write_interval)
