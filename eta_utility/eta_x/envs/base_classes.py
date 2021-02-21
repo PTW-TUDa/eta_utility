@@ -274,6 +274,9 @@ class BaseEnv(Env, abc.ABC):
         self.state_config: pd.DataFrame = pd.DataFrame(columns=self.__state_config_cols.keys())
         #: Array of shorthands to some frequently used variable names from state_config. .. seealso :: _names_from_state
         self.names: Dict[np.ndarray]
+        #: Dictionary of scaling values for external input values (for example from simulations).
+        #  The structure of this dictionary is {"name": {"add": value, "multiply": value}}.
+        self.ext_scale: Dict[str, Dict[str, Union[int, float]]]
 
         # Store data logs and log other information
         #: episode timer
@@ -337,6 +340,10 @@ class BaseEnv(Env, abc.ABC):
             "abort_conditions_min": self.state_config.loc[self.state_config.abort_condition_min.notnull()].index.values,
             "abort_conditions_max": self.state_config.loc[self.state_config.abort_condition_max.notnull()].index.values,
         }
+
+        self.ext_scale = {}
+        for name, values in self.state_config.iterrows():
+            self.ext_scale[name] = {"add": values.ext_scale_add, "multiply": values.ext_scale_mult}
 
     def _convert_state_config(self):
         """This will convert an incomplete state_config DataFrame or a list of dictionaries to the standardized
@@ -1306,9 +1313,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         # generate FMU input from current state
         step_inputs = []
         for key in self.names["ext_inputs"]:
-            step_inputs.append(
-                state[key] / self.state_config.loc[key].ext_scale_mult - self.state_config.loc[key].ext_scale_add
-            )
+            step_inputs.append(state[key] / self.ext_scale[key]["multiply"] - self.ext_scale[key]["add"])
 
         sim_time_start = time.time()
 
@@ -1329,9 +1334,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         output = {}
         if step_success:
             for idx, name in enumerate(self.names["ext_outputs"]):
-                output[name] = (step_outputs[idx] + self.state_config.loc[name].ext_scale_add) * self.state_config.loc[
-                    name
-                ].ext_scale_mult
+                output[name] = (step_outputs[idx] + self.ext_scale[key]["add"]) * self.ext_scale[key]["multiply"]
 
         return output, step_success, sim_time_elapsed
 

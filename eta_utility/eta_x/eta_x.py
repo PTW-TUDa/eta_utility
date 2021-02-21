@@ -83,7 +83,7 @@ class ETAx:
             "monitor_wrapper": False,
             "norm_wrapper_obs": False,
             "norm_wrapper_reward": False,
-            "policy_package": "agents.common.policies",
+            "policy_package": "eta_utility.eta_x.agents.common",
             "policy_class": "NoPolicy",
             "vectorizer_package": "stable_baselines.common.vec_env.dummy_vec_env",
             "vectorizer_class": "DummyVecEnv",
