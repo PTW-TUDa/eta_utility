@@ -11,13 +11,14 @@ from .modbus import ModbusConnection
 from .opcua import OpcUaConnection
 
 
-def connections_from_nodes(nodes, eneffco_usr=None, eneffco_pw=None):
+def connections_from_nodes(nodes, eneffco_usr=None, eneffco_pw=None, eneffco_api_token=None):
     """Take a list of nodes and return a list of connections
 
     :param nodes: List of nodes defining servers to connect to
     :type nodes: List[Node]
     :param str eneffco_usr: Optional username for eneffco login
     :param str eneffco_pw: Optional password for eneffco login
+    :param str eneffco_api_token: Token for EnEffCo API authorization
     :return: Dictionary of connection objects {hostname: connection}
     :rtype: Dict[str, BaseConnection]
     """
@@ -32,8 +33,10 @@ def connections_from_nodes(nodes, eneffco_usr=None, eneffco_pw=None):
             elif node.protocol == "opcua":
                 connections[node.url_parsed.hostname] = OpcUaConnection.from_node(node)
             elif node.protocol == "eneffco":
+                if eneffco_usr is None or eneffco_pw is None or eneffco_api_token is None:
+                    raise ValueError("Specify username, password and API token for EnEffco access.")
                 connections[node.url_parsed.hostname] = EnEffCoConnection.from_node(
-                    node, usr=eneffco_usr, pwd=eneffco_pw
+                    node, usr=eneffco_usr, pwd=eneffco_pw, api_token=eneffco_api_token
                 )
             else:
                 raise ValueError(

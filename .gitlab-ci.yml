@@ -2,10 +2,20 @@
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
 
+workflow:
+  rules:
+    - if: $CI_MERGE_REQUEST_IID
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH
+
+include:
+  - template: Security/Secret-Detection.gitlab-ci.yml
+  - template: Security/License-Scanning.gitlab-ci.yml
+
 stages:
   - check
   - test
-  - build
+  - deploy
 
 default:
   tags:
@@ -26,77 +36,79 @@ default:
     paths:
       - .cache/pip
       - venv
-    #when: 'always'
 
 isort:
   stage: check
   script:
     - pip install isort
     - isort -c -v .
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      when: always
 
 black:
   stage: check
   script:
     - pip install black
     - black --check --config pyproject.toml eta_utility/ test/
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      when: always
 
-flake8:
+flakehell:
   stage: check
   script:
-    - pip install flake8
-    - flake8 eta_utility/
-    - flake8 --ignore=F405 test/
+    - pip install flakehell
+    - flakehell lint --format=gitlab --output-file flakehell.json eta_utility/
   allow_failure: true
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      when: always
+  artifacts:
+    reports:
+      codequality: flakehell.json
+
+secret_detection:
+  before_script:
+    - echo ""
+  stage: check
+
+license_scanning:
+  before_script:
+    - echo ""
+  stage: check
 
 test:
   stage: test
   script:
-    - pip install pytest
+    - pip install pytest pytest-cov
     - pytest
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      when: always
+    - if: $CI_MERGE_REQUEST_IID
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "development"
+
+secret_detection_default_branch:
+  before_script:
+    - echo ""
 
 # build the sources
 build:
-  stage: build
+  stage: deploy
   script:
-    - pip install build
+    - pip install build twine
     - python -m build --sdist --wheel
+    - TWINE_PASSWORD=$CI_DEPLOY_PASSWORD TWINE_USERNAME=$CI_DEPLOY_USER python -m twine upload --repository-url https://$CI_SERVER_HOST/api/v4/projects/$CI_PROJECT_ID/packages/pypi dist/*
   artifacts:
     name: "eta_utility-build-$CI_COMMIT_REF_NAME-$CI_JOB_STATUS"
     paths:
       - dist/
       - eta_utility.egg-info/
   rules:
-    - if: '$CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "development"'
-      when: always
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      when: always
+    - if: $CI_COMMIT_BRANCH == "master"
 
 # Create sphinx html documentation
-doc:
-  stage: build
+pages:
+  stage: deploy
   script:
     - pip install sphinx sphinx-rtd-theme
     - cd docs
     - make html
-    - mv _build/html ../html_doc
+    - mv _build/html ../public
   artifacts:
     name: "eta_utility-docs-$CI_COMMIT_REF_NAME"
     paths:
-      - html_doc/
+      - public/
   rules:
-    - if: '$CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "development"'
-      when: always
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      when: always
+    - if: $CI_COMMIT_BRANCH == "master"

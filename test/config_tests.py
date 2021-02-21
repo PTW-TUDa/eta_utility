@@ -2,10 +2,10 @@ import pathlib
 
 import pandas as pd
 
-if (pathlib.Path.cwd() / "test/logins.py").is_file():
-    from logins import *  # noqa
+if (pathlib.Path.cwd() / "test/config_local.py").is_file():
+    from config_local import *  # noqa
 else:
-    from logins_empty import *  # noqa
+    from config_local_dummy import *  # noqa
 
 CSV_OUTPUT_FILE = pathlib.Path.cwd() / "test/test_output.csv"
 

@@ -1,7 +1,6 @@
 import datetime
 
-import pandas as pd
-from config_tests import *
+from config_tests import *  # noqa
 from pytest import raises
 
 from eta_utility.connectors import Node

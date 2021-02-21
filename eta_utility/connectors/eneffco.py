@@ -366,7 +366,7 @@ class EnEffCoConnection(BaseSeriesConnection):
         # Check for request errors
         status_code = response.status_code
         if status_code == 400:
-            raise ConnectionError(f"EnEffCo Error {status_code}: API is unavailable")
+            raise ConnectionError(f"EnEffCo Error {status_code}: API is unavailable or insufficient user permissions.")
         elif status_code == 404:
             raise ConnectionError(
                 "EnEffCo Error {}: Endpoint not found '{}'".format(status_code, self.url + str(endpoint))

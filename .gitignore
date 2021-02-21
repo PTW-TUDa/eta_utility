@@ -1,11 +1,16 @@
-# Testing files
-logins.py
+test/*local*.py
+!test/config_local_dummy.py
 *.xls
 *.csv
 *.json
 
 # Development environment
 .idea/
+.vscode/
+*.code-workspace
+
+# Local History for Visual Studio Code
+.history/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

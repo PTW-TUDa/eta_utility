@@ -11,3 +11,38 @@ target_version = ["py36","py37","py38"]
 [tool.isort]
 profile = "black"
 multi_line_output = 3
+
+[tool.flakehell]
+format = "colored"
+show_source = true
+exclude = [
+    ".git",
+    "__pycache__",
+    "docs/conf.py",
+    "build",
+    "dist",
+]
+max-line-length = 120
+
+[tool.flakehell.plugins]
+pycoldestyle = ["+*", "-E203", "-W503"]
+pyflakes = ["+*", "-D203"]
+max-complexity = 20
+
+[tool.pytest.ini_options]
+addopts = "--cov-config=pyproject.toml"
+testpaths = [
+    "test",
+]
+
+[tool.coverage.run]
+source = [
+    "eta_utility"
+]
+omit = [
+    "*/venv/*",
+    "*/.venv/*",
+    "*/docs/*",
+    "*/build/*",
+    "*/dist/*",
+]

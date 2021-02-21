@@ -1,12 +1,10 @@
-[![pipeline status](https://git.rwth-aachen.de/eta-fabrik/industrialenergylab/utility-functions/badges/master/pipeline.svg)](https://git.rwth-aachen.de/eta-fabrik/industrialenergylab/utility-functions/-/commits/master)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
-
-
 # ETA Utility-Functions
 
 The utility functions are part of the "ETA Industrial Energy Lab" framework. The utilities provide
 some easy to use applications for different use cases.
+
+Full Documentation can be found on the
+[Documentation Page](https://eta-fabrik.pages.rwth-aachen.de/industrialenergylab/utility-functions/)
 
 ## Connectors:
 
