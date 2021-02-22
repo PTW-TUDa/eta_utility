@@ -194,17 +194,22 @@ class EnEffCoConnection(BaseSeriesConnection):
         :return: Pandas DataFrame containing the data read from the connection
         :rtype: pd.DataFrame
 
-        Example: Download some EnEffCo-codes
-        ------------------------------------
-        from eta_utility.connectors import Node, EnEffCoConnection
-        from datetime import datetime
+        **Example - Download some EnEffCo-codes**::
 
-        nodes = Node.get_eneffco_nodes_from_codes(
-        ['Pu_Mgn3.500.ThHy_Q', 'Pu_Mgn3.500.ThHy_T_RL', 'Pu_Mgn3.500.ThHy_T_VL', 'Pu_Mgn3.500.ThHy_P'])
-        connection = EnEffCoConnection.from_node(nodes[0], usr='XXX', pwd='XXX')
-        from_time = datetime.fromisoformat('2019-01-01 00:00:00')
-        to_time = datetime.fromisoformat('2019-01-02 00:00:00')
-        data = connection.read_series(from_time, to_time, nodes=nodes, interval=900)
+            from eta_utility.connectors import Node, EnEffCoConnection
+            from datetime import datetime
+
+            nodes = Node.get_eneffco_nodes_from_codes(
+                ["Namespace1.Code1", "Namespace2.Code2"]
+            )
+            connection = EnEffCoConnection.from_node(
+                nodes[0], usr="username", pwd="pw", api_token="token"
+            )
+            from_time = datetime.fromisoformat("2019-01-01 00:00:00")
+            to_time = datetime.fromisoformat("2019-01-02 00:00:00")
+            data = connection.read_series(
+                from_time, to_time, nodes=nodes, interval=900
+            )
         """
         nodes = self._validate_nodes(nodes)
         interval = interval if isinstance(interval, timedelta) else timedelta(seconds=interval)

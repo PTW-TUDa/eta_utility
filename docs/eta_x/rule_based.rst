@@ -1,6 +1,6 @@
 .. _rule_based:
 
-NSGA 2
+Rule Based Agent
 =========================
 
 .. automodule:: eta_utility.eta_x.agents.rule_based.base_classes

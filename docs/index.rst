@@ -19,6 +19,7 @@ some easy to use applications for different use cases.
 
     /guide/install
     /guide/faq
+    /guide/development
 
 Connectors:
 -----------
