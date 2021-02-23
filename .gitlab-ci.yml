@@ -29,7 +29,7 @@ default:
     - python3 -m venv venv
     - source venv/bin/activate
     - pip install --upgrade pip
-    - pip install .
+    - pip install .[eta_x]
 
   # Make sure that the installation is cached between jobs
   cache:
