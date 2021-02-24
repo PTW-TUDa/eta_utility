@@ -102,6 +102,8 @@ build:
 pages:
   stage: deploy
   script:
+    - apt-get update
+    - apt-get --yes install libgl1-mesa-glx
     - pip install sphinx sphinx-rtd-theme
     - cd docs
     - make html

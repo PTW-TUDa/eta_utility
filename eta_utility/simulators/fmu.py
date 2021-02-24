@@ -242,7 +242,7 @@ class FMU2_ME_Slave(FMU2Model):
         :param float tolerance: Solver tolerance, default value is 1e-5
         :param float startTime: Starting time for the experiment
         :param float stopTime: Ending time for the experiment
-        :param Any **kwargs: Other keyword arguments that might be required for FMU2Model.setupExperiment in the future.
+        :param Any kwargs: Other keyword arguments that might be required for FMU2Model.setupExperiment in the future.
         :return: FMI2 return value
         :rtype: int
         """
@@ -262,7 +262,7 @@ class FMU2_ME_Slave(FMU2Model):
 
         .. seealso:: fmpy.fmi2.FMU2Model.exitInitializationMode
 
-        :param Any **kwargs: Keyword arguments accepted by FMU2Model.exitInitializationMode
+        :param Any kwargs: Keyword arguments accepted by FMU2Model.exitInitializationMode
         :return: FMI2 return value
         :rtype: int
         """
