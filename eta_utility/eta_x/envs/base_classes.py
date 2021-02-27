@@ -1,6 +1,5 @@
 import abc
 import inspect
-import locale
 import pathlib
 import time
 from collections import OrderedDict
@@ -116,9 +115,6 @@ class BaseEnv(Env, abc.ABC):
         self.req_env_settings.update(("scenario_time_begin", "scenario_time_end"))  # noqa
         self.req_general_settings = set(self.req_general_settings)
         self.req_general_settings.update(("episode_duration", "sampling_time"))  # noqa
-
-        # set locale for german date formats
-        locale.setlocale(locale.LC_ALL, "de_DE.UTF-8")
 
         super().__init__()
 
