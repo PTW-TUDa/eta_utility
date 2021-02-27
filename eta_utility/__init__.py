@@ -3,7 +3,7 @@ import sys
 
 
 def get_logger(name=None, level=None):
-    prefix = "eta_util"
+    prefix = "eta_utility"
 
     if name is not None and name != prefix:
         # Child loggers
