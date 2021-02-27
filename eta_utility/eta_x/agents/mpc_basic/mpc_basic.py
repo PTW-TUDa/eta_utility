@@ -44,6 +44,12 @@ class MPCBasic(BaseRLModel):
                 super_args[key] = kwargs.get(key, True)
             elif key in {"policy_base", "policy_kwargs", "seed", "n_cpu_tf_sess"}:
                 super_args[key] = kwargs.get(key, None)
+            elif key in {"tensorboard_log"}:
+                log.warning(
+                    "The MPC Basic agent does not support logging to tensorboard. "
+                    "Ignoring parameter tensorboard_log."
+                )
+                continue
             else:
                 solver_args[key] = kwargs[key]
 
@@ -53,7 +59,7 @@ class MPCBasic(BaseRLModel):
         # Check configuration for MILP compatibility
         if self.n_envs > 1:
             raise ValueError(
-                "The MPC agent can only use one environment. It cannot work on multiple " "vectorized environments."
+                "The MPC agent can only use one environment. It cannot work on multiple vectorized environments."
             )
         if isinstance(self.env, VecNormalize):
             raise TypeError("The MPC agent does not allow the use of normalized environments.")
