@@ -59,15 +59,30 @@ flakehell:
     reports:
       codequality: flakehell.json
 
-secret_detection:
-  before_script:
-    - echo ""
-  stage: check
-
 license_scanning:
   before_script:
     - echo ""
   stage: check
+  rules:
+    - if: $CI_MERGE_REQUEST_IID
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH
+
+secret_detection:
+  before_script:
+    - echo ""
+  stage: check
+  rules:
+    - if: $CI_MERGE_REQUEST_IID
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH
+
+secret_detection_default_branch:
+  before_script:
+    - echo ""
+  stage: check
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "development"
 
 test:
   stage: test
@@ -78,10 +93,6 @@ test:
     - if: $CI_MERGE_REQUEST_IID
     - if: $CI_COMMIT_TAG
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "development"
-
-secret_detection_default_branch:
-  before_script:
-    - echo ""
 
 # build the sources
 build:
