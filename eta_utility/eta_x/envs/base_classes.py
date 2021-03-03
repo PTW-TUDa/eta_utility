@@ -268,6 +268,7 @@ class BaseEnv(Env, abc.ABC):
         #   * abort_condition_max: int or float, If value of variable rises above this, the episode
         #                                        will be aborted (default: None)
         self.state_config: pd.DataFrame = pd.DataFrame(columns=self.__state_config_cols.keys())
+        self.state_config.set_index("name", drop=True, inplace=True)
         #: Array of shorthands to some frequently used variable names from state_config. .. seealso :: _names_from_state
         self.names: Dict[np.ndarray]
         #: Dictionary of scaling values for external input values (for example from simulations).
@@ -290,19 +291,25 @@ class BaseEnv(Env, abc.ABC):
         #: Log of specific environment settings / other data, apart from state, over multiple episodes.
         self.data_log_longtime: List[List[Dict[str, Any]]]
 
-    def append_state(self, **kwargs) -> None:
+    def append_state(self, *, name, **kwargs) -> None:
         """Append a state variable to the state configuration of the environment
 
+        :param name: Name of the state variable
         :param kwargs: Column names and values to be inserted into the respective column. For possible columns, types
                        and default values see state_config.
                        .. seealso :: state_config
         """
         append = {}
         for key, item in self.__state_config_cols.items():
+            # Since name is supplied separately, don't append it here
+            if key == "name":
+                continue
+
             val = kwargs[key] if key in kwargs else item
             append[key] = val
 
-        self.state_config.append(append)
+        append = pd.Series(append, name=name)
+        self.state_config = self.state_config.append(append, sort=True)
 
     def _init_state_space(self):
         """Convert state config and store state information. This is a shorthand for the function calls:
@@ -351,13 +358,13 @@ class BaseEnv(Env, abc.ABC):
         """
         # If state config is a DataFrame already, check whether the columns correspond. If they don't create a new
         # DataFrame with the correct columns and default values for missing columns
-        if isinstance(self.state_config, pd.DataFrame) and set(self.state_config.columns) != set(
-            self.__state_config_cols.keys()
-        ):
+        if isinstance(self.state_config, pd.DataFrame):
             new_state = pd.DataFrame(columns=self.__state_config_cols.keys())
             for col, default in self.__state_config_cols.items():
                 if col in self.state_config.columns:
                     new_state[col] = self.state_config[col]
+                elif col == "name" and col not in self.state_config.columns:
+                    new_state["name"] = self.state_config.index
                 else:
                     new_state[col] = np.array([default] * len(self.state_config.index))
 
