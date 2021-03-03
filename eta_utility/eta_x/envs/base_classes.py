@@ -927,7 +927,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
 
         updated_params = ts_current
         return_obs = []  # Array for all current observations
-        next_index = 1 if self._use_model_time_increments else self.sampling_time
+        next_index = 0
         for var_name in self.names["observations"]:
             settings = self.state_config.loc[var_name]
             value = None
@@ -1209,11 +1209,17 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
                 solution[com.name] = pyo.value(com)
             else:
                 solution[com.name] = {}
-                for ind, val in dict(com).items():
-                    solution[com.name][
-                        self.timeseries.index[self.n_steps].to_pydatetime()
-                        + timedelta(seconds=ind * self.sampling_time)
-                    ] = pyo.value(val)
+                if self._use_model_time_increments:
+                    for ind, val in com.items():
+                        solution[com.name][
+                            self.timeseries.index[self.n_steps].to_pydatetime()
+                            + timedelta(seconds=ind * self.sampling_time)
+                        ] = pyo.value(val)
+                else:
+                    for ind, val in com.items():
+                        solution[com.name][
+                            self.timeseries.index[self.n_steps].to_pydatetime() + timedelta(seconds=ind)
+                        ] = pyo.value(val)
 
         return solution
 

@@ -158,7 +158,7 @@ class MPCBasic(BaseRLModel):
 
         # Aggregate the agent actions from pyomo component objects
         solution = {
-            com.name: pyo.value(com[0])
+            com.name: pyo.value(com[next(com.keys())])
             for com in self.model.component_objects(pyo.Var)
             if not isinstance(com, pyo.SimpleVar)
         }
