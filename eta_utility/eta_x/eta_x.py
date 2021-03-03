@@ -503,16 +503,20 @@ class ETAx:
         :return: Boolean value indicating successful completion of initialization
         :rtype: bool
         """
-        if path_run_model:
+        if path_run_model is not None:
             self.path_run_model = (
                 pathlib.Path(path_run_model) if not isinstance(path_run_model, pathlib.Path) else path_run_model
             )
+        elif self.path_run_model is None:
+            log.error("Model path for loading is not specified. Loading failed.")
+            return False
 
         log.debug(f"Trying to load existing model: {self.path_run_model}")
         self._model_initialized = False
 
         if not self.path_run_model.exists():
             log.error("Model couldn't be loaded. Path not found: \n" "\t {}".format(self.path_run_model))
+            return
 
         # tensorboard logging
         agent_kwargs = {}
@@ -526,11 +530,13 @@ class ETAx:
             agent_kwargs = {"tensorboard_log": self.path_series_results}
 
         try:
-            self.model = self.agent.load(self.path_run_model, self.environments, **agent_kwargs)
+            self.model = self.agent.load(
+                self.path_run_model, self.environments, **self.config["agent_specific"], **agent_kwargs
+            )
             self._model_initialized = True
             log.info("Model loaded successfully.")
         except OSError as e:
-            log.error(f"Model couldn't be loaded: {e.strerror}. Filename: {e.filename}")
+            raise OSError(f"Model couldn't be loaded: {e.strerror}. Filename: {e.filename}") from e
 
         return self._model_initialized
 
