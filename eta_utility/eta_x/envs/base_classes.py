@@ -1230,7 +1230,12 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
                     del updated_params[param]
 
         for parameter in self._concrete_model.component_objects():
-            parameter_name = str(parameter)
+            if str(parameter) in updated_params.keys():
+                parameter_name = str(parameter)
+            else:
+                parameter_name = str(parameter).split(".")[
+                    -1
+                ]  # last entry is the parameter name for abstract models which are instanced
             if parameter_name in updated_params.keys():
                 if isinstance(parameter, pyo_base.param.SimpleParam) or isinstance(parameter, pyo_base.var.SimpleVar):
                     # update all simple parameters (single values)
