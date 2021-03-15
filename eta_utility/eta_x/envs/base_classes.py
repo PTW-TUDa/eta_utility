@@ -989,8 +989,8 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             else:
                 for component in self._concrete_model.component_objects():
                     if component.name == var_name:
-                        # Get value for the component
-                        value = round(pyo.value(component[list(component.keys())[settings["index"]]]), 5)
+                        # Get value for the component from specified index
+                        value = round(pyo.value(component[list(component.keys())[int(settings["index"])]]), 5)
                         return_obs.append(value)
                         break
                 else:
