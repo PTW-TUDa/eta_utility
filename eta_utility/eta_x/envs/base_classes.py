@@ -220,6 +220,8 @@ class BaseEnv(Env, abc.ABC):
         #: The time series DataFrame contains all time series scenario data. It can be filled by the
         #   import_scenario method.
         self.timeseries: pd.DataFrame = pd.DataFrame()
+        #: Data frame containing the currently valid range of time series data.
+        self.ts_current: pd.DataFrame
 
         # Columns (and their order) and default values for the state_config DataFrame.
         self.__state_config_cols = OrderedDict(
@@ -232,10 +234,13 @@ class BaseEnv(Env, abc.ABC):
                 ("is_ext_output", False),
                 ("ext_scale_add", 0),
                 ("ext_scale_mult", 1),
+                ("from_scenario", False),
+                ("scenario_id", None),
                 ("low_value", None),
                 ("high_value", None),
                 ("abort_condition_min", None),
                 ("abort_condition_max", None),
+                ("index", 0),
             ]
         )
 
@@ -261,12 +266,16 @@ class BaseEnv(Env, abc.ABC):
         #   * is_ext_output: bool, Should this variable be parsed from the external model output? (default: False)
         #   * ext_scale_add: int or float, Value to add to the output from an external model (default: 0)
         #   * ext_scale_mult: int or float, Value to multiply to the output from an external model (default: 1)
+        #   * from_scenario: bool, Should this variable be read from imported timeseries date? (default: False)
+        #   * scenario_id: str, Name of the scenario variable, this value should be read from (default: None)
         #   * low_value: int or float, lowest possible value of the state variable (default: None)
         #   * high_value: int or float, highest possible value of the state variable (default: None)
         #   * abort_condition_min: int or float, If value of variable dips below this, the episode
         #                                        will be aborted (default: None)
         #   * abort_condition_max: int or float, If value of variable rises above this, the episode
         #                                        will be aborted (default: None)
+        #   * index: int, Specify, which Index this value should be read from, in case a list of values is returned.
+        #                 (default: 0)
         self.state_config: pd.DataFrame = pd.DataFrame(columns=self.__state_config_cols.keys())
         self.state_config.set_index("name", drop=True, inplace=True)
         #: Array of shorthands to some frequently used variable names from state_config. .. seealso :: _names_from_state
@@ -274,6 +283,10 @@ class BaseEnv(Env, abc.ABC):
         #: Dictionary of scaling values for external input values (for example from simulations).
         #  The structure of this dictionary is {"name": {"add": value, "multiply": value}}.
         self.ext_scale: Dict[str, Dict[str, Union[int, float]]]
+        #: Mapping of internatl environment names to external ids.
+        self.map_ext_ids: Dict[str, str]
+        #: Mapping of interal environment names to scenario ids.
+        self.map_scenario_ids: Dict[str, str]
 
         # Store data logs and log other information
         #: episode timer
@@ -325,6 +338,7 @@ class BaseEnv(Env, abc.ABC):
 
     def _names_from_state(self):
         """Intialize the names array from state_config, which stores shorthands to some frequently used variable names.
+        Also initialize some useful shorthand mappings that can be used to speed up lookups.
 
         The names array contains the following (ordered) lists of variables:
             * actions: Variables that are agent actions
@@ -334,12 +348,18 @@ class BaseEnv(Env, abc.ABC):
             * abort_conditions_min: Variables that have minimum values for an abort condition
             * abort_conditions_max: Variables that have maximum values for an abort condition
 
+        self.ext_scale is a dictionary of scaling values for external input values (for example from simulations).
+
+        self.map_ext_ids is a mapping of internatl environment names to external ids.
+
+        self.map_scenario_ids is a mapping of interal environment names to scenario ids.
         """
         self.names = {
             "actions": self.state_config.loc[self.state_config.is_agent_action == True].index.values,  # noqa: E712
             "observations": self.state_config.loc[self.state_config.is_agent_observation == True].index.values,
             "ext_inputs": self.state_config.loc[self.state_config.is_ext_input == True].index.values,
             "ext_outputs": self.state_config.loc[self.state_config.is_ext_output == True].index.values,
+            "scenario": self.state_config.loc[self.state_config.from_scenario == True].index.values,
             "abort_conditions_min": self.state_config.loc[self.state_config.abort_condition_min.notnull()].index.values,
             "abort_conditions_max": self.state_config.loc[self.state_config.abort_condition_max.notnull()].index.values,
         }
@@ -347,6 +367,14 @@ class BaseEnv(Env, abc.ABC):
         self.ext_scale = {}
         for name, values in self.state_config.iterrows():
             self.ext_scale[name] = {"add": values.ext_scale_add, "multiply": values.ext_scale_mult}
+
+        self.map_ext_ids = {}
+        for name in set(self.names["ext_inputs"]) | set(self.names["ext_outputs"]):
+            self.map_ext_ids[name] = self.state_config.loc[name].ext_id
+
+        self.map_scenario_ids = {}
+        for name in self.names["scenario"]:
+            self.map_scenario_ids[name] = self.state_config.loc[name].scenario_id
 
     def _convert_state_config(self):
         """This will convert an incomplete state_config DataFrame or a list of dictionaries to the standardized
@@ -451,6 +479,18 @@ class BaseEnv(Env, abc.ABC):
             )
 
         return valid
+
+    def get_scenario_state(self) -> Dict[str, Any]:
+        """Get scenario data for the current time step of the environment, as specified in state_config. This assumes
+        that scenario data in self.ts_current is available and scaled correctly.
+
+        :return: Scenario data for current time step
+        """
+        scenario_state = {}
+        for scen in self.names["scenario"]:
+            scenario_state[scen] = self.ts_current[self.map_scenario_ids[scen]].iloc[self.n_steps]
+
+        return scenario_state
 
     @abc.abstractmethod
     def step(
@@ -856,6 +896,9 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
                 be used for logging purposes in the future but typically do not currently serve a purpose.
         :rtype: Tuple[np.ndarray, Union[np.float, SupportsFloat], bool, Union[str, Sequence[str]]]
         """
+        if not self.action_space.contains(action):
+            raise RuntimeError(f"Action {action} ({type(action)}) is invalid. Not in action space.")
+
         observations = self.update()
 
         # update and log current state
@@ -934,7 +977,6 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
 
         updated_params = ts_current
         return_obs = []  # Array for all current observations
-        next_index = 0
         for var_name in self.names["observations"]:
             settings = self.state_config.loc[var_name]
             value = None
@@ -947,8 +989,9 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             else:
                 for component in self._concrete_model.component_objects():
                     if component.name == var_name:
-                        value = round(pyo.value(component[next_index]), 5)  # Get value for the component
-                        return_obs.append(round(pyo.value(component[0]), 5))
+                        # Get value for the component
+                        value = round(pyo.value(component[list(component.keys())[settings["index"]]]), 5)
+                        return_obs.append(value)
                         break
                 else:
                     log.error(f"Specified observation value {var_name} could not be found")
@@ -976,7 +1019,11 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
 
     def reset(self) -> np.ndarray:
         """Reset the model and return initial observations. This also calls the callback, increments the episode
-        counter, resets the episode steps and appends the state_log to the
+        counter, resets the episode steps and appends the state_log to the longtime log.
+
+        If you want to extend this function, write your own code and call super().reset() afterwards to return
+        fresh observations. This allows you to ajust timeseries for example. If you need to manipulate the state
+        before initializing or if you want to adjust the initialization itself, overwrite the function entirely.
 
         :return: Initial observation
         :rtype: np.ndarray
@@ -1020,6 +1067,16 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         self.state_log.append(self.state)
 
         return np.array(observations)
+
+    def close(self):
+        """Close the environment. This should always be called when an entire run is finished. It should be used to
+        close any resources (i.e. simulation models) used by the environment.
+
+        Default behaviour for the MPC environment is to do nothing.
+
+        :return:
+        """
+        pass
 
     def pyo_component_params(
         self,
@@ -1276,9 +1333,12 @@ class BaseEnvSim(BaseEnv, abc.ABC):
             )
 
         #: Number of simulation steps to be taken for each sample. This must be a divisor of 'sampling_time'.
-        self.sim_steps_per_sample = int(self.settings["sim_steps_per_sample"])
+        self.sim_steps_per_sample: int = int(self.settings["sim_steps_per_sample"])
         #: The FMU is expected to be placed in the same folder as the environment
-        self.path_fmu = self.path_env / (self.fmu_name + ".fmu")
+        self.path_fmu: pathlib.Path = self.path_env / (self.fmu_name + ".fmu")
+
+        #: Configuration for the FMU model parameters, that need to be set for initialization of the Model.
+        self.model_parameters: dict = self.env_settings["model_parameters"]
 
         #: Instance of the FMU. This can be used to directly access the eta_utility.FMUSimulator interface.
         self.simulator: FMUSimulator
@@ -1347,6 +1407,103 @@ class BaseEnvSim(BaseEnv, abc.ABC):
 
         return output, step_success, sim_time_elapsed
 
+    def step(
+        self, action: np.ndarray
+    ) -> Tuple[np.ndarray, Union[np.float, SupportsFloat], bool, Union[str, Sequence[str]]]:
+        """Perfom one time step and return its results. This is called for every event or for every time step during
+        the simulation/optimization run. It should utilize the actions as supplied by the agent to determine
+        the new state of the environment. The method must return a four-tuple of observations, rewards, dones, info.
+
+        This also updates self.state and self.state_log to store current state information.
+
+        .. warning::
+
+        This function always returns 0 reward. Therefore, it must be extended if it is to be used with reinforcement
+        learning agents. If you need to manipulate actions (discretization, policy shaping, ...) do this before calling
+        this function. If you need to manipulate observations and rewards, do this after calling this function.
+
+        :param action: Actions to perform in the environment.
+        :return: The return value represents the state of the environment after the step was performed.
+
+            * observations: A numpy array with new observation values as defined by the observation space.
+                            Observations is a np.array() (numpy array) with floating point or integer values.
+            * reward: The value of the reward function. This is just one floating point value.
+            * done: Boolean value specifying whether an episode has been completed. If this is set to true,
+                the reset function will automatically be called by the agent or by eta_i.
+            * info: Provide some additional info about the state of the environment. The contents of this may
+                be used for logging purposes in the future but typically do not currently serve a purpose.
+        """
+        if not self.action_space.contains(action):
+            raise RuntimeError(f"Action {action} ({type(action)}) is invalid. Not in action space.")
+        self.n_steps += 1
+
+        # Store actions
+        self.state = {}
+        for idx, act in enumerate(self.names["actions"]):
+            self.state[act] = action[idx]
+
+        # Update scenario data, simulate one time step and store the results.
+        self.state.update(self.get_scenario_state())
+        sim_result, step_success, sim_time_elapsed = self.simulate(self.state)
+        self.state.update(sim_result)
+        self.state_log.append(self.state)
+
+        # Check if the episode is over or not
+        done = self.n_steps >= self.n_episode_steps or not step_success
+
+        observations = np.array(len(self.names["observations"]))
+        for idx, name in enumerate(self.names["observations"]):
+            observations[idx] = self.state[name]
+
+        return observations, 0, done, {}
+
+    def reset(self) -> np.ndarray:
+        """Reset the model and return initial observations. This also calls the callback, increments the episode
+        counter, resets the episode steps and appends the state_log to the longtime storage.
+
+        If you want to extend this function, write your own code and call super().reset() afterwards to return
+        fresh observations. This allows you to ajust timeseries for example. If you need to manipulate the state
+        before initializing or if you want to adjust the initialization itself, overwrite the function entirely.
+
+        :return: Initial observation
+        """
+
+        # save episode's stats
+        if self.n_steps > 0:
+            if self.callback is not None:
+                self.callback(self)
+
+            # Store some logging data
+            self.n_episodes += 1
+            self.state_log_longtime.append(self.state_log)
+            self.n_steps_longtime += self.n_steps
+
+            # Reset episode variables
+            self.n_steps = 0
+            self.state_log = []
+
+        # reset the FMU after every episode with new parameters
+        self._init_simulator(self.model_parameters)
+
+        # Update scenario data, simulate one time step and store the results.
+        self.state = {}
+        self.state.update(self.get_scenario_state())
+        sim_result, step_success, sim_time_elapsed = self.simulate(self.state)
+        self.state.update(sim_result)
+        self.state_log.append(self.state)
+
+        observations = np.array(len(self.names["observations"]))
+        for idx, name in enumerate(self.names["observations"]):
+            observations[idx] = self.state[name]
+
+        return observations
+
     def close(self):
-        """Close and clean up the environment"""
+        """Close the environment. This should always be called when an entire run is finished. It should be used to
+        close any resources (i.e. simulation models) used by the environment.
+
+        Default behaviour for the Simulation environment is to close the FMU object.
+
+        :return:
+        """
         self.simulator.close()  # close the FMU
