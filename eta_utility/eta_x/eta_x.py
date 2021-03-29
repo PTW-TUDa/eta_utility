@@ -383,9 +383,6 @@ class ETAx:
         if self.config["setup"]["monitor_wrapper"]:
             log.error("Monitoring is not supported for vectorized environments!")
             log.warn("The monitor_wrapper parameter will be ignored.")
-            # TODO: This does not work with vectorized environments -> Monitored environments are not compatible
-            #  with ETA X. Can this be removed?
-            # self.environments = Monitor(self.environment, str(self.path_run_monitor), allow_early_resets=True)  # noqa
 
         # Automatically normalize the input features
         if self.config["setup"]["norm_wrapper_obs"] or self.config["setup"]["norm_wrapper_reward"]:
@@ -463,14 +460,6 @@ class ETAx:
                     '\t tensorboard --logdir "{}" --port 6006'.format(tensorboard_log)
                 )
                 agent_kwargs = {"tensorboard_log": self.path_series_results}
-
-            # The MPC and MPC_simple agents require some additional parameters, that are not normally specified.
-            if self.agent.__name__ in ["MPC", "MPC_simple"]:
-                agent_kwargs["config_data"] = self.config
-                agent_kwargs["path_root"] = self.path_root
-            if self.agent.__name__ == "MPC":  # if the agent is of type 'MPC' add environment names to the
-                # agent_kwargs
-                agent_kwargs["environment_names"] = self.environments.envs[0].names
 
             # check if the agent takes all of the default parameters.
             agent_params = inspect.signature(self.agent).parameters
@@ -706,7 +695,7 @@ class ETAx:
             if errors:
                 raise ValueError("Missing configuration values for learning.")
 
-            # define callback for periodicly saving models
+            # define callback for periodically saving models
             save_freq = int(
                 self.config["settings"]["episode_duration"]
                 / self.config["settings"]["sampling_time"]
@@ -796,17 +785,6 @@ class ETAx:
                 observations, rewards, dones, info = self.interaction_env.step(action)  # environment gets called here
                 self.environments.env_method("update", observations, indices=0)
 
-            # MPC_simple implements the environment interaction directly.
-            # This is deprecated and should not be used anymore!
-            elif "interact_with_simulation" in self.config["agent_specific"]:
-                if self.config["agent_specific"]["interact_with_simulation"]:
-                    # mpc with its own model gets called here
-                    action, _states = self.model.predict(observation=observations, deterministic=False)
-                    observations, rewards, dones, info = self.environments.step(action)  # environment gets called here
-
-                else:
-                    _, _states = self.model.predict()  # model interacts with itself
-                    dones = [False]
             else:
                 action, _states = self.model.predict(observation=observations, deterministic=False)
                 observations, rewards, dones, info = self.environments.step(action)
