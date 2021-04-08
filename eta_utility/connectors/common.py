@@ -2,82 +2,45 @@
 
 """
 import pathlib
-from urllib.parse import urlparse
+from typing import Any, AnyStr, Dict, List, Optional, Sequence, Set, Union
+from urllib.parse import ParseResult, urlparse
 
 import pandas as pd
 
+from .base_classes import BaseConnection
 from .eneffco import EnEffCoConnection
 from .modbus import ModbusConnection
 from .opcua import OpcUaConnection
 
 
-def connections_from_nodes(nodes, eneffco_usr=None, eneffco_pw=None, eneffco_api_token=None):
-    """Take a list of nodes and return a list of connections
-
-    :param nodes: List of nodes defining servers to connect to
-    :type nodes: List[Node]
-    :param str eneffco_usr: Optional username for eneffco login
-    :param str eneffco_pw: Optional password for eneffco login
-    :param str eneffco_api_token: Token for EnEffCo API authorization
-    :return: Dictionary of connection objects {hostname: connection}
-    :rtype: Dict[str, BaseConnection]
-    """
-
-    connections = {}
-
-    for node in nodes:
-        # Create connection if it does not exist
-        if node.url_parsed.hostname not in connections:
-            if node.protocol == "modbus":
-                connections[node.url_parsed.hostname] = ModbusConnection.from_node(node)
-            elif node.protocol == "opcua":
-                connections[node.url_parsed.hostname] = OpcUaConnection.from_node(node)
-            elif node.protocol == "eneffco":
-                if eneffco_usr is None or eneffco_pw is None or eneffco_api_token is None:
-                    raise ValueError("Specify username, password and API token for EnEffco access.")
-                connections[node.url_parsed.hostname] = EnEffCoConnection.from_node(
-                    node, usr=eneffco_usr, pwd=eneffco_pw, api_token=eneffco_api_token
-                )
-            else:
-                raise ValueError(
-                    f"Node {node.name} does not specify a recognized protocol for initializing a connection."
-                )
-        else:
-            # Otherwise just mark the node as selected
-            connections[node.url_parsed.hostname].selected_nodes.add(node)
-
-    return connections
-
-
 class Node:
     """The node objects represents a single variable. Valid keyword arguments depend on the protocol
 
-    :param str name: Any name can be used to identify the node. It is used to identify the node, therefore it should
+    :param name: Any name can be used to identify the node. It is used to identify the node, therefore it should
                      be unique.
-    :param str url: Valid url string according to the standard format. E.g.: opc.tcp://127.0.0.1:4840
-    :param str protocol: Protocol to be used for connection (either opcua, eneffco or modbus)
+    :param url: Valid url string according to the standard format. E.g.: opc.tcp://127.0.0.1:4840
+    :param protocol: Protocol to be used for connection (either opcua, eneffco or modbus)
 
-    :param int mb_slave: (Required for Modbus) Modbus slave ID
-    :param str mb_register: (Required for Modbus) Modbus register name
-    :param int mb_channel: (Required for Modbus) Modbus Channel
+    :param mb_slave: (Required for Modbus) Modbus slave ID
+    :param mb_register: (Required for Modbus) Modbus register name
+    :param mb_channel: (Required for Modbus) Modbus Channel
 
-    :param str opc_id: (Required for OPC UA) Full OPC node ID, i.e.:
+    :param opc_id: (Required for OPC UA) Full OPC node ID, i.e.:
                         ns=6;s=.Heizung_Lueftung_Klima.System_Fussbodentemperierung_425.Pumpe_425.Zustand.Volumenstrom
                         (This must be used without other OPC related parameters)
     :param opc_path: (Alternative to opc_id for OPC UA) OPC UA node path as string or list (this correspondes to the
                      s=... part in the opc_id).
                      (This must be used in conjunction with the opc_ns parameter)
-    :type opc_path: str or List
-    :param int opc_ns: (Alternative to opc_id for OPC UA) OPC UA namespace identifier number
+    :param opc_ns: (Alternative to opc_id for OPC UA) OPC UA namespace identifier number
                        (This must be used in conjunction with the opc_path parameter)
 
-    :param str eneffco_code: (Required for EnEffCo) EnEffCo Code
+    :param eneffco_code: (Required for EnEffCo) EnEffCo Code
 
     :param type dtype: Data type of the node. This may be needed in some specific cases, for example for the creation
                        of nodes.
     """
 
-    def __init__(self, name, url, protocol, **kwargs):
+    def __init__(self, name: str, url: str, protocol: str, **kwargs: Any):
 
         self.name = str(name).strip()
         self.protocol = protocol.strip().lower()
@@ -99,13 +62,13 @@ class Node:
                 raise ValueError("eneffco_code must be specified for eneffco nodes.")
             self._init_eneffco(**kwargs)
 
-    def _init_modbus(self, mb_slave, mb_register, mb_channel):
+    def _init_modbus(self, mb_slave: int, mb_register: str, mb_channel: int):
         """Initialize the node object for modbus protocol nodes."""
         self.mb_slave = int(mb_slave)
         self.mb_register = mb_register.strip().lower()
         self.mb_channel = int(mb_channel)
 
-    def _init_opcua(self, **kwargs):
+    def _init_opcua(self, **kwargs: Any):
         """Initialize the node object for opcua protocol nodes"""
         #: opc_path_str: Path to the OPC UA node
         self.opc_path_str = ""
@@ -141,21 +104,21 @@ class Node:
                     )
                 )
 
-    def _init_eneffco(self, eneffco_code):
+    def _init_eneffco(self, eneffco_code: str):
         """Initialize the node object for the EnEffCo API."""
         self.eneffco_code = eneffco_code
 
     @property
-    def url(self):
+    def url(self) -> AnyStr:
         """Get node URL"""
         return self._url.geturl()
 
     @property
-    def url_parsed(self):
+    def url_parsed(self) -> ParseResult:
         return self._url
 
     @classmethod
-    def from_excel(cls, path, sheet_name):
+    def from_excel(cls, path: Union[pathlib.Path, str], sheet_name: str) -> List["Node"]:
         """
         Method to read out nodes from an excel document. The document must specify the following fields:
 
@@ -171,11 +134,8 @@ class Node:
 
         For EnEffCo nodes the Code field must be present
 
-
-
         :param path: Path to excel document
-        :type path: pathlib.Path or str
-        :param str sheet_name: name of Excel sheet, which will be read out
+        :param sheet_name: name of Excel sheet, which will be read out
 
         :return: List of Node objects
         """
@@ -226,20 +186,59 @@ class Node:
         return nodes
 
     @classmethod
-    def get_eneffco_nodes_from_codes(cls, code_list, eneffco_url):
+    def get_eneffco_nodes_from_codes(cls, code_list: Sequence[str], eneffco_url: Optional[str]) -> List["Node"]:
         """
         Utility function to retrieve Node objects from a list of EnEffCo Codes (Identifiers).
+
         :param code_list: List of EnEffCo identifiers to create nodes from
-        :type code_list: list[str]
         :param eneffco_url: URL to the eneffco system
-        :type eneffco_url: str or None
         :return: List of EnEffCo-nodes
-        :rtype: list[eta_utility.connectors.Node]
         """
         nodes = []
         for code in code_list:
             nodes.append(cls(name=code, url=eneffco_url, protocol="eneffco", eneffco_code=code))
         return nodes
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.name)
+
+
+Nodes = Union[Set[Node], Sequence[Node]]
+
+
+def connections_from_nodes(
+    nodes: Nodes, eneffco_usr: str = None, eneffco_pw: str = None, eneffco_api_token: str = None
+) -> Dict[str, "BaseConnection"]:
+    """Take a list of nodes and return a list of connections
+
+    :param nodes: List of nodes defining servers to connect to
+    :param eneffco_usr: Optional username for eneffco login
+    :param eneffco_pw: Optional password for eneffco login
+    :param eneffco_api_token: Token for EnEffCo API authorization
+    :return: Dictionary of connection objects {hostname: connection}
+    """
+
+    connections = {}
+
+    for node in nodes:
+        # Create connection if it does not exist
+        if node.url_parsed.hostname not in connections:
+            if node.protocol == "modbus":
+                connections[node.url_parsed.hostname] = ModbusConnection.from_node(node)
+            elif node.protocol == "opcua":
+                connections[node.url_parsed.hostname] = OpcUaConnection.from_node(node)
+            elif node.protocol == "eneffco":
+                if eneffco_usr is None or eneffco_pw is None or eneffco_api_token is None:
+                    raise ValueError("Specify username, password and API token for EnEffco access.")
+                connections[node.url_parsed.hostname] = EnEffCoConnection.from_node(
+                    node, usr=eneffco_usr, pwd=eneffco_pw, api_token=eneffco_api_token
+                )
+            else:
+                raise ValueError(
+                    f"Node {node.name} does not specify a recognized protocol for initializing a connection."
+                )
+        else:
+            # Otherwise just mark the node as selected
+            connections[node.url_parsed.hostname].selected_nodes.add(node)
+
+    return connections
