@@ -4,11 +4,16 @@ import asyncio
 import socket
 import struct
 from datetime import datetime, timedelta
+from typing import Any, List, Mapping, NewType, Optional, Sequence, Set, Union
 
 import pandas as pd
+import tzlocal
 from pyModbusTCP.client import ModbusClient
 
 from .base_classes import BaseConnection, SubscriptionHandler
+
+Node = NewType("Node", object)
+Nodes = Union[Set[Node], Sequence[Node]]
 
 
 class ModbusConnection(BaseConnection):
@@ -16,7 +21,7 @@ class ModbusConnection(BaseConnection):
     it implements a subscription server, which reads continuously in a specified interval.
     """
 
-    def __init__(self, url, *, nodes=None):
+    def __init__(self, url: str, *, nodes: Nodes = None):
         super().__init__(url, nodes=nodes)
 
         if self._url.scheme != "modbus.tcp":
@@ -29,14 +34,12 @@ class ModbusConnection(BaseConnection):
         self._sub = None
 
     @classmethod
-    def from_node(cls, node, **kwargs):
+    def from_node(cls, node: Node, **kwargs: Any) -> "ModbusConnection":
         """Initialize the connection object from a modbus protocol node object
 
         :param node: Node to initialize from
-        :type node: Node
         :param kwargs: Other arguments are ignored.
         :return: ModbusConnection object
-        :rtype: ModbusConnection
         """
 
         if node.protocol == "modbus":
@@ -48,15 +51,13 @@ class ModbusConnection(BaseConnection):
                 "protocol: {}.".format(node.name)
             )
 
-    def read(self, nodes=None):
+    def read(self, nodes: Nodes = None) -> pd.DataFrame:
         """
         Read some manually selected nodes from Modbus server
 
         :param nodes: List of nodes to read from
-        :type nodes: List[Node]
 
         :return: dictionary containing current values of the OPCUA-variables
-        :rtype: Dict
         """
         nodes = self._validate_nodes(nodes)
 
@@ -78,25 +79,21 @@ class ModbusConnection(BaseConnection):
         finally:
             self.connection.close()
 
-        return pd.DataFrame(values, index=[datetime.now()])
+        return pd.DataFrame(values, index=[tzlocal.get_localzone().localize(datetime.now())])
 
-    def write(self, values):
+    def write(self, values: Mapping[Node, Any]):
         """Write some manually selected values on OPCUA capable controller
 
         :param values: Dictionary of nodes and data to write. {node: value}
-        :type values: Dict[Node, Any]
         """
         raise NotImplementedError
 
-    def subscribe(self, handler, nodes=None, interval=1):
+    def subscribe(self, handler: SubscriptionHandler, nodes: Nodes = None, interval: Union[int, timedelta] = 1):
         """Subscribe to nodes and call handler when new data is available.
 
         :param nodes: identifiers for the nodes to subscribe to
-        :type nodes: Set or List
         :param handler: SubscriptionHandler object with a push method that accepts node, value pairs
-        :type handler: SubscriptionHandler
         :param interval: interval for receiving new data. It it interpreted as seconds when given as an integer.
-        :type interval: int or timedelta
         """
         nodes = self._validate_nodes(nodes)
 
@@ -126,13 +123,11 @@ class ModbusConnection(BaseConnection):
         except Exception:
             pass
 
-    async def _subscription_loop(self, handler, interval):
+    async def _subscription_loop(self, handler: SubscriptionHandler, interval: Union[int, timedelta]):
         """The subscription loop handles requesting data from the server in the specified interval
 
         :param handler: Handler object with a push function to receive data
-        :type handler: SubscriptionHandler
         :param interval: Interval for requesting data in seconds
-        :type interval: int
         """
 
         try:
@@ -148,28 +143,26 @@ class ModbusConnection(BaseConnection):
                 for node in self._subscription_nodes:
                     result = self._read_mb_value(node)
                     self._decode(result)
-
-                    handler.push(node, result, datetime.now())
+                    handler.push(node, result, tzlocal.get_localzone().localize(datetime.now()))
                 await asyncio.sleep(interval)
         except asyncio.CancelledError:
             pass
 
     @staticmethod
-    def _decode(value):
+    def _decode(value: Sequence[Any]) -> float:
         """
         Method to decode incoming modbus values
 
         :param read_val: current value to be decoded into float
 
         struct.unpack("f", result_bytes)[0]: Decoded modbus value
-
         """
         res1 = format(value[0], "016b")
         res2 = format(value[1], "016b")
         result_bytes = int.to_bytes(int(res1 + res2, 2), 4, byteorder="little")
         return struct.unpack("f", result_bytes)[0]
 
-    def _read_mb_value(self, node):
+    def _read_mb_value(self, node: Node) -> Optional[List[int]]:
         """Read raw value from modbus server. This function should not be used directly. It does not
         establish a connection or handle connection errors.
 
