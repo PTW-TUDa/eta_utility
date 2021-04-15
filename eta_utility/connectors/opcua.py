@@ -21,7 +21,7 @@ log = get_logger("connectors.opcua")
 
 
 class OpcUaConnection(BaseConnection):
-    """The OPC UA Connection class allows reading and writing from and to OPC UA servers and clients. Additionally
+    """The OPC UA Connection class allows reading and writing from and to OPC UA servers. Additionally
     it implements a subscription method, which reads continuously in a specified interval.
 
     :param url: Url of the OPC UA Server
