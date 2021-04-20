@@ -12,6 +12,11 @@ some easy to use applications for different use cases.
   discuss options with the research assistants. For example, there are servers accessible via remote
   desktop that do provide access.
 
+If you want to have logging output from eta utility, call::
+
+    from eta_utility import get_logger
+    get_logger()
+
 .. toctree::
     :maxdepth: 1
     :hidden:

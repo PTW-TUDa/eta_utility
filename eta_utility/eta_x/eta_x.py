@@ -383,9 +383,6 @@ class ETAx:
         if self.config["setup"]["monitor_wrapper"]:
             log.error("Monitoring is not supported for vectorized environments!")
             log.warn("The monitor_wrapper parameter will be ignored.")
-            # TODO: This does not work with vectorized environments -> Monitored environments are not compatible
-            #  with ETA X. Can this be removed?
-            # self.environments = Monitor(self.environment, str(self.path_run_monitor), allow_early_resets=True)  # noqa
 
         # Automatically normalize the input features
         if self.config["setup"]["norm_wrapper_obs"] or self.config["setup"]["norm_wrapper_reward"]:
@@ -464,14 +461,6 @@ class ETAx:
                 )
                 agent_kwargs = {"tensorboard_log": self.path_series_results}
 
-            # The MPC and MPC_simple agents require some additional parameters, that are not normally specified.
-            if self.agent.__name__ in ["MPC", "MPC_simple"]:
-                agent_kwargs["config_data"] = self.config
-                agent_kwargs["path_root"] = self.path_root
-            if self.agent.__name__ == "MPC":  # if the agent is of type 'MPC' add environment names to the
-                # agent_kwargs
-                agent_kwargs["environment_names"] = self.environments.envs[0].names
-
             # check if the agent takes all of the default parameters.
             agent_params = inspect.signature(self.agent).parameters
             if "seed" not in agent_params and inspect.Parameter.VAR_KEYWORD not in {
@@ -503,16 +492,20 @@ class ETAx:
         :return: Boolean value indicating successful completion of initialization
         :rtype: bool
         """
-        if path_run_model:
+        if path_run_model is not None:
             self.path_run_model = (
                 pathlib.Path(path_run_model) if not isinstance(path_run_model, pathlib.Path) else path_run_model
             )
+        elif self.path_run_model is None:
+            log.error("Model path for loading is not specified. Loading failed.")
+            return False
 
         log.debug(f"Trying to load existing model: {self.path_run_model}")
         self._model_initialized = False
 
         if not self.path_run_model.exists():
             log.error("Model couldn't be loaded. Path not found: \n" "\t {}".format(self.path_run_model))
+            return
 
         # tensorboard logging
         agent_kwargs = {}
@@ -526,11 +519,13 @@ class ETAx:
             agent_kwargs = {"tensorboard_log": self.path_series_results}
 
         try:
-            self.model = self.agent.load(self.path_run_model, self.environments, **agent_kwargs)
+            self.model = self.agent.load(
+                self.path_run_model, self.environments, **self.config["agent_specific"], **agent_kwargs
+            )
             self._model_initialized = True
             log.info("Model loaded successfully.")
         except OSError as e:
-            log.error(f"Model couldn't be loaded: {e.strerror}. Filename: {e.filename}")
+            raise OSError(f"Model couldn't be loaded: {e.strerror}. Filename: {e.filename}") from e
 
         return self._model_initialized
 
@@ -700,7 +695,7 @@ class ETAx:
             if errors:
                 raise ValueError("Missing configuration values for learning.")
 
-            # define callback for periodicly saving models
+            # define callback for periodically saving models
             save_freq = int(
                 self.config["settings"]["episode_duration"]
                 / self.config["settings"]["sampling_time"]
@@ -790,17 +785,6 @@ class ETAx:
                 observations, rewards, dones, info = self.interaction_env.step(action)  # environment gets called here
                 self.environments.env_method("update", observations, indices=0)
 
-            # MPC_simple implements the environment interaction directly.
-            # This is deprecated and should not be used anymore!
-            elif "interact_with_simulation" in self.config["agent_specific"]:
-                if self.config["agent_specific"]["interact_with_simulation"]:
-                    # mpc with its own model gets called here
-                    action, _states = self.model.predict(observation=observations, deterministic=False)
-                    observations, rewards, dones, info = self.environments.step(action)  # environment gets called here
-
-                else:
-                    _, _states = self.model.predict()  # model interacts with itself
-                    dones = [False]
             else:
                 action, _states = self.model.predict(observation=observations, deterministic=False)
                 observations, rewards, dones, info = self.environments.step(action)

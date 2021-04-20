@@ -200,20 +200,30 @@ class NSGA2(BaseRLModel):
         :return:
         """
         with open(load_path, "rb") as f:
-            obj = pickle.load(f)
+            loaded = pickle.load(f)
 
-        if not isinstance(obj, cls):
-            raise FileNotFoundError(f"Path is not a valid import path: {load_path}.")
+        args = {}
+        all_args = {"population", "mutations", "crossovers", "max_cross_len", "max_retries", "threads"}
+        for arg in all_args:
+            load_arg = "_" + arg if arg in {"max_retries", "threads"} else arg
+            args[arg] = kwargs[arg] if arg in kwargs else getattr(loaded, load_arg)
+        args.update({"_init_setup_model": False, "requires_vec_env": True, "policy_base": None})
 
-        obj.set_env(env)
+        verbose = kwargs["verbose"] if "verbose" in kwargs else 4
+        obj = cls(loaded.policy, env, verbose, **args)
 
-        # TODO: the automatic assumption that the same number of processes should be created can cause problems...
-        # if obj._threads > 1:
-        #     obj._chunksize = obj.population // obj._threads
-        #     obj._processes = ProcessPool(obj._threads, seed_sequence = obj._seed_sequence)
-        #     if hasattr(obj.env, 'set_proc_pool'):
-        #         obj.env.set_proc_pool(obj._processes)
-        #     log.debug(f"Set up processing pool with {obj._chunksize} solutions per process.")
+        # Restore previous object content
+        obj.seed = loaded.seed
+        obj._seed_sequence = loaded._seed_sequence
+        obj._rng = loaded._rng
+        log.info(f"Reinitialized random generator with restored seed {obj.seed}, entropy: {obj._seed_sequence.entropy}")
+
+        obj._generation_parent = loaded._generation_parent
+        obj._seen_solutions = loaded._seen_solutions
+        obj.generation = loaded.generation
+
+        obj._model_trained = loaded._model_trained
+        obj._data_store = loaded._data_store
 
         return obj
 
