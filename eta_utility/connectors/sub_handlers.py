@@ -8,13 +8,18 @@ import pathlib
 import signal
 from datetime import datetime, timedelta
 from multiprocessing import Pipe, Process, connection
+from typing import Any, Mapping, MutableMapping, NewType, Sequence, Set, Union
 
 import numpy as np
 import pandas as pd
+import tzlocal
 
 from eta_utility import get_logger
 
 from .base_classes import SubscriptionHandler
+
+Node = NewType("Node", object)
+Nodes = Union[Set[Node], Sequence[Node]]
 
 log = get_logger("eta_utilty.connectors")
 
@@ -30,7 +35,7 @@ class MultiSubHandler(SubscriptionHandler):
 
         self._handlers = list()
 
-    def register(self, sub_handler):
+    def register(self, sub_handler: SubscriptionHandler):
         """Register a subscription handler.
 
         :param SubscriptionHandler sub_handler: SubscriptionHandler object to use for handling subscriptions.
@@ -40,16 +45,13 @@ class MultiSubHandler(SubscriptionHandler):
 
         self._handlers.append(sub_handler)
 
-    def push(self, node, value, timestamp=None):
+    def push(self, node: Node, value: Any, timestamp: datetime = None):
         """Receive data from a subcription. This should contain the node that was requested, a value and a timestemp
         when data was received. Push data to all registered sub-handlers
 
         :param node: Node object the data belongs to
-        :type node: Node
         :param value: Value of the data
-        :type value: Any
         :param timestamp: Timestamp of receiving the data
-        :type timestamp: datetime
         """
         for handler in self._handlers:
             handler.push(node, value, timestamp)
@@ -67,16 +69,18 @@ class CsvSubHandler(SubscriptionHandler):
     """Handle data for a subscription and save it as a CSV file.
 
     :param output_file: CSV file to write data to
-    :type output_file: pathlib.Path or str
     :param write_interval: Interval for writing data to csv file
-    :type write_interval: float or int
     :param write_buffer: Number of lines to keep in buffer
-    :type write_buffer: int
     :param ignore_sigint: Use this to ignore the SIGINT signal (Useful if this should be handled in a calling process)
-    :type ignore_sigint: bool
     """
 
-    def __init__(self, output_file, write_interval=1, write_buffer=500, ignore_sigint=False):
+    def __init__(
+        self,
+        output_file: Union[pathlib.Path, str],
+        write_interval: Union[float, int] = 1,
+        write_buffer: int = 500,
+        ignore_sigint: bool = False,
+    ):
         super().__init__(write_interval=write_interval)
 
         self._recv, self._send = Pipe(duplex=False)
@@ -86,36 +90,38 @@ class CsvSubHandler(SubscriptionHandler):
         self._proc.start()
         log.debug(f"CSV Subscription Handler process started: {self._proc.name}")
 
-    def push(self, node, value, timestamp=None):
+    def push(self, node: Node, value: Any, timestamp: datetime = None):
         """Receive data from a subcription. THis should contain the node that was requested, a value and a timestemp
         when data was received. If the timestamp is not provided, current time will be used.
 
         :param node: Node object the data belongs to
-        :type node: Node
         :param value: Value of the data
-        :type value: Any
         :param timestamp: Timestamp of receiving the data
-        :type timestamp: datetime
         """
-        timestamp = timestamp if timestamp is not None else datetime.now()
+        timestamp = timestamp if timestamp is not None else tzlocal.get_localzone().localize(datetime.now())
         self._send.send((node, value, timestamp))
 
-    def _run(self, receiver, output_file, write_buffer=30, ignore_sigint=False):
+    def _run(
+        self,
+        receiver: connection.Connection,
+        output_file: Union[pathlib.Path, str],
+        write_buffer: int = 30,
+        ignore_sigint: bool = False,
+    ):
         """Create the output file and periodically write data to it.
 
         :param receiver: Receiving end of a pipe
-        :type receiver: connection.Connection
         :param output_file: File to write data to
-        :type output_file: pathlib.Path or str
-        :param int write_buffer: Minimum number of lines in buffer, until writing should begin
+        :param write_buffer: Minimum number of lines in buffer, until writing should begin
         :param ignore_sigint: Use this to ignore the SIGINT signal (Useful if this should be handled in a calling
         process)
-        :type ignore_sigint: bool
         """
         if ignore_sigint:
             signal.signal(signal.SIGINT, signal.SIG_IGN)
 
-        def write_data(buffer, length, write_started, header):
+        def write_data(
+            buffer: MutableMapping[datetime, Mapping[str, str]], length: int, write_started: bool, header: Sequence[str]
+        ) -> Sequence[str]:
             write_times = sorted(buffer.keys())
 
             if len(write_times) < 1:
@@ -191,27 +197,29 @@ class CsvSubHandler(SubscriptionHandler):
 class DFSubHandler(SubscriptionHandler):
     """Subscription handler for returning pandas data frames when requested
 
-    :param int write_interval: Interval for writing data
-    :param int keep_data_rows: Number of rows to keep in internal _data memory. Default 100.
+    :param write_interval: Interval for writing data
+    :param keep_data_rows: Number of rows to keep in internal _data memory. Default 100.
     """
 
-    def __init__(self, write_interval=1, keep_data_rows=100):
+    def __init__(self, write_interval: int = 1, keep_data_rows: int = 100):
         super().__init__(write_interval=write_interval)
         self._data = pd.DataFrame()
         self.keep_data_rows = keep_data_rows
 
-    def push(self, node, value, timestamp=None):
+    def push(
+        self,
+        node: Node,
+        value: Union[Any, pd.Series, Sequence[Any]],
+        timestamp: Union[datetime, pd.DatetimeIndex, int, timedelta, None] = None,
+    ):
         """Append values to the dataframe
 
         :param node: Node object the data belongs to
-        :type node: Node
         :param value: Value of the data or Series of values. There must be corresponding timestamps for each value.
-        :type value: Any or pd.Series[Any] or list-like[Any]
         :param timestamp: Timestamp of receiving the data or DatetimeIndex if pushing multiple values. Alternatively
                           an integer/timedelta can be provided to determine the interval between data points. Use
                           negative numbers to describe past data. Integers are interpreted as seconds. If value is a
                           pd.Series and has a pd.DatetimeIndex, timestamp is ignored.
-        :type timestamp: datetime or pd.DatetimeIndex or int or timedelta or None
         """
         # Check if node.name is in _data.columns
         if node.name not in self._data.columns:
@@ -229,13 +237,15 @@ class DFSubHandler(SubscriptionHandler):
         else:
             if not isinstance(timestamp, datetime) and timestamp is not None:
                 raise ValueError("Timestamp must be a datetime object or None.")
-            timestamp = self._round_timestamp(timestamp if timestamp is not None else datetime.now())
+            timestamp = self._round_timestamp(
+                timestamp if timestamp is not None else tzlocal.get_localzone().localize(datetime.now())
+            )
             self._data.loc[timestamp, node.name] = value
 
         # Housekeeping (Keep internal data short)
         self.housekeeping()
 
-    def get_latest(self):
+    def get_latest(self) -> Union[pd.DataFrame, None]:
         """Return a copy of the dataframe, this ensures they can be worked on freely. Returns None if data is empty."""
         if len(self._data.index) == 0:
             return None  # If no data in self._data, return None
@@ -243,7 +253,7 @@ class DFSubHandler(SubscriptionHandler):
             return self._data.iloc[[-1]].copy()
 
     @property
-    def data(self):
+    def data(self) -> Union[pd.DataFrame, None]:
         """This contains the interval dataframe and will return a copy of that."""
         return self._data.copy()
 

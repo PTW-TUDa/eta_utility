@@ -1,6 +1,5 @@
 import abc
 import inspect
-import locale
 import pathlib
 import time
 from collections import OrderedDict
@@ -117,9 +116,6 @@ class BaseEnv(Env, abc.ABC):
         self.req_general_settings = set(self.req_general_settings)
         self.req_general_settings.update(("episode_duration", "sampling_time"))  # noqa
 
-        # set locale for german date formats
-        locale.setlocale(locale.LC_ALL, "de_DE.UTF-8")
-
         super().__init__()
 
         # save verbosity/debug level
@@ -224,6 +220,8 @@ class BaseEnv(Env, abc.ABC):
         #: The time series DataFrame contains all time series scenario data. It can be filled by the
         #   import_scenario method.
         self.timeseries: pd.DataFrame = pd.DataFrame()
+        #: Data frame containing the currently valid range of time series data.
+        self.ts_current: pd.DataFrame
 
         # Columns (and their order) and default values for the state_config DataFrame.
         self.__state_config_cols = OrderedDict(
@@ -236,10 +234,13 @@ class BaseEnv(Env, abc.ABC):
                 ("is_ext_output", False),
                 ("ext_scale_add", 0),
                 ("ext_scale_mult", 1),
+                ("from_scenario", False),
+                ("scenario_id", None),
                 ("low_value", None),
                 ("high_value", None),
                 ("abort_condition_min", None),
                 ("abort_condition_max", None),
+                ("index", 0),
             ]
         )
 
@@ -265,18 +266,27 @@ class BaseEnv(Env, abc.ABC):
         #   * is_ext_output: bool, Should this variable be parsed from the external model output? (default: False)
         #   * ext_scale_add: int or float, Value to add to the output from an external model (default: 0)
         #   * ext_scale_mult: int or float, Value to multiply to the output from an external model (default: 1)
+        #   * from_scenario: bool, Should this variable be read from imported timeseries date? (default: False)
+        #   * scenario_id: str, Name of the scenario variable, this value should be read from (default: None)
         #   * low_value: int or float, lowest possible value of the state variable (default: None)
         #   * high_value: int or float, highest possible value of the state variable (default: None)
         #   * abort_condition_min: int or float, If value of variable dips below this, the episode
         #                                        will be aborted (default: None)
         #   * abort_condition_max: int or float, If value of variable rises above this, the episode
         #                                        will be aborted (default: None)
+        #   * index: int, Specify, which Index this value should be read from, in case a list of values is returned.
+        #                 (default: 0)
         self.state_config: pd.DataFrame = pd.DataFrame(columns=self.__state_config_cols.keys())
+        self.state_config.set_index("name", drop=True, inplace=True)
         #: Array of shorthands to some frequently used variable names from state_config. .. seealso :: _names_from_state
         self.names: Dict[np.ndarray]
         #: Dictionary of scaling values for external input values (for example from simulations).
         #  The structure of this dictionary is {"name": {"add": value, "multiply": value}}.
         self.ext_scale: Dict[str, Dict[str, Union[int, float]]]
+        #: Mapping of internatl environment names to external ids.
+        self.map_ext_ids: Dict[str, str]
+        #: Mapping of interal environment names to scenario ids.
+        self.map_scenario_ids: Dict[str, str]
 
         # Store data logs and log other information
         #: episode timer
@@ -294,19 +304,25 @@ class BaseEnv(Env, abc.ABC):
         #: Log of specific environment settings / other data, apart from state, over multiple episodes.
         self.data_log_longtime: List[List[Dict[str, Any]]]
 
-    def append_state(self, **kwargs) -> None:
+    def append_state(self, *, name, **kwargs) -> None:
         """Append a state variable to the state configuration of the environment
 
+        :param name: Name of the state variable
         :param kwargs: Column names and values to be inserted into the respective column. For possible columns, types
                        and default values see state_config.
                        .. seealso :: state_config
         """
         append = {}
         for key, item in self.__state_config_cols.items():
+            # Since name is supplied separately, don't append it here
+            if key == "name":
+                continue
+
             val = kwargs[key] if key in kwargs else item
             append[key] = val
 
-        self.state_config.append(append)
+        append = pd.Series(append, name=name)
+        self.state_config = self.state_config.append(append, sort=True)
 
     def _init_state_space(self):
         """Convert state config and store state information. This is a shorthand for the function calls:
@@ -322,6 +338,7 @@ class BaseEnv(Env, abc.ABC):
 
     def _names_from_state(self):
         """Intialize the names array from state_config, which stores shorthands to some frequently used variable names.
+        Also initialize some useful shorthand mappings that can be used to speed up lookups.
 
         The names array contains the following (ordered) lists of variables:
             * actions: Variables that are agent actions
@@ -331,12 +348,18 @@ class BaseEnv(Env, abc.ABC):
             * abort_conditions_min: Variables that have minimum values for an abort condition
             * abort_conditions_max: Variables that have maximum values for an abort condition
 
+        self.ext_scale is a dictionary of scaling values for external input values (for example from simulations).
+
+        self.map_ext_ids is a mapping of internatl environment names to external ids.
+
+        self.map_scenario_ids is a mapping of interal environment names to scenario ids.
         """
         self.names = {
             "actions": self.state_config.loc[self.state_config.is_agent_action == True].index.values,  # noqa: E712
             "observations": self.state_config.loc[self.state_config.is_agent_observation == True].index.values,
             "ext_inputs": self.state_config.loc[self.state_config.is_ext_input == True].index.values,
             "ext_outputs": self.state_config.loc[self.state_config.is_ext_output == True].index.values,
+            "scenario": self.state_config.loc[self.state_config.from_scenario == True].index.values,
             "abort_conditions_min": self.state_config.loc[self.state_config.abort_condition_min.notnull()].index.values,
             "abort_conditions_max": self.state_config.loc[self.state_config.abort_condition_max.notnull()].index.values,
         }
@@ -344,6 +367,14 @@ class BaseEnv(Env, abc.ABC):
         self.ext_scale = {}
         for name, values in self.state_config.iterrows():
             self.ext_scale[name] = {"add": values.ext_scale_add, "multiply": values.ext_scale_mult}
+
+        self.map_ext_ids = {}
+        for name in set(self.names["ext_inputs"]) | set(self.names["ext_outputs"]):
+            self.map_ext_ids[name] = self.state_config.loc[name].ext_id
+
+        self.map_scenario_ids = {}
+        for name in self.names["scenario"]:
+            self.map_scenario_ids[name] = self.state_config.loc[name].scenario_id
 
     def _convert_state_config(self):
         """This will convert an incomplete state_config DataFrame or a list of dictionaries to the standardized
@@ -355,13 +386,13 @@ class BaseEnv(Env, abc.ABC):
         """
         # If state config is a DataFrame already, check whether the columns correspond. If they don't create a new
         # DataFrame with the correct columns and default values for missing columns
-        if isinstance(self.state_config, pd.DataFrame) and set(self.state_config.columns) != set(
-            self.__state_config_cols.keys()
-        ):
+        if isinstance(self.state_config, pd.DataFrame):
             new_state = pd.DataFrame(columns=self.__state_config_cols.keys())
             for col, default in self.__state_config_cols.items():
                 if col in self.state_config.columns:
                     new_state[col] = self.state_config[col]
+                elif col == "name" and col not in self.state_config.columns:
+                    new_state["name"] = self.state_config.index
                 else:
                     new_state[col] = np.array([default] * len(self.state_config.index))
 
@@ -448,6 +479,18 @@ class BaseEnv(Env, abc.ABC):
             )
 
         return valid
+
+    def get_scenario_state(self) -> Dict[str, Any]:
+        """Get scenario data for the current time step of the environment, as specified in state_config. This assumes
+        that scenario data in self.ts_current is available and scaled correctly.
+
+        :return: Scenario data for current time step
+        """
+        scenario_state = {}
+        for scen in self.names["scenario"]:
+            scenario_state[scen] = self.ts_current[self.map_scenario_ids[scen]].iloc[self.n_steps]
+
+        return scenario_state
 
     @abc.abstractmethod
     def step(
@@ -545,150 +588,68 @@ class BaseEnv(Env, abc.ABC):
         """Import (possibly multiple) scenario data files from csv files and return them as a single pandas
         data frame. The import function supports column renaming and will slice and resample data as specified.
 
-        :raises ValueError: If start and/or end times are outside of the scope of the imported scenario files.
-
-        .. note::
-            The ValueError will only be raised when this is true for all files. If only one file is outside of
-            the range, and empty series will be returned for that file. TODO - Implement additional checks.
+        This is a shorthand for eta_utility.timeseries.scenarios.scenario_from_csv. See that function for more
+        information. This function sets some additional default parameters (i.e. scenario_time_begin)
+        ..seealso :: eta_utility.timeseries.scenarios.scenario_from_csv
 
         :param paths: Path(s) to one or more CSV data files. The paths should be fully qualified.
-        :type paths: pathlib.Path or Sequence[pathlib.Path]
         :param data_prefixes: If more than file is imported, a list of data_prefixes must be supplied such that
                               ambiquity of column names between the files can be avoided. There must be one prefix
                               for every imported file, such that a distinct prefix can be prepended to all columns
                               of a file.
-        :type data_prefixes: Sequence[str]
         :param start_time: (Keyword only) Starting time for the scenario import. Default value is scenario_time_begin.
-        :type start_time: datetime
         :param end_time: (Keyword only) Latest ending time for the scenario import. Default value is scenario_time_end.
-        :type end_time: datetime
         :param total_time: (Keyword only) Total duration of the imported scenario. If given as int this will be
                            interpreted as seconds. The default is episode_duration.
-        :type total_time: timedelta or int
         :param random: (Keyword only) Set to true if a random starting point (within the interval determined by
                        start_time and end_time should be chosen. This will use the environments random generator.
                        The default is false.
-        :type random: bool
         :param resample_time: (Keyword only) Resample the scenario data to the specified interval. If this is specified
                               one of 'upsample_fill' or downsample_method' must be supplied as well to determin how
                               the new data points should be determined. If given as an in, this will be interpreted as
                               seconds. The default is no resampling.
-        :type resample_time: timedelta or int
         :param resample_method: (Keyword only) Method for filling in / aggregating data when resampling. Pandas
                                 resampling methods are supported. Default is None (no resampling)
-        :type resample_method: str
         :param interpolation_method: (Keyword only) Method for interpolating missing data values. Pandas missing data
                                      handling methods are supported. If a list with one value per file is given, the
                                      specified method will be selected according the order of paths.
-        :type interpolation_method: str or List[str]
         :param rename_cols: (Keyword only) Rename columns of the imported data. Maps the colunms as they appear in the
                             data files to new names. Format: {old_name: new_name}
-        :type rename_cols: Mapping[str, str]
         :param prefix_renamed: (Keyword only) Should prefixes be applied to renamed columns as well? Default: True.
                                When setting this to false make sure that all columns in all loaded scenario files
                                have different names. Otherwise there is a risk of overwriting data.
-        :type prefix_renamed: bool
         :param infer_datetime_from: (Keyword only) Specify how datetime values should be converted. 'dates' will use
                                     pandas to automatically determine the format. 'string' uses the conversion string
                                     specified in the 'time_conversion_str' parameter. If a two-tuple of the format
                                     (row, col) is given, data from the specified field in the data files will be used
                                     to determine the date format. The default is 'string'
-        :type infer_datetime_from: str or Sequence[int]
         :param time_conversion_str: (Keyword only) Time conversion string. This must be specified if the
                                     infer_datetime_from parameter is set to 'string'. The string should specify the
                                     datetime format in the python strptime format. The default is: '%Y-%m-%d %H:%M'.
-        :type time_conversion_str: str
-        :return:
+        :return: Combined pandas dataframe with scenario data.
         """
-        if hasattr(paths, "__len__") and len(paths) > 1 and (data_prefixes is None or len(paths) != len(data_prefixes)):
-            raise ValueError(
-                "The number of paths and data_prefixes does not correspond to "
-                "each other: {}\n{}".format(paths, data_prefixes)
-            )
-        elif not hasattr(paths, "__len__"):
-            paths = (paths,)
-
-        if (
-            hasattr(paths, "__len__")
-            and len(paths) > 1
-            and hasattr(interpolation_method, "__len__")
-            and len(paths) != len(interpolation_method)
-        ):
-            raise ValueError(
-                "The number of interpolation methods does not match the number of paths. Specify 0, 1 or"
-                "'number of paths' interpolation methods."
-            )
-        elif not hasattr(interpolation_method, "__len__"):
-            interpolation_method = [interpolation_method] * len(paths)
-
         # Set defaults and convert values where necessary
-        total_time = (
-            timedelta(seconds=self.episode_duration)
-            if total_time is None
-            else total_time
-            if isinstance(total_time, timedelta)
-            else timedelta(seconds=total_time)
-        )
+        total_time = timedelta(seconds=self.episode_duration) if total_time is None else total_time
         start_time = self.scenario_time_begin if start_time is None else start_time
         end_time = self.scenario_time_end if end_time is None else end_time
         random = self.np_random if random else False
-        resample = True if resample_time is not None else False
-        resample_time = (
-            timedelta(seconds=self.sampling_time)
-            if resample_time is None
-            else resample_time
-            if isinstance(resample_time, timedelta)
-            else timedelta(seconds=resample_time)
-        )
+        resample_time = timedelta(seconds=self.sampling_time) if resample_time is None else resample_time
 
-        slice_begin, slice_end = timeseries.find_time_slice(
-            start_time,
-            end_time,
+        df = timeseries.scenario_from_csv(
+            paths,
+            data_prefixes,
+            start_time=start_time,
+            end_time=end_time,
             total_time=total_time,
             random=random,
-            round_to_interval=resample_time,
+            resample_time=resample_time,
+            resample_method=resample_method,
+            interpolation_method=interpolation_method,
+            rename_cols=rename_cols,
+            prefix_renamed=prefix_renamed,
+            infer_datetime_from=infer_datetime_from,
+            time_conversion_str=time_conversion_str,
         )
-
-        df = pd.DataFrame()
-        for i, path in enumerate(paths):
-            data = timeseries.df_from_csv(
-                path,
-                infer_datetime_from=infer_datetime_from,
-                time_conversion_str=time_conversion_str,
-            )
-            if resample:
-                data = timeseries.df_resample(
-                    data,
-                    resample_time,
-                    resample_method=resample_method,
-                    missing_data=interpolation_method[i],
-                )
-            data = data[slice_begin:slice_end].copy()
-
-            col_names = {}
-            for col in data.columns:
-                if not prefix_renamed and rename_cols is not None and col in rename_cols:
-                    pre = ""
-                    name = str(rename_cols[col])
-                elif prefix_renamed and rename_cols is not None and col in rename_cols:
-                    pre = "{}_".format(data_prefixes[i]) if data_prefixes is not None else ""
-                    name = str(rename_cols[col])
-                else:
-                    pre = "{}_".format(data_prefixes[i]) if data_prefixes is not None else ""
-                    name = str(col)
-                col_names[col] = pre + name
-            data.rename(columns=col_names, inplace=True)
-            df = pd.concat((data, df), 1)
-
-        if (
-            len(df) <= 0
-            or df.first_valid_index() > self.scenario_time_end
-            or df.last_valid_index() < self.scenario_time_begin
-        ):
-            raise ValueError(
-                "The loaded scenario file does not contain enough data for the entire episode. Or the set "
-                "scenario times do not correspond to the provided data."
-            )
 
         return df
 
@@ -853,6 +814,9 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
                 be used for logging purposes in the future but typically do not currently serve a purpose.
         :rtype: Tuple[np.ndarray, Union[np.float, SupportsFloat], bool, Union[str, Sequence[str]]]
         """
+        if not self.action_space.contains(action):
+            raise RuntimeError(f"Action {action} ({type(action)}) is invalid. Not in action space.")
+
         observations = self.update()
 
         # update and log current state
@@ -931,7 +895,6 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
 
         updated_params = ts_current
         return_obs = []  # Array for all current observations
-        next_index = 1 if self._use_model_time_increments else self.sampling_time
         for var_name in self.names["observations"]:
             settings = self.state_config.loc[var_name]
             value = None
@@ -944,8 +907,9 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             else:
                 for component in self._concrete_model.component_objects():
                     if component.name == var_name:
-                        value = round(pyo.value(component[next_index]), 5)  # Get value for the component
-                        return_obs.append(round(pyo.value(component[0]), 5))
+                        # Get value for the component from specified index
+                        value = round(pyo.value(component[list(component.keys())[int(settings["index"])]]), 5)
+                        return_obs.append(value)
                         break
                 else:
                     log.error(f"Specified observation value {var_name} could not be found")
@@ -973,7 +937,11 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
 
     def reset(self) -> np.ndarray:
         """Reset the model and return initial observations. This also calls the callback, increments the episode
-        counter, resets the episode steps and appends the state_log to the
+        counter, resets the episode steps and appends the state_log to the longtime log.
+
+        If you want to extend this function, write your own code and call super().reset() afterwards to return
+        fresh observations. This allows you to ajust timeseries for example. If you need to manipulate the state
+        before initializing or if you want to adjust the initialization itself, overwrite the function entirely.
 
         :return: Initial observation
         :rtype: np.ndarray
@@ -1017,6 +985,16 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         self.state_log.append(self.state)
 
         return np.array(observations)
+
+    def close(self):
+        """Close the environment. This should always be called when an entire run is finished. It should be used to
+        close any resources (i.e. simulation models) used by the environment.
+
+        Default behaviour for the MPC environment is to do nothing.
+
+        :return:
+        """
+        pass
 
     def pyo_component_params(
         self,
@@ -1170,7 +1148,12 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
                     del updated_params[param]
 
         for parameter in self._concrete_model.component_objects():
-            parameter_name = str(parameter)
+            if str(parameter) in updated_params.keys():
+                parameter_name = str(parameter)
+            else:
+                parameter_name = str(parameter).split(".")[
+                    -1
+                ]  # last entry is the parameter name for abstract models which are instanced
             if parameter_name in updated_params.keys():
                 if isinstance(parameter, pyo_base.param.SimpleParam) or isinstance(parameter, pyo_base.var.SimpleVar):
                     # update all simple parameters (single values)
@@ -1213,11 +1196,17 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
                 solution[com.name] = pyo.value(com)
             else:
                 solution[com.name] = {}
-                for ind, val in dict(com).items():
-                    solution[com.name][
-                        self.timeseries.index[self.n_steps].to_pydatetime()
-                        + timedelta(seconds=ind * self.sampling_time)
-                    ] = pyo.value(val)
+                if self._use_model_time_increments:
+                    for ind, val in com.items():
+                        solution[com.name][
+                            self.timeseries.index[self.n_steps].to_pydatetime()
+                            + timedelta(seconds=ind * self.sampling_time)
+                        ] = pyo.value(val)
+                else:
+                    for ind, val in com.items():
+                        solution[com.name][
+                            self.timeseries.index[self.n_steps].to_pydatetime() + timedelta(seconds=ind)
+                        ] = pyo.value(val)
 
         return solution
 
@@ -1267,9 +1256,12 @@ class BaseEnvSim(BaseEnv, abc.ABC):
             )
 
         #: Number of simulation steps to be taken for each sample. This must be a divisor of 'sampling_time'.
-        self.sim_steps_per_sample = int(self.settings["sim_steps_per_sample"])
+        self.sim_steps_per_sample: int = int(self.settings["sim_steps_per_sample"])
         #: The FMU is expected to be placed in the same folder as the environment
-        self.path_fmu = self.path_env / (self.fmu_name + ".fmu")
+        self.path_fmu: pathlib.Path = self.path_env / (self.fmu_name + ".fmu")
+
+        #: Configuration for the FMU model parameters, that need to be set for initialization of the Model.
+        self.model_parameters: dict = self.env_settings["model_parameters"]
 
         #: Instance of the FMU. This can be used to directly access the eta_utility.FMUSimulator interface.
         self.simulator: FMUSimulator
@@ -1338,6 +1330,103 @@ class BaseEnvSim(BaseEnv, abc.ABC):
 
         return output, step_success, sim_time_elapsed
 
+    def step(
+        self, action: np.ndarray
+    ) -> Tuple[np.ndarray, Union[np.float, SupportsFloat], bool, Union[str, Sequence[str]]]:
+        """Perfom one time step and return its results. This is called for every event or for every time step during
+        the simulation/optimization run. It should utilize the actions as supplied by the agent to determine
+        the new state of the environment. The method must return a four-tuple of observations, rewards, dones, info.
+
+        This also updates self.state and self.state_log to store current state information.
+
+        .. warning::
+
+        This function always returns 0 reward. Therefore, it must be extended if it is to be used with reinforcement
+        learning agents. If you need to manipulate actions (discretization, policy shaping, ...) do this before calling
+        this function. If you need to manipulate observations and rewards, do this after calling this function.
+
+        :param action: Actions to perform in the environment.
+        :return: The return value represents the state of the environment after the step was performed.
+
+            * observations: A numpy array with new observation values as defined by the observation space.
+                            Observations is a np.array() (numpy array) with floating point or integer values.
+            * reward: The value of the reward function. This is just one floating point value.
+            * done: Boolean value specifying whether an episode has been completed. If this is set to true,
+                the reset function will automatically be called by the agent or by eta_i.
+            * info: Provide some additional info about the state of the environment. The contents of this may
+                be used for logging purposes in the future but typically do not currently serve a purpose.
+        """
+        if not self.action_space.contains(action):
+            raise RuntimeError(f"Action {action} ({type(action)}) is invalid. Not in action space.")
+        self.n_steps += 1
+
+        # Store actions
+        self.state = {}
+        for idx, act in enumerate(self.names["actions"]):
+            self.state[act] = action[idx]
+
+        # Update scenario data, simulate one time step and store the results.
+        self.state.update(self.get_scenario_state())
+        sim_result, step_success, sim_time_elapsed = self.simulate(self.state)
+        self.state.update(sim_result)
+        self.state_log.append(self.state)
+
+        # Check if the episode is over or not
+        done = self.n_steps >= self.n_episode_steps or not step_success
+
+        observations = np.array(len(self.names["observations"]))
+        for idx, name in enumerate(self.names["observations"]):
+            observations[idx] = self.state[name]
+
+        return observations, 0, done, {}
+
+    def reset(self) -> np.ndarray:
+        """Reset the model and return initial observations. This also calls the callback, increments the episode
+        counter, resets the episode steps and appends the state_log to the longtime storage.
+
+        If you want to extend this function, write your own code and call super().reset() afterwards to return
+        fresh observations. This allows you to ajust timeseries for example. If you need to manipulate the state
+        before initializing or if you want to adjust the initialization itself, overwrite the function entirely.
+
+        :return: Initial observation
+        """
+
+        # save episode's stats
+        if self.n_steps > 0:
+            if self.callback is not None:
+                self.callback(self)
+
+            # Store some logging data
+            self.n_episodes += 1
+            self.state_log_longtime.append(self.state_log)
+            self.n_steps_longtime += self.n_steps
+
+            # Reset episode variables
+            self.n_steps = 0
+            self.state_log = []
+
+        # reset the FMU after every episode with new parameters
+        self._init_simulator(self.model_parameters)
+
+        # Update scenario data, simulate one time step and store the results.
+        self.state = {}
+        self.state.update(self.get_scenario_state())
+        sim_result, step_success, sim_time_elapsed = self.simulate(self.state)
+        self.state.update(sim_result)
+        self.state_log.append(self.state)
+
+        observations = np.array(len(self.names["observations"]))
+        for idx, name in enumerate(self.names["observations"]):
+            observations[idx] = self.state[name]
+
+        return observations
+
     def close(self):
-        """Close and clean up the environment"""
+        """Close the environment. This should always be called when an entire run is finished. It should be used to
+        close any resources (i.e. simulation models) used by the environment.
+
+        Default behaviour for the Simulation environment is to close the FMU object.
+
+        :return:
+        """
         self.simulator.close()  # close the FMU
