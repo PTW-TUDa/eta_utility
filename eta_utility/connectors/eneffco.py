@@ -225,7 +225,6 @@ class EnEffCoConnection(BaseSeriesConnection):
                 columns=[node.name],
                 dtype="float64",
             )
-            data.index = data.index.tz_localize(tzlocal.get_localzone())
             data.index.name = "Time (with timezone)"
             values = pd.concat([values, data], axis=1, sort=False)
         return values
