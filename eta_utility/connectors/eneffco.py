@@ -98,10 +98,11 @@ class EnEffCoConnection(BaseSeriesConnection):
             value.loc[value.index, node.name] = data.values
         return value
 
-    def write(self, values: Mapping[Node, Mapping[datetime, Any]]):
+    def write(self, values: Mapping[Node, Mapping[datetime, Any]], time_interval: timedelta = timedelta(seconds=1)):
         """Writes some values to the EnEffCo Database
 
         :param values: Dictionary of nodes and data to write. {node: value}
+        :param time_interval: Interval between datapoints (i.e. between "From" and "To" in EnEffCo Upload), default 1s
         """
         nodes = self._validate_nodes(values.keys())
 
@@ -110,7 +111,7 @@ class EnEffCoConnection(BaseSeriesConnection):
             response = self._raw_request(
                 "POST",
                 request_url,
-                data=self._prepare_raw_data(values[node]),
+                data=self._prepare_raw_data(values[node], time_interval),
                 headers={
                     "Content-Type": "application/json",
                     "cache-control": "no-cache",
@@ -120,10 +121,11 @@ class EnEffCoConnection(BaseSeriesConnection):
             )
             log.info(response.text)
 
-    def _prepare_raw_data(self, data: Mapping[datetime, Any]) -> Dict[str, str]:
+    def _prepare_raw_data(self, data: Mapping[datetime, Any], time_interval: timedelta) -> Dict[str, str]:
         """Change the input format into a compatible format with EnEffCo
 
         :param data: Data to write to node {time: value}. Could be a dictionary or a pandas Series.
+        :param time_interval: Interval between datapoints (i.e. between "From" and "To" in EnEffCo Upload)
 
         :return upload_data: Dictionary in the format for the upload to EnEffCo
         """
@@ -133,8 +135,8 @@ class EnEffCoConnection(BaseSeriesConnection):
             for time, val in data.items():
                 upload_data["Values"].append(
                     {
-                        "Value": int(val),
-                        "From": time.strftime("%Y-%m-%d %H:%M:%S"),
+                        "Value": float(val),
+                        "From": (time - time_interval).strftime("%Y-%m-%d %H:%M:%S"),
                         "To": time.strftime("%Y-%m-%d %H:%M:%S"),
                     }
                 )
@@ -223,7 +225,6 @@ class EnEffCoConnection(BaseSeriesConnection):
                 columns=[node.name],
                 dtype="float64",
             )
-            data.index = data.index.tz_localize(tzlocal.get_localzone())
             data.index.name = "Time (with timezone)"
             values = pd.concat([values, data], axis=1, sort=False)
         return values
