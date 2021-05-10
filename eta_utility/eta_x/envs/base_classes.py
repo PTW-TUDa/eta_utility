@@ -1277,7 +1277,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         :type init_values: Mapping[str, Union[int, float]]
         """
 
-        if isinstance(self.simulator, FMUSimulator):
+        if hasattr(self, "simulator") and isinstance(self.simulator, FMUSimulator):
             self.simulator.reset(init_values)
         else:
             #: Instance of the FMU. This can be used to directly access the eta_utility.FMUSimulator interface.
