@@ -15,6 +15,7 @@ multi_line_output = 3
 [tool.flakehell]
 format = "colored"
 show_source = true
+extended_default_ignore=[]
 exclude = [
     ".git",
     "__pycache__",

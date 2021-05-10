@@ -27,3 +27,16 @@ at all or the license server could not be found. Follow these steps to solve the
 - In case Dymola also does not start, shows an error or starts in trial mode, make sure that you can connect
   to the license server correctly. This requires being in the same network as the server (either physically or using
   the VPN).
+
+- In case of GIT error:
+
+	- Find git path in pycharm: Settings -> Version Control -> Git
+
+	- Add to Path: set PATH=%PATH%;C:\your\path\here
+
+	- Restart pycharm
+
+- In case of GIT login failure:
+
+	- open "Anmeldeinformationsverwaltung" (in system control = "Systemsteuerung")
+	- There, delete information about git.rwth-aachen (or similar)
