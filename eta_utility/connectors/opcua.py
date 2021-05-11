@@ -4,7 +4,7 @@
 import socket
 from contextlib import contextmanager
 from datetime import datetime, timedelta
-from typing import Any, Mapping, NewType, Sequence, Set, Union
+from typing import Any, Mapping, Union
 
 import pandas as pd
 import tzlocal
@@ -12,10 +12,7 @@ from opcua import Client, ua
 
 from eta_utility import get_logger
 
-from .base_classes import BaseConnection, SubscriptionHandler
-
-Node = NewType("Node", object)
-Nodes = Union[Set[Node], Sequence[Node]]
+from .base_classes import BaseConnection, Node, Nodes, SubscriptionHandler
 
 log = get_logger("connectors.opcua")
 
@@ -28,7 +25,7 @@ class OpcUaConnection(BaseConnection):
     :param nodes: List of nodes to use for all operations.
     """
 
-    def __init__(self, url: str, usr: str = None, pwd: str = None, *, nodes: Nodes = None):
+    def __init__(self, url: str, usr: str = None, pwd: str = None, *, nodes: Nodes = None) -> None:
         super().__init__(url, usr, pwd, nodes=nodes)
 
         if self._url.scheme != "opc.tcp":
@@ -79,7 +76,7 @@ class OpcUaConnection(BaseConnection):
 
         return pd.DataFrame(values, index=[tzlocal.get_localzone().localize(datetime.now())])
 
-    def write(self, values: Mapping[Node, Any]):
+    def write(self, values: Mapping[Node, Any]) -> None:
         """
         Writes some manually selected values on OPCUA capable controller
 
@@ -98,7 +95,7 @@ class OpcUaConnection(BaseConnection):
                 except RuntimeError as e:
                     raise ConnectionError(str(e)) from e
 
-    def create_nodes(self, nodes: Nodes):
+    def create_nodes(self, nodes: Nodes) -> None:
         """Create nodes on the server from a list of nodes. This will try to create the entire node path.
 
         :param nodes: List or set of nodes to create
@@ -106,7 +103,7 @@ class OpcUaConnection(BaseConnection):
         :raises ConnectionError: When an error occurs during node creation
         """
 
-        def create_object(parent: Node, child: Node) -> Node:
+        def create_object(parent: Node, child: Node) -> Union[Node, Any]:
             for obj in parent.get_children():
                 ident = (
                     obj.nodeid.Identifier.strip(" .") if type(obj.nodeid.Identifier) is str else obj.nodeid.Identifier
@@ -140,7 +137,7 @@ class OpcUaConnection(BaseConnection):
                 except RuntimeError as e:
                     raise ConnectionError(str(e)) from e
 
-    def delete_nodes(self, nodes: Nodes):
+    def delete_nodes(self, nodes: Nodes) -> None:
         """Delete the given nodes and their parents (if the parents do not have other children).
 
         :param nodes: List or set of nodes to be deleted
@@ -168,7 +165,7 @@ class OpcUaConnection(BaseConnection):
                 except RuntimeError as e:
                     raise ConnectionError(str(e)) from e
 
-    def subscribe(self, handler: SubscriptionHandler, nodes: Nodes = None, interval: Union[int, timedelta] = 1):
+    def subscribe(self, handler: SubscriptionHandler, nodes: Nodes = None, interval: Union[int, timedelta] = 1) -> None:
         """Subscribe to nodes and call handler when new data is available. This function works asnychonously.
         Subscriptions must always be closed using the close_sub function (use try, finally!)
 
@@ -194,7 +191,7 @@ class OpcUaConnection(BaseConnection):
         except RuntimeError as e:
             log.warning(str(e))
 
-    def close_sub(self):
+    def close_sub(self) -> None:
         """Close an open subscription."""
         try:
             self._sub.delete()
@@ -206,7 +203,7 @@ class OpcUaConnection(BaseConnection):
 
         self._disconnect()
 
-    def _connect(self):
+    def _connect(self) -> None:
         """Connect to server."""
         try:
             if self.usr is not None:
@@ -225,7 +222,7 @@ class OpcUaConnection(BaseConnection):
         except ConnectionError as e:
             raise e
 
-    def _disconnect(self):
+    def _disconnect(self) -> None:
         """Disconnect from server"""
         try:
             self.connection.disconnect()
@@ -236,7 +233,7 @@ class OpcUaConnection(BaseConnection):
             log.error(f"Connection to server {self.url} already closed.")
 
     @contextmanager
-    def _connection(self):
+    def _connection(self) -> None:
         """Connect to the server and return a context manager that automatically disconnects when finished."""
         try:
             self._connect()
@@ -258,15 +255,15 @@ class _OPCSubHandler:
     :param handler: ETA-Utility style subscription handler
     """
 
-    def __init__(self, handler: SubscriptionHandler):
+    def __init__(self, handler: SubscriptionHandler) -> None:
         self.handler = handler
         self._sub_nodes = {}
 
-    def add_node(self, opc_id: str, node: Node):
+    def add_node(self, opc_id: str, node: Node) -> None:
         """Add a node to the subscription. This is necessary to translate between formats."""
         self._sub_nodes[opc_id] = node
 
-    def datachange_notification(self, node: Node, val: Any, data: Any):
+    def datachange_notification(self, node: Node, val: Any, data: Any) -> None:
         """
         datachange_notification is called whenever subscribed input data is recieved via OPC UA. This pushes data
         to the actual eta_utility subscription handler.

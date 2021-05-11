@@ -8,17 +8,14 @@ import pathlib
 import signal
 from datetime import datetime, timedelta
 from multiprocessing import Pipe, Process, connection
-from typing import Any, Mapping, MutableMapping, NewType, Sequence, Set, Union
+from typing import Any, Mapping, MutableMapping, Sequence, Union
 
 import numpy as np
 import pandas as pd
 
 from eta_utility import get_logger
 
-from .base_classes import SubscriptionHandler
-
-Node = NewType("Node", object)
-Nodes = Union[Set[Node], Sequence[Node]]
+from .base_classes import Node, SubscriptionHandler
 
 log = get_logger("eta_utilty.connectors")
 
@@ -29,12 +26,12 @@ class MultiSubHandler(SubscriptionHandler):
 
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
         self._handlers = list()
 
-    def register(self, sub_handler: SubscriptionHandler):
+    def register(self, sub_handler: SubscriptionHandler) -> None:
         """Register a subscription handler.
 
         :param SubscriptionHandler sub_handler: SubscriptionHandler object to use for handling subscriptions.
@@ -44,7 +41,7 @@ class MultiSubHandler(SubscriptionHandler):
 
         self._handlers.append(sub_handler)
 
-    def push(self, node: Node, value: Any, timestamp: datetime = None):
+    def push(self, node: Node, value: Any, timestamp: datetime = None) -> None:
         """Receive data from a subcription. This should contain the node that was requested, a value and a timestemp
         when data was received. Push data to all registered sub-handlers
 
@@ -79,7 +76,7 @@ class CsvSubHandler(SubscriptionHandler):
         write_interval: Union[float, int] = 1,
         write_buffer: int = 500,
         ignore_sigint: bool = False,
-    ):
+    ) -> None:
         super().__init__(write_interval=write_interval)
 
         self._recv, self._send = Pipe(duplex=False)
@@ -89,7 +86,7 @@ class CsvSubHandler(SubscriptionHandler):
         self._proc.start()
         log.debug(f"CSV Subscription Handler process started: {self._proc.name}")
 
-    def push(self, node: Node, value: Any, timestamp: datetime = None):
+    def push(self, node: Node, value: Any, timestamp: datetime = None) -> None:
         """Receive data from a subcription. THis should contain the node that was requested, a value and a timestemp
         when data was received. If the timestamp is not provided, current time will be used.
 
@@ -106,7 +103,7 @@ class CsvSubHandler(SubscriptionHandler):
         output_file: Union[pathlib.Path, str],
         write_buffer: int = 30,
         ignore_sigint: bool = False,
-    ):
+    ) -> None:
         """Create the output file and periodically write data to it.
 
         :param receiver: Receiving end of a pipe
@@ -185,7 +182,7 @@ class CsvSubHandler(SubscriptionHandler):
                     header = write_data(buffer, write_buffer // 2, write_started, header)
                     write_started = True if header is not None else False
 
-    def close(self):
+    def close(self) -> None:
         """Finalize and close the subscription handler."""
         self._send.send(None)  # Send sentinel to subprocess to force writing of buffered data
         self._proc.join(timeout=50)
@@ -200,7 +197,7 @@ class DFSubHandler(SubscriptionHandler):
     :param keep_data_rows: Number of rows to keep in internal _data memory. Default 100.
     """
 
-    def __init__(self, write_interval: int = 1, keep_data_rows: int = 100):
+    def __init__(self, write_interval: int = 1, keep_data_rows: int = 100) -> None:
         super().__init__(write_interval=write_interval)
         self._data = pd.DataFrame()
         self.keep_data_rows = keep_data_rows
@@ -210,7 +207,7 @@ class DFSubHandler(SubscriptionHandler):
         node: Node,
         value: Union[Any, pd.Series, Sequence[Any]],
         timestamp: Union[datetime, pd.DatetimeIndex, int, timedelta, None] = None,
-    ):
+    ) -> None:
         """Append values to the dataframe
 
         :param node: Node object the data belongs to
@@ -255,12 +252,12 @@ class DFSubHandler(SubscriptionHandler):
         """This contains the interval dataframe and will return a copy of that."""
         return self._data.copy()
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset the internal data and restart collection"""
         self._data = pd.DataFrame()
         log.info("Subscribed DataFrame {} was reset successfully.".format(hash(self._data)))
 
-    def housekeeping(self):
+    def housekeeping(self) -> None:
         """Keep internal data short by only keeping last rows as specified in self.keep_data_rows"""
         self._data.drop(index=self._data.index[: -self.keep_data_rows], inplace=True)
 

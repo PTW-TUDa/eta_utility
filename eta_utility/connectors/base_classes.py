@@ -11,7 +11,7 @@ import pandas as pd
 import tzlocal
 
 Node = NewType("Node", object)
-Nodes = Union[Set[Node], Sequence[Node]]
+Nodes = Union[Node, Set[Node], Sequence[Node]]
 
 
 class SubscriptionHandler(ABC):
@@ -21,7 +21,7 @@ class SubscriptionHandler(ABC):
     :param write_interval: Interval for writing data to csv file
     """
 
-    def __init__(self, write_interval: Union[float, int] = 1):
+    def __init__(self, write_interval: Union[float, int] = 1) -> None:
         self._write_interval = write_interval
         self._local_tz = tzlocal.get_localzone()
 
@@ -214,7 +214,7 @@ class BaseSeriesConnection(BaseConnection, ABC):
     :param url: URL of the server to connect to
     """
 
-    def __init__(self, url: str, usr: str = None, pwd: str = None, *, nodes: Nodes = None):
+    def __init__(self, url: str, usr: str = None, pwd: str = None, *, nodes: Nodes = None) -> None:
         super().__init__(url, usr, pwd, nodes=nodes)
 
     @abstractmethod

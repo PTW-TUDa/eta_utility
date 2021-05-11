@@ -18,7 +18,8 @@ class Node:
 
     :param name: Any name can be used to identify the node. It is used to identify the node, therefore it should
                      be unique.
-    :param url: Valid url string according to the standard format. E.g.: opc.tcp://127.0.0.1:4840
+    :param url: Valid url string according to the standard format. E.g.: opc.tcp://127.0.0.1:4840.
+     Eneffco url with scheme (https://)
     :param protocol: Protocol to be used for connection (either opcua, eneffco or modbus)
 
     :param mb_slave: (Required for Modbus) Modbus slave ID
@@ -40,7 +41,7 @@ class Node:
                        of nodes.
     """
 
-    def __init__(self, name: str, url: str, protocol: str, **kwargs: Any):
+    def __init__(self, name: str, url: str, protocol: str, **kwargs: Any) -> None:
 
         self.name = str(name).strip()
         self.protocol = protocol.strip().lower()
@@ -62,13 +63,13 @@ class Node:
                 raise ValueError("eneffco_code must be specified for eneffco nodes.")
             self._init_eneffco(**kwargs)
 
-    def _init_modbus(self, mb_slave: int, mb_register: str, mb_channel: int):
+    def _init_modbus(self, mb_slave: int, mb_register: str, mb_channel: int) -> None:
         """Initialize the node object for modbus protocol nodes."""
         self.mb_slave = int(mb_slave)
         self.mb_register = mb_register.strip().lower()
         self.mb_channel = int(mb_channel)
 
-    def _init_opcua(self, **kwargs: Any):
+    def _init_opcua(self, **kwargs: Any) -> None:
         """Initialize the node object for opcua protocol nodes"""
         #: opc_path_str: Path to the OPC UA node
         self.opc_path_str = ""
@@ -104,7 +105,7 @@ class Node:
                     )
                 )
 
-    def _init_eneffco(self, eneffco_code: str):
+    def _init_eneffco(self, eneffco_code: str) -> None:
         """Initialize the node object for the EnEffCo API."""
         self.eneffco_code = eneffco_code
 
@@ -133,6 +134,8 @@ class Node:
             * Identifier
 
         For EnEffCo nodes the Code field must be present
+
+            * The IP-Address for EnEffCo-nodes should be given without scheme (https://)
 
         :param path: Path to excel document
         :param sheet_name: name of Excel sheet, which will be read out
