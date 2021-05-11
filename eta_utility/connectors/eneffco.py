@@ -20,7 +20,7 @@ class EnEffCoConnection(BaseSeriesConnection):
     EnEffCoConnection is a class to download and upload multiple features from and to the EnEffCo database as
     timeseries.
 
-    :param url: Url of the server mit Schema(https)
+    :param url: Url of the server with Schema(https)
     :param usr: Username in EnEffco for login
     :param pwd: Password in EnEffco for login
     :param api_token: Token for API authentication
