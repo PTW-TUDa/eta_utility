@@ -12,7 +12,6 @@ from typing import Any, Mapping, MutableMapping, NewType, Sequence, Set, Union
 
 import numpy as np
 import pandas as pd
-import tzlocal
 
 from eta_utility import get_logger
 
@@ -98,7 +97,7 @@ class CsvSubHandler(SubscriptionHandler):
         :param value: Value of the data
         :param timestamp: Timestamp of receiving the data
         """
-        timestamp = timestamp if timestamp is not None else tzlocal.get_localzone().localize(datetime.now())
+        timestamp = timestamp if timestamp is not None else datetime.now()
         self._send.send((node, value, timestamp))
 
     def _run(
@@ -229,17 +228,16 @@ class DFSubHandler(SubscriptionHandler):
         if hasattr(value, "__len__"):
             value = self._convert_series(value, timestamp)
             # Push Series
+            # Values are rounded to self.write_interval in _convert_series
             for _timestamp, _value in value.items():
-                # todo assert tz-awareness
+                _timestamp = self._assert_tz_awareness(_timestamp)
                 self._data.loc[_timestamp, node.name] = _value
 
         # Single value
         else:
             if not isinstance(timestamp, datetime) and timestamp is not None:
                 raise ValueError("Timestamp must be a datetime object or None.")
-            timestamp = self._round_timestamp(
-                timestamp if timestamp is not None else tzlocal.get_localzone().localize(datetime.now())
-            )
+            timestamp = self._round_timestamp(timestamp if timestamp is not None else datetime.now())
             self._data.loc[timestamp, node.name] = value
 
         # Housekeeping (Keep internal data short)
