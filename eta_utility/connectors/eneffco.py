@@ -307,7 +307,7 @@ class EnEffCoConnection(BaseSeriesConnection):
 
         try:
             while self._subscription_open:
-                from_time = tzlocal.get_localzone().localize(datetime.now()) + offset  # timezone added
+                from_time = datetime.now() + offset
                 to_time = from_time + req_interval
 
                 for node in self._subscription_nodes:

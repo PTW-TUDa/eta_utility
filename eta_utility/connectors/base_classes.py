@@ -8,6 +8,7 @@ from typing import Any, AnyStr, List, Mapping, NewType, Sequence, Set, Union
 from urllib.parse import urlparse
 
 import pandas as pd
+import tzlocal
 
 Node = NewType("Node", object)
 Nodes = Union[Set[Node], Sequence[Node]]
@@ -22,16 +23,33 @@ class SubscriptionHandler(ABC):
 
     def __init__(self, write_interval: Union[float, int] = 1):
         self._write_interval = write_interval
+        self._local_tz = tzlocal.get_localzone()
 
     def _round_timestamp(self, timestamp: datetime) -> datetime:
-        """Helper method for rounding date time objects to the specified write interval
+        """Helper method for rounding date time objects to the specified write interval.
+        The method will also add local timezone information if not already present.
 
         :param datetime timestamp: Datetime object to be rounded
-        :return: Rounded datetime object without timezone information
+        :return: Rounded datetime object with timezone information
         """
+        ts_store = self._assert_tz_awareness(timestamp)  # store previous information, include timezone information
 
+        # Round timestamp
         intervals = timestamp.timestamp() // self._write_interval
-        return datetime.fromtimestamp(intervals * self._write_interval)
+        timestamp = datetime.fromtimestamp(intervals * self._write_interval)
+
+        # Restore timezone information
+        timestamp = timestamp.replace(tzinfo=ts_store.tzinfo)
+        return timestamp
+
+    def _assert_tz_awareness(self, timestamp: datetime) -> datetime:
+        """Helper function to check if timestamp has timezone and if not assign local time zone.
+
+        :param datetime timestamp: Datetime object to be rounded
+        :return: Rounded datetime object with timezone information"""
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=self._local_tz)
+        return timestamp
 
     def _convert_series(
         self, value: Union[pd.Series, Sequence[Any]], timestamp: Union[pd.DatetimeIndex, timedelta, int]
@@ -85,6 +103,8 @@ class SubscriptionHandler(ABC):
             # If value is multi-dimensional, an Exception will be raised by pandas.
 
         # Round index to self._write_interval
+        # todo resample instead of rounding the index, but this could not work if intervals between data points are of
+        # different size
         value.index = value.index.round(str(self._write_interval) + "S")
 
         return value
