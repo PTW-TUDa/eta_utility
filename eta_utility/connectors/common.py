@@ -19,7 +19,7 @@ class Node:
     :param name: Any name can be used to identify the node. It is used to identify the node, therefore it should
                      be unique.
     :param url: Valid url string according to the standard format. E.g.: opc.tcp://127.0.0.1:4840.
-     Eneffco url with Schema(https)
+     Eneffco url with scheme (https://)
     :param protocol: Protocol to be used for connection (either opcua, eneffco or modbus)
 
     :param mb_slave: (Required for Modbus) Modbus slave ID
@@ -135,7 +135,7 @@ class Node:
 
         For EnEffCo nodes the Code field must be present
 
-            * The IP-Address for nodes should without Schema(https)
+            * The IP-Address for EnEffCo-nodes should be given without scheme (https://)
 
         :param path: Path to excel document
         :param sheet_name: name of Excel sheet, which will be read out
