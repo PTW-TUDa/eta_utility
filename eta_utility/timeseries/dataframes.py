@@ -199,7 +199,7 @@ def df_time_slice(df, time_begin, time_end=None, total_time=None, round_to_inter
     return df[slice_begin:slice_end].copy()
 
 
-def df_resample(df, *periods_deltas, resample_method, missing_data=None):
+def df_resample(df, *periods_deltas, resample_method="asfreq", missing_data=None):
     """Resample the time index of a data frame. This method can be used for resampling in multiple different
     periods with multiple different deltas between single time entries.
 
@@ -223,6 +223,7 @@ def df_resample(df, *periods_deltas, resample_method, missing_data=None):
     :return: Copy of the dataframe
     :rtype: pd.DataFrame
     """
+
     sample_method = op.methodcaller(resample_method)
 
     if len(periods_deltas) == 1:
