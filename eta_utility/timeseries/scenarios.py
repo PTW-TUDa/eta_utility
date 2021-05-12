@@ -12,16 +12,17 @@ def scenario_from_csv(
     data_prefixes: Sequence[str] = None,
     *,
     start_time: datetime,
-    end_time: datetime,
-    total_time: Union[timedelta, int],
+    end_time: datetime = None,
+    total_time: Union[timedelta, int] = None,
     random: Optional[bool] = False,
     resample_time: Optional[Union[timedelta, int]] = None,
-    resample_method: Optional[str] = None,
+    resample_method: Optional[str] = "asfreq",
     interpolation_method: Optional[Union[Sequence[str], str]] = None,
     rename_cols: Optional[Mapping[str, str]] = None,
     prefix_renamed: Optional[bool] = True,
     infer_datetime_from: Optional[Union[str, Sequence[int]]] = "string",
     time_conversion_str: str = "%Y-%m-%d %H:%M",
+    scaling_factors: Optional[dict] = None,
 ):
     """Import (possibly multiple) scenario data files from csv files and return them as a single pandas
     data frame. The import function supports column renaming and will slice and resample data as specified.
@@ -68,31 +69,46 @@ def scenario_from_csv(
                                 datetime format in the python strptime format. The default is: '%Y-%m-%d %H:%M'.
     :return:
     """
-    if hasattr(paths, "__len__") and len(paths) > 1 and (data_prefixes is None or len(paths) != len(data_prefixes)):
-        raise ValueError(
-            "The number of paths and data_prefixes does not correspond to "
-            "each other: {}\n{}".format(paths, data_prefixes)
-        )
-    elif not hasattr(paths, "__len__"):
+
+    if not hasattr(paths, "__len__"):
         paths = (paths,)
 
-    if (
-        hasattr(paths, "__len__")
-        and len(paths) > 1
-        and hasattr(interpolation_method, "__len__")
-        and len(paths) != len(interpolation_method)
-    ):
-        raise ValueError(
-            "The number of interpolation methods does not match the number of paths. Specify 0, 1 or"
-            "'number of paths' interpolation methods."
-        )
-    elif not hasattr(interpolation_method, "__len__"):
-        interpolation_method = [interpolation_method] * len(paths)
+    # resample methods needs to be a list, so on case of None create a list of Nones
+    if not hasattr(resample_method, "__len__"):
+        if paths.__len__() > 1:
+            resample_method = [resample_method] * len(paths)
+        else:
+            resample_method = (resample_method,)
+    elif resample_method.__len__() != paths.__len__():
+        raise ValueError("The number of resample methods does not match the number of paths.")
+
+    # interpolation methods needs to be a list, so on case of None create a list of Nones
+    if not hasattr(interpolation_method, "__len__"):
+        if paths.__len__() > 1:
+            interpolation_method = [interpolation_method] * len(paths)
+        else:
+            interpolation_method = (interpolation_method,)
+    elif interpolation_method.__len__() != paths.__len__():
+        raise ValueError("The number of interpolation methods does not match the number of paths.")
+
+    # scaling needs to be a list, so on case of None create a list of Nones
+    if scaling_factors is None:
+        scaling_factors = [None] * len(paths)
+    elif not hasattr(scaling_factors, "__len__"):
+        if paths.__len__() > 1:
+            raise ValueError("The scaling factors need to be defined for each path")
+        else:
+            scaling_factors = (scaling_factors,)
+    elif scaling_factors.__len__() != paths.__len__():
+        raise ValueError("The number of scaling factors does not match the number of paths.")
 
     # Set defaults and convert values where necessary
-    total_time = total_time if isinstance(total_time, timedelta) else timedelta(seconds=total_time)
+    if total_time:
+        total_time = total_time if isinstance(total_time, timedelta) else timedelta(seconds=total_time)
     resample = True if resample_time is not None else False
-    resample_time = resample_time if isinstance(resample_time, timedelta) else timedelta(seconds=resample_time)
+
+    if resample:
+        resample_time = resample_time if isinstance(resample_time, timedelta) else timedelta(seconds=resample_time)
 
     slice_begin, slice_end = timeseries.find_time_slice(
         start_time,
@@ -113,10 +129,22 @@ def scenario_from_csv(
             data = timeseries.df_resample(
                 data,
                 resample_time,
-                resample_method=resample_method,
+                resample_method=resample_method[i],
                 missing_data=interpolation_method[i],
             )
+        else:
+            data = data.fillna(method=interpolation_method[i])
         data = data[slice_begin:slice_end].copy()
+
+        # scale the data from the original Dataframe
+        if scaling_factors[i]:
+            for column_name_to_scale, scaling_factor in scaling_factors[i].items():
+                if column_name_to_scale in data.columns:
+                    data[column_name_to_scale] = data[column_name_to_scale].multiply(scaling_factor)
+                else:
+                    raise KeyError(
+                        "The name " + str(column_name_to_scale) + " is not a valid column name in the file: " + path
+                    )
 
         col_names = {}
         for col in data.columns:
@@ -133,11 +161,13 @@ def scenario_from_csv(
         data.rename(columns=col_names, inplace=True)
         df = pd.concat((data, df), 1)
 
-    # Make sure that the resulting file corresponds to the requested time sclie
+    # Make sure that the resulting file corresponds to the requested time slice
     if (
-        len(df) <= 0
-        or df.first_valid_index() > slice_begin + resample_time
-        or df.last_valid_index() < slice_end - resample_time
+        len(df) <= 0 or df.first_valid_index() > slice_begin + resample_time
+        if not resample_time is None
+        else timedelta(seconds=0) or df.last_valid_index() < slice_end - resample_time
+        if not resample_time is None
+        else timedelta(seconds=0)
     ):
         raise ValueError(
             "The loaded scenario file does not contain enough data for the entire selected time slice. Or the set "
