@@ -2,7 +2,7 @@
 """
 import asyncio
 from datetime import datetime, timedelta
-from typing import Any, Dict, Mapping, NewType, Sequence, Set, Union
+from typing import Any, Dict, Mapping, Union
 
 import pandas as pd
 import requests
@@ -10,10 +10,7 @@ import tzlocal
 
 from eta_utility import get_logger
 
-from .base_classes import BaseSeriesConnection, SubscriptionHandler
-
-Node = NewType("Node", object)
-Nodes = Union[Set[Node], Sequence[Node]]
+from .base_classes import BaseSeriesConnection, Node, Nodes, SubscriptionHandler
 
 log = get_logger("connectors.eneffco")
 
@@ -23,7 +20,7 @@ class EnEffCoConnection(BaseSeriesConnection):
     EnEffCoConnection is a class to download and upload multiple features from and to the EnEffCo database as
     timeseries.
 
-    :param url: Url of the server
+    :param url: Url of the server with scheme (https://)
     :param usr: Username in EnEffco for login
     :param pwd: Password in EnEffco for login
     :param api_token: Token for API authentication
@@ -98,7 +95,9 @@ class EnEffCoConnection(BaseSeriesConnection):
             value.loc[value.index, node.name] = data.values
         return value
 
-    def write(self, values: Mapping[Node, Mapping[datetime, Any]], time_interval: timedelta = timedelta(seconds=1)):
+    def write(
+        self, values: Mapping[Node, Mapping[datetime, Any]], time_interval: timedelta = timedelta(seconds=1)
+    ) -> None:
         """Writes some values to the EnEffCo Database
 
         :param values: Dictionary of nodes and data to write. {node: value}
@@ -163,7 +162,7 @@ class EnEffCoConnection(BaseSeriesConnection):
 
         return pd.concat(values, axis=1)
 
-    def subscribe(self, handler: SubscriptionHandler, nodes: Nodes = None, interval: Union[int, timedelta] = 1):
+    def subscribe(self, handler: SubscriptionHandler, nodes: Nodes = None, interval: Union[int, timedelta] = 1) -> None:
         """Subscribe to nodes and call handler when new data is available. This will return only the
         last available values.
 
@@ -237,7 +236,7 @@ class EnEffCoConnection(BaseSeriesConnection):
         nodes: Nodes = None,
         interval: Union[int, timedelta] = 1,
         data_interval: Union[int, timedelta] = 1,
-    ):
+    ) -> None:
         """Subscribe to nodes and call handler when new data is available. This will always return a series of values.
         If nodes with different intervals should be subscribed, multiple connection objects are needed.
 
@@ -307,7 +306,7 @@ class EnEffCoConnection(BaseSeriesConnection):
 
         try:
             while self._subscription_open:
-                from_time = tzlocal.get_localzone().localize(datetime.now()) + offset  # timezone added
+                from_time = datetime.now() + offset
                 to_time = from_time + req_interval
 
                 for node in self._subscription_nodes:

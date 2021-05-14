@@ -4,16 +4,13 @@ import asyncio
 import socket
 import struct
 from datetime import datetime, timedelta
-from typing import Any, List, Mapping, NewType, Optional, Sequence, Set, Union
+from typing import Any, List, Mapping, Optional, Sequence, Union
 
 import pandas as pd
 import tzlocal
 from pyModbusTCP.client import ModbusClient
 
-from .base_classes import BaseConnection, SubscriptionHandler
-
-Node = NewType("Node", object)
-Nodes = Union[Set[Node], Sequence[Node]]
+from .base_classes import BaseConnection, Node, Nodes, SubscriptionHandler
 
 
 class ModbusConnection(BaseConnection):
@@ -21,7 +18,7 @@ class ModbusConnection(BaseConnection):
     it implements a subscription server, which reads continuously in a specified interval.
     """
 
-    def __init__(self, url: str, *, nodes: Nodes = None):
+    def __init__(self, url: str, *, nodes: Nodes = None) -> None:
         super().__init__(url, nodes=nodes)
 
         if self._url.scheme != "modbus.tcp":
@@ -81,14 +78,14 @@ class ModbusConnection(BaseConnection):
 
         return pd.DataFrame(values, index=[tzlocal.get_localzone().localize(datetime.now())])
 
-    def write(self, values: Mapping[Node, Any]):
+    def write(self, values: Mapping[Node, Any]) -> None:
         """Write some manually selected values on OPCUA capable controller
 
         :param values: Dictionary of nodes and data to write. {node: value}
         """
         raise NotImplementedError
 
-    def subscribe(self, handler: SubscriptionHandler, nodes: Nodes = None, interval: Union[int, timedelta] = 1):
+    def subscribe(self, handler: SubscriptionHandler, nodes: Nodes = None, interval: Union[int, timedelta] = 1) -> None:
         """Subscribe to nodes and call handler when new data is available.
 
         :param nodes: identifiers for the nodes to subscribe to
@@ -182,7 +179,7 @@ class ModbusConnection(BaseConnection):
 
         return result
 
-    def _handle_mb_error(self):
+    def _handle_mb_error(self) -> None:
         error = self.connection.last_error()
         print(self.connection.last_except())
         if error == 2:
