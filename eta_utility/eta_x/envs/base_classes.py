@@ -1356,8 +1356,14 @@ class BaseEnvSim(BaseEnv, abc.ABC):
             * info: Provide some additional info about the state of the environment. The contents of this may
                 be used for logging purposes in the future but typically do not currently serve a purpose.
         """
-        if not self.action_space.contains(action):
-            raise RuntimeError(f"Action {action} ({type(action)}) is invalid. Not in action space.")
+        if self.action_space.shape != action.shape:
+            raise RuntimeError(
+                f"Agent action {action} (shape: {action.shape}) does not correspond to shape of environment action space (shape: {self.action_space.shape})."
+            )
+        elif not self.action_space.contains(action):
+            raise RuntimeError(
+                f"Action {action} ({type(action)}) is invalid. At least one of the actions is not in action space."
+            )
         self.n_steps += 1
 
         # Store actions
@@ -1374,7 +1380,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         # Check if the episode is over or not
         done = self.n_steps >= self.n_episode_steps or not step_success
 
-        observations = np.array(len(self.names["observations"]))
+        observations = np.empty(len(self.names["observations"]))
         for idx, name in enumerate(self.names["observations"]):
             observations[idx] = self.state[name]
 
@@ -1415,7 +1421,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         self.state.update(sim_result)
         self.state_log.append(self.state)
 
-        observations = np.array(len(self.names["observations"]))
+        observations = np.empty(len(self.names["observations"]))
         for idx, name in enumerate(self.names["observations"]):
             observations[idx] = self.state[name]
 
