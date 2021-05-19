@@ -7,7 +7,7 @@ import pathlib
 import re
 from datetime import datetime
 from functools import partial
-from typing import Any, Mapping, MutableMapping, Optional, Type
+from typing import Any, Mapping, MutableMapping, Optional, Type, Union
 
 import numpy as np
 from stable_baselines.common import BaseRLModel
@@ -62,11 +62,10 @@ def callback_environment(environment):
 class ETAx:
     """Initialize an optimization model and provide interfaces for optimization, learning and execution (play)
 
-    :param str config_name: name of configuration .ini file in configuration directory
+    :param root_path: Root path of the eta_x application (the configuration will be interpreted relative to this)
+    :param config_name: name of configuration .ini file in configuration directory
     :param config_overwrite: dictionary to overwrite selected configurations
-    :type config_overwrite: Mapping[str, Any]
-    :param relpath_config: relative path to configurations (from ETA X root directory)
-    :type relpath_config: str or os.Pathlike
+    :param relpath_config: relative path to configuration file, starting from root path (default: config/)
     """
 
     _req_settings = {
@@ -93,7 +92,13 @@ class ETAx:
         "agent_specific": {},
     }
 
-    def __init__(self, config_name, config_overwrite=None, relpath_config="config/"):
+    def __init__(
+        self,
+        root_path: Union[str, os.PathLike],
+        config_name: str,
+        config_overwrite: Mapping[str, Any] = None,
+        relpath_config: Union[str, os.PathLike] = "config/",
+    ):
         # initial states
         self._modules_imported = False
         self._environment_vectorized = False
@@ -108,8 +113,9 @@ class ETAx:
         self.run_description: Optional[str] = None  #: Description of the run
 
         # default paths
-        self.path_root: Optional[pathlib.Path] = pathlib.Path.cwd()  #: Root path of the application
-        self.path_config: Optional[pathlib.Path] = (
+        #: Root path of the application
+        self.path_root: pathlib.Path = root_path if isinstance(root_path, pathlib.Path) else pathlib.Path(root_path)
+        self.path_config: pathlib.Path = (
             self.path_root / relpath_config if not isinstance(relpath_config, pathlib.Path) else relpath_config
         ) / (
             config_name + ".json"
