@@ -1,5 +1,5 @@
 import abc
-from typing import Callable, Tuple
+from typing import Callable, List, Tuple
 
 import numpy as np
 from stable_baselines.common import BaseRLModel
@@ -26,7 +26,7 @@ class RuleBased(BaseRLModel, abc.ABC):
     def __init__(self, policy: NoPolicy, env: VecEnv, verbose: int = 4, **kwargs):
         # Ensure that arguments required by super class are always present
         if "requires_vec_env" not in kwargs:
-            kwargs["requires_vec_env"] = True
+            kwargs["requires_vec_env"] = False
         if "policy_base" not in kwargs:
             kwargs["policy_base"] = None
 
@@ -36,22 +36,40 @@ class RuleBased(BaseRLModel, abc.ABC):
         self.state = np.zeros(self.action_space.shape)
 
     @abc.abstractmethod
+    def control_rules(self, observation: np.ndarray) -> np.ndarray:
+        """This function is abstract and should be used to implement control rules which determine actions from
+        the received observations.
+
+        :param observation: Observations as provided by a single, non vectorized environment.
+        :return: Action values, as determined by the control rules
+        """
+
     def predict(
         self,
         observation: np.ndarray,
         state: np.ndarray = None,
         mask: np.ndarray = None,
-        deterministic: bool = False,
+        deterministic: bool = True,
     ) -> Tuple[np.ndarray, None]:
-        """Perform controller operations and return actions.
+        """Perform controller operations and return actions. It will take care of vectorization of environments.
+        This will call the control_rules method which should implement the control rules for a single environment.
 
-        :param observation: the input observation (not used here)
+        :param observation: the input observation
         :param state: The last states (not used here)
         :param mask: The last masks (not used here)
         :param deterministic: Whether or not to return deterministic actions. This agent always returns
-                                   deterministic actions
-        :return: Tuple of the model's action and the next state (not used here)
+                              deterministic actions
+        :return: Tuple of the model's action and the next state (state is typically None in this agent)
         """
+        if self._vectorize_action:
+            action = []
+            for obs in observation:
+                action.append(self.control_rules(obs))
+
+        else:
+            action = [self.control_rules(observation)]
+
+        return np.array(action), None
 
     @classmethod
     def load(cls, load_path: str, env: VecEnv = None, **kwargs):
@@ -63,7 +81,6 @@ class RuleBased(BaseRLModel, abc.ABC):
         :return: None
         """
         log.info("Rule based agents cannot load data. Loading will be ignored.")
-        return cls()
 
     def save(self, save_path: str, **kwargs):
         """Save model after training. Not implemented for the rule based agent.
