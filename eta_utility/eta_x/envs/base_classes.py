@@ -1252,7 +1252,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
 
         if errors:
             raise ValueError(
-                "Some configuration parameters do not conform to the Sim environment " "requirements (see log)."
+                "Some configuration parameters do not conform to the Sim environment requirements (see log)."
             )
 
         #: Number of simulation steps to be taken for each sample. This must be a divisor of 'sampling_time'.
@@ -1261,12 +1261,14 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         self.path_fmu: pathlib.Path = self.path_env / (self.fmu_name + ".fmu")
 
         #: Configuration for the FMU model parameters, that need to be set for initialization of the Model.
-        self.model_parameters: dict = self.env_settings["model_parameters"]
+        self.model_parameters: Optional[Mapping[str, Union[int, float]]] = self.env_settings.setdefault(
+            "model_parameters", None
+        )
 
         #: Instance of the FMU. This can be used to directly access the eta_utility.FMUSimulator interface.
         self.simulator: FMUSimulator
 
-    def _init_simulator(self, init_values: Mapping[str, float]):
+    def _init_simulator(self, init_values: Mapping[str, Union[int, float]]):
         """Initialize the simulator object. Make sure to call _names_from_state before this or to otherwise initialize
         the names array.
 
@@ -1274,7 +1276,6 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         object and reset it to the given initial values.
 
         :param init_values: Dictionary of initial values for some of the FMU variables
-        :type init_values: Mapping[str, Union[int, float]]
         """
 
         if hasattr(self, "simulator") and isinstance(self.simulator, FMUSimulator):
@@ -1297,10 +1298,8 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         state_config.
 
         :param state: state of the environment before the simulation
-        :type state: Mapping[str, float]
         :return: output of the simulation, boolean showing whether all simulation steps where successful, time elapsed
                  during simulation
-        :rtype: Tuple[Dict[str, float], bool, float]
         """
         # generate FMU input from current state
         step_inputs = []
