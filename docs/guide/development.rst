@@ -55,20 +55,20 @@ For test purposes the following command can be executed in the directory of the 
 
 This creates a folder named *_build* (inside the *docs* folder) which allows the HTML pages to be locally previewed. This folder will not be pushed in git. Re-execute this command each time after editing the *.rst-files* to see the change (you have to refresh the HTML page, too).
 
-.. image:: Pictures\\Bild13.png
+.. image:: Pictures/Bild13.png
    :width: 700
    :alt: successful HTML build
 
 .. note::
 	If this comes up instead, you probably have to add the sphinx-scripts to your PATH and restart cmd.
 
-	.. image:: Pictures\\Bild14.png
+	.. image:: Pictures/Bild14.png
    	   :width: 470
    	   :alt: error during HTML build
 
 	|
 
-	.. figure:: Pictures\\Bild12.png
+	.. figure:: Pictures/Bild12.png
    	   :scale: 13 %
    	   :alt: how add to PATH
 
