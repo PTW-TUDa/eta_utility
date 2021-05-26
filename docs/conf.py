@@ -55,3 +55,4 @@ html_theme = "sphinx_rtd_theme"  #'alabaster'
 html_static_path = ["_static"]
 
 autodoc_mock_imports = ["opcua", "numpy.random", "scipy", "tensorflow", "pandas", "opencv-python", "mpi4py"]
+autodoc_member_order = "groupwise"

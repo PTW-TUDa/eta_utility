@@ -7,11 +7,11 @@ Installation of Python
 ######################
 
 If you do not already have it, install Python (64 Bit) on your device. We recommend a version between 3.6.8 and 3.8.10. Newer versions should also work; however, they have not been tested in this context yet.
-The installation is below illustrated choosing Python 3.7, 64 Bit. You can install Python for Windows `here <https://www.python.org/downloads/windows/>`_ (e.g., an installation of Python 3.7.9).
+The installation is below illustrated choosing Python 3.7, 64 Bit. You can install Python for Windows from `python.org <https://www.python.org/downloads/windows/>`_ (e.g., an installation of Python 3.7.9).
 
 
 
-.. figure:: Pictures\\Bild1.png
+.. figure:: Pictures/Bild1.png
    :scale: 35 %
    :alt: Picture of possible download files
 
@@ -20,16 +20,16 @@ The installation is below illustrated choosing Python 3.7, 64 Bit. You can insta
 
 Do not forget to add Python to the environment variables of the device (in other words: Add Python to PATH). You should also install pip.
 
-.. |bild1| image:: Pictures\\Bild4.png
+.. |bild1| image:: Pictures/Bild4.png
    :width: 330
    :alt: install
-.. |bild2| image:: Pictures\\Bild2.png
+.. |bild2| image:: Pictures/Bild2.png
    :width: 330
    :alt: pip
-.. |bild3| image:: Pictures\\Bild3.png
+.. |bild3| image:: Pictures/Bild3.png
    :width: 330
    :alt: PATH
-.. |bild4| image:: Pictures\\Bild5.png
+.. |bild4| image:: Pictures/Bild5.png
    :width: 330
    :alt: finish
 
@@ -51,7 +51,7 @@ Please **skip this step** at first and let us know if it worked despite that. If
 
 * `Visual Studio Build Tools <https://visualstudio.microsoft.com/de/thank-you-downloading-visual-studio/?sku=BuildTools&rel=16>`_ (incl. C++ build tools)
 
-    .. figure:: Pictures\\Bild6.png
+    .. figure:: Pictures/Bild6.png
        :scale: 30 %
        :alt: What to choose during installation
 
@@ -106,13 +106,13 @@ As a developer, you first have to create a connection to the respective GitLab p
 Installation of Git and cloning the repository
 ----------------------------------------------
 
-If you do not already have it, install Git on your device. For Windows, you can download it from `here <https://git-scm.com/download/win>`_. Alternatively, it is also possible to use Git programs such as GitHub Windows or `GitHub Desktop <https://desktop.github.com/>`_.
+If you do not already have it, install Git on your device. For Windows, you can download it from `git-scm.com <https://git-scm.com/download/win>`_. Alternatively, it is also possible to use Git programs such as GitHub Windows or `GitHub Desktop <https://desktop.github.com/>`_.
 
 If you already use GitHub Windows or `GitHub Desktop <https://desktop.github.com/>`_, you already have Git on your device, but Git will not necessarily be assigned to PATH.
 In this case, you can skip the first Git-download from above and just add the path of git.exe to your environment variables by yourself (here is shown the path for git.exe in GitHub Desktop 2.6.3 added to the SYSTEM variables):
 
 
-.. figure:: Pictures\\Bild7.png
+.. figure:: Pictures/Bild7.png
    :scale: 11 %
    :alt: Adding git to PATH
 
@@ -153,13 +153,13 @@ After this, go to the root directory of the Git project and install the project 
 
    pip install -e .
 
-.. image:: Pictures\\Bild8.png
+.. image:: Pictures/Bild8.png
    :width: 700
    :alt: cmd install
 
 It might be that you will be asked again for your Git-Login.
 
-.. image:: Pictures\\Bild9.png
+.. image:: Pictures/Bild9.png
    :width: 300
    :alt: git login
 
@@ -194,7 +194,7 @@ Finally, do not forget to execute the following:
 
 before performing the first commits to the repository. This ensures that all pre-commit scripts will run correctly.
 
-.. image:: Pictures\\Bild10.png
+.. image:: Pictures/Bild10.png
     :width: 500
     :alt: git not added to PATH
 
@@ -203,7 +203,7 @@ before performing the first commits to the repository. This ensures that all pre
 
    If this comes up instead, you probably did not properly mapped the PATH of git in your system variables (see :ref:`Installation of Git and cloning the repository`):
 
-   .. image:: Pictures\\Bild11.png
+   .. image:: Pictures/Bild11.png
        :width: 700
        :alt: git not added to PATH
 

@@ -119,6 +119,81 @@ class Node:
         return self._url
 
     @classmethod
+    def from_dict(cls, dikt: Dict[str, Dict[str, str]]):
+        """Create nodes from a dictionary of node configurations. The configuration must specify the following
+        fields for each node:
+
+            * Code (or name), IP, Port, Protocol (modbus or opcua or eneffco).
+
+        For Modbus nodes the following additional fiels are required:
+
+            * ModbusRegisterType (or mb_register), ModbusSlave (or mb_slave), ModbusChannel (or mb_channel)
+
+        For OPC UA nodes the following additional fields are required:
+
+            * Identifier
+
+        For EnEffCo nodes the Code field must be present
+
+        The IP-Address should always be given without scheme (https://)
+
+        :param dikt: Configuration dictionary
+
+        :return: List of Node objects
+        """
+
+        nodes = []
+
+        def dict_get_any(dikt, *names):
+            for name in names:
+                if name in dikt:
+                    return dikt[name]
+            else:
+                raise KeyError(f"None of the requested keys are in the configuration: {names}")
+
+        for node in dikt.values():
+
+            netloc = str(dict_get_any(node, "IP")) + ":" + str(dict_get_any(node, "Port"))
+            name = dict_get_any(node, "Code", "name")
+
+            if dict_get_any(node, "Protocol").strip().lower() == "modbus":
+                scheme = "modbus.tcp"
+                protocol = dict_get_any(node, "Protocol").strip().lower()
+                mb_register = dict_get_any(node, "mb_register", "ModbusRegisterType")
+                mb_slave = int(dict_get_any(node, "mb_slave", "ModbusSlave"))
+                mb_channel = int(dict_get_any(node, "mb_channel", "ModbusChannel"))
+
+                url = scheme + "://" + netloc
+                nodes.append(
+                    cls(
+                        name,
+                        url,
+                        protocol,
+                        mb_register=mb_register,
+                        mb_slave=mb_slave,
+                        mb_channel=mb_channel,
+                    )
+                )
+
+            elif dict_get_any(node, "Protocol").strip().lower() == "opcua":
+                scheme = "opc.tcp"
+                protocol = dict_get_any(node, "Protocol").strip().lower()
+                opc_id = dict_get_any(node, "opc_id", "Identifier", "identifier")
+
+                url = scheme + "://" + netloc
+                nodes.append(cls(name, url, protocol, opc_id=opc_id))
+
+            elif dict_get_any(node, "Protocol").strip().lower() == "eneffco":
+                scheme = "https"
+                protocol = "eneffco"
+                code = dict_get_any(node, "Code", "code")
+
+                url = scheme + "://" + netloc
+                nodes.append(cls(name, url, protocol, eneffco_code=code))
+
+        return nodes
+
+    @classmethod
     def from_excel(cls, path: Union[pathlib.Path, str], sheet_name: str) -> List["Node"]:
         """
         Method to read out nodes from an excel document. The document must specify the following fields:
@@ -135,7 +210,7 @@ class Node:
 
         For EnEffCo nodes the Code field must be present
 
-            * The IP-Address for EnEffCo-nodes should be given without scheme (https://)
+        The IP-Address should always be given without scheme (https://)
 
         :param path: Path to excel document
         :param sheet_name: name of Excel sheet, which will be read out
@@ -146,47 +221,7 @@ class Node:
         file = path if isinstance(path, pathlib.Path) else pathlib.Path(path)
         input = pd.read_excel(file, sheet_name=sheet_name)
 
-        nodes = []
-        for _, node in input.iterrows():
-            netloc = node["IP"] + ":" + str(node["Port"])
-            name = node["Code"]
-
-            if node["Protocol"].strip().lower() == "modbus":
-                scheme = "modbus.tcp"
-                protocol = "modbus"
-                mb_register = node["ModbusRegisterType"]
-                mb_slave = int(node["ModbusSlave"])
-                mb_channel = int(node["ModbusChannel"])
-
-                url = scheme + "://" + netloc
-                nodes.append(
-                    cls(
-                        name,
-                        url,
-                        protocol,
-                        mb_register=mb_register,
-                        mb_slave=mb_slave,
-                        mb_channel=mb_channel,
-                    )
-                )
-
-            elif node["Protocol"].strip().lower() == "opcua":
-                scheme = "opc.tcp"
-                protocol = "opcua"
-                opc_id = node["Identifier"]
-
-                url = scheme + "://" + netloc
-                nodes.append(cls(name, url, protocol, opc_id=opc_id))
-
-            elif node["Protocol"].strip().lower() == "eneffco":
-                scheme = "https"
-                protocol = "eneffco"
-                code = node["Code"]
-
-                url = scheme + "://" + netloc
-                nodes.append(cls(name, url, protocol, eneffco_code=code))
-
-        return nodes
+        return cls.from_dict(input.to_dict("index"))
 
     @classmethod
     def get_eneffco_nodes_from_codes(cls, code_list: Sequence[str], eneffco_url: Optional[str]) -> List["Node"]:
