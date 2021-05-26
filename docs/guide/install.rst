@@ -7,7 +7,7 @@ Installation of Python
 ######################
 
 If you do not already have it, install Python (64 Bit) on your device. We recommend a version between 3.6.8 and 3.8.10. Newer versions should also work; however, they have not been tested in this context yet.
-The installation is below illustrated choosing Python 3.7, 64 Bit. You can install Python for Windows `here <https://www.python.org/downloads/windows/>`_ (e.g., an installation of Python 3.7.9).
+The installation is below illustrated choosing Python 3.7, 64 Bit. You can install Python for Windows from `python.org <https://www.python.org/downloads/windows/>`_ (e.g., an installation of Python 3.7.9).
 
 
 
@@ -106,7 +106,7 @@ As a developer, you first have to create a connection to the respective GitLab p
 Installation of Git and cloning the repository
 ----------------------------------------------
 
-If you do not already have it, install Git on your device. For Windows, you can download it from `here <https://git-scm.com/download/win>`_. Alternatively, it is also possible to use Git programs such as GitHub Windows or `GitHub Desktop <https://desktop.github.com/>`_.
+If you do not already have it, install Git on your device. For Windows, you can download it from `git-scm.com <https://git-scm.com/download/win>`_. Alternatively, it is also possible to use Git programs such as GitHub Windows or `GitHub Desktop <https://desktop.github.com/>`_.
 
 If you already use GitHub Windows or `GitHub Desktop <https://desktop.github.com/>`_, you already have Git on your device, but Git will not necessarily be assigned to PATH.
 In this case, you can skip the first Git-download from above and just add the path of git.exe to your environment variables by yourself (here is shown the path for git.exe in GitHub Desktop 2.6.3 added to the SYSTEM variables):
