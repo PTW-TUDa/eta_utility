@@ -1304,7 +1304,10 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         # generate FMU input from current state
         step_inputs = []
         for key in self.names["ext_inputs"]:
-            step_inputs.append(state[key] / self.ext_scale[key]["multiply"] - self.ext_scale[key]["add"])
+            try:
+                step_inputs.append(state[key] / self.ext_scale[key]["multiply"] - self.ext_scale[key]["add"])
+            except KeyError as e:
+                raise KeyError(f"{str(e)} is unavailable in environment state.") from e
 
         sim_time_start = time.time()
 
@@ -1316,7 +1319,6 @@ class BaseEnvSim(BaseEnv, abc.ABC):
             except Exception as e:
                 step_success = False
                 log.error(e)
-                pass
 
         # stop timer for simulation step time debugging
         sim_time_elapsed = time.time() - sim_time_start
@@ -1414,7 +1416,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         self._init_simulator(self.model_parameters)
 
         # Update scenario data, simulate one time step and store the results.
-        self.state = {}
+        self.state = {act: 0 for act in self.names["actions"]}
         self.state.update(self.get_scenario_state())
         sim_result, step_success, sim_time_elapsed = self.simulate(self.state)
         self.state.update(sim_result)
