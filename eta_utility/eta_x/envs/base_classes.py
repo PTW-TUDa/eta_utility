@@ -157,7 +157,7 @@ class BaseEnv(Env, abc.ABC):
 
         # Set some standard environment settings
         #: Configuration from the 'environment_specific' section. This contains scenario_time_begin and
-        #   end as datetime values
+        #:   end as datetime values
         self.env_settings: Dict[str, Any] = env_settings.copy()
         self.env_settings.update(
             {"scenario_time_begin": datetime.strptime(env_settings["scenario_time_begin"], "%Y-%m-%d %H:%M")}
@@ -177,7 +177,7 @@ class BaseEnv(Env, abc.ABC):
         #: Path for results storage
         self.path_results: pathlib.Path = pathlib.Path(self.path_settings["path_results"])
         #: Path for scenario storage (this does not include the individual scenario files as specified in the
-        #   environment config)
+        #:   environment config)
         self.path_scenarios: pathlib.Path = self.path_root / self.path_settings["relpath_scenarios"]
         #: Path of the environment file
         self.path_env: pathlib.Path = pathlib.Path(inspect.stack()[2].filename).parent
@@ -218,7 +218,7 @@ class BaseEnv(Env, abc.ABC):
         )
 
         #: The time series DataFrame contains all time series scenario data. It can be filled by the
-        #   import_scenario method.
+        #:   import_scenario method.
         self.timeseries: pd.DataFrame = pd.DataFrame()
         #: Data frame containing the currently valid range of time series data.
         self.ts_current: pd.DataFrame
@@ -245,43 +245,43 @@ class BaseEnv(Env, abc.ABC):
         )
 
         #: The configuration for the action and observation spaces. The values are used to control which variables are
-        #   part of the action space and observation space. Additionally the parameters can specify abort conditions
-        #   and the handling of values from interaction environments or from simulation. Therefore the state_config
-        #   is very important for the functionality of ETA X.
-        #
-        #  Some functions that operate on state_config:
-        #   The function append_state can be used to append values to the DataFrame. The function
-        #   _convert_state_config can be used to convert an incomplete DataFrame or a list of dictionaries into the full
-        #   standardized format.
-        #
-        #  Possible column names, their types and default values are:
-        #
-        #   * name: str, Name of the state variable (This must always be specified (no default))
-        #   * is_agent_action: bool, Should the agent specify actions for this variable? (default: False)
-        #   * is_agent_observation: bool, Should the agent be allowed to observe the value
-        #                                 of this variable? (default: False)
-        #   * ext_id: str, Name or identifier (order) of the variable in the external interaction model
-        #                  (e.g.: environment or FMU) (default: None)
-        #   * is_ext_input: bool, Should this variable be passed to the external model as an input? (default: False)
-        #   * is_ext_output: bool, Should this variable be parsed from the external model output? (default: False)
-        #   * ext_scale_add: int or float, Value to add to the output from an external model (default: 0)
-        #   * ext_scale_mult: int or float, Value to multiply to the output from an external model (default: 1)
-        #   * from_scenario: bool, Should this variable be read from imported timeseries date? (default: False)
-        #   * scenario_id: str, Name of the scenario variable, this value should be read from (default: None)
-        #   * low_value: int or float, lowest possible value of the state variable (default: None)
-        #   * high_value: int or float, highest possible value of the state variable (default: None)
-        #   * abort_condition_min: int or float, If value of variable dips below this, the episode
-        #                                        will be aborted (default: None)
-        #   * abort_condition_max: int or float, If value of variable rises above this, the episode
-        #                                        will be aborted (default: None)
-        #   * index: int, Specify, which Index this value should be read from, in case a list of values is returned.
-        #                 (default: 0)
+        #: part of the action space and observation space. Additionally the parameters can specify abort conditions
+        #: and the handling of values from interaction environments or from simulation. Therefore the state_config
+        #: is very important for the functionality of ETA X.
+        #:
+        #: Some functions that operate on state_config:
+        #: The function :func:`append_state` can be used to append values to the DataFrame. The function
+        #: :func:`_convert_state_config` can be used to convert an incomplete DataFrame or a list of dictionaries into
+        #: the full standardized format.
+        #:
+        #: Possible column names, their types and default values are:
+        #:
+        #:   * name: str, Name of the state variable (This must always be specified (no default))
+        #:   * is_agent_action: bool, Should the agent specify actions for this variable? (default: False)
+        #:   * is_agent_observation: bool, Should the agent be allowed to observe the value
+        #:     of this variable? (default: False)
+        #:   * ext_id: str, Name or identifier (order) of the variable in the external interaction model
+        #:     (e.g.: environment or FMU) (default: None)
+        #:   * is_ext_input: bool, Should this variable be passed to the external model as an input? (default: False)
+        #:   * is_ext_output: bool, Should this variable be parsed from the external model output? (default: False)
+        #:   * ext_scale_add: int or float, Value to add to the output from an external model (default: 0)
+        #:   * ext_scale_mult: int or float, Value to multiply to the output from an external model (default: 1)
+        #:   * from_scenario: bool, Should this variable be read from imported timeseries date? (default: False)
+        #:   * scenario_id: str, Name of the scenario variable, this value should be read from (default: None)
+        #:   * low_value: int or float, lowest possible value of the state variable (default: None)
+        #:   * high_value: int or float, highest possible value of the state variable (default: None)
+        #:   * abort_condition_min: int or float, If value of variable dips below this, the episode
+        #:     will be aborted (default: None)
+        #:   * abort_condition_max: int or float, If value of variable rises above this, the episode
+        #:     will be aborted (default: None)
+        #:   * index: int, Specify, which Index this value should be read from, in case a list of values is returned.
+        #:     (default: 0)
         self.state_config: pd.DataFrame = pd.DataFrame(columns=self.__state_config_cols.keys())
         self.state_config.set_index("name", drop=True, inplace=True)
         #: Array of shorthands to some frequently used variable names from state_config. .. seealso :: _names_from_state
         self.names: Dict[np.ndarray]
         #: Dictionary of scaling values for external input values (for example from simulations).
-        #  The structure of this dictionary is {"name": {"add": value, "multiply": value}}.
+        #:  The structure of this dictionary is {"name": {"add": value, "multiply": value}}.
         self.ext_scale: Dict[str, Dict[str, Union[int, float]]]
         #: Mapping of internatl environment names to external ids.
         self.map_ext_ids: Dict[str, str]
@@ -309,8 +309,7 @@ class BaseEnv(Env, abc.ABC):
 
         :param name: Name of the state variable
         :param kwargs: Column names and values to be inserted into the respective column. For possible columns, types
-                       and default values see state_config.
-                       .. seealso :: state_config
+                       and default values see state_config. See also: :func:`state_config`
         """
         append = {}
         for key, item in self.__state_config_cols.items():
@@ -437,7 +436,6 @@ class BaseEnv(Env, abc.ABC):
         The generated action space is continous.
 
         :return: Action space
-        :rtype: Tuple[space.Space, spaces.Space]
         """
         action_low = self.state_config.loc[self.state_config.is_agent_action == True].low_value.values  # noqa: E712
         action_high = self.state_config.loc[self.state_config.is_agent_action == True].high_value.values  # noqa: E712
@@ -589,8 +587,8 @@ class BaseEnv(Env, abc.ABC):
         data frame. The import function supports column renaming and will slice and resample data as specified.
 
         This is a shorthand for eta_utility.timeseries.scenarios.scenario_from_csv. See that function for more
-        information. This function sets some additional default parameters (i.e. scenario_time_begin)
-        ..seealso :: eta_utility.timeseries.scenarios.scenario_from_csv
+        information. This function sets some additional default parameters (i.e. scenario_time_begin). See also:
+        :func:`eta_utility.timeseries.scenarios.scenario_from_csv`
 
         :param paths: Path(s) to one or more CSV data files. The paths should be fully qualified.
         :param data_prefixes: If more than file is imported, a list of data_prefixes must be supplied such that
@@ -715,8 +713,8 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
 
         # Make some more settings easily accessible
         #: Total duration of one prediction/optimization run when used with the MPC agent.
-        #   This is automatically set to the value of episode_duration if it is not supplied
-        #   separately
+        #:   This is automatically set to the value of episode_duration if it is not supplied
+        #:   separately
         self.prediction_scope: int
         if "prediction_scope" not in self.settings:
             log.info("prediction_scope parameter is not present. Setting prediction_scope to episode_duration.")
@@ -730,24 +728,24 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         self._concrete_model: Union[pyo.ConcreteModel, None] = None  #: Concrete pyomo model as initialized by _model.
 
         #: Name of the "time" variable/set in the model (i.e. "T"). This is if the pyomo sets must be re-indexed when
-        #   updating the model between time steps. If this is None, it is assumed that no reindexing of the timeseries
-        #   data is required during updates - this is the default.
+        #:   updating the model between time steps. If this is None, it is assumed that no reindexing of the timeseries
+        #:   data is required during updates - this is the default.
         self.time_var: Optional[str] = None
 
         #: Updating indexed model parameters can be achieved either by updating only the first value of the actual
-        #   parameter itself or by having a separate handover parameter that is used for specifying only the first
-        #   value. The separate handover parameter can be denoted with an appended string. For example, if the actual
-        #   parameter is x.ON then the handover parameter could be x.ON_first. To use x.ON_first for updates, set the
-        #   nonindex_update_append_string to "_first". If the attribute is set to None, the first value of the
-        #   actual parameter (x.ON) would be updated instead.
+        #:   parameter itself or by having a separate handover parameter that is used for specifying only the first
+        #:   value. The separate handover parameter can be denoted with an appended string. For example, if the actual
+        #:   parameter is x.ON then the handover parameter could be x.ON_first. To use x.ON_first for updates, set the
+        #:   nonindex_update_append_string to "_first". If the attribute is set to None, the first value of the
+        #:   actual parameter (x.ON) would be updated instead.
         self.nonindex_update_append_string: Optional[str] = None
 
         #: Some models may not use the actual time increment (sampling_time). Instead they would translate into model
-        #   time increments (each sampling time increment equals a single model time step). This means that indices
-        #   of the model components simply count 1,2,3,... instead of 0, sampling_time, 2*sampling_time, ...
-        #   Set this to true, if model time increments (1, 2, 3, ...) are used. Otherwise sampling_time will be used
-        #   as the time increment. Note: This is only relevant for the first model time increment, later increments
-        #   may differ.
+        #:   time increments (each sampling time increment equals a single model time step). This means that indices
+        #:   of the model components simply count 1,2,3,... instead of 0, sampling_time, 2*sampling_time, ...
+        #:   Set this to true, if model time increments (1, 2, 3, ...) are used. Otherwise sampling_time will be used
+        #:   as the time increment. Note: This is only relevant for the first model time increment, later increments
+        #:   may differ.
         self._use_model_time_increments: bool = False
 
     @property
@@ -806,12 +804,12 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         :return: The return value represents the state of the environment after the step was performed.
 
             * observations: A numpy array with new observation values as defined by the observation space.
-                            Observations is a np.array() (numpy array) with floating point or integer values.
+              Observations is a np.array() (numpy array) with floating point or integer values.
             * reward: The value of the reward function. This is just one floating point value.
             * done: Boolean value specifying whether an episode has been completed. If this is set to true,
-                the reset function will automatically be called by the agent or by eta_i.
+              the reset function will automatically be called by the agent or by eta_i.
             * info: Provide some additional info about the state of the environment. The contents of this may
-                be used for logging purposes in the future but typically do not currently serve a purpose.
+              be used for logging purposes in the future but typically do not currently serve a purpose.
         :rtype: Tuple[np.ndarray, Union[np.float, SupportsFloat], bool, Union[str, Sequence[str]]]
         """
         if not self.action_space.contains(action):
@@ -1341,21 +1339,20 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         This also updates self.state and self.state_log to store current state information.
 
         .. warning::
-
-        This function always returns 0 reward. Therefore, it must be extended if it is to be used with reinforcement
-        learning agents. If you need to manipulate actions (discretization, policy shaping, ...) do this before calling
-        this function. If you need to manipulate observations and rewards, do this after calling this function.
+            This function always returns 0 reward. Therefore, it must be extended if it is to be used with reinforcement
+            learning agents. If you need to manipulate actions (discretization, policy shaping, ...) do this before calling
+            this function. If you need to manipulate observations and rewards, do this after calling this function.
 
         :param action: Actions to perform in the environment.
         :return: The return value represents the state of the environment after the step was performed.
 
             * observations: A numpy array with new observation values as defined by the observation space.
-                            Observations is a np.array() (numpy array) with floating point or integer values.
+              Observations is a np.array() (numpy array) with floating point or integer values.
             * reward: The value of the reward function. This is just one floating point value.
             * done: Boolean value specifying whether an episode has been completed. If this is set to true,
-                the reset function will automatically be called by the agent or by eta_i.
+              the reset function will automatically be called by the agent or by eta_i.
             * info: Provide some additional info about the state of the environment. The contents of this may
-                be used for logging purposes in the future but typically do not currently serve a purpose.
+              be used for logging purposes in the future but typically do not currently serve a purpose.
         """
         if self.action_space.shape != action.shape:
             raise RuntimeError(
