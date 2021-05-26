@@ -61,13 +61,13 @@ class RuleBased(BaseRLModel, abc.ABC):
                               deterministic actions
         :return: Tuple of the model's action and the next state (state is typically None in this agent)
         """
-        if self._vectorize_action:
+        if self._vectorize_action or self._is_vectorized_observation(observation, self.observation_space):
             action = []
             for obs in observation:
-                action.append(self.control_rules(obs))
+                action.append(np.array(self.control_rules(obs)))
 
         else:
-            action = [self.control_rules(observation)]
+            action = self.control_rules(observation)
 
         return np.array(action), None
 
