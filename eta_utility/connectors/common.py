@@ -16,6 +16,9 @@ from .opcua import OpcUaConnection
 class Node:
     """The node objects represents a single variable. Valid keyword arguments depend on the protocol
 
+    The url may contain the username and password (schema://username:password@hostname:port/path). This is handled
+    automatically by the connectors.
+
     :param name: Any name can be used to identify the node. It is used to identify the node, therefore it should
                      be unique.
     :param url: Valid url string according to the standard format. E.g.: opc.tcp://127.0.0.1:4840.

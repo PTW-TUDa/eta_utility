@@ -4,6 +4,7 @@
 
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
+from re import search
 from typing import Any, AnyStr, List, Mapping, NewType, Sequence, Set, Union
 from urllib.parse import urlparse
 
@@ -124,6 +125,10 @@ class SubscriptionHandler(ABC):
 class BaseConnection(ABC):
     """Base class with a common interface for all connection objects
 
+    The url may contain the username and password (schema://username:password@hostname:port/path). In this case, the
+    parameters usr and pwd are not required. The keyword parameters of the function will take precedence over username
+    and password configured in the url.
+
     :param url: URL of the server to connect to.
     :param usr: Username for login to server
     :param pwd: Password for login to server
@@ -133,13 +138,25 @@ class BaseConnection(ABC):
     def __init__(self, url: str, usr: str = None, pwd: str = None, *, nodes: Nodes = None) -> None:
         self._url = urlparse(url)
 
+        # Get username and password either from the arguments or from the parsed url string
         if type(usr) is not str and usr is not None:
             raise TypeError("Username should be a string value.")
-        self.usr = usr
+        elif usr is None and self._url.username is not None:
+            self.usr = self._url.username
+        else:
+            self.usr = usr
 
         if type(pwd) is not str and pwd is not None:
             raise TypeError("Password should be a string value.")
-        self.pwd = pwd
+        elif pwd is None and self._url.password is not None:
+            self.pwd = self._url.password
+        else:
+            self.pwd = pwd
+
+        # Find the "password-free" part of the netloc to prevent leaking secret info
+        if self._url.username is not None:
+            match = search("(?<=@).+$", self._url.netloc)
+            self._url.netloc = match.group() if match is not None else self._url.netloc
 
         if nodes is not None:
             if not hasattr(nodes, "__len__"):

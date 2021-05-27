@@ -1,6 +1,5 @@
 """ The FMUSimulator class enables easy simulation of FMU files.
 """
-import logging
 import pathlib
 import shutil
 from datetime import timedelta
@@ -12,7 +11,9 @@ from fmpy.fmi2 import FMU2Model, FMU2Slave
 from fmpy.simulation import apply_start_values
 from fmpy.sundials import CVodeSolver
 
-log = logging.getLogger("eta_utility.simulators.FMUSimulator")
+from eta_utility import get_logger
+
+log = get_logger("simulators.FMUSimulator")
 
 
 class FMUSimulator:
