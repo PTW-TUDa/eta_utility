@@ -49,7 +49,7 @@ class SubscriptionHandler(ABC):
         :param datetime timestamp: Datetime object to be rounded
         :return: Rounded datetime object with timezone information"""
         if timestamp.tzinfo is None:
-            timestamp = timestamp.replace(tzinfo=self._local_tz)
+            timestamp = self._local_tz.localize(timestamp)
         return timestamp
 
     def _convert_series(
@@ -65,6 +65,8 @@ class SubscriptionHandler(ABC):
                           timestamp can be None.
         :return: pd.Series with corresponding DatetimeIndex
         """
+        # todo timestamp entfernen
+        # todo resample to node.frequency
         # Check timestamp first
         # timestamp as datetime-index:
         if isinstance(timestamp, pd.DatetimeIndex):

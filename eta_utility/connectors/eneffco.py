@@ -40,6 +40,7 @@ class EnEffCoConnection(BaseSeriesConnection):
         self._sub = None
         self._subscription_nodes = set()
         self._subscription_open = False
+        self._local_tz = tzlocal.get_localzone()
 
     @classmethod
     def from_node(cls, node: Node, *, usr: str, pwd: str, api_token: str) -> "EnEffCoConnection":
@@ -67,6 +68,33 @@ class EnEffCoConnection(BaseSeriesConnection):
         intervals = time.timestamp() // interval
         return datetime.fromtimestamp(intervals * interval)
 
+    def _round_timestamp(self, timestamp: datetime, interval: int = 1) -> datetime:
+        """Helper method for rounding date time objects to specified interval in seconds.
+        The method will also add local timezone information if not already present.
+
+        :param datetime timestamp: Datetime object to be rounded
+        :param interval: Interval in seconds to be rounded to
+        :return: Rounded datetime object with timezone information
+        """
+        ts_store = self._assert_tz_awareness(timestamp)  # store previous information, include timezone information
+
+        # Round timestamp
+        intervals = timestamp.timestamp() // interval
+        timestamp = datetime.fromtimestamp(intervals * interval)
+
+        # Restore timezone information
+        timestamp = timestamp.replace(tzinfo=ts_store.tzinfo)
+        return timestamp
+
+    def _assert_tz_awareness(self, timestamp: datetime) -> datetime:
+        """Helper function to check if timestamp has timezone and if not assign local time zone.
+
+        :param datetime timestamp: Datetime object to be rounded
+        :return: Rounded datetime object with timezone information"""
+        if timestamp.tzinfo is None:
+            timestamp = self._local_tz.localize(timestamp)
+        return timestamp
+
     def read(self, nodes: Nodes = None) -> pd.DataFrame:
         """Download current value from the EnEffCo Database
 
@@ -75,25 +103,23 @@ class EnEffCoConnection(BaseSeriesConnection):
         """
         # Make sure that latest value is read depending on base time of node in EnEffCo
         nodes = self._validate_nodes(nodes)
-        info = self.read_info(nodes)
-        value = pd.DataFrame(index=[self.round_time(tzlocal.get_localzone().localize(datetime.now()), 1)])
+        values = pd.DataFrame()
         for node in nodes:
-            last_update = (
-                pd.to_datetime(info.at["LastUpdate", node.name]).tz_convert(tzlocal.get_localzone()).to_pydatetime()
+            request_url = "datapoint/{}/live".format(self.id_from_code(node.eneffco_code))
+            response = self._raw_request("GET", request_url)
+            response = response.json()
+
+            data = pd.DataFrame(
+                data=(r["Value"] for r in response),
+                index=pd.to_datetime([r["From"] for r in response], utc=True, format="%Y-%m-%dT%H:%M:%SZ").tz_convert(
+                    self._local_tz
+                ),
+                columns=[node.name],
+                dtype="float64",
             )
-            last_update = last_update.replace(tzinfo=None)
-            base_time = info.at["BaseTime", node.name]
-            data = self.read_series(
-                self.round_time(last_update, base_time) - timedelta(seconds=base_time),
-                self.round_time(last_update, base_time),
-                node,
-                timedelta(seconds=base_time),
-            )
-            if len(data) > 1:
-                # Check if data contains multiple rows, if so return only last row.
-                data = data.iloc[-1, :]
-            value.loc[value.index, node.name] = data.values
-        return value
+            data.index.name = "Time (with timezone)"
+            values = pd.concat([values, data], axis=1, sort=False)
+        return values
 
     def write(
         self, values: Mapping[Node, Mapping[datetime, Any]], time_interval: timedelta = timedelta(seconds=1)
@@ -120,23 +146,25 @@ class EnEffCoConnection(BaseSeriesConnection):
             )
             log.info(response.text)
 
-    def _prepare_raw_data(self, data: Mapping[datetime, Any], time_interval: timedelta) -> Dict[str, str]:
+    def _prepare_raw_data(self, data: Mapping[datetime, Any], time_interval: timedelta) -> str:
         """Change the input format into a compatible format with EnEffCo
 
         :param data: Data to write to node {time: value}. Could be a dictionary or a pandas Series.
         :param time_interval: Interval between datapoints (i.e. between "From" and "To" in EnEffCo Upload)
 
-        :return upload_data: Dictionary in the format for the upload to EnEffCo
+        :return upload_data: String from dictionary in the format for the upload to EnEffCo
         """
 
         if type(data) is Dict or isinstance(data, pd.Series):
             upload_data = {"Values": []}
             for time, val in data.items():
+                time = self._assert_tz_awareness(time)
+                time = pd.Timestamp(time).tz_convert("UTC")
                 upload_data["Values"].append(
                     {
                         "Value": float(val),
-                        "From": (time - time_interval).strftime("%Y-%m-%d %H:%M:%S"),
-                        "To": time.strftime("%Y-%m-%d %H:%M:%S"),
+                        "From": time.strftime("%Y-%m-%d %H:%M:%SZ"),
+                        "To": (time + time_interval).strftime("%Y-%m-%d %H:%M:%SZ"),
                     }
                 )
 
@@ -219,7 +247,7 @@ class EnEffCoConnection(BaseSeriesConnection):
             data = pd.DataFrame(
                 data=(r["Value"] for r in response),
                 index=pd.to_datetime([r["From"] for r in response], utc=True, format="%Y-%m-%dT%H:%M:%SZ").tz_convert(
-                    tzlocal.get_localzone()
+                    self._local_tz
                 ),
                 columns=[node.name],
                 dtype="float64",
@@ -249,7 +277,7 @@ class EnEffCoConnection(BaseSeriesConnection):
                          It it interpreted as seconds when given as an integer.
         :param nodes: identifiers for the nodes to subscribe to
         """
-
+        # todo umbenennen: req_interval = data_interval, data_interval = resolution; take these attributes from node; same in subscribe
         nodes = self._validate_nodes(nodes)
 
         interval = interval if isinstance(interval, timedelta) else timedelta(seconds=interval)
