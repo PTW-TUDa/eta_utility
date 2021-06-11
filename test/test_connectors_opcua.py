@@ -64,10 +64,11 @@ class TestOPCUA1:
 
 
 class TestOPCUA2:
+
     _server = OpcUaServer(6)
     _connection = OpcUaConnection(_server.url, "admin", nodes=_node)
 
-    def test_create_nodes_on_server_and_write_values(self):
+    def test_for_opcua_server_and_client_write(self):
         TestOPCUA2._connection.create_nodes({_node, _node2})
         values = {_node: 16, _node2: 56}
         TestOPCUA2._connection.write(values)

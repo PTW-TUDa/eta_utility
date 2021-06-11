@@ -490,7 +490,7 @@ class ETAx:
             log.info("Model initialized successfully.")
             return self._model_initialized
 
-    def load_model(self, path_run_model: Optional[pathlib.Path] = None) -> bool:
+    def load_model(self, path_run_model: Path = None) -> bool:
         """Load an existing model
 
         :param path_run_model: Load model from specified path instead of the path defined in configuration
@@ -533,7 +533,7 @@ class ETAx:
 
         return self._model_initialized
 
-    def save_model(self, path_run_model: Optional[pathlib.Path] = None) -> None:
+    def save_model(self, path_run_model: Path = None) -> None:
         """Save model to file
 
         :param path_run_model: Save model to specified path instead of the path defined in configuration
@@ -545,7 +545,7 @@ class ETAx:
 
         self.model.save(self.path_run_model)
 
-    def log_run_info(self, path_run_info: Optional[pathlib.Path] = None) -> None:
+    def log_run_info(self, path_run_info: Path = None) -> None:
         """Save run config to result series directory
 
         :param path_run_info: Save run information to specified path instead of the path defined in configuration

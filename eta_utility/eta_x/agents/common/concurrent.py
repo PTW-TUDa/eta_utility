@@ -135,7 +135,7 @@ class ProcessPool(Pool):
     def __init__(self, *args: Any, seed_sequence: Optional[np.random.SeedSequence] = None, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-        self._rngs: List[Generator] = self._setup_rngs(seed_sequence)
+        self._rngs: List[np.random.BitGenerator] = self._setup_rngs(seed_sequence)
 
     def _repopulate_pool(self) -> None:
         """Bring the number of pool processes up to the specified number,
