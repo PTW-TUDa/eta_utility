@@ -77,7 +77,6 @@ class OpcUaConnection(BaseConnection):
                     value = opcua_variable.get_value()
                     values[node.name] = value
                 except RuntimeError as e:
-                    log.warning(f"{str(e)} for NodeID {node.opc_id}")
                     raise ConnectionError(str(e)) from e
 
         return pd.DataFrame(values, index=[tzlocal.get_localzone().localize(datetime.now())])
