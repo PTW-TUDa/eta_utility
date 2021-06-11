@@ -1,141 +1,108 @@
 import datetime
-import time
+from test.test_utilities.pyOPCUA.client import Client
+from test.test_utilities.pyOPCUA.nodes import OPCUANodes as nodes
 
+import opcua.ua.uaerrors
 import pandas as pd
 from pytest import raises
 
-from eta_utility.connectors import Node
 from eta_utility.connectors.opcua import OpcUaConnection
 from eta_utility.servers.opcua import OpcUaServer
 
-
-def test_opcua_failures():
-    """Test opcua failures"""
-
-    node_fail = Node(
-        "Serv.NodeName",
-        "opc.tcp://someurl:48050",
-        "opcua",
-        opc_id="ns=6;s=.Test_Namespace.Node" ".Drehzahl",
-    )
-    node = Node(
-        "Serv.NodeName2",
-        "opc.tcp://10.0.0.1:48050",
-        "opcua",
-        opc_id="ns=6;s=.Test_Namespace.Node2",
-    )
-
-    server_fail = OpcUaConnection(node_fail.url)
-
-    with raises(ConnectionError):
-        server_fail.read(node_fail)
-
-    server = OpcUaConnection(node.url)
-
-    # Reading without specifying nodes raises Value Error
-    with raises(ValueError):
-        server.read()
+_node = nodes.node
+_node2 = nodes.node2
+_node_fail = nodes.node_fail
 
 
-def test_opcua_read(monkeypatch):
-    """Test opcua read function without network access"""
+class TestOPCUA1:
+    def test_opcua_failures(self):
+        """Test opcua failures"""
+        server_fail = OpcUaConnection(_node_fail.url)
 
-    def mock_connect():
-        pass
+        with raises(ConnectionError):
+            server_fail.read(_node_fail)
 
-    class MockNode:
-        def get_value(self):
-            return 2858.0
+        server = OpcUaConnection(_node.url)
 
-    def mock_get_node(node):
-        return MockNode()
+        # Reading without specifying nodes raises Value Error
+        with raises(ValueError):
+            server.read()
 
-    node = Node(
-        "Serv.NodeName",
-        "opc.tcp://10.0.0.1:48050",
-        "opcua",
-        opc_id="ns=6;s=.Some_Namespace.Node1",
-    )
-    node2 = Node(
-        "Serv.NodeName2",
-        "opc.tcp://10.0.0.1:48050",
-        "opcua",
-        opc_id="ns=6;s=.Some_Namespace.Node2",
-    )
+    def test_opcua_read(self, monkeypatch):
+        """Test opcua read function without network access"""
 
-    # Test reading a single node
-    server = OpcUaConnection(node.url)
-    monkeypatch.setattr(server.connection, "connect", mock_connect)
-    monkeypatch.setattr(server.connection, "get_node", mock_get_node)
-    res = server.read(node)
+        # Test reading a single node
+        server = OpcUaConnection(_node.url)
+        mock_opcua_client = Client(server.url)
+        monkeypatch.setattr(server, "connection", mock_opcua_client)
+        res = server.read(_node)
 
-    check = pd.DataFrame(
-        data=[2858.00000],
-        index=[datetime.datetime.now()],
-        columns=["Serv.NodeName"],
-    )
-    assert check.columns == res.columns
-    assert check["Serv.NodeName"].values == res["Serv.NodeName"].values
-    assert isinstance(res.index, pd.DatetimeIndex)
+        check = pd.DataFrame(
+            data=[2858.00000],
+            index=[datetime.datetime.now()],
+            columns=["Serv.NodeName"],
+        )
+        assert check.columns == res.columns
+        assert check["Serv.NodeName"].values == res["Serv.NodeName"].values
+        assert isinstance(res.index, pd.DatetimeIndex)
 
-    # Test reading multiple nodes
-    server = OpcUaConnection(node.url, nodes=[node, node2])
-    monkeypatch.setattr(server.connection, "connect", mock_connect)
-    monkeypatch.setattr(server.connection, "get_node", mock_get_node)
-    res = server.read()
+    def test_opcua_read_multiple_nodes(self, monkeypatch):
+        # Test reading multiple nodes
+        server = OpcUaConnection(_node.url, nodes=[_node, _node2])
+        mock_opcua_client = Client(server.url)
+        monkeypatch.setattr(server, "connection", mock_opcua_client)
+        res = server.read()
 
-    check = pd.DataFrame(
-        data={"Serv.NodeName": [2858.00000], "Serv.NodeName2": [2858.00000]},
-        index=[datetime.datetime.now()],
-    )
+        check = pd.DataFrame(
+            data={"Serv.NodeName": [2858.00000], "Serv.NodeName2": [2858.00000]},
+            index=[datetime.datetime.now()],
+        )
 
-    assert set(check.columns) == set(res.columns)
-    assert check["Serv.NodeName"].values == res["Serv.NodeName"].values
-    assert isinstance(res.index, pd.DatetimeIndex)
+        assert set(check.columns) == set(res.columns)
+        assert check["Serv.NodeName"].values == res["Serv.NodeName"].values
+        assert isinstance(res.index, pd.DatetimeIndex)
 
 
-def test_opcua_server_and_client_write():
-    # Create server and nodes
-    server = OpcUaServer(6)
-    node = Node(
-        "Serv.NodeName",
-        "opc.tcp://localhost:4840",
-        "opcua",
-        opc_id="ns=6;s=.Some_Namespace.Name0",
-    )
-    node2 = Node(
-        "Serv.NodeName2",
-        "opc.tcp://localhost:4840",
-        "opcua",
-        opc_id="ns=6;s=.Some_Namespace.Name1",
-    )
+class TestOPCUA2:
+    _server = OpcUaServer(6)
+    _connection = OpcUaConnection(_server.url, "admin", nodes=_node)
 
-    # Create a connection and some values
-    time.sleep(5)
-    connection = OpcUaConnection(server.url, "admin", nodes=node)
-    values = {node: 16, node2: 56}
+    def test_create_nodes_on_server_and_write_values(self):
+        TestOPCUA2._connection.create_nodes({_node, _node2})
+        values = {_node: 16, _node2: 56}
+        TestOPCUA2._connection.write(values)
+        assert int(TestOPCUA2._connection.read(_node)[_node.name].iloc[0]) == 16
 
-    # Try creating nodes on the server and writing to them
-    connection.create_nodes({node, node2})
-    connection.write(values)
-    assert int(connection.read(node)[node.name].iloc[0]) == 16
+    def test_recreate_already_existing_node(self, caplog):
+        # Create Node that already exists
+        TestOPCUA2._connection.create_nodes(_node)
+        assert f"Node with NodeId : {_node.opc_id} could not be created. It already exists." in caplog.text
 
-    # Delete one of the nodes and check that the other one remains
-    connection.delete_nodes(node)
-    with raises(ConnectionError):
-        connection.read(node)
-    assert int(connection.read(node2)[node2.name].iloc[0]) == 56
+    def test_read_non_existent_node(self):
+        # Read from a node that does not exist
+        with raises(ConnectionError) as e:
+            TestOPCUA2._connection.read(_node_fail)
+            assert e == opcua.ua.uaerrors.BadNodeIdUnknown
 
-    # Use the server to recreate the first node and to write some different values
-    server.create_nodes(node)
-    values = {node: 19, node2: 46}
-    server.write(values)
-    assert int(connection.read(node)[node.name].iloc[0]) == 19
-    assert int(connection.read(node2)[node2.name].iloc[0]) == 46
+    def test_delete_one_node_check_for_another(self):
+        # Delete one of the nodes and check that the other one remains
+        TestOPCUA2._connection.delete_nodes(_node)
+        with raises(ConnectionError):
+            TestOPCUA2._connection.read(_node)
+        assert int(TestOPCUA2._connection.read(_node2)[_node2.name].iloc[0]) == 56
 
-    # Finally delete all those nodes using the server
-    server.delete_nodes({node, node2})
-    with raises(ConnectionError):
-        connection.read(node)
+    def test_server_recreate_first_node_write_diff_value(self):
+        # Use the server to recreate the first node and to write some different values
+        TestOPCUA2._server.create_nodes(_node)
+        values = {_node: 19, _node2: 46}
+        TestOPCUA2._server.write(values)
+        assert int(TestOPCUA2._connection.read(_node)[_node.name].iloc[0]) == 19
+        assert int(TestOPCUA2._connection.read(_node2)[_node2.name].iloc[0]) == 46
 
-    server.stop()
+    def test_delete_all_nodes(self):
+        # Finally delete all those nodes using the server
+        TestOPCUA2._server.delete_nodes({_node, _node2})
+        with raises(ConnectionError):
+            TestOPCUA2._connection.read(_node)
+
+        TestOPCUA2._server.stop()

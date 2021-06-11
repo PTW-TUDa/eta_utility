@@ -13,7 +13,18 @@ from multiprocessing.pool import (  # noqa
     _helper_reraises_exception,
 )
 from operator import methodcaller
-from typing import Any, Callable, Iterable, List, Mapping, Sequence, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Generator,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 import numpy as np
 
@@ -26,20 +37,20 @@ cpu_count = mp.cpu_count
 def pool_worker(
     inqueue: mp.SimpleQueue,
     outqueue: mp.SimpleQueue,
-    initializer: Callable = None,
+    initializer: Optional[Callable] = None,
     initargs: Tuple[Any] = (),
-    maxtasks: int = None,
+    maxtasks: Optional[int] = None,
     wrap_exception: bool = False,
 ) -> None:
     """Worker function for process pool members. Runs in a loop and waits until new tasks arrive.
     Pass None through the inqueue to stop interrupt the loop.
 
-    :param mp.SimpleQueue inqueue: Queue for incoming tasks
-    :param mp.SimpleQueue outqueue: Queue for outgoing results
-    :param Callable initializer: Function to be called upon process startup
-    :param Tuple[Any] initargs: Arguments for initilizer function
-    :param int maxtasks: Maximum number of tasks to perform before terminating process
-    :param bool wrap_exception: Wrap exception tracebacks
+    :param inqueue: Queue for incoming tasks
+    :param outqueue: Queue for outgoing results
+    :param initializer: Function to be called upon process startup
+    :param initargs: Arguments for initilizer function
+    :param maxtasks: Maximum number of tasks to perform before terminating process
+    :param wrap_exception: Wrap exception tracebacks
     :return:
     """
     if (maxtasks is not None) and not (isinstance(maxtasks, int) and maxtasks >= 1):
@@ -116,17 +127,17 @@ class ProcessPool(Pool):
     The implementation only has a working "map" function. Other functions of multiprocessing.Pool will raise
     NotImplementedError.
 
-    :param np.random.SeedSequence seed_sequence: Numpy random number seed sequence to use within processes
+    :param seed_sequence: Numpy random number seed sequence to use within processes
     :param args: Arguments for the multiprocessing.Pool class
     :param kwargs: Keyword parameters for the multiprocessing.Pool class.
     """
 
-    def __init__(self, *args, seed_sequence: np.random.SeedSequence = None, **kwargs):
+    def __init__(self, *args: Any, seed_sequence: Optional[np.random.SeedSequence] = None, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-        self._rngs = self._setup_rngs(seed_sequence)
+        self._rngs: List[Generator] = self._setup_rngs(seed_sequence)
 
-    def _repopulate_pool(self):
+    def _repopulate_pool(self) -> None:
         """Bring the number of pool processes up to the specified number,
         for use after reaping workers which have exited.
         """
@@ -148,7 +159,7 @@ class ProcessPool(Pool):
             w.start()
             util.debug("added worker")
 
-    def _guarded_task_generation(self, result_job, func, iterable, method, args, kwargs):
+    def _guarded_task_generation(self, result_job, func, iterable, method, args, kwargs) -> None:
         try:
             i = -1
             for i, iter_ in enumerate(iterable):
@@ -162,31 +173,28 @@ class ProcessPool(Pool):
     def map(
         self,
         func: Union[str, Callable],
-        iterable: Iterable,
-        chunksize: int = None,
+        iterable: Iterable[Any],
+        chunksize: Optional[int] = None,
         *,  # noqa
         args: Iterable = (),
-        kwargs: Mapping = None,
+        kwargs: Optional[Mapping] = None,
         method: str = "return",
-        callback: Callable = None,
-        error_callback: Callable = None,
+        callback: Optional[Callable] = None,
+        error_callback: Optional[Callable] = None,
     ) -> Sequence:
         """Perform parallel mapping operation with func on iterable. Uses arguments and kwarguments for the
         function call.
 
-        :param Callable func: A callable object to apply to all elements of iterable
-        :param Iterable[Any] iterable: An iterable object
-        :param int chunksize: Chunksize for spreading workload between processes
+        :param func: A callable object to apply to all elements of iterable
+        :param iterable: An iterable object
+        :param chunksize: Chunksize for spreading workload between processes
         :param args: List or tuple of additional arguments for the function
-        :type args: Iterable
         :param kwargs: Dictionary or namedtuple of additional keyword arguments for the function
-        :type kwargs: Mapping
-        :param str method: Either return of modify. Determines whether return values are used or the object is modified
+        :param method: Either return of modify. Determines whether return values are used or the object is modified
                            in place. Append "_rng" to pass a pseudo random number generator to the process
         :param Callable callback: Called after processing
         :param Callable error_callback: Called after error
         :return: Modified Sequence
-        :rtype: Sequence
         """
         assert method in {"return", "modify", "return_rng", "modify_rng"}
         if self._state != RUN:  # noqa
@@ -232,12 +240,12 @@ class ProcessPool(Pool):
 
         return return_result
 
-    def _setup_rngs(self, seed_sequence: np.random.SeedSequence) -> List[np.random.Generator]:
+    def _setup_rngs(self, seed_sequence: np.random.SeedSequence) -> List[np.random.BitGenerator]:
         """Take a seed sequence from numpy and set up corresponding, non overlapping random number generators
             for each processor
 
         :param np.random.SeedSequence seed_sequence: Original seed sequence
-        :return: List[np.random.Generator]
+        :return: list of numpy random number generators
         """
 
         if seed_sequence is not None:
@@ -252,19 +260,19 @@ class ProcessPool(Pool):
 
         return rngs
 
-    def imap(self, *args, **kwargs):
+    def imap(self, *args, **kwargs) -> None:
         """Imap is not implemented in this version of the process pool."""
         raise NotImplementedError("Imap is not implemented in this version of the process pool.")
 
-    def imap_unordered(self, *args, **kwargs):
+    def imap_unordered(self, *args, **kwargs) -> None:
         """Unordered imap is not implemented in this version of the process pool."""
 
         raise NotImplementedError("Unordered imap is not implemented in this version of the process pool.")
 
-    def apply_async(self, *args, **kwargs):
+    def apply_async(self, *args, **kwargs) -> None:
         """Asynchronous apply is not implemented in this version of the process pool."""
         raise NotImplementedError("Asynchronous apply is not implemented in this version of the process pool.")
 
-    def _map_async(self, *args, **kwargs):
+    def _map_async(self, *args, **kwargs) -> None:
         """This is not implemented. Since it's the backend of all mapping functions, none of those will work."""
         raise NotImplementedError("Asynchronous map is not implemented in this version of the process pool.")

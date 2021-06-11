@@ -1,13 +1,17 @@
+import pathlib
 import sys
-from typing import Sequence, Tuple
+from typing import Any, Callable, List, Optional, Sequence, Tuple, Union
 
+import gym
 import numpy as np
 import pyomo.environ as pyo
 from pyomo import opt
 from stable_baselines.common import BaseRLModel
+from stable_baselines.common.policies import BasePolicy
 from stable_baselines.common.vec_env import VecNormalize
 
 from eta_utility import get_logger
+from eta_utility.type_hints.custom_types import Path
 
 log = get_logger("eta_x.agents")
 
@@ -21,14 +25,21 @@ class MPCBasic(BaseRLModel):
     and observation_space specified by the environment.
 
     :param policy: Agent policy. Parameter is not used in this agent
-    :type policy: stable_baselines.common.policies.BasePolicy
-    :param gym.Env env: Environment to be optimized
-    :param int verbose: Logging verbosity
-    :param str solver_name: Name of the solver, could be cplex or glpk
+    :param env: Environment to be optimized
+    :param verbose: Logging verbosity
+    :param solver_name: Name of the solver, could be cplex or glpk
     :param kwargs: Additional arguments as specified in stable_baselins.BaseRLModel or as provided by solver
     """
 
-    def __init__(self, policy, env, verbose=4, *, solver_name="cplex", **kwargs):
+    def __init__(
+        self,
+        policy: BasePolicy,
+        env: gym.Env,
+        verbose: int = 4,
+        *,
+        solver_name: str = "cplex",
+        **kwargs,
+    ) -> None:
 
         # Prepare kwargs to be sent to the super class and to the solver.
         super_args = {}
@@ -65,28 +76,27 @@ class MPCBasic(BaseRLModel):
             raise TypeError("The MPC agent does not allow the use of normalized environments.")
 
         # Solver parameters
-        self.solver_name = solver_name
-        self.solver_options = {}
+        self.solver_name: str = solver_name
+        self.solver_options: dict = {}
         self.solver_options.update(solver_args)
 
         # Stepping parameters
-        self._current_shift = 0  #: Current shift determines the current optimization step. Starting value 0 should
+        self._current_shift: int = 0  #: Current shift determines the current optimization step. Starting value 0 should
         # not be changed  # noqa
 
         self.model: pyo.ConcreteModel  #: Pyomo optimization model as specified by the environment.
         self.actions_order: Sequence[str]  #: Specification of the order in which action values should be returned.
         self.model, self.actions_order = self.setup_model()
 
-    def setup_model(self):
+    def setup_model(self) -> List[Any]:
         """Load the MILP model from the environment"""
         return self.env.get_attr("model", 0)[0]
 
-    def solve(self):
+    def solve(self) -> pyo.ConcreteModel:
         """Solve the current pyomo model instance with given parameters. This could also be used separately to solve
         normal MILP problems. Since the entire problem instance is returned, result handling can be outsourced.
 
         :return: Solved pyomo model instance
-        :rtype: pyo.ConcreteModel
         """
         solver = pyo.SolverFactory(self.solver_name)
         solver.options.update(self.solver_options)  # Adjust solver settings
@@ -140,17 +150,22 @@ class MPCBasic(BaseRLModel):
 
         return self.model
 
-    def predict(self, observation, state=None, mask=None, deterministic=False):
+    def predict(
+        self,
+        observation: np.ndarray,
+        state: Optional[np.ndarray] = None,
+        mask: Optional[np.ndarray] = None,
+        deterministic: bool = False,
+    ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
         """
         Solve the current pyomo model instance with given parameters and observations and return the optimal actions
 
-        :param np.ndarray observation: the input observation (not used here)
-        :param np.ndarray state: The last states (not used here)
-        :param np.ndarray mask: The last masks (not used here)
-        :param bool deterministic: Whether or not to return deterministic actions. This agent always returns
+        :param observation: the input observation (not used here)
+        :param state: The last states (not used here)
+        :param mask: The last masks (not used here)
+        :param deterministic: Whether or not to return deterministic actions. This agent always returns
                                    deterministic actions
         :return: Tuple of the model's action and the next state (not used here)
-        :rtype: Tuple[np.ndarray, None]
         """
         self.model, _ = self.env.get_attr("model", 0)[0]
         self.solve()
@@ -171,35 +186,49 @@ class MPCBasic(BaseRLModel):
 
         return actions, state
 
-    def action_probability(self, observation, state=None, mask=None, actions=None, logp=False):
+    def action_probability(
+        self,
+        observation: np.ndarray,
+        state: Optional[np.ndarray] = None,
+        mask: Optional[np.ndarray] = None,
+        actions: Optional[np.ndarray] = None,
+        logp: bool = False,
+    ) -> None:
         """The MPC approach cannot predict probabilities of single actions."""
         raise NotImplementedError("The MPC agent cannot predict probabilities of single actions.")
 
-    def learn(self, total_timesteps, callback=None, seed=None, log_interval=100, tb_log_name="MPCSimple"):
+    def learn(
+        self,
+        total_timesteps: int,
+        callback: Optional[Callable] = None,
+        seed: Optional[int] = None,
+        log_interval: int = 100,
+        tb_log_name: str = "MPCSimple",
+    ) -> None:
         """The MPC approach cannot learn a new model. Specify the model attribute as a pyomo Concrete model instead,
         to use the prediction function of this agent.
 
         """
         raise NotImplementedError("The MPC_simple approach does not need to learn a model.")
 
-    def save(self, save_path, **kwargs):
+    def save(self, save_path: Path, **kwargs) -> None:
         """Saving is currently not implemented for the MPC agent."""
         raise NotImplementedError("The MPC approach creates no savable model.")
 
-    def load(self, load_path, **kwargs):
+    def load(self, load_path: Path, **kwargs) -> None:
         """Loading a model is currently not implemented for the MPC agent."""
         raise NotImplementedError("The MPC approach cannot load a model.")
 
-    def get_parameter_list(self):
+    def get_parameter_list(self) -> List:
         """
         Get tensorflow Variables of model's parameters
 
         This includes all variables necessary for continuing training (saving / loading).
 
-        :return: (list) List of tensorflow Variables
+        :return: List of tensorflow Variables
         """
         pass
 
-    def _get_pretrain_placeholders(self):
+    def _get_pretrain_placeholders(self) -> None:
         """Pretaining is not implemented for the MPC agent."""
         raise NotImplementedError("The MILP Optimizer does not need to be pre-trained.")

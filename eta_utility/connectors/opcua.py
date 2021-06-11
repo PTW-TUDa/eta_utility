@@ -1,18 +1,21 @@
 """ The OPC UA module provides utilities for the flexible creation of OPC UA connections.
 
 """
+import asyncio
 import socket
 from contextlib import contextmanager
 from datetime import datetime, timedelta
-from typing import Any, Mapping, Union
+from typing import Any, Mapping, Optional
 
+import opcua.ua.uaerrors
 import pandas as pd
 import tzlocal
 from opcua import Client, ua
 
 from eta_utility import get_logger
+from eta_utility.type_hints.custom_types import Node, Nodes, TimeStep
 
-from .base_classes import BaseConnection, Node, Nodes, SubscriptionHandler
+from .base_classes import BaseConnection, SubscriptionHandler
 
 log = get_logger("connectors.opcua")
 
@@ -25,14 +28,16 @@ class OpcUaConnection(BaseConnection):
     :param nodes: List of nodes to use for all operations.
     """
 
-    def __init__(self, url: str, usr: str = None, pwd: str = None, *, nodes: Nodes = None) -> None:
+    def __init__(
+        self, url: str, usr: Optional[str] = None, pwd: Optional[str] = None, *, nodes: Optional[Nodes] = None
+    ) -> None:
         super().__init__(url, usr, pwd, nodes=nodes)
 
         if self._url.scheme != "opc.tcp":
             raise ValueError("Given URL is not a valid OPC url (scheme: opc.tcp)")
 
-        self.connection = Client(self.url)
-        self._sub = None
+        self.connection: opcua.Client = Client(self.url)
+        self._sub: Optional[asyncio.Task] = None
 
     @classmethod
     def from_node(cls, node: Node, **kwargs: Any) -> "OpcUaConnection":
@@ -52,7 +57,7 @@ class OpcUaConnection(BaseConnection):
                 "protocol: {}.".format(node.name)
             )
 
-    def read(self, nodes: Nodes = None) -> pd.DataFrame:
+    def read(self, nodes: Optional[Nodes] = None) -> pd.DataFrame:
         """
         Read some manually selected values from OPCUA capable controller
 
@@ -72,6 +77,7 @@ class OpcUaConnection(BaseConnection):
                     value = opcua_variable.get_value()
                     values[node.name] = value
                 except RuntimeError as e:
+                    log.warning(f"{str(e)} for NodeID {node.opc_id}")
                     raise ConnectionError(str(e)) from e
 
         return pd.DataFrame(values, index=[tzlocal.get_localzone().localize(datetime.now())])
@@ -103,7 +109,7 @@ class OpcUaConnection(BaseConnection):
         :raises ConnectionError: When an error occurs during node creation
         """
 
-        def create_object(parent: Node, child: Node) -> Union[Node, Any]:
+        def create_object(parent: opcua.Node, child: Node):
             for obj in parent.get_children():
                 ident = (
                     obj.nodeid.Identifier.strip(" .") if type(obj.nodeid.Identifier) is str else obj.nodeid.Identifier
@@ -134,6 +140,8 @@ class OpcUaConnection(BaseConnection):
 
                             last_obj.add_variable(node.opc_id, node.opc_name, init_val)
                             log.debug(f"OPC UA Node created: {node.opc_id}")
+                except opcua.ua.uaerrors.BadNodeIdExists:
+                    log.warning(f"Node with NodeId : {node.opc_id} could not be created. It already exists.")
                 except RuntimeError as e:
                     raise ConnectionError(str(e)) from e
 
@@ -145,7 +153,7 @@ class OpcUaConnection(BaseConnection):
         :raises ConnectionError: If deletion of nodes fails.
         """
 
-        def delete_node_parents(node: Node, depth: int = 20):
+        def delete_node_parents(node: opcua.Node, depth: int = 20):
             parents = node.get_references(direction=ua.BrowseDirection.Inverse)
             if not node.get_children():
                 node.delete(delete_references=True)
@@ -165,7 +173,7 @@ class OpcUaConnection(BaseConnection):
                 except RuntimeError as e:
                     raise ConnectionError(str(e)) from e
 
-    def subscribe(self, handler: SubscriptionHandler, nodes: Nodes = None, interval: Union[int, timedelta] = 1) -> None:
+    def subscribe(self, handler: SubscriptionHandler, nodes: Optional[Nodes] = None, interval: TimeStep = 1) -> None:
         """Subscribe to nodes and call handler when new data is available. This function works asnychonously.
         Subscriptions must always be closed using the close_sub function (use try, finally!)
 

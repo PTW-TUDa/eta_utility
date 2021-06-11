@@ -1,18 +1,16 @@
 """ Base classes for the connectors
 
 """
-
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from re import search
-from typing import Any, AnyStr, List, Mapping, NewType, Sequence, Set, Union
-from urllib.parse import urlparse
+from typing import Any, AnyStr, Mapping, Optional, Sequence, Set, Union
+from urllib.parse import ParseResultBytes, urlparse
 
 import pandas as pd
 import tzlocal
 
-Node = NewType("Node", object)
-Nodes = Union[Node, Set[Node], Sequence[Node]]
+from eta_utility.type_hints.custom_types import Node, Nodes, TimeStep
 
 
 class SubscriptionHandler(ABC):
@@ -23,7 +21,7 @@ class SubscriptionHandler(ABC):
     """
 
     def __init__(self, write_interval: Union[float, int] = 1) -> None:
-        self._write_interval = write_interval
+        self._write_interval: Union[float, int] = write_interval
         self._local_tz = tzlocal.get_localzone()
 
     def _round_timestamp(self, timestamp: datetime) -> datetime:
@@ -53,7 +51,7 @@ class SubscriptionHandler(ABC):
         return timestamp
 
     def _convert_series(
-        self, value: Union[pd.Series, Sequence[Any]], timestamp: Union[pd.DatetimeIndex, timedelta, int]
+        self, value: Union[pd.Series, Sequence[Any]], timestamp: Union[pd.DatetimeIndex, TimeStep]
     ) -> pd.Series:
         """Helper function to convert a value, timestamp pair in which value is a Series or list to a Series with
         datetime index according to the given timestamp(s).
@@ -113,7 +111,7 @@ class SubscriptionHandler(ABC):
         return value
 
     @abstractmethod
-    def push(self, node: Node, value: Any, timestamp: datetime = None):
+    def push(self, node: Node, value: Any, timestamp: Optional[datetime] = None) -> None:
         """Receive data from a subcription. THis should contain the node that was requested, a value and a timestemp
         when data was received. If the timestamp is not provided, current time will be used.
 
@@ -137,21 +135,25 @@ class BaseConnection(ABC):
     :param nodes: List of nodes to select as a standard case
     """
 
-    def __init__(self, url: str, usr: str = None, pwd: str = None, *, nodes: Nodes = None) -> None:
-        self._url = urlparse(url)
+    def __init__(
+        self, url: str, usr: Optional[str] = None, pwd: Optional[str] = None, *, nodes: Optional[Nodes] = None
+    ) -> None:
+        self._url: ParseResultBytes = urlparse(url)
 
         # Get username and password either from the arguments or from the parsed url string
         if type(usr) is not str and usr is not None:
             raise TypeError("Username should be a string value.")
+
         elif usr is None and self._url.username is not None:
-            self.usr = self._url.username
+            self.usr: Optional[str] = self._url.username
+
         else:
             self.usr = usr
 
         if type(pwd) is not str and pwd is not None:
             raise TypeError("Password should be a string value.")
         elif pwd is None and self._url.password is not None:
-            self.pwd = self._url.password
+            self.pwd: Optional[str] = self._url.password
         else:
             self.pwd = pwd
 
@@ -162,9 +164,9 @@ class BaseConnection(ABC):
 
         if nodes is not None:
             if not hasattr(nodes, "__len__"):
-                self.selected_nodes = {nodes}
+                self.selected_nodes: Set[Node] = {nodes}
             else:
-                self.selected_nodes = set(nodes)
+                self.selected_nodes: Set[Node] = set(nodes)
         else:
             self.selected_nodes = set()
 
@@ -178,7 +180,7 @@ class BaseConnection(ABC):
         pass
 
     @abstractmethod
-    def read(self, nodes: Nodes = None) -> pd.DataFrame:
+    def read(self, nodes: Optional[Nodes] = None) -> pd.DataFrame:
         """Read data from nodes
 
         :param nodes: List of nodes to read from
@@ -188,7 +190,7 @@ class BaseConnection(ABC):
         pass
 
     @abstractmethod
-    def write(self, values: Mapping[Node, Any]):
+    def write(self, values: Mapping[Node, Any]) -> None:
         """Write data to a list of nodes
 
         :param values: Dictionary of nodes and data to write. {node: value}
@@ -196,7 +198,7 @@ class BaseConnection(ABC):
         pass
 
     @abstractmethod
-    def subscribe(self, handler: SubscriptionHandler, nodes: Nodes = None, interval: Union[int, timedelta] = 1):
+    def subscribe(self, handler: SubscriptionHandler, nodes: Optional[Nodes] = None, interval: TimeStep = 1) -> None:
         """Subscribe to nodes and call handler when new data is available.
 
         :param nodes: identifiers for the nodes to subscribe to
@@ -206,7 +208,7 @@ class BaseConnection(ABC):
         pass
 
     @abstractmethod
-    def close_sub(self):
+    def close_sub(self) -> None:
         """Close an open subscription. This should gracefully handle non-existant subscriptions."""
         pass
 
@@ -233,11 +235,15 @@ class BaseSeriesConnection(BaseConnection, ABC):
     :param url: URL of the server to connect to
     """
 
-    def __init__(self, url: str, usr: str = None, pwd: str = None, *, nodes: Nodes = None) -> None:
+    def __init__(
+        self, url: str, usr: Optional[str] = None, pwd: Optional[str] = None, *, nodes: Optional[Nodes] = None
+    ) -> None:
         super().__init__(url, usr, pwd, nodes=nodes)
 
     @abstractmethod
-    def read_series(self, from_time: datetime, to_time: datetime, nodes: List = None, **kwargs: Any) -> pd.DataFrame:
+    def read_series(
+        self, from_time: datetime, to_time: datetime, nodes: Optional[Nodes] = None, **kwargs: Any
+    ) -> pd.DataFrame:
         """Read time series data from the connection, within a specified time interval (from_time until to_time).
         :param nodes: List of nodes to read values from
         :param from_time: Starting time to begin reading (included in output)
@@ -251,9 +257,9 @@ class BaseSeriesConnection(BaseConnection, ABC):
         self,
         handler: SubscriptionHandler,
         time_interval: datetime,
-        nodes: Nodes = None,
+        nodes: Optional[Nodes] = None,
         interval: int = 1,
-    ):
+    ) -> None:
         """Continuously read time series data from the connection, starting at current time and going back read
         interval
         """
