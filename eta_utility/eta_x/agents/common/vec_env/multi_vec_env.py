@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import Any, Callable, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 from stable_baselines.common.vec_env import (
@@ -7,6 +7,8 @@ from stable_baselines.common.vec_env import (
     DummyVecEnv,
     NotSteppingError,
 )
+
+from eta_utility.type_hints.custom_types import Numbers, StepResult
 
 from .. import ProcessPool
 
@@ -31,10 +33,10 @@ class MultiVecEnv(DummyVecEnv):
         for key, env in enumerate(self.envs):
             env.env_id = key
 
-        self._running = False
-        self._processes = None
+        self._running: bool = False
+        self._processes: Optional[bool] = None
 
-        self._buf_results = [()] * self.num_envs
+        self._buf_results: List[Tuple] = [()] * self.num_envs
 
     def step_async(self, actions: Sequence[Sequence[Any]]) -> None:
         """Perform an asynchronous step using the ProcessPool concurrency mapping interface provided by agents module
@@ -48,7 +50,7 @@ class MultiVecEnv(DummyVecEnv):
         self._running = True
 
         # Store actions and tell environments which actions to execute if necessary
-        self.actions = actions
+        self.actions: Sequence[Numbers] = actions
         if hasattr(self.envs[0], "actions"):
             chunksize, remain = divmod(len(self.actions), len(self.envs))
             chunksize += 1 if remain else 0
@@ -68,21 +70,20 @@ class MultiVecEnv(DummyVecEnv):
                 for item in sublist
             ]
 
-    def step_wait(self) -> Tuple[Sequence, Sequence, Sequence, Sequence]:
+    def step_wait(self) -> StepResult:
         """Store observations and reset environments
 
         :return: Tuple with stepping result sequences (observations, rewards, dones, infos)
-        :rtype: Tuple[Sequence, Sequence, Sequence, Sequece]
         """
         if not self._running:
             raise NotSteppingError()
 
         # Change size of buffers depending on the number of calculated results
-        self.buf_obs = [None] * len(self._buf_results)
-        self.buf_dones = np.zeros((len(self._buf_results),), dtype=np.bool)
-        self.buf_infos = [{}] * len(self._buf_results)
+        self.buf_obs: List[Optional[float]] = [None] * len(self._buf_results)
+        self.buf_dones: np.ndarray = np.zeros((len(self._buf_results),), dtype=np.bool)
+        self.buf_infos: List[Dict] = [{}] * len(self._buf_results)
         if not hasattr(self._buf_results[0][1], "__len__") or len(self._buf_results[0][1]) <= 1:
-            self.buf_rews = np.zeros(len(self._buf_results), dtype=np.float32)
+            self.buf_rews: np.ndarray = np.zeros(len(self._buf_results), dtype=np.float32)
         else:
             self.buf_rews = [None] * len(self._buf_results)
 
@@ -93,7 +94,7 @@ class MultiVecEnv(DummyVecEnv):
                 self.buf_dones[env_idx],
                 self.buf_infos[env_idx],
             ) = res
-
+            self.num_envs: int
             if self.num_envs == len(self._buf_results) and self.buf_dones[env_idx]:
                 # save final observation where user can get it, then reset
                 self.buf_infos[env_idx]["terminal_observation"] = obs
@@ -108,7 +109,7 @@ class MultiVecEnv(DummyVecEnv):
             deepcopy(self.buf_infos),
         )
 
-    def reset(self):
+    def reset(self) -> List[Optional[float]]:
         """Reset all environments"""
         self.buf_obs = [None] * self.num_envs
         for env_idx in range(self.num_envs):
@@ -122,7 +123,7 @@ class MultiVecEnv(DummyVecEnv):
         """
         self._processes = process_pool
 
-    def __getstate__(self):
+    def __getstate__(self) -> "MultiVecEnv":
         self._processes.close()
         self._processes.join()
         self._processes = None

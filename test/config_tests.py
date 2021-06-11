@@ -3,9 +3,9 @@ import pathlib
 import pandas as pd
 
 if (pathlib.Path.cwd() / "test/config_local.py").is_file():
-    from config_local import *  # noqa
+    from test.config_local import *  # noqa
 else:
-    from config_local_dummy import *  # noqa
+    from test.config_local_dummy import ConfigParams  # noqa
 
 CSV_OUTPUT_FILE = pathlib.Path.cwd() / "test/test_output.csv"
 

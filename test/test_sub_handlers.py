@@ -1,4 +1,5 @@
-from config_tests import *  # noqa
+from test.config_tests import SAMPLE_TIMESERIES
+
 from pytest import mark
 
 from eta_utility.connectors import Node

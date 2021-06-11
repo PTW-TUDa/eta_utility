@@ -10,13 +10,13 @@ class NoPolicy(policies.BasePolicy):
     :param kwargs: Any keywords that should be passed to the Base Policy
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-    def step(self, *args, **kwargs):
+    def step(self, *args, **kwargs) -> None:
         """NoPolicy should be used only, when steps results are calculated otherwise."""
         raise NotImplementedError("NoPolicy should be used only, when steps results are calculated otherwise.")
 
-    def proba_step(self):
+    def proba_step(self) -> None:
         """NoPolicy should be used only, when probabilities are calculated otherwise."""
         raise NotImplementedError("NoPolicy should be used only, when probabilities are calculated otherwise.")

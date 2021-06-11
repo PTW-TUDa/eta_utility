@@ -4,13 +4,15 @@ import asyncio
 import socket
 import struct
 from datetime import datetime, timedelta
-from typing import Any, List, Mapping, Optional, Sequence, Union
+from typing import Any, List, Mapping, Optional, Sequence, Set
 
 import pandas as pd
 import tzlocal
 from pyModbusTCP.client import ModbusClient
 
-from .base_classes import BaseConnection, Node, Nodes, SubscriptionHandler
+from eta_utility.type_hints.custom_types import Node, Nodes, TimeStep
+
+from .base_classes import BaseConnection, SubscriptionHandler
 
 
 class ModbusConnection(BaseConnection):
@@ -18,17 +20,17 @@ class ModbusConnection(BaseConnection):
     it implements a subscription server, which reads continuously in a specified interval.
     """
 
-    def __init__(self, url: str, *, nodes: Nodes = None) -> None:
+    def __init__(self, url: str, *, nodes: Optional[Nodes] = None) -> None:
         super().__init__(url, nodes=nodes)
 
         if self._url.scheme != "modbus.tcp":
             raise ValueError("Given URL is not a valid Modbus url (scheme: modbus.tcp)")
 
-        self.connection = ModbusClient(host=self._url.hostname, port=self._url.port, timeout=2)
+        self.connection: ModbusClient = ModbusClient(host=self._url.hostname, port=self._url.port, timeout=2)
 
-        self._subscription_open = False
-        self._subscription_nodes = set()
-        self._sub = None
+        self._subscription_open: bool = False
+        self._subscription_nodes: Set[Node] = set()
+        self._sub: Optional[asyncio.Task] = None
 
     @classmethod
     def from_node(cls, node: Node, **kwargs: Any) -> "ModbusConnection":
@@ -48,7 +50,7 @@ class ModbusConnection(BaseConnection):
                 "protocol: {}.".format(node.name)
             )
 
-    def read(self, nodes: Nodes = None) -> pd.DataFrame:
+    def read(self, nodes: Optional[Nodes] = None) -> pd.DataFrame:
         """
         Read some manually selected nodes from Modbus server
 
@@ -85,7 +87,7 @@ class ModbusConnection(BaseConnection):
         """
         raise NotImplementedError
 
-    def subscribe(self, handler: SubscriptionHandler, nodes: Nodes = None, interval: Union[int, timedelta] = 1) -> None:
+    def subscribe(self, handler: SubscriptionHandler, nodes: Optional[Nodes] = None, interval: TimeStep = 1) -> None:
         """Subscribe to nodes and call handler when new data is available.
 
         :param nodes: identifiers for the nodes to subscribe to
@@ -108,7 +110,7 @@ class ModbusConnection(BaseConnection):
         loop = asyncio.get_event_loop()
         self._sub = loop.create_task(self._subscription_loop(handler, int(interval.total_seconds())))
 
-    def close_sub(self):
+    def close_sub(self) -> None:
         try:
             self._sub.cancel()
             self._subscription_open = False
@@ -120,7 +122,7 @@ class ModbusConnection(BaseConnection):
         except Exception:
             pass
 
-    async def _subscription_loop(self, handler: SubscriptionHandler, interval: Union[int, timedelta]):
+    async def _subscription_loop(self, handler: SubscriptionHandler, interval: TimeStep) -> None:
         """The subscription loop handles requesting data from the server in the specified interval
 
         :param handler: Handler object with a push function to receive data

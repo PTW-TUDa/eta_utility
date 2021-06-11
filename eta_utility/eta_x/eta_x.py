@@ -18,6 +18,7 @@ from stable_baselines.gail import ExpertDataset, generate_expert_traj
 
 from eta_utility import get_logger
 from eta_utility.eta_x.envs import BaseEnv
+from eta_utility.type_hints.custom_types import Path
 
 log = get_logger("eta_x", 2)
 
@@ -27,7 +28,7 @@ log = get_logger("eta_x", 2)
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 
 
-def callback_environment(environment):
+def callback_environment(environment: BaseEnv) -> None:
     """
     This callback will be called at the end of each episode.
     When multiprocessing is used, no global variables are available (as an own python instance is created).
@@ -96,14 +97,14 @@ class ETAx:
         self,
         root_path: Union[str, os.PathLike],
         config_name: str,
-        config_overwrite: Mapping[str, Any] = None,
+        config_overwrite: Optional[Mapping[str, Any]] = None,
         relpath_config: Union[str, os.PathLike] = "config/",
-    ):
+    ) -> None:
         # initial states
-        self._modules_imported = False
-        self._environment_vectorized = False
-        self._model_initialized = False
-        self._prepared = False
+        self._modules_imported: bool = False
+        self._environment_vectorized: bool = False
+        self._model_initialized: bool = False
+        self._prepared: bool = False
 
         self.info: MutableMapping[str, str] = {}  #: Information about the run
 
@@ -157,12 +158,11 @@ class ETAx:
 
         self.import_modules()
 
-    def load_config(self, config_name, config_overwrite=None):
+    def load_config(self, config_name: str, config_overwrite: Optional[Mapping[str, Any]] = None) -> None:
         """Load configuration  from file
 
-        :param str config_name: name of the configuration file in data/configurations/
+        :param config_name: name of the configuration file in data/configurations/
         :param config_overwrite: Config parameters to overwrite
-        :type config_overwrite: Mapping[str, Any]
         """
 
         def deep_update(source, overrides):
@@ -209,10 +209,10 @@ class ETAx:
             log.error("Not all required config parameters were found. Exiting.")
             exit(1)
 
-    def save_config(self, config_name):
+    def save_config(self, config_name: str) -> None:
         """Save configuration for to file
 
-        :param str config_name: name of the configuration file in data/configurations/
+        :param config_name: name of the configuration file in data/configurations/
         """
 
         try:
@@ -226,7 +226,7 @@ class ETAx:
                 "\t Filename: {}".format(config_name, e.strerror, e.filename)
             )
 
-    def import_modules(self):
+    def import_modules(self) -> None:
         """Import all modules of agent, policy, vectorizer, environment"""
         log.debug("Trying to import modules for agent, policy, vectorizer and environment.")
 
@@ -266,16 +266,17 @@ class ETAx:
 
         self._environment_vectorized = False
 
-    def prepare_run(self, series_name, run_name, run_description="", reset=False, training=True):
+    def prepare_run(
+        self, series_name: str, run_name: str, run_description: str = "", reset: bool = False, training: bool = True
+    ) -> bool:
         """Prepare the learn and play methods
 
-        :param str series_name: Name for a series of runs
-        :param str run_name: Name for a specific run
-        :param str run_description: Description for a specific run
-        :param bool reset: Should an exisiting model be overwritten if it exists?
+        :param series_name: Name for a series of runs
+        :param run_name: Name for a specific run
+        :param run_description: Description for a specific run
+        :param reset: Should an exisiting model be overwritten if it exists?
         :param training: Should preparation be done for training or playing?
         :return: Boolean value indicating successful preparation
-        :rtype: bool
         """
 
         self.series_name = series_name if series_name is not None else self.series_name
@@ -337,12 +338,11 @@ class ETAx:
 
         return self._prepared
 
-    def vectorize_environment(self, training=True):
+    def vectorize_environment(self, training: bool = True) -> bool:
         """Instantiate and vectorize the environment
 
         :param training: Should preparation be done for training or playing?
         :return: Boolean value indicating successful completion of vectorization
-        :rtype: bool
         """
 
         if not self._modules_imported:
@@ -425,12 +425,11 @@ class ETAx:
         log.info("Environment vectorized successfully.")
         return self._environment_vectorized
 
-    def initialize_model(self, reset=False):
+    def initialize_model(self, reset: bool = False) -> bool:
         """Load or initialize a model
 
-        :param bool reset: Should an exisiting model be overwritten if it exists?
+        :param reset: Should an exisiting model be overwritten if it exists?
         :return: Boolean value indicating successful completion of initialization
-        :rtype: bool
         """
         if not self._modules_imported:
             raise RuntimeError("Cannot initialize the model without importing corresponding modules first.")
@@ -491,12 +490,11 @@ class ETAx:
             log.info("Model initialized successfully.")
             return self._model_initialized
 
-    def load_model(self, path_run_model=None):
+    def load_model(self, path_run_model: Optional[pathlib.Path] = None) -> bool:
         """Load an existing model
 
         :param path_run_model: Load model from specified path instead of the path defined in configuration
         :return: Boolean value indicating successful completion of initialization
-        :rtype: bool
         """
         if path_run_model is not None:
             self.path_run_model = (
@@ -535,7 +533,7 @@ class ETAx:
 
         return self._model_initialized
 
-    def save_model(self, path_run_model=None):
+    def save_model(self, path_run_model: Optional[pathlib.Path] = None) -> None:
         """Save model to file
 
         :param path_run_model: Save model to specified path instead of the path defined in configuration
@@ -547,7 +545,7 @@ class ETAx:
 
         self.model.save(self.path_run_model)
 
-    def log_run_info(self, path_run_info=None):
+    def log_run_info(self, path_run_info: Optional[pathlib.Path] = None) -> None:
         """Save run config to result series directory
 
         :param path_run_info: Save run information to specified path instead of the path defined in configuration
@@ -560,15 +558,17 @@ class ETAx:
         with self.path_run_info.open("w") as f:
             json.dump({**self.info, **self.config}, f)
 
-    def generate_expert_dataset(self, series_name=None, run_name=None, run_description=""):
+    def generate_expert_dataset(
+        self, series_name: Optional[str] = None, run_name: Optional[str] = None, run_description: Optional[str] = ""
+    ) -> None:
         """Generate expert dataset for pretraining
 
         .. note::
             See also: https://stable-baselines.readthedocs.io/en/master/guide/pretrain.html
 
-        :param str series_name: Name for a series of runs
-        :param str run_name: Name for a specific run
-        :param str run_description: Description for a specific run
+        :param series_name: Name for a series of runs
+        :param run_name: Name for a specific run
+        :param run_description: Description for a specific run
         """
         if not self._prepared:
             self.prepare_run(series_name, run_name, run_description, reset=False, training=True)
@@ -582,24 +582,23 @@ class ETAx:
 
     def pretrain(
         self,
-        series_name=None,
-        run_name=None,
-        run_description="",
-        path_expert_dataset=None,
-        reset=False,
-    ):
+        series_name: Optional[str] = None,
+        run_name: Optional[str] = None,
+        run_description: str = "",
+        path_expert_dataset: Optional[Path] = None,
+        reset: bool = False,
+    ) -> bool:
         """Pretrain the agent with an expert defined trajectory data set or from data generated by
         an environment method.
 
-        :param str series_name: Name for a series of runs
-        :param str run_name: Name for a specific run
-        :param str run_description: Description for a specific run
+        :param series_name: Name for a series of runs
+        :param run_name: Name for a specific run
+        :param run_description: Description for a specific run
         :param path_expert_dataset: Path to the expert dataset. This overwrites the value in 'agent_specifc' config.
         :type path_expert_dataset: str or pathlib.Path
-        :param bool reset: Indication whether possibly existing models should be reset. Learning will be continued if
+        :param reset: Indication whether possibly existing models should be reset. Learning will be continued if
                            model exists and reset is false.
         :return: Boolean value indicating successful pretraining
-        :rtype: bool
         """
         if not self._prepared:
             self.prepare_run(series_name, run_name, run_description, reset=reset, training=True)
@@ -657,19 +656,19 @@ class ETAx:
 
     def learn(
         self,
-        series_name=None,
-        run_name=None,
-        run_description="",
-        pretrain=False,
-        reset=False,
-    ):
+        series_name: Optional[str] = None,
+        run_name: Optional[str] = None,
+        run_description: str = "",
+        pretrain: bool = False,
+        reset: bool = False,
+    ) -> None:
         """Start the learning job for an agent with the specified environment.
 
-        :param str series_name: Name for a series of runs
-        :param str run_name: Name for a specific run
-        :param str run_description: Description for a specific run
-        :param bool pretrain: Indication whether pretraining should be performed
-        :param bool reset: Indication whether possibly existing models should be reset. Learning will be continued if
+        :param series_name: Name for a series of runs
+        :param run_name: Name for a specific run
+        :param run_description: Description for a specific run
+        :param pretrain: Indication whether pretraining should be performed
+        :param reset: Indication whether possibly existing models should be reset. Learning will be continued if
                            model exists and reset is false.
         """
         if not self._prepared:
@@ -746,12 +745,14 @@ class ETAx:
 
         log.info(f"Learning finished: {series_name} / {run_name}")
 
-    def play(self, series_name=None, run_name=None, run_description=""):
+    def play(
+        self, series_name: Optional[str] = None, run_name: Optional[str] = None, run_description: str = ""
+    ) -> None:
         """Play with previously learned agent model in environment.
 
-        :param str series_name: Name for a series of runs
-        :param str run_name: Name for a specific run
-        :param str run_description: Description for a specific run
+        :param series_name: Name for a series of runs
+        :param run_name: Name for a specific run
+        :param run_description: Description for a specific run
         """
         log.info("Start playing in environment with given agent.")
 

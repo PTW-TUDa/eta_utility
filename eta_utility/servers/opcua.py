@@ -1,9 +1,11 @@
 import socket
-from typing import Mapping
+from typing import Any, Mapping, Union
 
+import opcua
 from opcua import Server, ua
 
 from eta_utility import get_logger
+from eta_utility.type_hints.custom_types import Node, Nodes
 
 log = get_logger("servers.opcua")
 
@@ -12,30 +14,28 @@ class OpcUaServer:
     """Provides an OPC UA server with a number of specified nodes. Each node can contain single values or arrays.
 
     :param name: Namespace of the OPC UA Server
-    :type name: str, int
-    :param int port: Port to listen on
+    :param port: Port to listen on
     """
 
-    def __init__(self, name, port=4840):
+    def __init__(self, name: Union[str, int], port: int = 4840) -> None:
         #: url: IP Address of the OPC UA Server
-        self.url = "opc.tcp://{}:{}".format(socket.gethostbyname(socket.gethostname()), port)
+        self.url: str = "opc.tcp://{}:{}".format(socket.gethostbyname(socket.gethostname()), port)
         log.info(f"Server Address is {self.url}")
 
-        self._server = Server()
+        self._server: Server = Server()
         self._server.set_endpoint(self.url)
 
-        self.idx = self._server.register_namespace(str(name))  #: idx: Namespace of the OPC UA _server
+        self.idx: int = self._server.register_namespace(str(name))  #: idx: Namespace of the OPC UA _server
         log.debug(f'Server Namespace set to "{name}"')
 
         self._server.set_security_policy([ua.SecurityPolicyType.NoSecurity])
         self._server.start()
 
-    def write(self, values):
+    def write(self, values: Mapping[Node, Any]) -> None:
         """
         Writes some values directly to the OPCUA server
 
         :param values: Dictionary of data to write. {node.name: value}
-        :type values: Mapping[Node, Any]
         """
 
         nodes = self._validate_nodes(values.keys())
@@ -45,14 +45,13 @@ class OpcUaServer:
             opc_type = var.get_data_type_as_variant_type()
             var.set_value(ua.Variant(values[node], opc_type))
 
-    def create_nodes(self, nodes):
+    def create_nodes(self, nodes: Nodes) -> None:
         """Create nodes on the server from a list of nodes. This will try to create the entire node path.
 
         :param nodes: List or set of nodes to create
-        :type nodes: Node or Sequence[Node]
         """
 
-        def create_object(parent, child):
+        def create_object(parent: opcua.Node, child: Node):
             for obj in parent.get_children():
                 ident = (
                     obj.nodeid.Identifier.strip(" .") if type(obj.nodeid.Identifier) is str else obj.nodeid.Identifier
@@ -82,14 +81,13 @@ class OpcUaServer:
                     last_obj.add_variable(node.opc_id, node.opc_name, init_val)
                     log.debug(f"OPC UA Node created: {node.opc_id}")
 
-    def delete_nodes(self, nodes):
+    def delete_nodes(self, nodes: Nodes) -> None:
         """Delete the given nodes and their parents (if the parents do not have other children).
 
         :param nodes: List or set of nodes to be deleted
-        :type nodes: Node or Sequence[Node]
         """
 
-        def delete_node_parents(node, depth=20):
+        def delete_node_parents(node: opcua.Node, depth: int = 20):
             parents = node.get_references(direction=ua.BrowseDirection.Inverse)
             if not node.get_children():
                 node.delete(delete_references=True)
@@ -105,11 +103,11 @@ class OpcUaServer:
         for node in nodes:
             delete_node_parents(self._server.get_node(node.opc_id))
 
-    def stop(self):
+    def stop(self) -> None:
         """This should always be called, when the server is not needed anymore. It stops the server."""
         self._server.stop()
 
-    def _validate_nodes(self, nodes):
+    def _validate_nodes(self, nodes: Nodes) -> Nodes:
         if not hasattr(nodes, "__len__"):
             nodes = {nodes}
         else:

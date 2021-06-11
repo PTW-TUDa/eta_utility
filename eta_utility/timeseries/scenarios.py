@@ -5,25 +5,26 @@ from typing import Mapping, Optional, Sequence, Union
 import pandas as pd
 
 from eta_utility import timeseries
+from eta_utility.type_hints.custom_types import TimeStep
 
 
 def scenario_from_csv(
     paths: Union[pathlib.Path, Sequence[pathlib.Path]],
-    data_prefixes: Sequence[str] = None,
+    data_prefixes: Optional[Sequence[str]] = None,
     *,
     start_time: datetime,
-    end_time: datetime = None,
-    total_time: Union[timedelta, int] = None,
+    end_time: Optional[datetime] = None,
+    total_time: Optional[TimeStep] = None,
     random: Optional[bool] = False,
-    resample_time: Optional[Union[timedelta, int]] = None,
+    resample_time: Optional[TimeStep] = None,
     resample_method: Optional[str] = "asfreq",
-    interpolation_method: Optional[Union[Sequence[str], str]] = None,
+    interpolation_method: Union[Sequence[str], str, None] = None,
     rename_cols: Optional[Mapping[str, str]] = None,
     prefix_renamed: Optional[bool] = True,
-    infer_datetime_from: Optional[Union[str, Sequence[int]]] = "string",
+    infer_datetime_from: [str, Sequence[int], None] = "string",
     time_conversion_str: str = "%Y-%m-%d %H:%M",
     scaling_factors: Optional[dict] = None,
-):
+) -> pd.DataFrame:
     """Import (possibly multiple) scenario data files from csv files and return them as a single pandas
     data frame. The import function supports column renaming and will slice and resample data as specified.
 
