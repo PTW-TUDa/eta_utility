@@ -1,7 +1,8 @@
 import pathlib
 from datetime import datetime, timedelta
-from typing import Mapping, Optional, Sequence, Union
+from typing import Mapping, Optional, Sequence, SupportsFloat, Union
 
+import numpy as np
 import pandas as pd
 
 from eta_utility import timeseries
@@ -15,15 +16,15 @@ def scenario_from_csv(
     start_time: datetime,
     end_time: Optional[datetime] = None,
     total_time: Optional[TimeStep] = None,
-    random: Optional[bool] = False,
+    random: Union[np.random.BitGenerator, bool, None] = False,
     resample_time: Optional[TimeStep] = None,
-    resample_method: Optional[str] = "asfreq",
+    resample_method: Optional[Union[Sequence[str], str]] = "asfreq",
     interpolation_method: Union[Sequence[str], str, None] = None,
     rename_cols: Optional[Mapping[str, str]] = None,
     prefix_renamed: Optional[bool] = True,
-    infer_datetime_from: [str, Sequence[int], None] = "string",
+    infer_datetime_from: Optional[Union[str, Sequence[int]]] = "string",
     time_conversion_str: str = "%Y-%m-%d %H:%M",
-    scaling_factors: Optional[dict] = None,
+    scaling_factors: Union[Sequence[Mapping[str, SupportsFloat]], SupportsFloat, None] = None,
 ) -> pd.DataFrame:
     """Import (possibly multiple) scenario data files from csv files and return them as a single pandas
     data frame. The import function supports column renaming and will slice and resample data as specified.
@@ -68,6 +69,7 @@ def scenario_from_csv(
     :param time_conversion_str: (Keyword only) Time conversion string. This must be specified if the
                                 infer_datetime_from parameter is set to 'string'. The string should specify the
                                 datetime format in the python strptime format. The default is: '%Y-%m-%d %H:%M'.
+    :param scaling_factors:
     :return:
     """
 
@@ -83,7 +85,7 @@ def scenario_from_csv(
     elif resample_method.__len__() != paths.__len__():
         raise ValueError("The number of resample methods does not match the number of paths.")
 
-    # interpolation methods needs to be a list, so on case of None create a list of Nones
+    # interpolation methods needs to be a list, so in case of None create a list of Nones
     if not hasattr(interpolation_method, "__len__"):
         if paths.__len__() > 1:
             interpolation_method = [interpolation_method] * len(paths)
@@ -93,9 +95,7 @@ def scenario_from_csv(
         raise ValueError("The number of interpolation methods does not match the number of paths.")
 
     # scaling needs to be a list, so on case of None create a list of Nones
-    if scaling_factors is None:
-        scaling_factors = [None] * len(paths)
-    elif not hasattr(scaling_factors, "__len__"):
+    if not hasattr(scaling_factors, "__len__"):
         if paths.__len__() > 1:
             raise ValueError("The scaling factors need to be defined for each path")
         else:
@@ -137,18 +137,9 @@ def scenario_from_csv(
             data = data.fillna(method=interpolation_method[i])
         data = data[slice_begin:slice_end].copy()
 
-        # scale the data from the original Dataframe
-        if scaling_factors[i]:
-            for column_name_to_scale, scaling_factor in scaling_factors[i].items():
-                if column_name_to_scale in data.columns:
-                    data[column_name_to_scale] = data[column_name_to_scale].multiply(scaling_factor)
-                else:
-                    raise KeyError(
-                        "The name " + str(column_name_to_scale) + " is not a valid column name in the file: " + path
-                    )
-
         col_names = {}
         for col in data.columns:
+            # Figure out correct name for the column
             if not prefix_renamed and rename_cols is not None and col in rename_cols:
                 pre = ""
                 name = str(rename_cols[col])
@@ -159,6 +150,12 @@ def scenario_from_csv(
                 pre = "{}_".format(data_prefixes[i]) if data_prefixes is not None else ""
                 name = str(col)
             col_names[col] = pre + name
+
+            # Scale data values in the column
+            if scaling_factors[i] and col in scaling_factors[i]:
+                data[col] = data[col].multiply(scaling_factors[i][col])
+
+        # rename all columns with the name mapping determined above
         data.rename(columns=col_names, inplace=True)
         df = pd.concat((data, df), 1)
 

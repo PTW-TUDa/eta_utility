@@ -99,7 +99,7 @@ def df_from_csv(
     if infer_datetime_format:
         parse_dates = True
 
-    def converter(val: str) -> Union[np.NaN, np.float]:
+    def converter(val: str) -> np.float:
         val = str(val).strip().replace(" ", "").replace(",", ".")
         if len(val) > 0:
             val = np.float(val)
