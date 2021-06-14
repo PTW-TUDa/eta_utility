@@ -222,7 +222,7 @@ class BaseEnv(Env, abc.ABC):
         #:   import_scenario method.
         self.timeseries: pd.DataFrame = pd.DataFrame()
         #: Data frame containing the currently valid range of time series data.
-        self.ts_current: pd.DataFrame
+        self.ts_current: pd.DataFrame = pd.DataFrame()
 
         # Columns (and their order) and default values for the state_config DataFrame.
         self.__state_config_cols = OrderedDict(
@@ -430,7 +430,39 @@ class BaseEnv(Env, abc.ABC):
                 decimal=",",
             )
 
-    def continous_action_space_from_state(self) -> spaces.Box:
+    def import_scenario(self, *scenario_paths: Dict[str, Any]) -> None:
+        """Load data from csv into self.timeseries_data by using scenario_from_csv
+        :param scenario_paths: One or more scenario configuration dictionaries (Or a list of dicts), which each
+                               contain a path for loading data from a scenario file.
+                               The dictionary should have the following structure, with <X> denoting the
+                               variable value:
+                               [{path: <X>, interpolation_method: <X>, resample_method: <X>,
+                                 scale_factors: {col_name: <X>}]
+        """
+        paths = []
+        int_methods = []
+        res_methods = []
+        scale_factors = []
+        for path in scenario_paths:
+            paths.append(self.path_root / path["path"])
+            int_methods.append(path.get("interpolation_method", None))
+            res_methods.append(path.get("resample_method", "asfreq"))
+            scale_factors.append(path.get("scale_factors", None))
+        self.ts_current = timeseries.scenario_from_csv(
+            paths=paths,
+            resample_time=self.sampling_time,
+            start_time=self.env_settings["scenario_time_begin"],
+            end_time=self.env_settings["scenario_time_end"],
+            total_time=self.episode_duration,
+            random=self.np_random,
+            interpolation_method=int_methods,
+            resample_method=res_methods,
+            scaling_factors=scale_factors,
+        )
+
+        return self.ts_current
+
+    def continous_action_space_from_state(self) -> spaces.Space:
         """Use the state_config to generate the action space according to the format required by the OpenAI
         specification. This will set the action_space attribute and return the corresponding space object.
         The generated action space is continous.
@@ -559,91 +591,6 @@ class BaseEnv(Env, abc.ABC):
             self.np_random = np_random
 
         return self.np_random, self._seed
-
-    def _import_scenario(
-        self,
-        paths: Union[pathlib.Path, Sequence[pathlib.Path]],
-        data_prefixes: Sequence[str] = None,
-        *,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-        total_time: Optional[TimeStep] = None,
-        random: Optional[bool] = False,
-        resample_time: Optional[TimeStep] = None,
-        resample_method: Optional[str] = None,
-        interpolation_method: Optional[Union[Sequence[str], str]] = None,
-        rename_cols: Optional[Mapping[str, str]] = None,
-        prefix_renamed: Optional[bool] = True,
-        infer_datetime_from: Optional[Union[str, Sequence[int]]] = "string",
-        time_conversion_str: str = "%Y-%m-%d %H:%M",
-    ) -> Union[pd.DataFrame, pd.Series]:
-        """Import (possibly multiple) scenario data files from csv files and return them as a single pandas
-        data frame. The import function supports column renaming and will slice and resample data as specified.
-
-        This is a shorthand for eta_utility.timeseries.scenarios.scenario_from_csv. See that function for more
-        information. This function sets some additional default parameters (i.e. scenario_time_begin). See also:
-        :func:`eta_utility.timeseries.scenarios.scenario_from_csv`
-
-        :param paths: Path(s) to one or more CSV data files. The paths should be fully qualified.
-        :param data_prefixes: If more than file is imported, a list of data_prefixes must be supplied such that
-                              ambiquity of column names between the files can be avoided. There must be one prefix
-                              for every imported file, such that a distinct prefix can be prepended to all columns
-                              of a file.
-        :param start_time: (Keyword only) Starting time for the scenario import. Default value is scenario_time_begin.
-        :param end_time: (Keyword only) Latest ending time for the scenario import. Default value is scenario_time_end.
-        :param total_time: (Keyword only) Total duration of the imported scenario. If given as int this will be
-                           interpreted as seconds. The default is episode_duration.
-        :param random: (Keyword only) Set to true if a random starting point (within the interval determined by
-                       start_time and end_time should be chosen. This will use the environments random generator.
-                       The default is false.
-        :param resample_time: (Keyword only) Resample the scenario data to the specified interval. If this is specified
-                              one of 'upsample_fill' or downsample_method' must be supplied as well to determin how
-                              the new data points should be determined. If given as an in, this will be interpreted as
-                              seconds. The default is no resampling.
-        :param resample_method: (Keyword only) Method for filling in / aggregating data when resampling. Pandas
-                                resampling methods are supported. Default is None (no resampling)
-        :param interpolation_method: (Keyword only) Method for interpolating missing data values. Pandas missing data
-                                     handling methods are supported. If a list with one value per file is given, the
-                                     specified method will be selected according the order of paths.
-        :param rename_cols: (Keyword only) Rename columns of the imported data. Maps the colunms as they appear in the
-                            data files to new names. Format: {old_name: new_name}
-        :param prefix_renamed: (Keyword only) Should prefixes be applied to renamed columns as well? Default: True.
-                               When setting this to false make sure that all columns in all loaded scenario files
-                               have different names. Otherwise there is a risk of overwriting data.
-        :param infer_datetime_from: (Keyword only) Specify how datetime values should be converted. 'dates' will use
-                                    pandas to automatically determine the format. 'string' uses the conversion string
-                                    specified in the 'time_conversion_str' parameter. If a two-tuple of the format
-                                    (row, col) is given, data from the specified field in the data files will be used
-                                    to determine the date format. The default is 'string'
-        :param time_conversion_str: (Keyword only) Time conversion string. This must be specified if the
-                                    infer_datetime_from parameter is set to 'string'. The string should specify the
-                                    datetime format in the python strptime format. The default is: '%Y-%m-%d %H:%M'.
-        :return: Combined pandas dataframe with scenario data.
-        """
-        # Set defaults and convert values where necessary
-        total_time = timedelta(seconds=self.episode_duration) if total_time is None else total_time
-        start_time = self.scenario_time_begin if start_time is None else start_time
-        end_time = self.scenario_time_end if end_time is None else end_time
-        random = self.np_random if random else False
-        resample_time = timedelta(seconds=self.sampling_time) if resample_time is None else resample_time
-
-        df = timeseries.scenario_from_csv(
-            paths,
-            data_prefixes,
-            start_time=start_time,
-            end_time=end_time,
-            total_time=total_time,
-            random=random,
-            resample_time=resample_time,
-            resample_method=resample_method,
-            interpolation_method=interpolation_method,
-            rename_cols=rename_cols,
-            prefix_renamed=prefix_renamed,
-            infer_datetime_from=infer_datetime_from,
-            time_conversion_str=time_conversion_str,
-        )
-
-        return df
 
     @classmethod
     def get_info(cls, _=None) -> Tuple[str, str]:
