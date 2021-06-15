@@ -294,6 +294,9 @@ class ETAx:
         self.path_run_monitor = self.path_series_results / (self.run_name + "_monitor.csv")
 
         if not self.path_results.is_dir():
+            for p in reversed(self.path_results.parents):
+                if not p.is_dir():
+                    p.mkdir()
             self.path_results.mkdir()
 
         if not self.path_series_results.is_dir():
