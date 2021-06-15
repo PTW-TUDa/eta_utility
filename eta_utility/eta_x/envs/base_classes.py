@@ -453,7 +453,7 @@ class BaseEnv(Env, abc.ABC):
             resample_time=self.sampling_time,
             start_time=self.env_settings["scenario_time_begin"],
             end_time=self.env_settings["scenario_time_end"],
-            total_time=self.episode_duration,
+            total_time=self.episode_duration + self.sampling_time,
             random=self.np_random,
             interpolation_method=int_methods,
             resample_method=res_methods,
