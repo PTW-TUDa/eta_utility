@@ -23,3 +23,10 @@ class OPCUANodes:
         "opcua",
         opc_id="ns=6;s=.Test_Namespace.Node" ".Drehzahl",
     )
+
+    node_case_sen = Node(
+        "Serv.NodeName",
+        "opc.tcp://10.0.0.1:48050",
+        "opcua",
+        opc_id="NS=4;S=.Some_Namespace.Node1",  # NS instead of ns. S instead of s.
+    )
