@@ -12,6 +12,7 @@ from eta_utility.servers.opcua import OpcUaServer
 _node = nodes.node
 _node2 = nodes.node2
 _node_fail = nodes.node_fail
+_node_case_sen = nodes.node_case_sen
 
 
 class TestOPCUA1:
@@ -64,7 +65,6 @@ class TestOPCUA1:
 
 
 class TestOPCUA2:
-
     _server = OpcUaServer(6)
     _connection = OpcUaConnection(_server.url, "admin", nodes=_node)
 
@@ -107,3 +107,14 @@ class TestOPCUA2:
             TestOPCUA2._connection.read(_node)
 
         TestOPCUA2._server.stop()
+
+
+class TestOPCUA3:
+    def test_opc_id_not_case_sensitive(self):
+        server = OpcUaServer(4)
+        connection = OpcUaConnection(server.url, "admin", nodes=_node_case_sen)  # denies access if usr = None
+        connection.create_nodes(_node_case_sen)
+        values = {_node_case_sen: 10}
+        connection.write(values)
+        assert int(connection.read(_node_case_sen)[_node_case_sen.name].iloc[0]) == 10
+        server.stop()

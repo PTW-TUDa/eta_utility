@@ -86,10 +86,11 @@ class Node:
             parts = self.opc_id.split(";")
             for part in parts:
                 key, val = part.split("=")
-                if key == "ns":
+                if key.lower() == "ns":
                     self.opc_ns: int = int(val)
-                elif key == "s":
+                elif key.lower() == "s":
                     self.opc_path_str: str = val.strip(" .")
+            self.opc_id = f"ns={self.opc_ns};s=.{self.opc_path_str}"
         elif {"opc_path", "ns"} == kwargs.keys():
             self.opc_ns = int(kwargs["ns"])
             self.opc_path_str = kwargs["opc_path"].strip(" .")
