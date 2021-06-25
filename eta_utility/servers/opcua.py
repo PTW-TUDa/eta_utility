@@ -13,11 +13,11 @@ log = get_logger("servers.opcua")
 class OpcUaServer:
     """Provides an OPC UA server with a number of specified nodes. Each node can contain single values or arrays.
 
-    :param name: Namespace of the OPC UA Server
+    :param namespace: Namespace of the OPC UA Server
     :param port: Port to listen on
     """
 
-    def __init__(self, name: Union[str, int], port: int = 4840) -> None:
+    def __init__(self, namespace: Union[str, int], port: int = 4840) -> None:
         #: url: IP Address of the OPC UA Server
         self.url: str = "opc.tcp://{}:{}".format(socket.gethostbyname(socket.gethostname()), port)
         log.info(f"Server Address is {self.url}")
@@ -25,8 +25,8 @@ class OpcUaServer:
         self._server: Server = Server()
         self._server.set_endpoint(self.url)
 
-        self.idx: int = self._server.register_namespace(str(name))  #: idx: Namespace of the OPC UA _server
-        log.debug(f'Server Namespace set to "{name}"')
+        self.idx: int = self._server.register_namespace(str(namespace))  #: idx: Namespace of the OPC UA _server
+        log.debug(f'Server Namespace set to "{namespace}"')
 
         self._server.set_security_policy([ua.SecurityPolicyType.NoSecurity])
         self._server.start()
