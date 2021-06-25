@@ -30,6 +30,7 @@ from pyomo.opt import SolverResults
 
 from eta_utility import get_logger, timeseries
 from eta_utility.simulators import FMUSimulator
+from eta_utility.type_hints.custom_types import Path
 
 log = get_logger("eta_x.envs")
 
@@ -66,13 +67,13 @@ class BaseEnv(Env, abc.ABC):
         - reset
         - close
 
-    :param int env_id: Identification for the environment, usefull when creating multiple environments
-    :param str run_name: Identification name for the optimization run
-    :param Dict[str, Any] general_settings: Dictionary of general settings
-    :param Dict[str, Any] path_settings: Dictionary of path settings
-    :param Dict[str, Any] env_settings: Dictionary of environment specific settings
-    :param int verbose: Verbosity setting for logging
-    :param Callable callback: callback method will be called after each episode with all data within the
+    :param env_id: Identification for the environment, usefull when creating multiple environments
+    :param run_name: Identification name for the optimization run
+    :param general_settings: Dictionary of general settings
+    :param path_settings: Dictionary of path settings
+    :param env_settings: Dictionary of environment specific settings
+    :param verbose: Verbosity setting for logging
+    :param callback: callback method will be called after each episode with all data within the
         environment class
     """
 
@@ -103,17 +104,17 @@ class BaseEnv(Env, abc.ABC):
         env_id: int,
         run_name: str,
         general_settings: Dict[str, Any],
-        path_settings: Dict[str, Union[str, pathlib.Path]],
+        path_settings: Dict[str, Path],
         env_settings: Dict[str, Any],
         verbose: int,
         callback: Callable = None,
     ):
         # Set some additional required settings
-        self.req_path_settings = set(self.req_path_settings)
+        self.req_path_settings: Set[Union[Sequence, MutableSet]] = set(self.req_path_settings)
         self.req_path_settings.update(("path_root", "path_results", "relpath_scenarios"))  # noqa
-        self.req_env_settings = set(self.req_env_settings)
+        self.req_env_settings: Set[Union[Sequence, MutableSet]] = set(self.req_env_settings)
         self.req_env_settings.update(("scenario_time_begin", "scenario_time_end"))  # noqa
-        self.req_general_settings = set(self.req_general_settings)
+        self.req_general_settings: Set[Union[Sequence, MutableSet]] = set(self.req_general_settings)
         self.req_general_settings.update(("episode_duration", "sampling_time"))  # noqa
 
         super().__init__()
@@ -189,11 +190,11 @@ class BaseEnv(Env, abc.ABC):
         #: Total number of environments
         self.n_environments = int(self.settings["n_environments"])
         #: Id of the environment (useful for vectorized environments)
-        self.env_id = env_id
+        self.env_id: int = env_id
         #: Name of the current optimization run
-        self.run_name = run_name
+        self.run_name: str = run_name
         #: Number of completed episodes
-        self.n_episodes = 0
+        self.n_episodes: int = 0
         #: Current step of the model (number of completed steps) in the current episode
         self.n_steps: int = 0
         #: Current step of the model (total over all episodes)
@@ -221,7 +222,7 @@ class BaseEnv(Env, abc.ABC):
         #:   import_scenario method.
         self.timeseries: pd.DataFrame = pd.DataFrame()
         #: Data frame containing the currently valid range of time series data.
-        self.ts_current: pd.DataFrame
+        self.ts_current: pd.DataFrame = pd.DataFrame()
 
         # Columns (and their order) and default values for the state_config DataFrame.
         self.__state_config_cols = OrderedDict(
@@ -290,7 +291,7 @@ class BaseEnv(Env, abc.ABC):
 
         # Store data logs and log other information
         #: episode timer
-        self.episode_timer = time.time()
+        self.episode_timer: float = time.time()
         #: Current state of the environment
         self.state: Dict[str, float]
         #: Log of the environment state
@@ -304,7 +305,7 @@ class BaseEnv(Env, abc.ABC):
         #: Log of specific environment settings / other data, apart from state, over multiple episodes.
         self.data_log_longtime: List[List[Dict[str, Any]]]
 
-    def append_state(self, *, name, **kwargs) -> None:
+    def append_state(self, *, name: Any, **kwargs) -> None:
         """Append a state variable to the state configuration of the environment
 
         :param name: Name of the state variable
@@ -323,7 +324,7 @@ class BaseEnv(Env, abc.ABC):
         append = pd.Series(append, name=name)
         self.state_config = self.state_config.append(append, sort=True)
 
-    def _init_state_space(self):
+    def _init_state_space(self) -> None:
         """Convert state config and store state information. This is a shorthand for the function calls:
 
         * _convert_state_config
@@ -335,7 +336,7 @@ class BaseEnv(Env, abc.ABC):
         self._names_from_state()
         self._store_state_info()
 
-    def _names_from_state(self):
+    def _names_from_state(self) -> None:
         """Intialize the names array from state_config, which stores shorthands to some frequently used variable names.
         Also initialize some useful shorthand mappings that can be used to speed up lookups.
 
@@ -375,13 +376,12 @@ class BaseEnv(Env, abc.ABC):
         for name in self.names["scenario"]:
             self.map_scenario_ids[name] = self.state_config.loc[name].scenario_id
 
-    def _convert_state_config(self):
+    def _convert_state_config(self) -> pd.DataFrame:
         """This will convert an incomplete state_config DataFrame or a list of dictionaries to the standardized
         DataFrame format. This will remove any additional columns. If additional columns are required, ensure
         consistency with the required format otherwise.
 
         :return: Converted, standardized dataframe
-        :rtype: pd.DataFrame
         """
         # If state config is a DataFrame already, check whether the columns correspond. If they don't create a new
         # DataFrame with the correct columns and default values for missing columns
@@ -421,7 +421,7 @@ class BaseEnv(Env, abc.ABC):
         self.state_config = new_state
         return self.state_config
 
-    def _store_state_info(self):
+    def _store_state_info(self) -> None:
         """Save state_config to csv for info (only first environment)"""
         if self.env_id == 1:
             self.state_config.to_csv(
@@ -429,6 +429,38 @@ class BaseEnv(Env, abc.ABC):
                 sep=";",
                 decimal=",",
             )
+
+    def import_scenario(self, *scenario_paths: Dict[str, Any]) -> None:
+        """Load data from csv into self.timeseries_data by using scenario_from_csv
+        :param scenario_paths: One or more scenario configuration dictionaries (Or a list of dicts), which each
+                               contain a path for loading data from a scenario file.
+                               The dictionary should have the following structure, with <X> denoting the
+                               variable value:
+                               [{path: <X>, interpolation_method: <X>, resample_method: <X>,
+                                 scale_factors: {col_name: <X>}]
+        """
+        paths = []
+        int_methods = []
+        res_methods = []
+        scale_factors = []
+        for path in scenario_paths:
+            paths.append(self.path_root / path["path"])
+            int_methods.append(path.get("interpolation_method", None))
+            res_methods.append(path.get("resample_method", "asfreq"))
+            scale_factors.append(path.get("scale_factors", None))
+        self.ts_current = timeseries.scenario_from_csv(
+            paths=paths,
+            resample_time=self.sampling_time,
+            start_time=self.env_settings["scenario_time_begin"],
+            end_time=self.env_settings["scenario_time_end"],
+            total_time=self.episode_duration + self.sampling_time,
+            random=self.np_random,
+            interpolation_method=int_methods,
+            resample_method=res_methods,
+            scaling_factors=scale_factors,
+        )
+
+        return self.ts_current
 
     def continous_action_space_from_state(self) -> spaces.Space:
         """Use the state_config to generate the action space according to the format required by the OpenAI
@@ -443,16 +475,16 @@ class BaseEnv(Env, abc.ABC):
 
         return self.action_space
 
-    def continous_obs_space_from_state(self) -> spaces.Space:
+    def continous_obs_space_from_state(self) -> spaces.Box:
         """Use the state_config to generate the observation space according to the format required by the OpenAI
         specification. This will set the observation_space attribute and return the corresponding space object.
         The generated observation space is continous.
 
-        :return:
+        :return: Observation Space
         """
         state_low = self.state_config.loc[self.state_config.is_agent_observation == True].low_value.values  # noqa: E712
         state_high = self.state_config.loc[
-            self.state_config.is_agent_observation == True
+            self.state_config.is_agent_observation == True  # noqa: E712
         ].high_value.values  # noqa: E712
         self.observation_space = spaces.Box(state_low, state_high, dtype=np.float)
 
@@ -462,9 +494,7 @@ class BaseEnv(Env, abc.ABC):
         """Check whether the given state is within the abort conditions specified by state_config.
 
         :param state: The state array to check for conformance
-        :type state: Mapping[str, float]
         :return: Result of the check (False if the state does not conform to the required conditions)
-        :rtype: bool
         """
         valid = all(
             state[key] > val
@@ -501,7 +531,7 @@ class BaseEnv(Env, abc.ABC):
         .. note ::
             Do not forge to increment n_steps and n_steps_longtime.
 
-        :param np.ndarray action:
+        :param action:
         :return: The return value represents the state of the environment after the step was performed.
 
             * observations: A numpy array with new observation values as defined by the observation space.
@@ -512,12 +542,11 @@ class BaseEnv(Env, abc.ABC):
             * info: Provide some additional info about the state of the environment. The contents of this may be used
                     for logging purposes in the future but typically do not currently server a purpose.
 
-        :rtype: Tuple[np.ndarray, Union[np.float, SupportsFloat], bool, Union[str, Sequence[str]]]
         """
         raise NotImplementedError("Cannot step an abstract Environment.")
 
     @abc.abstractmethod
-    def reset(self) -> np.ndarray:
+    def reset(self) -> Tuple[np.ndarray, Union[np.float, SupportsFloat], bool, Union[str, Sequence[str]]]:
         """Reset the environment. This is called after each episode is completed and should be used to reset the
         state of the environment such that simulation of a new episode can begin.
 
@@ -526,12 +555,11 @@ class BaseEnv(Env, abc.ABC):
 
         :return: The return value represents the observations (state) of the environment before the first
                  step is performed
-        :rtype: Tuple[np.ndarray, Union[np.float, SupportsFloat], bool, Union[str, Sequence[str]]]
         """
         raise NotImplementedError("Cannot reset an abstract Environment.")
 
     @abc.abstractmethod
-    def close(self):
+    def close(self) -> None:
         """Close the environment. This should always be called when an entire run is finished. It should be used to
         close any resources (i.e. simulation models) used by the environment.
 
@@ -543,9 +571,7 @@ class BaseEnv(Env, abc.ABC):
         """Set random seed for the random generator of the environment
 
         :param seed: Seeding value
-        :type seed: str or int
         :return: Tuple of the numpy bit generator and the set seed value
-        :rtype: Tuple[np.random.BitGenerator, int]
         """
         if "seed" in self.env_settings and self.env_settings["seed"] == "":
             self.env_settings["seed"] = None
@@ -566,99 +592,13 @@ class BaseEnv(Env, abc.ABC):
 
         return self.np_random, self._seed
 
-    def _import_scenario(
-        self,
-        paths: Union[pathlib.Path, Sequence[pathlib.Path]],
-        data_prefixes: Sequence[str] = None,
-        *,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-        total_time: Optional[Union[timedelta, int]] = None,
-        random: Optional[bool] = False,
-        resample_time: Optional[Union[timedelta, int]] = None,
-        resample_method: Optional[str] = None,
-        interpolation_method: Optional[Union[Sequence[str], str]] = None,
-        rename_cols: Optional[Mapping[str, str]] = None,
-        prefix_renamed: Optional[bool] = True,
-        infer_datetime_from: Optional[Union[str, Sequence[int]]] = "string",
-        time_conversion_str: str = "%Y-%m-%d %H:%M",
-    ):
-        """Import (possibly multiple) scenario data files from csv files and return them as a single pandas
-        data frame. The import function supports column renaming and will slice and resample data as specified.
-
-        This is a shorthand for eta_utility.timeseries.scenarios.scenario_from_csv. See that function for more
-        information. This function sets some additional default parameters (i.e. scenario_time_begin). See also:
-        :func:`eta_utility.timeseries.scenarios.scenario_from_csv`
-
-        :param paths: Path(s) to one or more CSV data files. The paths should be fully qualified.
-        :param data_prefixes: If more than file is imported, a list of data_prefixes must be supplied such that
-                              ambiquity of column names between the files can be avoided. There must be one prefix
-                              for every imported file, such that a distinct prefix can be prepended to all columns
-                              of a file.
-        :param start_time: (Keyword only) Starting time for the scenario import. Default value is scenario_time_begin.
-        :param end_time: (Keyword only) Latest ending time for the scenario import. Default value is scenario_time_end.
-        :param total_time: (Keyword only) Total duration of the imported scenario. If given as int this will be
-                           interpreted as seconds. The default is episode_duration.
-        :param random: (Keyword only) Set to true if a random starting point (within the interval determined by
-                       start_time and end_time should be chosen. This will use the environments random generator.
-                       The default is false.
-        :param resample_time: (Keyword only) Resample the scenario data to the specified interval. If this is specified
-                              one of 'upsample_fill' or downsample_method' must be supplied as well to determin how
-                              the new data points should be determined. If given as an in, this will be interpreted as
-                              seconds. The default is no resampling.
-        :param resample_method: (Keyword only) Method for filling in / aggregating data when resampling. Pandas
-                                resampling methods are supported. Default is None (no resampling)
-        :param interpolation_method: (Keyword only) Method for interpolating missing data values. Pandas missing data
-                                     handling methods are supported. If a list with one value per file is given, the
-                                     specified method will be selected according the order of paths.
-        :param rename_cols: (Keyword only) Rename columns of the imported data. Maps the colunms as they appear in the
-                            data files to new names. Format: {old_name: new_name}
-        :param prefix_renamed: (Keyword only) Should prefixes be applied to renamed columns as well? Default: True.
-                               When setting this to false make sure that all columns in all loaded scenario files
-                               have different names. Otherwise there is a risk of overwriting data.
-        :param infer_datetime_from: (Keyword only) Specify how datetime values should be converted. 'dates' will use
-                                    pandas to automatically determine the format. 'string' uses the conversion string
-                                    specified in the 'time_conversion_str' parameter. If a two-tuple of the format
-                                    (row, col) is given, data from the specified field in the data files will be used
-                                    to determine the date format. The default is 'string'
-        :param time_conversion_str: (Keyword only) Time conversion string. This must be specified if the
-                                    infer_datetime_from parameter is set to 'string'. The string should specify the
-                                    datetime format in the python strptime format. The default is: '%Y-%m-%d %H:%M'.
-        :return: Combined pandas dataframe with scenario data.
-        """
-        # Set defaults and convert values where necessary
-        total_time = timedelta(seconds=self.episode_duration) if total_time is None else total_time
-        start_time = self.scenario_time_begin if start_time is None else start_time
-        end_time = self.scenario_time_end if end_time is None else end_time
-        random = self.np_random if random else False
-        resample_time = timedelta(seconds=self.sampling_time) if resample_time is None else resample_time
-
-        df = timeseries.scenario_from_csv(
-            paths,
-            data_prefixes,
-            start_time=start_time,
-            end_time=end_time,
-            total_time=total_time,
-            random=random,
-            resample_time=resample_time,
-            resample_method=resample_method,
-            interpolation_method=interpolation_method,
-            rename_cols=rename_cols,
-            prefix_renamed=prefix_renamed,
-            infer_datetime_from=infer_datetime_from,
-            time_conversion_str=time_conversion_str,
-        )
-
-        return df
-
     @classmethod
-    def get_info(cls, _=None):
+    def get_info(cls, _=None) -> Tuple[str, str]:
         """
         get info about environment
 
         :param _: This parameter should not be used in new implementations
         :return: version and description
-        :rtype: Tuple[str, str]
         """
         return cls.version, cls.description
 
@@ -671,11 +611,11 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         env_id: int,
         run_name: str,
         general_settings: Dict[str, Any],
-        path_settings: Dict[str, Union[str, pathlib.Path]],
+        path_settings: Dict[str, Path],
         env_settings: Dict[str, Any],
         verbose: int,
         callback: Callable = None,
-    ):
+    ) -> None:
         self.req_env_settings = set(self.req_env_settings)
         self.req_env_settings.update(("model_parameters",))  # noqa
         self.req_env_config.update(
@@ -755,7 +695,6 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         pyomo.
 
         :return: tuple of the concrete model and the order of the action space
-        :type: Tuple[pyo.ConcreteModel, list]
         """
         if self._concrete_model is None:
             self._concrete_model = self._model()
@@ -770,7 +709,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         return self._concrete_model, self.names["actions"]
 
     @model.setter
-    def model(self, value):
+    def model(self, value) -> None:
         """The model attribute setter should be used for returning the solved model.
 
         :param value:
@@ -781,11 +720,10 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         self._concrete_model = value
 
     @abc.abstractmethod
-    def _model(self) -> pyo.ConcreteModel:
+    def _model(self) -> pyo.AbstractModel:
         """Create the abstract pyomo model. This is where the pyomo model description should be placed.
 
         :return: Abstract pyomo model
-        :rtype: pyo.AbstractModel
         """
         raise NotImplementedError("The abstract MPC environment does not implement a model.")
 
@@ -809,8 +747,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             * done: Boolean value specifying whether an episode has been completed. If this is set to true,
               the reset function will automatically be called by the agent or by eta_i.
             * info: Provide some additional info about the state of the environment. The contents of this may
-              be used for logging purposes in the future but typically do not currently serve a purpose.
-        :rtype: Tuple[np.ndarray, Union[np.float, SupportsFloat], bool, Union[str, Sequence[str]]]
+                be used for logging purposes in the future but typically do not currently serve a purpose.
         """
         if not self.action_space.contains(action):
             raise RuntimeError(f"Action {action} ({type(action)}) is invalid. Not in action space.")
@@ -837,9 +774,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         """Update the optimization model with observations from another environment.
 
         :param observations: Observations from another environment
-        :type observations: Optional[Sequence[Sequence[Union[float, int]]]]
         :return: Full array of current observations
-        :rtype: np.ndarray
         """
         # update shift counter for rolling MPC approach
         self.n_steps += 1
@@ -922,8 +857,8 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         """This method will try to render the result in case the model could not be solved. It should automatically
         be called by the agent.
 
-        :param pyo.ConcreteModel model: Current model
-        :param pyo.SolverStatus result: Result of the last solution attempt
+        :param model: Current model
+        :param result: Result of the last solution attempt
         :return:
         """
         self.model = model
@@ -938,11 +873,10 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         counter, resets the episode steps and appends the state_log to the longtime log.
 
         If you want to extend this function, write your own code and call super().reset() afterwards to return
-        fresh observations. This allows you to ajust timeseries for example. If you need to manipulate the state
+        fresh observations. This allows you to adjust timeseries for example. If you need to manipulate the state
         before initializing or if you want to adjust the initialization itself, overwrite the function entirely.
 
         :return: Initial observation
-        :rtype: np.ndarray
         """
         if self.n_steps > 0:
             if self.callback is not None:
@@ -984,7 +918,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
 
         return np.array(observations)
 
-    def close(self):
+    def close(self) -> None:
         """Close the environment. This should always be called when an entire run is finished. It should be used to
         close any resources (i.e. simulation models) used by the environment.
 
@@ -1006,13 +940,11 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
 
         .. seealso:: pyo_convert_timeseries
 
-        :param str component_name: Name of the component
-        :param Mapping[str, Any] ts: Timeseries for the component
+        :param component_name: Name of the component
+        :param ts: Timeseries for the component
         :param index: New index for timeseries data. If this is supplied, all timeseries will be copied and
                               reindexed.
-        :type index: Sequence or pyo.Set
         :return: Pyomo parameter dictionary
-        :rtype: Dict[None, Dict[str, Any]]
         """
         if component_name is None:
             params = self.model_parameters
@@ -1039,20 +971,17 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         index: Optional[Union[pd.Index, Sequence, pyo.Set]] = None,
         component_name: Optional[str] = None,
         *,
-        _add_wrapping_None=True,
+        _add_wrapping_None: bool = True,
     ) -> Union[Dict[None, Dict[str, Any]], Dict[str, Any]]:
         """Convert a time series data into a pyomo format. Data will be reindexed if a new index is provided.
 
-        :param Mapping ts: Timeseries to convert
-        :type ts: pd.DataFrame or pd.Series or Dict[str, Union[Dict or Sequence]] or Sequence
+        :param ts: Timeseries to convert
         :param index: New index for timeseries data. If this is supplied, all timeseries will be copied and
                               reindexed.
-        :type index: pd.Index or Sequence or pyo.Set
-        :param str component_name: Name of a specific component that the timeseries is used for. This limits which
+        :param component_name: Name of a specific component that the timeseries is used for. This limits which
                                    timeseries are returned.
-        :param bool _add_wrapping_None: default is True
+        :param _add_wrapping_None: default is True
         :return: pyomo parameter dictionary
-        :rtype: Dict[None, Dict[str, Any]]
         """
         output = {}
         if index is not None:
@@ -1064,15 +993,12 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             ts.update(ts[None])
             del ts[None]
 
-        def convert_index(_ts, _index):
+        def convert_index(_ts: pd.Series, _index: Sequence[int]) -> Dict[int, Any]:
             """Take the timeseries and change the index to correspond to _index.
 
             :param _ts: Original timeseries object (with or without index does not matter)
-            :type _ts: pd.Series or Mapping or Sequence
             :param _index: New index
-            :type _index: Sequence[int]
             :return: New timeseries dictionary with the converted index.
-            :rytpe: Dict[int, Any]
             """
             values = None
             if isinstance(_ts, pd.Series):
@@ -1124,18 +1050,17 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
 
     def pyo_update_params(
         self,
-        updated_params: Dict[str, Any],
+        updated_params: Mapping[str, Any],
         nonindex_param_append_string: Optional[str] = None,
-    ):
+    ) -> pyo.ConcreteModel:
         """Updates model parameters and indexed parameters of a pyomo instance with values given in a dictionary.
         It assumes that the dictionary supplied in updated_params has the correct pyomo format.
 
-        :param Dict[str, Any] updated_params: Dictionary with the updated values
-        :param str nonindex_param_append_string: String to be appended to values that are not indexed. This can
+        :param updated_params: Dictionary with the updated values
+        :param nonindex_param_append_string: String to be appended to values that are not indexed. This can
                                                   be used if indexed parameters need to be set with values that do
                                                   not have an index.
         :return: Updated model instance
-        :rtype: pyo.ConcreteModel
         """
         # append string to non indexed values that are used to set indexed parameters.
         if nonindex_param_append_string is not None:
@@ -1171,10 +1096,9 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
     ) -> Dict[str, Union[float, int, Dict[int, Union[float, int]]]]:
         """Convert the pyomo solution into a more useable format for plotting.
 
-        :param Set[str] names: Names of the model parameters that are returned
+        :param names: Names of the model parameters that are returned
         :return: Dictionary of {parameter name: value} pairs. Value may be a dictionary of {time: value} pairs which
                  contains one value for each optimization time step
-        :rtype: Dict[str, Union[float, int, Dict[int, Union[float, int]]]]
         """
 
         solution = {}
@@ -1221,11 +1145,11 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         env_id: int,
         run_name: str,
         general_settings: Dict[str, Any],
-        path_settings: Dict[str, Union[str, pathlib.Path]],
+        path_settings: Dict[str, Path],
         env_settings: Dict[str, Any],
         verbose: int,
         callback: Callable = None,
-    ):
+    ) -> None:
 
         self.req_general_settings = set(self.req_general_settings)
         self.req_general_settings.update(("sim_steps_per_sample",))  # noqa
@@ -1266,7 +1190,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         #: Instance of the FMU. This can be used to directly access the eta_utility.FMUSimulator interface.
         self.simulator: FMUSimulator
 
-    def _init_simulator(self, init_values: Mapping[str, Union[int, float]]):
+    def _init_simulator(self, init_values: Mapping[str, Union[int, float]]) -> None:
         """Initialize the simulator object. Make sure to call _names_from_state before this or to otherwise initialize
         the names array.
 
@@ -1340,8 +1264,9 @@ class BaseEnvSim(BaseEnv, abc.ABC):
 
         .. warning::
             This function always returns 0 reward. Therefore, it must be extended if it is to be used with reinforcement
-            learning agents. If you need to manipulate actions (discretization, policy shaping, ...) do this before calling
-            this function. If you need to manipulate observations and rewards, do this after calling this function.
+            learning agents. If you need to manipulate actions (discretization, policy shaping, ...)
+            do this before calling this function.
+            If you need to manipulate observations and rewards, do this after calling this function.
 
         :param action: Actions to perform in the environment.
         :return: The return value represents the state of the environment after the step was performed.
@@ -1356,7 +1281,8 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         """
         if self.action_space.shape != action.shape:
             raise RuntimeError(
-                f"Agent action {action} (shape: {action.shape}) does not correspond to shape of environment action space (shape: {self.action_space.shape})."
+                f"Agent action {action} (shape: {action.shape})"
+                f" does not correspond to shape of environment action space (shape: {self.action_space.shape})."
             )
         elif not self.action_space.contains(action):
             raise RuntimeError(
@@ -1425,7 +1351,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
 
         return observations
 
-    def close(self):
+    def close(self) -> None:
         """Close the environment. This should always be called when an entire run is finished. It should be used to
         close any resources (i.e. simulation models) used by the environment.
 

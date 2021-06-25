@@ -1,5 +1,5 @@
 import abc
-from typing import Callable, List, Tuple
+from typing import Callable, Tuple
 
 import numpy as np
 from stable_baselines.common import BaseRLModel
@@ -18,12 +18,12 @@ class RuleBased(BaseRLModel, abc.ABC):
     and provide actions as an output.
 
     :param policy: Agent policy. Parameter is not used in this agent and can be set to NoPolicy.
-    :param gym.Env env: Environment to be controlled
-    :param int verbose: Logging verbosity
+    :param env: Environment to be controlled
+    :param verbose: Logging verbosity
     :param kwargs: Additional arguments as specified in stable_baselins.BaseRLModel
     """
 
-    def __init__(self, policy: NoPolicy, env: VecEnv, verbose: int = 4, **kwargs):
+    def __init__(self, policy: NoPolicy, env: VecEnv, verbose: int = 4, **kwargs) -> None:
         # Ensure that arguments required by super class are always present
         if "requires_vec_env" not in kwargs:
             kwargs["requires_vec_env"] = False
@@ -33,7 +33,7 @@ class RuleBased(BaseRLModel, abc.ABC):
         super().__init__(policy=policy, env=env, verbose=verbose, **kwargs)
 
         #: Last / initial State of the agent.
-        self.state = np.zeros(self.action_space.shape)
+        self.state: np.ndarray = np.zeros(self.action_space.shape)
 
     @abc.abstractmethod
     def control_rules(self, observation: np.ndarray) -> np.ndarray:
@@ -72,7 +72,7 @@ class RuleBased(BaseRLModel, abc.ABC):
         return np.array(action), None
 
     @classmethod
-    def load(cls, load_path: str, env: VecEnv = None, **kwargs):
+    def load(cls, load_path: str, env: VecEnv = None, **kwargs) -> "RuleBased":
         """Load model. This is not implemented for the rule based agent.
 
         :param load_path: Path to load from
@@ -82,7 +82,7 @@ class RuleBased(BaseRLModel, abc.ABC):
         """
         log.info("Rule based agents cannot load data. Loading will be ignored.")
 
-    def save(self, save_path: str, **kwargs):
+    def save(self, save_path: str, **kwargs) -> None:
         """Save model after training. Not implemented for the rule based agent.
 
         :param save_path: Path to save to
@@ -91,11 +91,11 @@ class RuleBased(BaseRLModel, abc.ABC):
         """
         log.info("Rule based agents cannot save data. Loading will be ignored.")
 
-    def _get_pretrain_placeholders(self):
+    def _get_pretrain_placeholders(self) -> None:
         """Getting tensorflow pretrain placeholders is not implemented for the rule based agent"""
         raise NotImplementedError("The rule based agent cannot provide tensorflow pretrain placeholders.")
 
-    def get_parameter_list(self):
+    def get_parameter_list(self) -> None:
         """Getting tensorflow parameters is not implemented for the rule based agent"""
         raise NotImplementedError("The rule pased agent cannot provide a tensorflow parameter list.")
 
@@ -110,7 +110,7 @@ class RuleBased(BaseRLModel, abc.ABC):
         """Learning is not implemented for the rule based agent."""
         raise NotImplementedError("The rule based agent cannot learn a model.")
 
-    def setup_model(self):
+    def setup_model(self) -> None:
         """Setup model is not required for the rule based agent."""
         pass
 
@@ -121,6 +121,7 @@ class RuleBased(BaseRLModel, abc.ABC):
         mask: np.ndarray = None,
         actions: np.ndarray = None,
         **kwargs,
-    ):
-        """Get the model's action probability distribution from an observation. This is not implemented for this agent."""
+    ) -> None:
+        """Get the model's action probability distribution from an observation. This is not implemented for this
+        agent."""
         raise NotImplementedError("The rule based agent cannot calculate action probabilities.")

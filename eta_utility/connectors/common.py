@@ -2,10 +2,12 @@
 
 """
 import pathlib
-from typing import Any, AnyStr, Dict, List, Optional, Sequence, Set, Union
+from typing import Any, AnyStr, Dict, List, Optional, Sequence
 from urllib.parse import ParseResult, urlparse
 
 import pandas as pd
+
+from eta_utility.type_hints.custom_types import Node, Nodes, Path
 
 from .base_classes import BaseConnection
 from .eneffco import EnEffCoConnection
@@ -15,6 +17,9 @@ from .opcua import OpcUaConnection
 
 class Node:
     """The node objects represents a single variable. Valid keyword arguments depend on the protocol
+
+    The url may contain the username and password (schema://username:password@hostname:port/path). This is handled
+    automatically by the connectors.
 
     :param name: Any name can be used to identify the node. It is used to identify the node, therefore it should
                      be unique.
@@ -43,9 +48,9 @@ class Node:
 
     def __init__(self, name: str, url: str, protocol: str, **kwargs: Any) -> None:
 
-        self.name = str(name).strip()
-        self.protocol = protocol.strip().lower()
-        self._url = urlparse(url)
+        self.name: str = str(name).strip()
+        self.protocol: str = protocol.strip().lower()
+        self._url: ParseResult = urlparse(url)
 
         if "dtype" in kwargs:
             self.dtype = kwargs.pop("dtype")
@@ -65,26 +70,27 @@ class Node:
 
     def _init_modbus(self, mb_slave: int, mb_register: str, mb_channel: int) -> None:
         """Initialize the node object for modbus protocol nodes."""
-        self.mb_slave = int(mb_slave)
-        self.mb_register = mb_register.strip().lower()
-        self.mb_channel = int(mb_channel)
+        self.mb_slave: int = int(mb_slave)
+        self.mb_register: str = mb_register.strip().lower()
+        self.mb_channel: int = int(mb_channel)
 
     def _init_opcua(self, **kwargs: Any) -> None:
         """Initialize the node object for opcua protocol nodes"""
         #: opc_path_str: Path to the OPC UA node
-        self.opc_path_str = ""
+        self.opc_path_str: str = ""
         #: opc_path: Path to the OPC UA node in list representation
-        self.opc_path = []
+        self.opc_path: List[str] = []
 
         if {"opc_id"} == kwargs.keys():
-            self.opc_id = str(kwargs["opc_id"]).strip()
+            self.opc_id: str = str(kwargs["opc_id"]).strip()
             parts = self.opc_id.split(";")
             for part in parts:
                 key, val = part.split("=")
-                if key == "ns":
-                    self.opc_ns = int(val)
-                elif key == "s":
-                    self.opc_path_str = val.strip(" .")
+                if key.lower() == "ns":
+                    self.opc_ns: int = int(val)
+                elif key.lower() == "s":
+                    self.opc_path_str: str = val.strip(" .")
+            self.opc_id = f"ns={self.opc_ns};s=.{self.opc_path_str}"
         elif {"opc_path", "ns"} == kwargs.keys():
             self.opc_ns = int(kwargs["ns"])
             self.opc_path_str = kwargs["opc_path"].strip(" .")
@@ -93,7 +99,7 @@ class Node:
             raise ValueError("Specify opc_id or opc_path and ns for OPC UA nodes.")
 
         split_path = self.opc_path_str.split(".")
-        self.opc_name = split_path[-1]
+        self.opc_name: str = split_path[-1]
         if len(split_path) > 1:
             for key in range(len(split_path) - 1):
                 self.opc_path.append(
@@ -107,7 +113,7 @@ class Node:
 
     def _init_eneffco(self, eneffco_code: str) -> None:
         """Initialize the node object for the EnEffCo API."""
-        self.eneffco_code = eneffco_code
+        self.eneffco_code: str = eneffco_code
 
     @property
     def url(self) -> AnyStr:
@@ -119,7 +125,7 @@ class Node:
         return self._url
 
     @classmethod
-    def from_dict(cls, dikt: Dict[str, Dict[str, str]]):
+    def from_dict(cls, dikt: Dict[str, Dict[str, str]]) -> List[Node]:
         """Create nodes from a dictionary of node configurations. The configuration must specify the following
         fields for each node:
 
@@ -194,7 +200,7 @@ class Node:
         return nodes
 
     @classmethod
-    def from_excel(cls, path: Union[pathlib.Path, str], sheet_name: str) -> List["Node"]:
+    def from_excel(cls, path: Path, sheet_name: str) -> List[Node]:
         """
         Method to read out nodes from an excel document. The document must specify the following fields:
 
@@ -241,11 +247,11 @@ class Node:
         return hash(self.name)
 
 
-Nodes = Union[Set[Node], Sequence[Node]]
-
-
 def connections_from_nodes(
-    nodes: Nodes, eneffco_usr: str = None, eneffco_pw: str = None, eneffco_api_token: str = None
+    nodes: Nodes,
+    eneffco_usr: Optional[str] = None,
+    eneffco_pw: Optional[str] = None,
+    eneffco_api_token: Optional[str] = None,
 ) -> Dict[str, "BaseConnection"]:
     """Take a list of nodes and return a list of connections
 

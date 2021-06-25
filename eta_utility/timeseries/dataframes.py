@@ -7,17 +7,24 @@ import operator as op
 import pathlib
 import re
 from datetime import datetime, timedelta
-from typing import List
+from typing import Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
 
 from eta_utility import get_logger
+from eta_utility.type_hints.custom_types import Path, TimeStep
 
 log = get_logger("timeseries")
 
 
-def df_from_csv(path, *, delimiter=";", infer_datetime_from="dates", time_conversion_str="%Y-%m-%d %H:%M"):
+def df_from_csv(
+    path: Path,
+    *,
+    delimiter: str = ";",
+    infer_datetime_from: Union[str, Sequence[int], Tuple[int, int]] = "dates",
+    time_conversion_str: str = "%Y-%m-%d %H:%M",
+) -> pd.DataFrame:
     """Take data from a csv file, process it and return a Timeseries (pandas Data Frame) object.
 
     Open and read the .csv file perform error checks and ensure that valid float values are obtained. This
@@ -27,8 +34,7 @@ def df_from_csv(path, *, delimiter=";", infer_datetime_from="dates", time_conver
     characters, everything starting from the first special character is discarded.
 
     :param path: Path to the .csv file
-    :type path: str or pathlib.Path
-    :param str delimiter: Delimiter used between csv fields
+    :param delimiter: Delimiter used between csv fields
     :param infer_datetime_from: Specify how date and time values should be inferred. This can be 'dates' or 'string'
                                 or a tuple/list with two values.
 
@@ -40,8 +46,7 @@ def df_from_csv(path, *, delimiter=";", infer_datetime_from="dates", time_conver
                                   python strptime format) will be read from the specified field in the csv
                                   file ('row', 'column')
 
-    :type infer_datetime_from: str or List[int] or Tuple[int]
-    :param str time_conversion_str: Time conversion string according to the python (strptime) format
+    :param time_conversion_str: Time conversion string according to the python (strptime) format
     """
     if type(path) is str:
         path = pathlib.Path(path)
@@ -94,7 +99,7 @@ def df_from_csv(path, *, delimiter=";", infer_datetime_from="dates", time_conver
     if infer_datetime_format:
         parse_dates = True
 
-    def converter(val):
+    def converter(val: str) -> np.float:
         val = str(val).strip().replace(" ", "").replace(",", ".")
         if len(val) > 0:
             val = np.float(val)
@@ -119,22 +124,24 @@ def df_from_csv(path, *, delimiter=";", infer_datetime_from="dates", time_conver
     return data
 
 
-def find_time_slice(time_begin, time_end=None, total_time=None, round_to_interval=None, random=False):
+def find_time_slice(
+    time_begin: datetime,
+    time_end: Optional[datetime] = None,
+    total_time: Optional[TimeStep] = None,
+    round_to_interval: Optional[TimeStep] = None,
+    random: Union[bool, np.random.BitGenerator] = False,
+) -> Tuple[datetime, datetime]:
     """Return a (potentially random) slicing interval that can be used to slice a data frame.
 
-    :param datetime time_begin: Date and time of the beginning of the interval to slice from
-    :param datetime time_end: Date and time of the ending of the interval to slice from
+    :param time_begin: Date and time of the beginning of the interval to slice from
+    :param time_end: Date and time of the ending of the interval to slice from
     :param total_time: Specify the total time of the sliced interval. An integer will be interpreted as seconds.
                        If this argument is None, the complete interval between beginning and end will be returned.
-    :type total_time: None or int or timedelta
     :param round_to_interval: Round times to a specified interval, this value is interpreted as seconds if given as
                               an int. Default is no rounding
-    :type round_to_interval: int or timedelta
     :param random: If this value is true, or a random generator is supplied, it will be used to generate a
                    random slice of length total_time in the interval between time_begin and time_end
-    :type random: bool or np.random.BitGenerator
     :return: Tuple of slice_begin time and slice_end time. Both times are datetime objects.
-    :rtype: Tuple[datetime]
     """
     # Determine ending time and total time depending on what was supplied.
     if time_end is None and total_time is None:
@@ -176,30 +183,38 @@ def find_time_slice(time_begin, time_end=None, total_time=None, round_to_interva
     return slice_begin, slice_end
 
 
-def df_time_slice(df, time_begin, time_end=None, total_time=None, round_to_interval=None, random=False):
+def df_time_slice(
+    df: pd.DataFrame,
+    time_begin: datetime,
+    time_end: Optional[datetime] = None,
+    total_time: Optional[TimeStep] = None,
+    round_to_interval: Optional[TimeStep] = None,
+    random: Union[bool, np.random.BitGenerator] = False,
+) -> pd.DataFrame:
     """Return a data frame which has been sliced starting at time_begin and ending at time_end, from df.
 
-    :param pd.DataFrame df: Original data frame to be sliced
-    :param datetime time_begin: Date and time of the beginning of the interval to slice from
-    :param datetime time_end: Date and time of the ending of the interval to slice from
+    :param df: Original data frame to be sliced
+    :param time_begin: Date and time of the beginning of the interval to slice from
+    :param time_end: Date and time of the ending of the interval to slice from
     :param total_time: Specify the total time of the sliced interval. An integer will be interpreted as seconds.
                        If this argument is None, the complete interval between beginning and end will be returned.
-    :type total_time: None or int or timedelta
     :param round_to_interval: Round times to a specified interval, this value is interpreted as seconds if given as
                               an int. Default is no rounding
-    :type round_to_interval: int or timedelta
     :param random: If this value is true, or a random generator is supplied, it will be used to generate a
                    random slice of length total_time in the interval between time_begin and time_end
-    :type random: bool or np.random.BitGenerator
     :return: Sliced data frame
-    :rtype: pd.DataFrame
     """
 
     slice_begin, slice_end = find_time_slice(time_begin, time_end, total_time, round_to_interval, random)
     return df[slice_begin:slice_end].copy()
 
 
-def df_resample(df, *periods_deltas, resample_method="asfreq", missing_data=None):
+def df_resample(
+    df: pd.DataFrame,
+    *periods_deltas: Union[TimeStep, Sequence[TimeStep]],
+    resample_method: str = "asfreq",
+    missing_data: Optional[str] = None,
+) -> pd.DataFrame:
     """Resample the time index of a data frame. This method can be used for resampling in multiple different
     periods with multiple different deltas between single time entries.
 
@@ -207,21 +222,17 @@ def df_resample(df, *periods_deltas, resample_method="asfreq", missing_data=None
     :param periods_deltas: If one argument is specified this will resample the data to the specified interval
                            in seconds. If more than one argument is specified, they will be interpreted as
                            (periods, interval) pairs. The first argument specifies a number of periods that should
-                           be resampled, the seconf value specifies the interval that these periods should be
+                           be resampled, the second value specifies the interval that these periods should be
                            resampled to. A third argument would determine the next number of periods that should
                            be resampled to the interval specified by the fourth argument and so on.
-    :type periods_deltas: int or timedelta or List[int, timedelta]
     :param resample_method: If upsampling, this parameter must specify the upsampling method. All pandas resampling
                             methods are valid. See also: https://pandas.pydata.org/docs/reference/resampling.html. Some
                             examples: 'ffill', 'bfill', 'asfreq'
-    :type resample_method: str
     :param missing_data: Specify a method for handling missing data values. If this is not specified, missing data
                          will not be handled. All missing data handling functions for pandas dataframes are valid.
                          See also: https://pandas.pydata.org/docs/reference/frame.html#missing-data-handling. Some
                          examples: 'interpolate', 'fillna'
-    :type missing_data: str
     :return: Copy of the dataframe
-    :rtype: pd.DataFrame
     """
 
     sample_method = op.methodcaller(resample_method)

@@ -1,104 +1,58 @@
 import datetime
+from test.config_tests import *  # noqa
+from test.test_utilities.pyModbusTCP.client import ModbusClient
+from test.test_utilities.pyModbusTCP.nodes import ModbusNodes as nodes
 
-import pandas as pd
-from config_tests import *  # noqa
 from pytest import raises
 
-from eta_utility.connectors import Node
 from eta_utility.connectors.modbus import ModbusConnection
 
 
-def test_modbus_failures():
-    """Test modbus failures"""
-    node_fail = Node(
-        "Test.Name",
-        "modbus.tcp://someurl:502",
-        "modbus",
-        mb_channel=19026,
-        mb_register="Holding",
-        mb_slave=32,
-    )
+class TestModbus:
+    _node = nodes.node
+    _node2 = nodes.node2
+    _node_fail = nodes.node_fail
 
-    server_fail = ModbusConnection(node_fail.url)
+    def test_modbus_failures(self):
+        """Test modbus failures"""
+        server_fail = ModbusConnection(self._node_fail.url)
 
-    with raises(ConnectionError):
-        server_fail.read(node_fail)
+        with raises(ConnectionError):
+            server_fail.read(self._node_fail)
 
+    def test_modbus_read(self, monkeypatch):
+        """Test modbus read function without network access"""
+        # Test reading a single node
+        server = ModbusConnection(self._node.url)
+        mock_mb_client = ModbusClient()
+        monkeypatch.setattr(server, "connection", mock_mb_client)
+        res = server.read(self._node)
 
-def test_modbus_read(monkeypatch):
-    """Test modbus read function without network access"""
+        check = pd.DataFrame(
+            data=[147.5243377685547],
+            index=[datetime.datetime.now()],
+            columns=["Serv.NodeName"],
+        )
 
-    class MockMBClient:
-        @staticmethod
-        def open():
-            return True
+        assert check.columns == res.columns
+        assert check["Serv.NodeName"].values == res["Serv.NodeName"].values
+        assert isinstance(res.index, pd.DatetimeIndex)
 
-        @staticmethod
-        def is_open():
-            return True
+    def test_modbus_multiple_nodes_read(self, monkeypatch):
+        # Test reading multiple nodes
+        server = ModbusConnection(self._node.url, nodes=[self._node, self._node2])
+        mock_mb_client = ModbusClient()
+        monkeypatch.setattr(server, "connection", mock_mb_client)
+        res = server.read()
 
-        @staticmethod
-        def close():
-            pass
+        check = pd.DataFrame(
+            data={
+                "Serv.NodeName": [147.5243377685547],
+                "Serv.NodeName2": [147.5243377685547],
+            },
+            index=[datetime.datetime.now()],
+        )
 
-        @staticmethod
-        def mode(val):
-            pass
-
-        @staticmethod
-        def unit_id(val):
-            pass
-
-        @staticmethod
-        def read_holding_registers(val, num):
-            return [17171, 34363]
-
-    node = Node(
-        "Serv.NodeName",
-        "modbus.tcp://10.0.0.1:502",
-        "modbus",
-        mb_channel=3861,
-        mb_register="Holding",
-        mb_slave=32,
-    )
-    node2 = Node(
-        "Serv.NodeName2",
-        "modbus.tcp://10.0.0.2:502",
-        "modbus",
-        mb_channel=3866,
-        mb_register="Holding",
-        mb_slave=32,
-    )
-
-    # Test reading a single node
-    server = ModbusConnection(node.url)
-    mock_mb_client = MockMBClient()
-    monkeypatch.setattr(server, "connection", mock_mb_client)
-    res = server.read(node)
-
-    check = pd.DataFrame(
-        data=[147.5243377685547],
-        index=[datetime.datetime.now()],
-        columns=["Serv.NodeName"],
-    )
-
-    assert check.columns == res.columns
-    assert check["Serv.NodeName"].values == res["Serv.NodeName"].values
-    assert isinstance(res.index, pd.DatetimeIndex)
-
-    # Test reading multiple nodes
-    server = ModbusConnection(node.url, nodes=[node, node2])
-    monkeypatch.setattr(server, "connection", MockMBClient)
-    res = server.read()
-
-    check = pd.DataFrame(
-        data={
-            "Serv.NodeName": [147.5243377685547],
-            "Serv.NodeName2": [147.5243377685547],
-        },
-        index=[datetime.datetime.now()],
-    )
-
-    assert set(check.columns) == set(res.columns)
-    assert check["Serv.NodeName2"].values == res["Serv.NodeName2"].values
-    assert isinstance(res.index, pd.DatetimeIndex)
+        assert set(check.columns) == set(res.columns)
+        assert check["Serv.NodeName2"].values == res["Serv.NodeName2"].values
+        assert isinstance(res.index, pd.DatetimeIndex)

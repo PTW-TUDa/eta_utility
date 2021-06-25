@@ -2,15 +2,17 @@
 """
 import asyncio
 from datetime import datetime, timedelta
-from typing import Any, Dict, Mapping, Union
+from typing import Any, Dict, Mapping, Optional
 
 import pandas as pd
 import requests
 import tzlocal
+from pytz import BaseTzInfo
 
 from eta_utility import get_logger
+from eta_utility.type_hints.custom_types import Node, Nodes, TimeStep
 
-from .base_classes import BaseSeriesConnection, Node, Nodes, SubscriptionHandler
+from .base_classes import BaseSeriesConnection, SubscriptionHandler
 
 log = get_logger("connectors.eneffco")
 
@@ -27,19 +29,20 @@ class EnEffCoConnection(BaseSeriesConnection):
     :param nodes: Nodes to select in connection
     """
 
-    API_PATH = "/API/v1.0"
+    API_PATH: str = "/API/v1.0"
 
-    def __init__(self, url: str, usr: str, pwd: str, *, api_token: str, nodes: Nodes = None):
+    def __init__(self, url: str, usr: str, pwd: str, *, api_token: str, nodes: Optional[Nodes] = None) -> None:
         url = url + self.API_PATH
-        self._api_token = api_token
+        self._api_token: str = api_token
         super().__init__(url, usr, pwd, nodes=nodes)
 
-        self._node_ids = None
-        self._node_ids_raw = None
+        self._node_ids: Optional[str] = None
+        self._node_ids_raw: Optional[str] = None
 
-        self._sub = None
+        self._sub: Optional[asyncio.Task] = None
         self._subscription_nodes = set()
-        self._subscription_open = False
+        self._subscription_open: bool = False
+        self._local_tz: BaseTzInfo = tzlocal.get_localzone()
 
     @classmethod
     def from_node(cls, node: Node, *, usr: str, pwd: str, api_token: str) -> "EnEffCoConnection":
@@ -67,7 +70,34 @@ class EnEffCoConnection(BaseSeriesConnection):
         intervals = time.timestamp() // interval
         return datetime.fromtimestamp(intervals * interval)
 
-    def read(self, nodes: Nodes = None) -> pd.DataFrame:
+    def _round_timestamp(self, timestamp: datetime, interval: int = 1) -> datetime:
+        """Helper method for rounding date time objects to specified interval in seconds.
+        The method will also add local timezone information if not already present.
+
+        :param datetime timestamp: Datetime object to be rounded
+        :param interval: Interval in seconds to be rounded to
+        :return: Rounded datetime object with timezone information
+        """
+        ts_store = self._assert_tz_awareness(timestamp)  # store previous information, include timezone information
+
+        # Round timestamp
+        intervals = timestamp.timestamp() // interval
+        timestamp = datetime.fromtimestamp(intervals * interval)
+
+        # Restore timezone information
+        timestamp = timestamp.replace(tzinfo=ts_store.tzinfo)
+        return timestamp
+
+    def _assert_tz_awareness(self, timestamp: datetime) -> datetime:
+        """Helper function to check if timestamp has timezone and if not assign local time zone.
+
+        :param datetime timestamp: Datetime object to be rounded
+        :return: Rounded datetime object with timezone information"""
+        if timestamp.tzinfo is None:
+            timestamp = self._local_tz.localize(timestamp)
+        return timestamp
+
+    def read(self, nodes: Optional[Nodes] = None) -> pd.DataFrame:
         """Download current value from the EnEffCo Database
 
         :param nodes: List of nodes to read values from
@@ -75,25 +105,23 @@ class EnEffCoConnection(BaseSeriesConnection):
         """
         # Make sure that latest value is read depending on base time of node in EnEffCo
         nodes = self._validate_nodes(nodes)
-        info = self.read_info(nodes)
-        value = pd.DataFrame(index=[self.round_time(tzlocal.get_localzone().localize(datetime.now()), 1)])
+        values = pd.DataFrame()
         for node in nodes:
-            last_update = (
-                pd.to_datetime(info.at["LastUpdate", node.name]).tz_convert(tzlocal.get_localzone()).to_pydatetime()
+            request_url = "datapoint/{}/live".format(self.id_from_code(node.eneffco_code))
+            response = self._raw_request("GET", request_url)
+            response = response.json()
+
+            data = pd.DataFrame(
+                data=(r["Value"] for r in response),
+                index=pd.to_datetime([r["From"] for r in response], utc=True, format="%Y-%m-%dT%H:%M:%SZ").tz_convert(
+                    self._local_tz
+                ),
+                columns=[node.name],
+                dtype="float64",
             )
-            last_update = last_update.replace(tzinfo=None)
-            base_time = info.at["BaseTime", node.name]
-            data = self.read_series(
-                self.round_time(last_update, base_time) - timedelta(seconds=base_time),
-                self.round_time(last_update, base_time),
-                node,
-                timedelta(seconds=base_time),
-            )
-            if len(data) > 1:
-                # Check if data contains multiple rows, if so return only last row.
-                data = data.iloc[-1, :]
-            value.loc[value.index, node.name] = data.values
-        return value
+            data.index.name = "Time (with timezone)"
+            values = pd.concat([values, data], axis=1, sort=False)
+        return values
 
     def write(
         self, values: Mapping[Node, Mapping[datetime, Any]], time_interval: timedelta = timedelta(seconds=1)
@@ -120,23 +148,25 @@ class EnEffCoConnection(BaseSeriesConnection):
             )
             log.info(response.text)
 
-    def _prepare_raw_data(self, data: Mapping[datetime, Any], time_interval: timedelta) -> Dict[str, str]:
+    def _prepare_raw_data(self, data: Mapping[datetime, Any], time_interval: timedelta) -> str:
         """Change the input format into a compatible format with EnEffCo
 
         :param data: Data to write to node {time: value}. Could be a dictionary or a pandas Series.
         :param time_interval: Interval between datapoints (i.e. between "From" and "To" in EnEffCo Upload)
 
-        :return upload_data: Dictionary in the format for the upload to EnEffCo
+        :return upload_data: String from dictionary in the format for the upload to EnEffCo
         """
 
         if type(data) is Dict or isinstance(data, pd.Series):
             upload_data = {"Values": []}
             for time, val in data.items():
+                time = self._assert_tz_awareness(time)
+                time = pd.Timestamp(time).tz_convert("UTC")
                 upload_data["Values"].append(
                     {
                         "Value": float(val),
-                        "From": (time - time_interval).strftime("%Y-%m-%d %H:%M:%S"),
-                        "To": time.strftime("%Y-%m-%d %H:%M:%S"),
+                        "From": time.strftime("%Y-%m-%d %H:%M:%SZ"),
+                        "To": (time + time_interval).strftime("%Y-%m-%d %H:%M:%SZ"),
                     }
                 )
 
@@ -145,7 +175,7 @@ class EnEffCoConnection(BaseSeriesConnection):
 
         return str(upload_data)
 
-    def read_info(self, nodes: Nodes = None) -> pd.DataFrame:
+    def read_info(self, nodes: Optional[Nodes] = None) -> pd.DataFrame:
         """Read additional datapoint information from Database.
 
         :param nodes: List of nodes to read values from
@@ -162,7 +192,7 @@ class EnEffCoConnection(BaseSeriesConnection):
 
         return pd.concat(values, axis=1)
 
-    def subscribe(self, handler: SubscriptionHandler, nodes: Nodes = None, interval: Union[int, timedelta] = 1) -> None:
+    def subscribe(self, handler: SubscriptionHandler, nodes: Optional[Nodes] = None, interval: TimeStep = 1) -> None:
         """Subscribe to nodes and call handler when new data is available. This will return only the
         last available values.
 
@@ -173,7 +203,7 @@ class EnEffCoConnection(BaseSeriesConnection):
         self.subscribe_series(handler, 1, nodes, interval=interval, data_interval=interval)
 
     def read_series(
-        self, from_time: datetime, to_time: datetime, nodes: Nodes = None, interval: Union[int, timedelta] = 1
+        self, from_time: datetime, to_time: datetime, nodes: Optional[Nodes] = None, interval: TimeStep = 1
     ) -> pd.DataFrame:
         """Download timeseries data from the EnEffCo Database
 
@@ -219,7 +249,7 @@ class EnEffCoConnection(BaseSeriesConnection):
             data = pd.DataFrame(
                 data=(r["Value"] for r in response),
                 index=pd.to_datetime([r["From"] for r in response], utc=True, format="%Y-%m-%dT%H:%M:%SZ").tz_convert(
-                    tzlocal.get_localzone()
+                    self._local_tz
                 ),
                 columns=[node.name],
                 dtype="float64",
@@ -231,11 +261,11 @@ class EnEffCoConnection(BaseSeriesConnection):
     def subscribe_series(
         self,
         handler: SubscriptionHandler,
-        req_interval: Union[int, timedelta],
-        offset: Union[int, timedelta] = None,
-        nodes: Nodes = None,
-        interval: Union[int, timedelta] = 1,
-        data_interval: Union[int, timedelta] = 1,
+        req_interval: TimeStep,
+        offset: TimeStep = None,
+        nodes: Optional[Nodes] = None,
+        interval: TimeStep = 1,
+        data_interval: TimeStep = 1,
     ) -> None:
         """Subscribe to nodes and call handler when new data is available. This will always return a series of values.
         If nodes with different intervals should be subscribed, multiple connection objects are needed.
@@ -250,6 +280,8 @@ class EnEffCoConnection(BaseSeriesConnection):
         :param nodes: identifiers for the nodes to subscribe to
         """
 
+        # todo umbenennen: req_interval = data_interval, data_interval = resolution; take these attributes from node;
+        #  same in subscribe
         nodes = self._validate_nodes(nodes)
 
         interval = interval if isinstance(interval, timedelta) else timedelta(seconds=interval)
@@ -279,7 +311,7 @@ class EnEffCoConnection(BaseSeriesConnection):
             )
         )
 
-    def close_sub(self):
+    def close_sub(self) -> None:
         try:
             self._sub.cancel()
             self._subscription_open = False
@@ -289,11 +321,11 @@ class EnEffCoConnection(BaseSeriesConnection):
     async def _subscription_loop(
         self,
         handler: SubscriptionHandler,
-        interval: Union[int, timedelta],
-        req_interval: Union[int, timedelta],
+        interval: TimeStep,
+        req_interval: TimeStep,
         offset,
-        data_interval: Union[int, timedelta],
-    ):
+        data_interval: TimeStep,
+    ) -> None:
         """The subscription loop handles requesting data from the server in the specified interval
 
         :param handler: Handler object with a push function to receive data

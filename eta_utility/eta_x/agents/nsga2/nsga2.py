@@ -28,7 +28,9 @@ from typing import (
     Iterable,
     List,
     MutableSequence,
+    Optional,
     Sequence,
+    Set,
     Tuple,
     Union,
 )
@@ -40,6 +42,7 @@ from stable_baselines.common import BaseRLModel
 from stable_baselines.common.vec_env import VecEnv
 
 from eta_utility import get_logger
+from eta_utility.type_hints.custom_types import Numbers
 
 from ..common import ProcessPool, cpu_count
 from ..common.policies import NoPolicy
@@ -75,17 +78,16 @@ class NSGA2(BaseRLModel):
         environment for the evaluation of every solution. This allows for solutions to be evaluated in parallel.
 
     :param policy: Agent policy. Parameter is not used in this agent
-    :type policy: stable_baselines.common.policies.BasePolicy
-    :param gym.Env env: Environment to be optimized
-    :param int verbose: Logging verbosity
-    :param int population: Maximum number of parallel solutions (>= 2)
-    :param float mutations: Chance for mutations in existing solutions (between 0 and 1)
-    :param float crossovers: Chance for crossovers between solutions (between 0 and 1)
-    :param float max_cross_len: Maximum number of genes (as a proportion of total elements) to cross
+    :param env: Environment to be optimized
+    :param verbose: Logging verbosity
+    :param population: Maximum number of parallel solutions (>= 2)
+    :param mutations: Chance for mutations in existing solutions (between 0 and 1)
+    :param crossovers: Chance for crossovers between solutions (between 0 and 1)
+    :param max_cross_len: Maximum number of genes (as a proportion of total elements) to cross
                               over between solutions (between 0 and 1)
-    :param int max_retries: Maximum number of tries to find new values before the algorithm fails and returns.
+    :param max_retries: Maximum number of tries to find new values before the algorithm fails and returns.
                             (default: 1000) Using the default should usually be fine.
-    :param int threads: Use this number of threads to perform calculations (default: 4)
+    :param threads: Use this number of threads to perform calculations (default: 4)
     :param _init_setup_model: Determine whether model should be initialized during setup
     :param kwargs: Additional arguments as specified in stable_baselins.BaseRLModel
     """
@@ -104,7 +106,7 @@ class NSGA2(BaseRLModel):
         threads: int = cpu_count(),
         _init_setup_model=True,
         **kwargs,
-    ):
+    ) -> None:
 
         if population < 2:
             raise ValueError("The population size must be at least two.")
@@ -124,29 +126,30 @@ class NSGA2(BaseRLModel):
         super().__init__(policy=policy, env=env, verbose=verbose, **kwargs)
 
         log.setLevel(int(verbose * 10))
-        self.population = population
-        self.mutations = mutations
-        self.crossovers = crossovers
-        self.max_cross_len = max_cross_len
+        self.population: int = population
+        self.mutations: float = mutations
+        self.crossovers: float = crossovers
+        self.max_cross_len: float = max_cross_len
 
         # Additional parameters that usually do not need to be adjusted from their default values.
-        self._max_retries = max_retries
-        self._threads = threads
+        self._max_retries: int = max_retries
+        self._threads: int = threads
 
         # Create a first random number generator.
         # Multiple random number generators are necessary so that different processes don't overlap.
-        self._seed_sequence = np.random.SeedSequence(self.seed)
-        self._rng = np.random.default_rng(self._seed_sequence)  # When seed is None, random entropy will be used.
+        self._seed_sequence: np.random.SeedSequence = np.random.SeedSequence(self.seed)
+        self._rng: np.random.Generator = np.random.default_rng(self._seed_sequence)  # When seed is None,
+        # random entropy will be used.
         log.info(f"Initialized random generator with seed {self.seed}, entropy: {self._seed_sequence.entropy}")
 
-        self._generation_parent = []
-        self._seen_solutions = set()
-        self.generation = 0
-        self._model_trained = False
+        self._generation_parent: List[float] = []
+        self._seen_solutions: Set[str] = set()
+        self.generation: int = 0
+        self._model_trained: bool = False
 
         if threads > 1:
-            self._chunksize = self.population // self._threads
-            self._processes: ProcessPool = ProcessPool(threads, seed_sequence=self._seed_sequence)
+            self._chunksize: int = self.population // self._threads
+            self._processes: Optional[ProcessPool] = ProcessPool(threads, seed_sequence=self._seed_sequence)
             if hasattr(self.env, "set_proc_pool"):
                 self.env.set_proc_pool(self._processes)
             log.debug(f"Set up processing pool with {self._chunksize} solutions per process.")
@@ -154,7 +157,7 @@ class NSGA2(BaseRLModel):
             self._chunksize = self.population
             self._processes = None
 
-        self._data_store = {
+        self._data_store: Dict[str, Dict[str, Any]] = {
             "settings": {
                 "seed": self._seed_sequence.entropy,
                 "population": self.population,
@@ -190,7 +193,7 @@ class NSGA2(BaseRLModel):
         )
 
     @classmethod
-    def load(cls, load_path: str, env: VecEnv = None, **kwargs):
+    def load(cls, load_path: str, env: Optional[VecEnv] = None, **kwargs) -> "NSGA2":
         """
         TODO: Reimplement this function using stable baselines facilities
 
@@ -227,7 +230,7 @@ class NSGA2(BaseRLModel):
 
         return obj
 
-    def setup_model(self):
+    def setup_model(self) -> None:
         """Setup the model by taking values from the supplied action space and initializind the first two parent
         generations.
         """
@@ -306,24 +309,24 @@ class NSGA2(BaseRLModel):
 
         self._generation_parent, _, _ = self._evaluate(self._generation_parent)
 
-        log.debug(f"Successfully initialized NSGA 2 agent.")
+        log.debug("Successfully initialized NSGA 2 agent.")
 
-    def _get_pretrain_placeholders(self):
+    def _get_pretrain_placeholders(self) -> None:
         """Getting pretrain placeholders is not implemented for the genetic algorithm
 
         :return:
         """
         pass
 
-    def pretrain(self, env_method: str, **pretrain_kwargs):
+    def pretrain(self, env_method: str, **pretrain_kwargs) -> None:
         """Pretrain the genetic algorithm by setting up the starting solutions using results created by an environment
         method.
 
-        :param str env_method: Environment method that provides pretraining solutions
+        :param env_method: Environment method that provides pretraining solutions
         :param pretrain_kwargs: Arguments for the environment method
         :return:
         """
-        if not "count" in pretrain_kwargs:
+        if "count" not in pretrain_kwargs:
             pretrain_kwargs["count"] = self.population
 
         pretrained = self.env.env_method(env_method, indices=0, **pretrain_kwargs)
@@ -354,7 +357,7 @@ class NSGA2(BaseRLModel):
     def learn(
         self,
         total_timesteps: int,
-        callback: Callable = None,
+        callback: Optional[Callable] = None,
         log_interval: int = 10,
         tb_log_name: str = "run",
         reset_num_timesteps: bool = True,
@@ -364,14 +367,13 @@ class NSGA2(BaseRLModel):
         .. note:: Parameters tb_log_name and reset_num_timesteps are currently ignored because tensorboard logging is
             not implemented
 
-        :param int total_timesteps: The total number of generations to train
-        :param Callable callback: boolean function called at every steps with state of the algorithm.
+        :param total_timesteps: The total number of generations to train
+        :param callback: boolean function called at every steps with state of the algorithm.
             It takes the local and global variables. If it returns False, training is aborted.
-        :param int log_interval: The number of timesteps before logging.
-        :param str tb_log_name: the name of the run for tensorboard log
-        :param bool reset_num_timesteps: whether or not to reset the current timestep number (used in logging)
+        :param log_interval: The number of timesteps before logging.
+        :param tb_log_name: the name of the run for tensorboard log
+        :param reset_num_timesteps: whether or not to reset the current timestep number (used in logging)
         :return: the trained model
-        :rtype: NSGA2
         """
         # prepare statistics
         total_retries = 0
@@ -476,7 +478,13 @@ class NSGA2(BaseRLModel):
         self._model_trained = True
         return self
 
-    def predict(self, observation, state=None, mask=None, deterministic=False):
+    def predict(
+        self,
+        observation: np.ndarray,
+        state: Optional[np.ndarray] = None,
+        mask: Optional[np.ndarray] = None,
+        deterministic: bool = False,
+    ) -> None:
         """
         TODO: Implement this
 
@@ -488,13 +496,20 @@ class NSGA2(BaseRLModel):
         """
         pass
 
-    def action_probability(self, observation, state=None, mask=None, actions=None, **kwargs):
+    def action_probability(
+        self,
+        observation: np.ndarray,
+        state: Optional[np.ndarray] = None,
+        mask: Optional[np.ndarray] = None,
+        actions: Optional[np.ndarray] = None,
+        **kwargs,
+    ) -> None:
         """This function is not implemented for the genetic algorithm because it cannot determine the probability
         of individual actions.
         """
         raise NotImplementedError("The genetic algorithm cannot determine an action probability.")
 
-    def save(self, save_path: str, **kwargs):
+    def save(self, save_path: str, **kwargs) -> None:
         """Save model after training
 
         TODO: Implement this using stable baselines facilities
@@ -517,9 +532,7 @@ class NSGA2(BaseRLModel):
         """Mutate the generation
 
         :param generation: List of solutions to be mutated
-        :type generation: List[GeneticSolution]
         :return: List of mutated solutions
-        :rtype: List[GeneticSolution]
         """
         len_genome = len(generation[0])
 
@@ -541,9 +554,7 @@ class NSGA2(BaseRLModel):
         """Cross some solutions of the generation
 
         :param generation: Lists of solution to be crossed over
-        :type generation: List[GeneticSolution]
         :return: List of crossed over solutions
-        :rtype: List[GeneticSolution]
         """
         num_crossovers = int(self.population * self.crossovers)
         matches_from = self._rng.choice(self.population, num_crossovers, replace=False)
@@ -572,7 +583,6 @@ class NSGA2(BaseRLModel):
 
         :param generation: Sequence of solutions to evaluate
         :return: Sequence of evaluated solutions
-        :rtype: Tuple[List['GeneticSolution'], int, int]
         """
         invalid_retries = 0
         hash_retries = 0
@@ -649,10 +659,9 @@ class NSGA2(BaseRLModel):
         generation. Calculating all the other fronts is unnecessary because they are discarded anyway. Also calculate
         some solution quality parameters.
 
-        :param List parent: Parent generation
-        :param List offspr: Offspring generation
+        :param parent: Parent generation
+        :param offspr: Offspring generation
         :return: List of pareto fronts, each containing a list of solutions
-        :rtype: List[List[GeneticSolution]]
         """
         # assign local function names for faster lookup
         npall = np.all
@@ -721,9 +730,9 @@ class NSGA2(BaseRLModel):
 
         TODO: This only works for one objective. NEEDS FIXING!
 
-        :param front: [list] List of solutions in the front to be sorted
-        :param length: [int] length of the list that is returned
-        :return: [list] List of length solutions with the highest crowding distance
+        :param front: List of solutions in the front to be sorted
+        :param length: length of the list that is returned
+        :return: List of length solutions with the highest crowding distance
         """
 
         # Preassign some values for fast access
@@ -744,7 +753,7 @@ class NSGA2(BaseRLModel):
         # Return solutions with the highest crowding distance
         return sorted(front, key=attrgetter("crowding_distance"), reverse=True)[:length]
 
-    def _check_hash(self, sol: "GeneticSolution"):
+    def _check_hash(self, sol: "GeneticSolution") -> bool:
         """Check whether a solution hash has already been encountered
 
         :param GeneticSolution sol: Solution to be checked
@@ -756,7 +765,7 @@ class NSGA2(BaseRLModel):
         else:
             return False
 
-    def get_parameter_list(self):
+    def get_parameter_list(self) -> None:
         """
         TODO: Implement this
 
@@ -770,54 +779,53 @@ class GeneticSolution:
     This should not be accessed directly.
 
     :param echromo: Events chromosome
-    :type echromo: np.ndarray
     :param vchromo: Chromosome of variables
-    :type vchromo: np.ndarray
     :param params: List of Dictionaries of parameters. Dictionaries should be of the format:
                    {'dtype': 'int' or 'float', 'min': int or float, 'max': int or float}
                    If only one dictionary is given, it will be used for every variable. Otherwise one dictionary
                    should be provided for each variable.
-    :type params: Optional[List[Dict[str, Union[str, int, float]]]]
     """
 
     # define some class attributes to improve efficiency of outside function access
     _hash_method = mmh3.hash
     registry = {"generators": {"int": "integers", "float": "uniform"}}
 
-    def __init__(self, echromo: np.ndarray = None, vchromo: np.ndarray = None, params: List[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        echromo: Optional[np.ndarray] = None,
+        vchromo: Optional[np.ndarray] = None,
+        params: Optional[List[Dict[str, Any]]] = None,
+    ) -> None:
 
-        self.echromo = echromo
-        self.vchromo = vchromo
-        self.params = params
+        self.echromo: Optional[np.ndarray] = echromo
+        self.vchromo: Optional[np.ndarray] = vchromo
+        self.params: List[Dict[str, Any]] = params
         self._hash = None
 
         self.cross_with = None
-        self.mutate_flag = False
-        self.randomize_flag = False
+        self.mutate_flag: bool = False
+        self.randomize_flag: bool = False
         self.reward = None
 
-        self.dominates = []
-        self.dominatedby = 0
-        self.crowding_distance = np.inf
+        self.dominates: List[int] = []
+        self.dominatedby: int = 0
+        self.crowding_distance: Numbers = np.inf
 
     def initialize(
         self,
         events: Union[int, List[Any]] = None,
         vari: Union[int, List[Union[int, float]]] = None,
-        params: List[Dict[str, Union[str, int, float]]] = None,
+        params: Optional[List[Dict[str, Union[str, int, float]]]] = None,
         rng: np.random.Generator = None,
     ) -> "GeneticSolution":
         """Initialize chromosomes of the solution. The solution can contain only events, only variables or both.
         If variables are used, parameters vari and params must be provided.
 
         :param events: Number of events or list of events. Contents of this list are ignored, only the length is used.
-        :type events: int or List[Any]
         :param vari: Number of variables or list of starting values. Random initialization is used if no starting values
                      are provided (integer value given)
-        :type vari: int or List[Union[int, float]]
         :param params: List of Dictionaries of parameters. .. seealso:: __init__
-        :type params: Optional[List[Dict[str, Union[str, int, float]]]]
-        :param np.random.Generator rng: Random number generator. Defaults to numpy default_rng().
+        :param rng: Random number generator. Defaults to numpy default_rng().
         :return: None
         """
         if rng is None:
@@ -860,8 +868,8 @@ class GeneticSolution:
     def randomize(self, rng: np.random.Generator = np.random.default_rng(), flag: bool = False) -> None:
         """Randomize both chromosomes of the solution. This essentially reinitializes the solution
 
-        :param np.random.Generator rng: Random number generator. Defaults to numpy default_rng().
-        :param bool flag: Ignore self.randomize_flag
+        :param rng: Random number generator. Defaults to numpy default_rng().
+        :param flag: Ignore self.randomize_flag
         :return: None
         """
 
@@ -893,11 +901,10 @@ class GeneticSolution:
     ) -> "GeneticSolution":
         """Mutate values of the chromosomes. Returns a new solution object and does not modify the current solution.
 
-        :param float probability: Probability for mutation of each gene
-        :param np.random.Generator rng: Random number generator. Defaults to numpy default_rng().
-        :param bool flag: Ignore self.mutate_flag
+        :param probability: Probability for mutation of each gene
+        :param rng: Random number generator. Defaults to numpy default_rng().
+        :param  flag: Ignore self.mutate_flag
         :return: New, mutated solution object
-        :rtype: GeneticSolution
         """
         echromo = None
         vchromo = None
@@ -960,11 +967,10 @@ class GeneticSolution:
         """Cross the solution with another solution. Returns a new solution object and does not modify the current
         solution.
 
-        :param List[GeneticSolution] generation: List of all (other) solutions in the generation
-        :param int max_cross_len: Maximum number of elements to cross between solutions.
-        :param np.random.Generator rng: Random number generator. Defaults to numpy default_rng().
+        :param generation: List of all (other) solutions in the generation
+        :param max_cross_len: Maximum number of elements to cross between solutions.
+        :param rng: Random number generator. Defaults to numpy default_rng().
         :return: New solution object
-        :rtype: GeneticSolution
         """
         echromo = None
         vchromo = None
@@ -1009,11 +1015,10 @@ class GeneticSolution:
             )
         )
 
-    def __hash__(self) -> Tuple[int, int]:
+    def __hash__(self) -> int:
         """Return a hash that uniquely identifies the solution.
 
         :return: Hash string
-        :rtype: str
         """
         if self._hash is None:
             if self.echromo is not None and self.vchromo is not None:
@@ -1025,7 +1030,7 @@ class GeneticSolution:
 
         return self._hash
 
-    def __len__(self):
+    def __len__(self) -> int:
         return (len(self.echromo) if self.echromo is not None else 0) + (
             len(self.vchromo) if self.vchromo is not None else 0
         )
