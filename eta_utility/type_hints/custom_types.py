@@ -26,7 +26,7 @@ class Node:
         self.name: str = None
         self.protocol: str = None
         self._url: ParseResult = None
-        self.dtype: "value for a given key" = None
+        self.dtype: "value for a given key" = None  # noqa: F722
 
         pass
 

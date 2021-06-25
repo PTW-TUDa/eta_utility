@@ -309,7 +309,7 @@ class NSGA2(BaseRLModel):
 
         self._generation_parent, _, _ = self._evaluate(self._generation_parent)
 
-        log.debug(f"Successfully initialized NSGA 2 agent.")
+        log.debug("Successfully initialized NSGA 2 agent.")
 
     def _get_pretrain_placeholders(self) -> None:
         """Getting pretrain placeholders is not implemented for the genetic algorithm
@@ -326,7 +326,7 @@ class NSGA2(BaseRLModel):
         :param pretrain_kwargs: Arguments for the environment method
         :return:
         """
-        if not "count" in pretrain_kwargs:
+        if "count" not in pretrain_kwargs:
             pretrain_kwargs["count"] = self.population
 
         pretrained = self.env.env_method(env_method, indices=0, **pretrain_kwargs)

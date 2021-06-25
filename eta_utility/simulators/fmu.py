@@ -1,6 +1,5 @@
 """ The FMUSimulator class enables easy simulation of FMU files.
 """
-import pathlib
 import shutil
 from datetime import timedelta
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Union
@@ -13,10 +12,9 @@ from fmpy.simulation import apply_start_values
 from fmpy.sundials import CVodeSolver
 
 from eta_utility import get_logger
+from eta_utility.type_hints.custom_types import Path
 
 log = get_logger("simulators.FMUSimulator")
-
-from eta_utility.type_hints.custom_types import Path
 
 
 class FMUSimulator:

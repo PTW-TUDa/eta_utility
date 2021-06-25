@@ -162,9 +162,9 @@ def scenario_from_csv(
     # Make sure that the resulting file corresponds to the requested time slice
     if (
         len(df) <= 0 or df.first_valid_index() > slice_begin + resample_time
-        if not resample_time is None
+        if resample_time is not None
         else timedelta(seconds=0) or df.last_valid_index() < slice_end - resample_time
-        if not resample_time is None
+        if resample_time is not None
         else timedelta(seconds=0)
     ):
         raise ValueError(

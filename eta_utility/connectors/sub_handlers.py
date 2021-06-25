@@ -8,7 +8,7 @@ import pathlib
 import signal
 from datetime import datetime
 from multiprocessing import Pipe, Process, connection
-from typing import Any, List, Mapping, MutableMapping, Optional, Sequence, Union
+from typing import Any, List, Optional, Sequence, Union
 
 import numpy as np
 import pandas as pd
@@ -38,7 +38,7 @@ class MultiSubHandler(SubscriptionHandler):
         :param SubscriptionHandler sub_handler: SubscriptionHandler object to use for handling subscriptions.
         """
         if not isinstance(sub_handler, SubscriptionHandler):
-            raise TypeError("Subscription Handler should be an instance of the SubscriptionHandler slass.")
+            raise TypeError("Subscription Handler should be an instance of the SubscriptionHandler class.")
 
         self._handlers.append(sub_handler)
 
@@ -58,7 +58,7 @@ class MultiSubHandler(SubscriptionHandler):
         for handler in self._handlers:
             try:
                 handler.close()
-            except:
+            except Exception:
                 pass
 
 

@@ -30,7 +30,7 @@ from pyomo.opt import SolverResults
 
 from eta_utility import get_logger, timeseries
 from eta_utility.simulators import FMUSimulator
-from eta_utility.type_hints.custom_types import Path, TimeStep
+from eta_utility.type_hints.custom_types import Path
 
 log = get_logger("eta_x.envs")
 
@@ -484,7 +484,7 @@ class BaseEnv(Env, abc.ABC):
         """
         state_low = self.state_config.loc[self.state_config.is_agent_observation == True].low_value.values  # noqa: E712
         state_high = self.state_config.loc[
-            self.state_config.is_agent_observation == True
+            self.state_config.is_agent_observation == True  # noqa: E712
         ].high_value.values  # noqa: E712
         self.observation_space = spaces.Box(state_low, state_high, dtype=np.float)
 
@@ -1264,8 +1264,9 @@ class BaseEnvSim(BaseEnv, abc.ABC):
 
         .. warning::
             This function always returns 0 reward. Therefore, it must be extended if it is to be used with reinforcement
-            learning agents. If you need to manipulate actions (discretization, policy shaping, ...) do this before calling
-            this function. If you need to manipulate observations and rewards, do this after calling this function.
+            learning agents. If you need to manipulate actions (discretization, policy shaping, ...)
+            do this before calling this function.
+            If you need to manipulate observations and rewards, do this after calling this function.
 
         :param action: Actions to perform in the environment.
         :return: The return value represents the state of the environment after the step was performed.
@@ -1280,7 +1281,8 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         """
         if self.action_space.shape != action.shape:
             raise RuntimeError(
-                f"Agent action {action} (shape: {action.shape}) does not correspond to shape of environment action space (shape: {self.action_space.shape})."
+                f"Agent action {action} (shape: {action.shape})"
+                f" does not correspond to shape of environment action space (shape: {self.action_space.shape})."
             )
         elif not self.action_space.contains(action):
             raise RuntimeError(
