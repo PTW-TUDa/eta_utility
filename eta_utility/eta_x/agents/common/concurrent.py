@@ -16,7 +16,6 @@ from operator import methodcaller
 from typing import (
     Any,
     Callable,
-    Generator,
     Iterable,
     List,
     Mapping,

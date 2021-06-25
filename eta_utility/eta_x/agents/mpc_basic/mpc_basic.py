@@ -1,6 +1,5 @@
-import pathlib
 import sys
-from typing import Any, Callable, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, List, Optional, Sequence, Tuple
 
 import gym
 import numpy as np

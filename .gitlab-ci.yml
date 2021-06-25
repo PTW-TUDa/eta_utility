@@ -54,7 +54,7 @@ flakehell:
   script:
     - pip install flakehell
     - flakehell lint --format=gitlab --output-file flakehell.json eta_utility/
-  allow_failure: true
+  allow_failure: false
   artifacts:
     reports:
       codequality: flakehell.json
