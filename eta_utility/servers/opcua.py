@@ -17,9 +17,12 @@ class OpcUaServer:
     :param port: Port to listen on
     """
 
-    def __init__(self, namespace: Union[str, int], port: int = 4840) -> None:
+    def __init__(self, namespace: Union[str, int], ip: str = None, port: int = 4840) -> None:
         #: url: IP Address of the OPC UA Server
-        self.url: str = "opc.tcp://{}:{}".format(socket.gethostbyname(socket.gethostname()), port)
+        if ip is None:
+            self.url: str = f"opc.tcp://{socket.gethostbyname(socket.gethostname())}:{port}"
+        else:
+            self.url: str = f"opc.tcp://{ip}:{port}"
         log.info(f"Server Address is {self.url}")
 
         self._server: Server = Server()
