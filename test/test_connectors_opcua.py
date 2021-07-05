@@ -1,10 +1,13 @@
 import datetime
+import random
+import socket
+import struct
 from test.test_utilities.pyOPCUA.client import Client
 from test.test_utilities.pyOPCUA.nodes import OPCUANodes as nodes
 
 import opcua.ua.uaerrors
 import pandas as pd
-from pytest import raises
+from pytest import fail, raises
 
 from eta_utility.connectors.opcua import OpcUaConnection
 from eta_utility.servers.opcua import OpcUaServer
@@ -118,3 +121,11 @@ class TestOPCUA3:
         connection.write(values)
         assert int(connection.read(_node_case_sen)[_node_case_sen.name].iloc[0]) == 10
         server.stop()
+
+    def test_ip_address_exclusively_stated(self):
+        ip = socket.inet_ntoa(struct.pack(">I", random.randint(0x7F000000, 0x7FFFFFFF)))  # random IP on local network
+        try:
+            server = OpcUaServer(5, ip=ip)
+            server.stop()
+        except ConnectionError as e:
+            fail(str(e))
