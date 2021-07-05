@@ -382,8 +382,14 @@ class ETAx:
                         run_name=self.run_name,
                         general_settings=self.config["settings"],
                         path_settings=self.config["paths"],
-                        env_settings=self.config["environment_specific"],
-                        verbose=self.config["environment_specific"]["verbose"],
+                        env_settings=self.config["interaction_env_specific"]
+                        if "interaction_env_specific" in self.config
+                        else self.config["environment_specific"],
+                        verbose=(
+                            self.config["interaction_env_specific"]
+                            if "interaction_env_specific" in self.config
+                            else self.config["environment_specific"]
+                        )["verbose"],
                         callback=callback_environment,
                     )
                 ]
