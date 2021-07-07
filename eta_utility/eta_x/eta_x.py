@@ -72,7 +72,7 @@ class ETAx:
     _req_settings = {
         "setup": {"agent_package", "agent_class", "environment_package", "environment_class"},
         "settings": {},
-        "paths": {},
+        "paths": {"relpath_results"},
         "environment_specific": {},
         "agent_specific": {},
     }
