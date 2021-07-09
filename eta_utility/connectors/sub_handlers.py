@@ -256,7 +256,7 @@ class DFSubHandler(SubscriptionHandler):
     def reset(self) -> None:
         """Reset the internal data and restart collection"""
         self._data = pd.DataFrame()
-        log.info("Subscribed DataFrame {} was reset successfully.".format(hash(self._data)))
+        log.info(f"Subscribed DataFrame {hash(self._data)} was reset successfully.")
 
     def housekeeping(self) -> None:
         """Keep internal data short by only keeping last rows as specified in self.keep_data_rows"""

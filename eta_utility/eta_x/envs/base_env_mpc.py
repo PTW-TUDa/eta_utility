@@ -287,7 +287,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         try:
             self.render()
         except Exception as e:
-            log.error("Rendering partial results failed: {}".format(str(e)))
+            log.error(f"Rendering partial results failed: {str(e)}")
         self.reset()
 
     def reset(self) -> np.ndarray:

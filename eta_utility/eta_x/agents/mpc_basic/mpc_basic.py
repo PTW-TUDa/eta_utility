@@ -180,7 +180,7 @@ class MPCBasic(BaseRLModel):
         # Make sure that actions are returned in the correct order and as a numpy array.
         actions = np.ndarray((1, len(self.actions_order)))
         for i, action in enumerate(self.actions_order):
-            log.info("Action '{}' value: {}".format(action, solution[action]))
+            log.info(f"Action '{action}' value: {solution[action]}")
             actions[0][i] = solution[action]
 
         return actions, state

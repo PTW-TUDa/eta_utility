@@ -144,10 +144,10 @@ def scenario_from_csv(
                 pre = ""
                 name = str(rename_cols[col])
             elif prefix_renamed and rename_cols is not None and col in rename_cols:
-                pre = "{}_".format(data_prefixes[i]) if data_prefixes is not None else ""
+                pre = f"{data_prefixes[i]}_" if data_prefixes is not None else ""
                 name = str(rename_cols[col])
             else:
-                pre = "{}_".format(data_prefixes[i]) if data_prefixes is not None else ""
+                pre = f"{data_prefixes[i]}_" if data_prefixes is not None else ""
                 name = str(col)
             col_names[col] = pre + name
 

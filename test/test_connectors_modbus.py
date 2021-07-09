@@ -3,6 +3,7 @@ from test.config_tests import *  # noqa
 from test.test_utilities.pyModbusTCP.client import ModbusClient
 from test.test_utilities.pyModbusTCP.nodes import ModbusNodes as nodes
 
+import pandas as pd
 from pytest import raises
 
 from eta_utility.connectors.modbus import ModbusConnection

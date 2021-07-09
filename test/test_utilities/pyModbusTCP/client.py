@@ -1,9 +1,9 @@
 from typing import List
 
-from pyModbusTCP.client import ModbusClient as MBC
+from pyModbusTCP.client import ModbusClient as BaseClient
 
 
-class ModbusClient(MBC):
+class ModbusClient(BaseClient):
     @staticmethod
     def open() -> bool:
         return True
