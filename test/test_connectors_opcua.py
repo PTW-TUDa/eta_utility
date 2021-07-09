@@ -2,8 +2,8 @@ import datetime
 import random
 import socket
 import struct
-from test.test_utilities.pyOPCUA.client import Client
-from test.test_utilities.pyOPCUA.nodes import OPCUANodes as nodes
+from test.test_utilities.opcua import Client
+from test.test_utilities.opcua.nodes import OPCUANodes as nodes
 
 import opcua.ua.uaerrors
 import pandas as pd

@@ -107,7 +107,7 @@ class EnEffCoConnection(BaseSeriesConnection):
         nodes = self._validate_nodes(nodes)
         values = pd.DataFrame()
         for node in nodes:
-            request_url = "datapoint/{}/live".format(self.id_from_code(node.eneffco_code))
+            request_url = f"datapoint/{self.id_from_code(node.eneffco_code)}/live"
             response = self._raw_request("GET", request_url)
             response = response.json()
 
@@ -134,7 +134,7 @@ class EnEffCoConnection(BaseSeriesConnection):
         nodes = self._validate_nodes(values.keys())
 
         for node in nodes:
-            request_url = "rawdatapoint/{}/value".format(self.id_from_code(node.eneffco_code, raw_datapoint=True))
+            request_url = f"rawdatapoint/{self.id_from_code(node.eneffco_code, raw_datapoint=True)}/value"
             response = self._raw_request(
                 "POST",
                 request_url,
@@ -186,7 +186,7 @@ class EnEffCoConnection(BaseSeriesConnection):
         values = []
 
         for node in nodes:
-            request_url = "datapoint/{}".format(self.id_from_code(node.eneffco_code))
+            request_url = f"datapoint/{self.id_from_code(node.eneffco_code)}"
             response = self._raw_request("GET", request_url)
             values.append(pd.Series(response.json(), name=node.name))
 
@@ -395,9 +395,7 @@ class EnEffCoConnection(BaseSeriesConnection):
         if status_code == 400:
             raise ConnectionError(f"EnEffCo Error {status_code}: API is unavailable or insufficient user permissions.")
         elif status_code == 404:
-            raise ConnectionError(
-                "EnEffCo Error {}: Endpoint not found '{}'".format(status_code, self.url + str(endpoint))
-            )
+            raise ConnectionError(f"EnEffCo Error {status_code}: Endpoint not found '{self.url + str(endpoint)}'")
         elif status_code == 401:
             raise ConnectionError(f"EnEffCo Error {status_code}: Invalid login info")
         elif status_code == 500:

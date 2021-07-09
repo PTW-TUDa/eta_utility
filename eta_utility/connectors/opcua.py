@@ -193,7 +193,7 @@ class OpcUaConnection(BaseConnection):
                     handler_obj.add_node(node.opc_id, node)
                     _ = self._sub.subscribe_data_change(self.connection.get_node(node.opc_id))
                 except RuntimeError as e:
-                    log.warning("Server {}, Node Id '{}' error: {}".format(self.url, node.name, str(e)))
+                    log.warning(f"Server {self.url}, Node Id '{node.name}' error: {str(e)}")
 
         except RuntimeError as e:
             log.warning(str(e))

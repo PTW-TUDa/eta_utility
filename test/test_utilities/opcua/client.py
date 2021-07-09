@@ -1,7 +1,7 @@
-from opcua import Client as OPCUAClient
+from opcua import Client as BaseClient
 
 
-class Client(OPCUAClient):
+class Client(BaseClient):
     class MockNode:
         def get_value(self) -> float:
             return 2858.0
