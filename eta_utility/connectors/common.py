@@ -30,6 +30,7 @@ class Node:
     :param mb_slave: (Required for Modbus) Modbus slave ID
     :param mb_register: (Required for Modbus) Modbus register name
     :param mb_channel: (Required for Modbus) Modbus Channel
+    :param mb_byteorder: (Required for Modbus) Byteorder eg. "little" or "big" endian.
 
     :param opc_id: (Required for OPC UA) Full OPC node ID, i.e.:
                         ns=6;s=.Heizung_Lueftung_Klima.System_Fussbodentemperierung_425.Pumpe_425.Zustand.Volumenstrom
@@ -56,8 +57,8 @@ class Node:
             self.dtype = kwargs.pop("dtype")
 
         if self.protocol == "modbus":
-            if not {"mb_slave", "mb_register", "mb_channel"} == kwargs.keys():
-                raise ValueError("Slave, register and channel must be specified for modbus nodes.")
+            if not {"mb_slave", "mb_register", "mb_channel", "mb_byteorder"} == kwargs.keys():
+                raise ValueError("Slave, register, channel and byteorder must be specified for modbus nodes.")
             self._init_modbus(**kwargs)
 
         elif self.protocol == "opcua":
@@ -68,18 +69,33 @@ class Node:
                 raise ValueError("eneffco_code must be specified for eneffco nodes.")
             self._init_eneffco(**kwargs)
 
-    def _init_modbus(self, mb_slave: int, mb_register: str, mb_channel: int) -> None:
+    def _init_modbus(self, mb_slave: int, mb_register: str, mb_channel: int, mb_byteorder: str) -> None:
         """Initialize the node object for modbus protocol nodes."""
+        #: Modbus Slave ID
         self.mb_slave: int = int(mb_slave)
+        #: Modbus Register name (i.e. "Holding")
         self.mb_register: str = mb_register.strip().lower()
+        #: Modbus Channel
         self.mb_channel: int = int(mb_channel)
+        #: Byteorder of values returned by modbus
+        self.mb_byteorder: str
+
+        # Figure out the correct byteorder, even if "littleendian" or "bigendian" are provided.
+        mb_byteorder = mb_byteorder.strip().lower()
+        if mb_byteorder in {"little", "big"}:
+            self.mb_byteorder = mb_byteorder
+        elif mb_byteorder in {"littleendian", "bigendian"}:
+            self.mb_byteorder = "little" if mb_byteorder == "littleendian" else "big"
+        else:
+            raise ValueError(f"Byteorder must be either 'big' or 'little' endian, '{mb_byteorder}' given")
 
     def _init_opcua(self, **kwargs: Any) -> None:
         """Initialize the node object for opcua protocol nodes"""
-        #: opc_path_str: Path to the OPC UA node
+        #: Path to the OPC UA node
         self.opc_path_str: str = ""
-        #: opc_path: Path to the OPC UA node in list representation
-        self.opc_path: List[str] = []
+        #: Path to the OPC UA node in list representation. Nodes in this list can be used to access any
+        #: parent objects
+        self.opc_path: List[Node] = []
 
         if {"opc_id"} == kwargs.keys():
             self.opc_id: str = str(kwargs["opc_id"]).strip()
@@ -168,6 +184,7 @@ class Node:
                 mb_register = dict_get_any(node, "mb_register", "ModbusRegisterType")
                 mb_slave = int(dict_get_any(node, "mb_slave", "ModbusSlave"))
                 mb_channel = int(dict_get_any(node, "mb_channel", "ModbusChannel"))
+                mb_byteorder = dict_get_any(node, "mb_byteorder", "ModbusByteOrder")
 
                 url = scheme + "://" + netloc
                 nodes.append(
@@ -178,6 +195,7 @@ class Node:
                         mb_register=mb_register,
                         mb_slave=mb_slave,
                         mb_channel=mb_channel,
+                        mb_byteorder=mb_byteorder,
                     )
                 )
 

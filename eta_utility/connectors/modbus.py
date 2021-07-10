@@ -68,7 +68,7 @@ class ModbusConnection(BaseConnection):
 
             for node in nodes:
                 result = self._read_mb_value(node)
-                value = self._decode(result)
+                value = self._decode(result, node.mb_byteorder)
 
                 values[node.name] = value
 
@@ -141,25 +141,40 @@ class ModbusConnection(BaseConnection):
 
                 for node in self._subscription_nodes:
                     result = self._read_mb_value(node)
-                    self._decode(result)
+                    self._decode(result, node.mb_byteorder)
                     handler.push(node, result, tzlocal.get_localzone().localize(datetime.now()))
                 await asyncio.sleep(interval)
         except asyncio.CancelledError:
             pass
 
     @staticmethod
-    def _decode(value: Sequence[Any]) -> float:
+    def _decode(value: Sequence[int], byteorder: str, type: str = "f") -> Any:
         """
         Method to decode incoming modbus values
 
         :param read_val: current value to be decoded into float
-
-        struct.unpack("f", result_bytes)[0]: Decoded modbus value
+        :param byteorder: byteorder for decoding i.e. 'little' or 'big' endian
+        :param type: type of the output value. See `Python struct format character documentation
+                     <https://docs.python.org/3/library/struct.html#format-characters>` for all possible
+                      format strings. (default: f)
+        :return: decoded value as a python type
         """
-        res1 = format(value[0], "016b")
-        res2 = format(value[1], "016b")
-        result_bytes = int.to_bytes(int(res1 + res2, 2), 4, byteorder="little")
-        return struct.unpack("f", result_bytes)[0]
+        if byteorder == "little":
+            bo = "<"
+        elif byteorder == "big":
+            bo = ">"
+        else:
+            raise ValueError(f"Specified an invalid byteorder: '{byteorder}'")
+
+        # Determine the format strings for packing and unpacking the received byte sequences. These format strings
+        # depend on the endianness (determined by bo), the length of the value in bytes and
+        pack = f"{bo}{len(value):1d}H"
+
+        size_div = {"h": 2, "H": 2, "i": 4, "I": 4, "l": 4, "L": 4, "q": 8, "Q": 8, "f": 4, "d": 8}
+        unpack = f">{len(value) * 2 // size_div[type]:1d}{type}"
+
+        # pymodbus gives a Sequence of 16bit unsigned integers which must be converted into the correct format
+        return struct.unpack(unpack, struct.pack(pack, *value))[0]
 
     def _read_mb_value(self, node: Node) -> Optional[List[int]]:
         """Read raw value from modbus server. This function should not be used directly. It does not
