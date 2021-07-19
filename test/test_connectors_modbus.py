@@ -26,7 +26,7 @@ check = pd.DataFrame(
 
 def test_modbus_connection_fail():
     """Test modbus failures"""
-    server_fail = ModbusConnection("modbus.tcp://someurl:502")
+    server_fail = ModbusConnection(node.url)
 
     with raises(ConnectionError):
         server_fail.read(node)

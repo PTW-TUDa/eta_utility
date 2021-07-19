@@ -2,14 +2,14 @@
 
 """
 import pathlib
-from typing import Any, AnyStr, Dict, List, Optional, Sequence
-from urllib.parse import ParseResult, urlparse
+from typing import Any, AnyStr, Dict, List, Mapping, Optional, Sequence, Union
+from urllib.parse import ParseResult
 
 import pandas as pd
 
-from eta_utility.type_hints.custom_types import Node, Nodes, Path
+from eta_utility import url_parse
+from eta_utility.type_hints import Connection, Nodes, Path
 
-from .base_classes import BaseConnection
 from .eneffco import EnEffCoConnection
 from .modbus import ModbusConnection
 from .opcua import OpcUaConnection
@@ -47,14 +47,36 @@ class Node:
                        of nodes.
     """
 
-    def __init__(self, name: str, url: str, protocol: str, **kwargs: Any) -> None:
+    def __init__(self, name: str, url: str, protocol: str, *, usr=None, pwd=None, **kwargs: Any):
 
+        #: Name for the node
         self.name: str = str(name).strip()
+        #: Protocol of the connection
         self.protocol: str = protocol.strip().lower()
-        self._url: ParseResult = urlparse(url)
+        #: Url of the connection
+        self._url: str
+        self._url, self.usr, self.pwd = url_parse(url)
+        #: Username for login to the connection (default: None)
+        self.usr = usr if usr is not None else self.usr
+        #: Password for login to the connection (default: None)
+        self.pwd = pwd if pwd is not None else self.pwd
+        #: Unique identifier for the node which can be used for hashing
+        self._id: str = self.name
 
         if "dtype" in kwargs:
-            self.dtype = kwargs.pop("dtype")
+            map_dtypes = {
+                "boolean": bool,
+                "bool": bool,
+                "int": int,
+                "integer": int,
+                "sbyte": int,
+                "float": float,
+                "double": float,
+                "short": float,
+                "string": str,
+                "str": str,
+            }
+            self.dtype = map_dtypes[kwargs.pop("dtype").strip().lower()]
 
         if self.protocol == "modbus":
             if not {"mb_slave", "mb_register", "mb_channel", "mb_byteorder"} == kwargs.keys():
@@ -89,6 +111,8 @@ class Node:
         else:
             raise ValueError(f"Byteorder must be either 'big' or 'little' endian, '{mb_byteorder}' given")
 
+        self._id = f"{self.url}{self.mb_register}{self.mb_channel}"
+
     def _init_opcua(self, **kwargs: Any) -> None:
         """Initialize the node object for opcua protocol nodes"""
         #: Path to the OPC UA node
@@ -96,20 +120,27 @@ class Node:
         #: Path to the OPC UA node in list representation. Nodes in this list can be used to access any
         #: parent objects
         self.opc_path: List[Node] = []
+        #: Node ID of the OPC UA Node
+        self.opc_id: str
+        #: Namespace of the OPC UA Node
+        self.opc_ns: int
+        #: Type of the OPC UA Node ID Specification
+        self.opc_id_type: str
 
-        if {"opc_id"} == kwargs.keys():
-            self.opc_id: str = str(kwargs["opc_id"]).strip()
-            parts = self.opc_id.split(";")
+        if "opc_id" in kwargs.keys():
+            parts = str(kwargs["opc_id"]).strip().split(";")
             for part in parts:
                 key, val = part.split("=")
-                if key.lower() == "ns":
+                if key.strip().lower() == "ns":
                     self.opc_ns: int = int(val)
-                elif key.lower() == "s":
+                else:
+                    self.opc_id_type = key.strip().lower()
                     self.opc_path_str: str = val.strip(" .")
-            self.opc_id = f"ns={self.opc_ns};s=.{self.opc_path_str}"
-        elif {"opc_path", "ns"} == kwargs.keys():
-            self.opc_ns = int(kwargs["ns"])
+            self.opc_id: str = f"ns={self.opc_ns};{self.opc_id_type}=.{self.opc_path_str}"
+        elif "opc_path" in kwargs.keys() and "ns" in kwargs.keys():
+            self.opc_ns = int(kwargs["ns"].strip().lower())
             self.opc_path_str = kwargs["opc_path"].strip(" .")
+            self.opc_id_type = "s"
             self.opc_id = f"ns={self.opc_ns};s=.{self.opc_path_str}"
         else:
             raise ValueError("Specify opc_id or opc_path and ns for OPC UA nodes.")
@@ -123,13 +154,19 @@ class Node:
                         split_path[key].strip(" ."),
                         self.url,
                         "opcua",
+                        usr=self.usr,
+                        pwd=self.pwd,
                         opc_id="ns={};s=.{}".format(self.opc_ns, ".".join(split_path[: key + 1])),
                     )
                 )
 
+        self._id = f"{self.url}{self.opc_id}"
+
     def _init_eneffco(self, eneffco_code: str) -> None:
         """Initialize the node object for the EnEffCo API."""
         self.eneffco_code: str = eneffco_code
+
+        self._id = f"{self.url}{self.eneffco_code}"
 
     @property
     def url(self) -> AnyStr:
@@ -141,7 +178,7 @@ class Node:
         return self._url
 
     @classmethod
-    def from_dict(cls, dikt: Dict[str, Dict[str, str]]) -> List[Node]:
+    def from_dict(cls, dikt: Union[Sequence[Mapping], Mapping[str, Any]]) -> List["Node"]:
         """Create nodes from a dictionary of node configurations. The configuration must specify the following
         fields for each node:
 
@@ -166,25 +203,47 @@ class Node:
 
         nodes = []
 
-        def dict_get_any(dikt, *names):
+        def dict_get_any(dikt: Dict[str, Any], *names: str, fail: bool = True, default: Any = None) -> Any:
+            """Get any of the specified items from dictionary, if any are available. The function will return
+            the first value it finds, even if there are multiple matches.
+
+            :param dikt: Dictionary to get values from
+            :param names: Item names to look for
+            :param fail: Flag to determine, if the function should fail with a KeyError, if none of the items are found.
+                         If this is False, the function will return the value specified by 'default'. (default: True)
+            :param default: Value to return, if none of the items are found and 'fail' is False. (default: None)
+            :return: Value from dictionary
+            :raise: KeyError, if none of the requested items are available and fail is True
+            """
             for name in names:
                 if name in dikt:
+                    # Return first value found in dictionary
                     return dikt[name]
             else:
-                raise KeyError(f"None of the requested keys are in the configuration: {names}")
+                if fail is True:
+                    raise KeyError(f"None of the requested keys are in the configuration: {names}")
+                else:
+                    return default
 
-        for node in dikt.values():
+        iter = dikt.values() if isinstance(dikt, Mapping) else dikt
+        for node in iter:
 
-            netloc = str(dict_get_any(node, "IP")) + ":" + str(dict_get_any(node, "Port"))
+            # Find url or ip and port
+            if "url" in node:
+                netloc = node["url"].strip().lower()
+            else:
+                netloc = str(dict_get_any(node, "IP")) + ":" + str(dict_get_any(node, "Port"))
             name = dict_get_any(node, "Code", "name")
 
-            if dict_get_any(node, "Protocol").strip().lower() == "modbus":
+            # Initialize node if protocol is 'modbus'
+            if dict_get_any(node, "protocol", "Protocol").strip().lower() == "modbus":
                 scheme = "modbus.tcp"
-                protocol = dict_get_any(node, "Protocol").strip().lower()
+                protocol = "modbus"
                 mb_register = dict_get_any(node, "mb_register", "ModbusRegisterType")
                 mb_slave = int(dict_get_any(node, "mb_slave", "ModbusSlave"))
                 mb_channel = int(dict_get_any(node, "mb_channel", "ModbusChannel"))
                 mb_byteorder = dict_get_any(node, "mb_byteorder", "ModbusByteOrder")
+                dtype = dict_get_any(node, "dtype", "Datentyp", fail=False)
 
                 url = scheme + "://" + netloc
                 nodes.append(
@@ -196,18 +255,22 @@ class Node:
                         mb_slave=mb_slave,
                         mb_channel=mb_channel,
                         mb_byteorder=mb_byteorder,
+                        dtype=dtype,
                     )
                 )
 
-            elif dict_get_any(node, "Protocol").strip().lower() == "opcua":
+            # Initialize node if protocol is 'opcua'
+            elif dict_get_any(node, "protocol", "Protocol").strip().lower() == "opcua":
                 scheme = "opc.tcp"
-                protocol = dict_get_any(node, "Protocol").strip().lower()
+                protocol = "opcua"
                 opc_id = dict_get_any(node, "opc_id", "Identifier", "identifier")
+                dtype = dict_get_any(node, "dtype", "Datentyp", fail=False)
 
                 url = scheme + "://" + netloc
-                nodes.append(cls(name, url, protocol, opc_id=opc_id))
+                nodes.append(cls(name, url, protocol, opc_id=opc_id, dtype=dtype))
 
-            elif dict_get_any(node, "Protocol").strip().lower() == "eneffco":
+            # Initialize node if protocol is 'eneffco'
+            elif dict_get_any(node, "protocol", "Protocol").strip().lower() == "eneffco":
                 scheme = "https"
                 protocol = "eneffco"
                 code = dict_get_any(node, "Code", "code")
@@ -218,7 +281,7 @@ class Node:
         return nodes
 
     @classmethod
-    def from_excel(cls, path: Path, sheet_name: str) -> List[Node]:
+    def from_excel(cls, path: Path, sheet_name: str) -> List["Node"]:
         """
         Method to read out nodes from an excel document. The document must specify the following fields:
 
@@ -270,7 +333,7 @@ def connections_from_nodes(
     eneffco_usr: Optional[str] = None,
     eneffco_pw: Optional[str] = None,
     eneffco_api_token: Optional[str] = None,
-) -> Dict[str, "BaseConnection"]:
+) -> Dict[str, Connection]:
     """Take a list of nodes and return a list of connections
 
     :param nodes: List of nodes defining servers to connect to
@@ -304,3 +367,19 @@ def connections_from_nodes(
             connections[node.url_parsed.hostname].selected_nodes.add(node)
 
     return connections
+
+
+def name_map_from_node_sequence(nodes: Nodes) -> Dict[str, Node]:
+    """Convert a Sequence/List of Nodes into a dictionary of nodes, identified by their name.
+
+    .. warning ::
+
+        Make sure that each node in nodes has a unique Name, otherwise this function will fail.
+
+    :param nodes: Sequence of Node objects
+    :return: Dictionary of Node objects (format: {node.name: Node})
+    """
+    if len({node.name for node in nodes}) != len([node.name for node in nodes]):
+        raise ValueError("Not all node names are unique. Cannot safely convert to named dictionary.")
+
+    return {node.name: node for node in nodes}

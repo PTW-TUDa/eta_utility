@@ -10,7 +10,7 @@ import tzlocal
 from pytz import BaseTzInfo
 
 from eta_utility import get_logger
-from eta_utility.type_hints.custom_types import Node, Nodes, TimeStep
+from eta_utility.type_hints import Node, Nodes, TimeStep
 
 from .base_classes import BaseSeriesConnection, SubscriptionHandler
 
@@ -29,6 +29,7 @@ class EnEffCoConnection(BaseSeriesConnection):
     :param nodes: Nodes to select in connection
     """
 
+    _PROTOCOL = "eneffco"
     API_PATH: str = "/API/v1.0"
 
     def __init__(self, url: str, usr: str, pwd: str, *, api_token: str, nodes: Optional[Nodes] = None) -> None:
@@ -112,8 +113,8 @@ class EnEffCoConnection(BaseSeriesConnection):
             response = response.json()
 
             data = pd.DataFrame(
-                data=(r["Value"] for r in response),
-                index=pd.to_datetime([r["From"] for r in response], utc=True, format="%Y-%m-%dT%H:%M:%SZ").tz_convert(
+                data=response["Value"],
+                index=pd.to_datetime((response["From"],), utc=True, format="%Y-%m-%dT%H:%M:%SZ").tz_convert(
                     self._local_tz
                 ),
                 columns=[node.name],

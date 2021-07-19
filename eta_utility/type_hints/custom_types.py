@@ -1,19 +1,32 @@
 import datetime
 import pathlib
+from abc import abstractmethod
 from typing import (
+    Any,
     AnyStr,
     Dict,
     List,
+    Mapping,
     MutableSequence,
     MutableSet,
     NewType,
+    Optional,
+    SupportsFloat,
+    SupportsInt,
     Tuple,
     Union,
 )
 from urllib.parse import ParseResult
 
 import numpy as np
+import pandas as pd
 from nptyping import NDArray
+
+# Other custom types:
+Path = NewType("Path", Union[pathlib.Path, str])  # better to use maybe os.Pathlike
+Numbers = NewType("Numbers", Union[float, int, np.float64, np.float32, np.int64, np.int32])
+StepResult = NewType("StepResult", Tuple[NDArray[NDArray[float]], NDArray[float], NDArray[bool], List[Dict]])
+TimeStep = NewType("TimeStep", Union[int, datetime.timedelta])  # can't be used for Union[float, timedelta] in fmu.py
 
 
 class Node:
@@ -22,13 +35,15 @@ class Node:
     """
 
     def __init__(self) -> None:
-        """Placeholer constructor"""
-        self.name: str = None
-        self.protocol: str = None
-        self._url: ParseResult = None
-        self.dtype: "value for a given key" = None  # noqa: F722
-
-        pass
+        self.name: str
+        self.protocol: str
+        self._url: ParseResult
+        self.usr: str
+        self.pwd: str
+        #: Unique identifier for the node which can be used for hashing
+        self._id: str
+        self.dtype: Union[SupportsInt, SupportsFloat, AnyStr]
+        raise NotImplementedError
 
     def _init_modbus(self) -> None:
         """Placeholder method with modbus relevant fields"""
@@ -82,11 +97,43 @@ class Node:
         pass
 
 
-# Other custom types:
 Nodes = NewType("Nodes", Union[MutableSequence[Node], MutableSet[Node], Node])
-Path = NewType("Path", Union[pathlib.Path, str])  # better to use maybe os.Pathlike
-Numbers = NewType("Numbers", Union[float, int, np.float64, np.float32, np.int64, np.int32])  # only 1 occurrence
-StepResult = NewType(
-    "StepResult", Tuple[NDArray[NDArray[float]], NDArray[float], NDArray[bool], List[Dict]]
-)  # only 1 occurrence
-TimeStep = NewType("TimeStep", Union[int, datetime.timedelta])  # can't be used for Union[float, timedelta] in fmu.py
+
+
+class Connection:
+    """Annotation class for Connection objects"""
+
+    __PROTOCOL = ""
+
+    def __init__(
+        self, url: str, usr: Optional[str] = None, pwd: Optional[str] = None, *, nodes: Optional[Nodes] = None
+    ):
+        raise NotImplementedError
+
+    @classmethod
+    def from_node(cls, node: Node, **kwargs: Any) -> "Connection":
+        pass
+
+    def read(self, nodes: Optional[Nodes] = None) -> pd.DataFrame:
+        pass
+
+    @abstractmethod
+    def write(self, values: Mapping[Node, Any]) -> None:
+        pass
+
+    @abstractmethod
+    def subscribe(
+        self, handler: "SubscriptionHandler", nodes: Optional[Nodes] = None, interval: TimeStep = 1  # noqa:F821
+    ) -> None:
+        pass
+
+    @abstractmethod
+    def close_sub(self) -> None:
+        pass
+
+    @property
+    def url(self) -> AnyStr:
+        pass
+
+    def _validate_nodes(self, nodes: Nodes) -> Nodes:
+        pass

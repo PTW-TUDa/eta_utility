@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.black]
 include = "\\.pyi?$|eta_utility/*|test/*"
-exclude = "\\.xlsx?$|\\.fmu?$"
+exclude = "\\.xlsx?$|\\.fmu?$|test_config_live_connect.json"
 line_length = 120
 target_version = ["py36","py37","py38"]
 
