@@ -10,7 +10,7 @@ import pandas as pd
 import tzlocal
 from pyModbusTCP.client import ModbusClient
 
-from eta_utility.type_hints.custom_types import Node, Nodes, TimeStep
+from eta_utility.type_hints import Node, Nodes, TimeStep
 
 from .base_classes import BaseConnection, SubscriptionHandler
 
@@ -18,10 +18,19 @@ from .base_classes import BaseConnection, SubscriptionHandler
 class ModbusConnection(BaseConnection):
     """The OPC UA Connection class allows reading and writing from and to OPC UA servers and clients. Additionally
     it implements a subscription server, which reads continuously in a specified interval.
+
+    :param url: Url of the OPC UA Server
+    :param usr: Username in EnEffco for login
+    :param pwd: Password in EnEffco for login
+    :param nodes: List of nodes to use for all operations.
     """
 
-    def __init__(self, url: str, *, nodes: Optional[Nodes] = None) -> None:
-        super().__init__(url, nodes=nodes)
+    _PROTOCOL = "modbus"
+
+    def __init__(
+        self, url: str, usr: Optional[str] = None, pwd: Optional[str] = None, *, nodes: Optional[Nodes] = None
+    ) -> None:
+        super().__init__(url, usr, pwd, nodes=nodes)
 
         if self._url.scheme != "modbus.tcp":
             raise ValueError("Given URL is not a valid Modbus url (scheme: modbus.tcp)")

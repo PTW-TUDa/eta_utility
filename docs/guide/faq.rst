@@ -28,15 +28,14 @@ at all or the license server could not be found. Follow these steps to solve the
   to the license server correctly. This requires being in the same network as the server (either physically or using
   the VPN).
 
-- In case of GIT error:
 
-	- Find git path in pycharm: Settings -> Version Control -> Git
+- In case you cannot clone the repository in PyCharm, because the git executable cannot be found:
 
+    - Find git path in pycharm: Settings -> Version Control -> Git
 	- Add to Path: set PATH=%PATH%;C:\your\path\here
-
 	- Restart pycharm
 
-- In case of GIT login failure:
+- If you cannot login to git, and Windows does not ask for new login information:
 
 	- open "Anmeldeinformationsverwaltung" (in system control = "Systemsteuerung")
 	- There, delete information about git.rwth-aachen (or similar)
