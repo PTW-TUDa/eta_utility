@@ -81,10 +81,13 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         if "prediction_scope" not in self.settings:
             log.info("prediction_scope parameter is not present. Setting prediction_scope to episode_duration.")
         self.prediction_scope = int(self.settings.setdefault("prediction_scope", self.episode_duration))
-        self.model_parameters: dict  #: Configuration for the MILP model parameters
-        self.model_parameters = self.env_settings["model_parameters"]
         self.n_prediction_steps: int  #: Number of steps in the prediction (prediction_scope/sampling_time)
         self.n_prediction_steps = self.settings["prediction_scope"] // self.sampling_time
+        #: Duration of the scenario for each episode (for total time imported from csv)
+        self.scenario_duration: int = self.episode_duration + self.prediction_scope
+
+        self.model_parameters: dict  #: Configuration for the MILP model parameters
+        self.model_parameters = self.env_settings["model_parameters"]
 
         # Set additional attributes with model specific information.
         self._concrete_model: Union[pyo.ConcreteModel, None] = None  #: Concrete pyomo model as initialized by _model.

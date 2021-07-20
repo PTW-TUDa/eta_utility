@@ -204,6 +204,8 @@ class BaseEnv(Env, abc.ABC):
         self.n_episode_steps: int = int(self.settings["episode_duration"]) // self.sampling_time
         #: Duration of one episode in seconds
         self.episode_duration: int = int(self.n_episode_steps * self.sampling_time)
+        #: Duration of the scenario for each episode (for total time imported from csv)
+        self.scenario_duration: int = self.episode_duration + self.sampling_time
 
         #: Numpy random generator
         self.np_random: np.random.BitGenerator
@@ -444,7 +446,7 @@ class BaseEnv(Env, abc.ABC):
         time_conversion_str = []
 
         for path in scenario_paths:
-            paths.append(self.path_root / path["path"])
+            paths.append(self.path_scenarios / path["path"])
             prefix.append(path.get("prefix", None))
             int_methods.append(path.get("interpolation_method", None))
             res_methods.append(path.get("resample_method", "asfreq"))
@@ -452,19 +454,22 @@ class BaseEnv(Env, abc.ABC):
             rename_cols.update(path.get("rename_cols", None)),
             infer_datetime_from.append(path.get("infer_datetime_cols", "string"))
             time_conversion_str.append(path.get("time_conversion_str", "%Y-%m-%d %H:%M"))
-            self.ts_current = timeseries.scenario_from_csv(
-                paths=paths,
-                resample_time=self.sampling_time,
-                start_time=self.env_settings["scenario_time_begin"],
-                end_time=self.env_settings["scenario_time_end"],
-                total_time=self.episode_duration + self.sampling_time,
-                random=self.np_random,
-                interpolation_method=int_methods,
-                resample_method=res_methods,
-                scaling_factors=scale_factors,
-                rename_cols=rename_cols,
-                prefix_renamed=prefix_renamed,
-            )
+
+        self.ts_current = timeseries.scenario_from_csv(
+            paths=paths,
+            resample_time=self.sampling_time,
+            start_time=self.scenario_time_begin,
+            end_time=self.scenario_time_end,
+            total_time=self.scenario_duration,
+            random=self.np_random,
+            interpolation_method=int_methods,
+            resample_method=res_methods,
+            scaling_factors=scale_factors,
+            rename_cols=rename_cols,
+            prefix_renamed=prefix_renamed,
+            infer_datetime_from=infer_datetime_from,
+            time_conversion_str=time_conversion_str,
+        )
 
         return self.ts_current
 

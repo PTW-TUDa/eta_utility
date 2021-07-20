@@ -23,7 +23,7 @@ def scenario_from_csv(
     rename_cols: Optional[Mapping[str, str]] = None,
     prefix_renamed: Optional[bool] = True,
     infer_datetime_from: Optional[Union[str, Sequence[int]]] = "string",
-    time_conversion_str: Optional[str, Sequence[str]] = "%Y-%m-%d %H:%M",
+    time_conversion_str: Optional[Union[str, Sequence[str]]] = "%Y-%m-%d %H:%M",
     scaling_factors: Union[Sequence[Mapping[str, SupportsFloat]], SupportsFloat, None] = None,
 ) -> pd.DataFrame:
     """Import (possibly multiple) scenario data files from csv files and return them as a single pandas
@@ -104,7 +104,7 @@ def scenario_from_csv(
         raise ValueError("The number of scaling factors does not match the number of paths.")
 
     # time conversion string needs to be a list, so on case of None create a list of Nones
-    if not hasattr(time_conversion_str, "__len__"):
+    if type(time_conversion_str) is str or not hasattr(time_conversion_str, "__len__"):
         if paths.__len__() > 1:
             time_conversion_str = [time_conversion_str] * len(paths)
         else:
