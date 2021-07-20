@@ -12,6 +12,7 @@ from typing import (
     Mapping,
     MutableMapping,
     MutableSet,
+    Optional,
     Sequence,
     Set,
     SupportsFloat,
@@ -424,7 +425,7 @@ class BaseEnv(Env, abc.ABC):
                 decimal=",",
             )
 
-    def import_scenario(self, *scenario_paths: Dict[str, Any]) -> None:
+    def import_scenario(self, *scenario_paths: Dict[str, Any], prefix_renamed: Optional[bool] = True) -> pd.DataFrame:
         """Load data from csv into self.timeseries_data by using scenario_from_csv
         :param scenario_paths: One or more scenario configuration dictionaries (Or a list of dicts), which each
                                contain a path for loading data from a scenario file.
@@ -434,25 +435,36 @@ class BaseEnv(Env, abc.ABC):
                                  scale_factors: {col_name: <X>}]
         """
         paths = []
+        prefix = []
         int_methods = []
         res_methods = []
         scale_factors = []
+        rename_cols = {}
+        infer_datetime_from = []
+        time_conversion_str = []
+
         for path in scenario_paths:
             paths.append(self.path_root / path["path"])
+            prefix.append(path.get("prefix", None))
             int_methods.append(path.get("interpolation_method", None))
             res_methods.append(path.get("resample_method", "asfreq"))
             scale_factors.append(path.get("scale_factors", None))
-        self.ts_current = timeseries.scenario_from_csv(
-            paths=paths,
-            resample_time=self.sampling_time,
-            start_time=self.env_settings["scenario_time_begin"],
-            end_time=self.env_settings["scenario_time_end"],
-            total_time=self.episode_duration + self.sampling_time,
-            random=self.np_random,
-            interpolation_method=int_methods,
-            resample_method=res_methods,
-            scaling_factors=scale_factors,
-        )
+            rename_cols.update(path.get("rename_cols", None)),
+            infer_datetime_from.append(path.get("infer_datetime_cols", "string"))
+            time_conversion_str.append(path.get("time_conversion_str", "%Y-%m-%d %H:%M"))
+            self.ts_current = timeseries.scenario_from_csv(
+                paths=paths,
+                resample_time=self.sampling_time,
+                start_time=self.env_settings["scenario_time_begin"],
+                end_time=self.env_settings["scenario_time_end"],
+                total_time=self.episode_duration + self.sampling_time,
+                random=self.np_random,
+                interpolation_method=int_methods,
+                resample_method=res_methods,
+                scaling_factors=scale_factors,
+                rename_cols=rename_cols,
+                prefix_renamed=prefix_renamed,
+            )
 
         return self.ts_current
 
