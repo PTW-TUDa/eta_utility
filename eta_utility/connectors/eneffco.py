@@ -4,6 +4,7 @@ import asyncio
 from datetime import datetime, timedelta
 from typing import Any, Dict, Mapping, Optional
 
+import numpy as np
 import pandas as pd
 import requests
 import tzlocal
@@ -104,25 +105,16 @@ class EnEffCoConnection(BaseSeriesConnection):
         :param nodes: List of nodes to read values from
         :return: Pandas DataFrame containing the data read from the connection
         """
-        # Make sure that latest value is read depending on base time of node in EnEffCo
         nodes = self._validate_nodes(nodes)
-        values = pd.DataFrame()
-        for node in nodes:
-            request_url = f"datapoint/{self.id_from_code(node.eneffco_code)}/live"
-            response = self._raw_request("GET", request_url)
-            response = response.json()
-
-            data = pd.DataFrame(
-                data=response["Value"],
-                index=pd.to_datetime((response["From"],), utc=True, format="%Y-%m-%dT%H:%M:%SZ").tz_convert(
-                    self._local_tz
-                ),
-                columns=[node.name],
-                dtype="float64",
-            )
-            data.index.name = "Time (with timezone)"
-            values = pd.concat([values, data], axis=1, sort=False)
-        return values
+        now = datetime.now()
+        base_time = 1  # 1 second
+        value = self.read_series(
+            self.round_time(now, base_time) - timedelta(seconds=base_time),
+            self.round_time(now, base_time),
+            nodes,
+            base_time,
+        )
+        return value
 
     def write(
         self, values: Mapping[Node, Mapping[datetime, Any]], time_interval: timedelta = timedelta(seconds=1)
@@ -150,7 +142,7 @@ class EnEffCoConnection(BaseSeriesConnection):
             log.info(response.text)
 
     def _prepare_raw_data(self, data: Mapping[datetime, Any], time_interval: timedelta) -> str:
-        """Change the input format into a compatible format with EnEffCo
+        """Change the input format into a compatible format with EnEffCo and filter NaN values
 
         :param data: Data to write to node {time: value}. Could be a dictionary or a pandas Series.
         :param time_interval: Interval between datapoints (i.e. between "From" and "To" in EnEffCo Upload)
@@ -161,15 +153,17 @@ class EnEffCoConnection(BaseSeriesConnection):
         if type(data) is Dict or isinstance(data, pd.Series):
             upload_data = {"Values": []}
             for time, val in data.items():
-                time = self._assert_tz_awareness(time)
-                time = pd.Timestamp(time).tz_convert("UTC")
-                upload_data["Values"].append(
-                    {
-                        "Value": float(val),
-                        "From": time.strftime("%Y-%m-%d %H:%M:%SZ"),
-                        "To": (time + time_interval).strftime("%Y-%m-%d %H:%M:%SZ"),
-                    }
-                )
+                # Only write values if they are not nan
+                if not np.isnan(val):
+                    time = self._assert_tz_awareness(time)
+                    time = pd.Timestamp(time).tz_convert("UTC")
+                    upload_data["Values"].append(
+                        {
+                            "Value": float(val),
+                            "From": time.strftime("%Y-%m-%d %H:%M:%SZ"),
+                            "To": (time + time_interval).strftime("%Y-%m-%d %H:%M:%SZ"),
+                        }
+                    )
 
         else:
             raise ValueError("Unrecognized data format for EnEffCo upload. Provide dictionary or pandas series.")
@@ -201,7 +195,7 @@ class EnEffCoConnection(BaseSeriesConnection):
         :param interval: interval for receiving new data. It it interpreted as seconds when given as an integer.
         :param nodes: identifiers for the nodes to subscribe to
         """
-        self.subscribe_series(handler, 1, nodes, interval=interval, data_interval=interval)
+        self.subscribe_series(handler=handler, req_interval=1, nodes=nodes, interval=interval, data_interval=interval)
 
     def read_series(
         self, from_time: datetime, to_time: datetime, nodes: Optional[Nodes] = None, interval: TimeStep = 1
