@@ -13,6 +13,7 @@ from eta_utility.type_hints import Connection, Nodes, Path
 from .eneffco import EnEffCoConnection
 from .modbus import ModbusConnection
 from .opcua import OpcUaConnection
+from .rest import RESTConnection
 
 
 class Node:
@@ -42,6 +43,8 @@ class Node:
                        (This must be used in conjunction with the opc_path parameter)
 
     :param eneffco_code: (Required for EnEffCo) EnEffCo Code
+
+    :param rest_endpoint: (Required for REST) Endpoint of the node, e.g. '/Node1'
 
     :param type dtype: Data type of the node. This may be needed in some specific cases, for example for the creation
                        of nodes.
@@ -90,6 +93,11 @@ class Node:
             if not {"eneffco_code"} == kwargs.keys():
                 raise ValueError("eneffco_code must be specified for eneffco nodes.")
             self._init_eneffco(**kwargs)
+
+        elif self.protocol == "rest":
+            if not {"rest_endpoint"} == kwargs.keys():  # todo .issubset()
+                raise ValueError("rest_endpoint must be specified for eneffco nodes.")
+            self._init_rest(**kwargs)
 
     def _init_modbus(self, mb_slave: int, mb_register: str, mb_channel: int, mb_byteorder: str) -> None:
         """Initialize the node object for modbus protocol nodes."""
@@ -168,6 +176,10 @@ class Node:
 
         self._id = f"{self.url}{self.eneffco_code}"
 
+    def _init_rest(self, rest_endpoint: str) -> None:
+        """Initialize the node objcet for the rest API"""
+        self.rest_endpoint = rest_endpoint
+
     @property
     def url(self) -> AnyStr:
         """Get node URL"""
@@ -193,6 +205,8 @@ class Node:
             * Identifier
 
         For EnEffCo nodes the Code field must be present
+
+        For REST nodes the REST_Endpoint field must be present
 
         The IP-Address should always be given without scheme (https://)
 
@@ -233,7 +247,7 @@ class Node:
                 netloc = node["url"].strip().lower()
             else:
                 netloc = str(dict_get_any(node, "IP")) + ":" + str(dict_get_any(node, "Port"))
-            name = dict_get_any(node, "Code", "name")
+            name = dict_get_any(node, "name", "Code")
 
             # Initialize node if protocol is 'modbus'
             if dict_get_any(node, "protocol", "Protocol").strip().lower() == "modbus":
@@ -277,6 +291,12 @@ class Node:
 
                 url = scheme + "://" + netloc
                 nodes.append(cls(name, url, protocol, eneffco_code=code))
+            elif dict_get_any(node, "Protocol").strip().lower() == "rest":
+                protocol = "rest"
+                scheme = "http"
+                url = scheme + "://" + netloc
+                rest_endpoint = dict_get_any(node, "REST_Endpoint")
+                nodes.append(cls(name, url, protocol, rest_endpoint=rest_endpoint))
 
         return nodes
 
@@ -347,7 +367,9 @@ def connections_from_nodes(
 
     for node in nodes:
         # Create connection if it does not exist
-        if node.url_parsed.hostname not in connections:
+        if (
+            node.url_parsed.hostname not in connections
+        ):  # todo ich würde diese if abfrage rausnhemen wollen --> wofür brauchen wir die? or node.protocol == "rest"
             if node.protocol == "modbus":
                 connections[node.url_parsed.hostname] = ModbusConnection.from_node(node)
             elif node.protocol == "opcua":
@@ -358,6 +380,8 @@ def connections_from_nodes(
                 connections[node.url_parsed.hostname] = EnEffCoConnection.from_node(
                     node, usr=eneffco_usr, pwd=eneffco_pw, api_token=eneffco_api_token
                 )
+            elif node.protocol == "rest":
+                connections[node.url_parsed.hostname] = RESTConnection.from_node(node)
             else:
                 raise ValueError(
                     f"Node {node.name} does not specify a recognized protocol for initializing a connection."

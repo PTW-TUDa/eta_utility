@@ -3,12 +3,12 @@ variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip_cache"
   GIT_CLEAN_FLAGS: -x -f -e .pip_cache/** -e venv/**
 
-workflow:
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: ($CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "development")
-    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
-      when: never
+# workflow:
+#   rules:
+#     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+#     - if: ($CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "development")
+#     - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+#       when: never
 
 include:
   - template: Security/Secret-Detection.gitlab-ci.yml
@@ -68,22 +68,23 @@ flakehell:
   artifacts:
     reports:
       codequality: flakehell.json
+  allow_failure: true
 
 license_scanning_local:
   extends: license_scanning
   before_script:
     - echo ""
   stage: check
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  # rules:
+  #   - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 secret_detection_local:
   extends: secret_detection
   before_script:
     - echo ""
   stage: check
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  # rules:
+  #   - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 test:
   stage: test
