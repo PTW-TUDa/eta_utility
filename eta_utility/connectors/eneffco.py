@@ -373,7 +373,7 @@ class EnEffCoConnection(BaseSeriesConnection):
         :return: EnEffCo compatible time string
         """
 
-        return dt.isoformat(sep="T", timespec="seconds").replace(":", "%3A")
+        return dt.isoformat(sep="T", timespec="seconds").replace(":", "%3A").replace("+", "%2B")
 
     def _raw_request(self, method: str, endpoint: str, **kwargs: Any) -> requests.Response:
         """Perform EnEffCo request and handle possibly resulting errors.
