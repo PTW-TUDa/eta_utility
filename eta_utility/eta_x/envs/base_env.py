@@ -451,7 +451,7 @@ class BaseEnv(Env, abc.ABC):
             int_methods.append(path.get("interpolation_method", None))
             res_methods.append(path.get("resample_method", "asfreq"))
             scale_factors.append(path.get("scale_factors", None))
-            rename_cols.update(path.get("rename_cols", None)),
+            rename_cols.update(path.get("rename_cols", {})),
             infer_datetime_from.append(path.get("infer_datetime_cols", "string"))
             time_conversion_str.append(path.get("time_conversion_str", "%Y-%m-%d %H:%M"))
 
