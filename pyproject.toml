@@ -3,8 +3,8 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.black]
-include = "\\.pyi?$|eta_utility/*|test/*"
-exclude = "\\.xlsx?$|\\.fmu?$|test_config_live_connect.json"
+include = "\\.pyi?$|^eta_utility/|^test/"
+exclude = "\\.xlsx?$|\\.fmu?$|test_resources/|__pycache__/"
 line_length = 120
 target_version = ["py36","py37","py38"]
 
