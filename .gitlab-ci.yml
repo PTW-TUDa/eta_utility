@@ -20,6 +20,13 @@ stages:
   - test
   - deploy
 
+cache: &global_cache
+  key: $CI_COMMIT_REF_SLUG
+  paths:
+    - .pip_cache
+    - venv
+  policy: pull-push
+
 default:
   tags:
     - python
@@ -34,31 +41,25 @@ default:
     - pip install --upgrade pip
     - pip install .[eta_x]
 
-  # Make sure that the installation is cached between jobs
-  cache:
-    key: $CI_PROJECT_ID
-    paths:
-      - .pip_cache
-      - venv
-    policy: pull
-
 create_cache:
   stage: setup
   script: pip install isort black==21.6b0 flakehell pytest pytest-cov
-  cache:
-    policy: pull-push
 
 isort:
   stage: check
   script:
     - pip install isort
     - isort -c -v .
+  cache:
+    <<: *global_cache
+    policy: pull
 
 black:
   stage: check
   script:
     - pip install black==21.7b0
     - black --check --config pyproject.toml eta_utility/ test/
+  cache: []
 
 flakehell:
   stage: check
@@ -68,6 +69,9 @@ flakehell:
   artifacts:
     reports:
       codequality: flakehell.json
+  cache:
+    <<: *global_cache
+    policy: pull
 
 license_scanning_local:
   extends: license_scanning
@@ -76,6 +80,9 @@ license_scanning_local:
   stage: check
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  cache:
+    <<: *global_cache
+    policy: pull
 
 secret_detection_local:
   extends: secret_detection
@@ -84,12 +91,19 @@ secret_detection_local:
   stage: check
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  cache:
+    <<: *global_cache
+    policy: pull
 
 test:
   stage: test
   script:
+    - pip install .[eta_x,develop]
     - pip install pytest pytest-cov
     - pytest --cov
+  cache:
+    <<: *global_cache
+    policy: pull
 
 # build the sources
 build:
@@ -105,6 +119,9 @@ build:
       - eta_utility.egg-info/
   rules:
     - if: $CI_COMMIT_BRANCH == "master"
+  cache:
+    <<: *global_cache
+    policy: pull
 
 # Create sphinx html documentation
 pages:
@@ -122,6 +139,9 @@ pages:
       - public/
   rules:
     - if: $CI_COMMIT_BRANCH == "master"
+  cache:
+    <<: *global_cache
+    policy: pull
 
 compile_fmu:
   stage: setup
@@ -146,5 +166,4 @@ compile_fmu:
     - rm -rf fmu_extract
   rules:
     - when: never
-  cache:
-    key: none
+  cache: []
