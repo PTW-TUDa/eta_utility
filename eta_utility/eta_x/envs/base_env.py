@@ -429,12 +429,12 @@ class BaseEnv(Env, abc.ABC):
 
     def import_scenario(self, *scenario_paths: Dict[str, Any], prefix_renamed: Optional[bool] = True) -> pd.DataFrame:
         """Load data from csv into self.timeseries_data by using scenario_from_csv
+
         :param scenario_paths: One or more scenario configuration dictionaries (Or a list of dicts), which each
-                               contain a path for loading data from a scenario file.
-                               The dictionary should have the following structure, with <X> denoting the
-                               variable value:
-                               [{path: <X>, interpolation_method: <X>, resample_method: <X>,
-                                 scale_factors: {col_name: <X>}]
+            contain a path for loading data from a scenario file.
+            The dictionary should have the following structure, with <X> denoting the
+            variable value: [{path: <X>, interpolation_method: <X>, resample_method: <X>,
+            scale_factors: {col_name: <X>}]
         """
         paths = []
         prefix = []
