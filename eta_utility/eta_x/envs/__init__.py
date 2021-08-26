@@ -1,1 +1,3 @@
-from .base_classes import BaseEnv, BaseEnvMPC, BaseEnvSim
+from .base_env import BaseEnv
+from .base_env_mpc import BaseEnvMPC
+from .base_env_sim import BaseEnvSim

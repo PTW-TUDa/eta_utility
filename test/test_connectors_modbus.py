@@ -1,58 +1,124 @@
 import datetime
 from test.config_tests import *  # noqa
 from test.test_utilities.pyModbusTCP.client import ModbusClient
-from test.test_utilities.pyModbusTCP.nodes import ModbusNodes as nodes
 
-from pytest import raises
+import pandas as pd
+from pytest import approx, fixture, raises
 
-from eta_utility.connectors.modbus import ModbusConnection
+from eta_utility.connectors import ModbusConnection, Node
+
+node = Node(
+    "Serv.NodeName",
+    "modbus.tcp://10.0.0.1:502",
+    "modbus",
+    mb_channel=3861,
+    mb_register="Holding",
+    mb_slave=32,
+    mb_byteorder="big",
+)
+value = [17171, 34363]
+check = pd.DataFrame(
+    data=[147.524],
+    index=[datetime.datetime.now()],
+    columns=["Serv.NodeName"],
+)
 
 
-class TestModbus:
-    _node = nodes.node
-    _node2 = nodes.node2
-    _node_fail = nodes.node_fail
+def test_modbus_connection_fail():
+    """Test modbus failures"""
+    server_fail = ModbusConnection(node.url)
 
-    def test_modbus_failures(self):
-        """Test modbus failures"""
-        server_fail = ModbusConnection(self._node_fail.url)
+    with raises(ConnectionError):
+        server_fail.read(node)
 
-        with raises(ConnectionError):
-            server_fail.read(self._node_fail)
 
-    def test_modbus_read(self, monkeypatch):
-        """Test modbus read function without network access"""
-        # Test reading a single node
-        server = ModbusConnection(self._node.url)
+class TestMBBigEndian:
+
+    node2 = Node(
+        "Serv.NodeName2",
+        "modbus.tcp://10.0.0.1:502",
+        "modbus",
+        mb_channel=6345,
+        mb_register="Holding",
+        mb_slave=32,
+        mb_byteorder="big",
+    )
+    value2 = [17254, 49900]
+    check2 = pd.DataFrame(
+        data=[230.761],
+        index=[datetime.datetime.now()],
+        columns=["Serv.NodeName"],
+    )
+
+    @fixture()
+    def mb_connect(self, monkeypatch):
+        server = ModbusConnection(node.url)
+
         mock_mb_client = ModbusClient()
+        mock_mb_client.value = value
         monkeypatch.setattr(server, "connection", mock_mb_client)
-        res = server.read(self._node)
 
-        check = pd.DataFrame(
-            data=[147.5243377685547],
-            index=[datetime.datetime.now()],
-            columns=["Serv.NodeName"],
-        )
+        return server
 
-        assert check.columns == res.columns
-        assert check["Serv.NodeName"].values == res["Serv.NodeName"].values
+    def test_modbus_read(self, mb_connect):
+        """Test modbus read function without network access"""
+        res = mb_connect.read(node)
+
+        assert set(res.columns) == set(check.columns)
+        assert res["Serv.NodeName"].values == approx(check["Serv.NodeName"].values, 0.001)
         assert isinstance(res.index, pd.DatetimeIndex)
 
-    def test_modbus_multiple_nodes_read(self, monkeypatch):
+    def test_modbus_multiple_nodes_read(self, mb_connect, monkeypatch):
         # Test reading multiple nodes
-        server = ModbusConnection(self._node.url, nodes=[self._node, self._node2])
-        mock_mb_client = ModbusClient()
-        monkeypatch.setattr(server, "connection", mock_mb_client)
-        res = server.read()
+        mb_connect.selected_nodes = {node, self.node2}
+        monkeypatch.setattr(mb_connect.connection, "value", self.value2)
+        res = mb_connect.read()
 
         check = pd.DataFrame(
             data={
-                "Serv.NodeName": [147.5243377685547],
-                "Serv.NodeName2": [147.5243377685547],
+                "Serv.NodeName": [230.761],
+                "Serv.NodeName2": [230.761],
             },
             index=[datetime.datetime.now()],
         )
 
-        assert set(check.columns) == set(res.columns)
-        assert check["Serv.NodeName2"].values == res["Serv.NodeName2"].values
+        assert set(res.columns) == set(check.columns)
+        assert res["Serv.NodeName"].values == approx(check["Serv.NodeName"].values, 0.001)
+        assert res["Serv.NodeName2"].values == approx(check["Serv.NodeName2"].values, 0.001)
+        assert isinstance(res.index, pd.DatetimeIndex)
+
+
+class TestMBLittleEndian:
+    node = Node(
+        "Serv.NodeName",
+        "modbus.tcp://10.0.0.1:502",
+        "modbus",
+        mb_channel=3861,
+        mb_register="Holding",
+        mb_slave=32,
+        mb_byteorder="little",
+    )
+    value = [26179, 60610]
+    check = pd.DataFrame(
+        data=[230.761],
+        index=[datetime.datetime.now()],
+        columns=["Serv.NodeName"],
+    )
+
+    @fixture()
+    def mb_connect(self, monkeypatch):
+        server = ModbusConnection(self.node.url)
+
+        mock_mb_client = ModbusClient()
+        mock_mb_client.value = self.value
+        monkeypatch.setattr(server, "connection", mock_mb_client)
+
+        return server
+
+    def test_read_little_endian(self, mb_connect):
+        """Test byteorder as big endian"""
+        res = mb_connect.read(self.node)
+
+        assert set(res.columns) == set(self.check.columns)
+        assert res["Serv.NodeName"].values == approx(self.check["Serv.NodeName"].values, 0.001)
         assert isinstance(res.index, pd.DatetimeIndex)

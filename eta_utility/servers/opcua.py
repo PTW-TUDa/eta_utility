@@ -1,8 +1,9 @@
 import socket
 from typing import Any, Mapping, Union
 
-import opcua
+from opcua import Node as OpcNode
 from opcua import Server, ua
+from opcua.ua import uaerrors
 
 from eta_utility import get_logger
 from eta_utility.type_hints.custom_types import Node, Nodes
@@ -13,22 +14,27 @@ log = get_logger("servers.opcua")
 class OpcUaServer:
     """Provides an OPC UA server with a number of specified nodes. Each node can contain single values or arrays.
 
-    :param name: Namespace of the OPC UA Server
-    :param port: Port to listen on
+    :param namespace: Namespace of the OPC UA Server
+    :param ip: IP Address to listen on (default: None)
+    :param port: Port to listen on (default: 4840)
     """
 
-    def __init__(self, name: Union[str, int], port: int = 4840) -> None:
-        #: url: IP Address of the OPC UA Server
-        self.url: str = "opc.tcp://{}:{}".format(socket.gethostbyname(socket.gethostname()), port)
+    def __init__(self, namespace: Union[str, int], ip: str = None, port: int = 4840) -> None:
+        if ip is None:
+            #: URL of the OPC UA Server
+            self.url: str = f"opc.tcp://{socket.gethostbyname(socket.gethostname())}:{port}"
+        else:
+            self.url: str = f"opc.tcp://{ip}:{port}"
         log.info(f"Server Address is {self.url}")
 
         self._server: Server = Server()
         self._server.set_endpoint(self.url)
 
-        self.idx: int = self._server.register_namespace(str(name))  #: idx: Namespace of the OPC UA _server
-        log.debug(f'Server Namespace set to "{name}"')
+        self.idx: int = self._server.register_namespace(str(namespace))  #: idx: Namespace of the OPC UA _server
+        log.debug(f'Server Namespace set to "{namespace}"')
 
         self._server.set_security_policy([ua.SecurityPolicyType.NoSecurity])
+        self._server.set_server_name("ETA Utility OPC UA Server")
         self._server.start()
 
     def write(self, values: Mapping[Node, Any]) -> None:
@@ -51,7 +57,7 @@ class OpcUaServer:
         :param nodes: List or set of nodes to create
         """
 
-        def create_object(parent: opcua.Node, child: Node):
+        def create_object(parent: OpcNode, child: Node):
             for obj in parent.get_children():
                 ident = (
                     obj.nodeid.Identifier.strip(" .") if type(obj.nodeid.Identifier) is str else obj.nodeid.Identifier
@@ -64,22 +70,30 @@ class OpcUaServer:
         nodes = self._validate_nodes(nodes)
 
         for node in nodes:
-            last_obj = create_object(self._server.get_objects_node(), node.opc_path[0])
+            try:
+                last_obj = create_object(self._server.get_objects_node(), node.opc_path[0])
 
-            for key in range(1, len(node.opc_path) + 1):
-                if key < len(node.opc_path):
-                    last_obj = create_object(last_obj, node.opc_path[key])
-                else:
-                    init_val = 0.0
-                    if not hasattr(node, "dtype"):
-                        pass
-                    elif node.dtype is int:
-                        init_val = 0
-                    elif node.dtype is bool:
-                        init_val = False
+                for key in range(1, len(node.opc_path) + 1):
+                    if key < len(node.opc_path):
+                        last_obj = create_object(last_obj, node.opc_path[key])
+                    else:
+                        if not hasattr(node, "dtype"):
+                            init_val = 0.0
+                        elif node.dtype is int:
+                            init_val = 0
+                        elif node.dtype is bool:
+                            init_val = False
+                        elif node.dtype is str:
+                            init_val = ""
+                        else:
+                            init_val = 0.0
 
-                    last_obj.add_variable(node.opc_id, node.opc_name, init_val)
-                    log.debug(f"OPC UA Node created: {node.opc_id}")
+                        last_obj.add_variable(node.opc_id, node.opc_name, init_val)
+                        log.debug(f"OPC UA Node created: {node.opc_id}")
+            except uaerrors.BadNodeIdExists:
+                log.warning(f"Node with NodeId : {node.opc_id} could not be created. It already exists.")
+            except RuntimeError as e:
+                raise ConnectionError(str(e)) from e
 
     def delete_nodes(self, nodes: Nodes) -> None:
         """Delete the given nodes and their parents (if the parents do not have other children).
@@ -87,7 +101,7 @@ class OpcUaServer:
         :param nodes: List or set of nodes to be deleted
         """
 
-        def delete_node_parents(node: opcua.Node, depth: int = 20):
+        def delete_node_parents(node: OpcNode, depth: int = 20):
             parents = node.get_references(direction=ua.BrowseDirection.Inverse)
             if not node.get_children():
                 node.delete(delete_references=True)

@@ -1,29 +1,25 @@
 from typing import List
 
-from pyModbusTCP.client import ModbusClient as MBC
+from pyModbusTCP.client import ModbusClient as BaseClient
 
 
-class ModbusClient(MBC):
-    @staticmethod
-    def open() -> bool:
+class ModbusClient(BaseClient):
+    value = [0, 0]
+
+    def open(self) -> bool:
         return True
 
-    @staticmethod
-    def is_open() -> bool:
+    def is_open(self) -> bool:
         return True
 
-    @staticmethod
-    def close() -> None:
+    def close(self) -> None:
         pass
 
-    @staticmethod
-    def mode(val) -> None:
+    def mode(self, mode=None) -> None:
         pass
 
-    @staticmethod
-    def unit_id(val) -> None:
+    def unit_id(self, unit_id=None) -> None:
         pass
 
-    @staticmethod
-    def read_holding_registers(val, num) -> List[int]:
-        return [17171, 34363]
+    def read_holding_registers(self, reg_addr, reg_nb=1) -> List[int]:
+        return self.value

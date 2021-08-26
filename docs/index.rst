@@ -45,9 +45,11 @@ single handler.
    :caption: Connectors
 
    /connectors/connectors
+   /connectors/live_connect
    /connectors/modbus
    /connectors/opcua
    /connectors/eneffco
+   /connectors/rest
 
 Servers:
 -----------
@@ -74,7 +76,7 @@ Simulators are used to provide utilities for the simulation of functional mockup
 
 Timeseries:
 --------------
-Functions to load and easily manipulate timeseries data.
+Functions to load and easily manipulate timeseries and scenario data.
 
 .. toctree::
     :maxdepth: 1
@@ -98,6 +100,17 @@ ETA-X provides an optimization framework, based on the OpenAI gym model.
     /eta_x/mpc_basic
     /eta_x/nsga2
     /eta_x/rule_based
+
+More Utilities
+-----------------------------
+Some additional utilities are provided by the util module.
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+    :caption: util
+
+    /util/util
 
 Citing ETA utility-functions
 ----------------------------

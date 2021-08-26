@@ -10,7 +10,7 @@ import pandas as pd
 import tzlocal
 from pyModbusTCP.client import ModbusClient
 
-from eta_utility.type_hints.custom_types import Node, Nodes, TimeStep
+from eta_utility.type_hints import Node, Nodes, TimeStep
 
 from .base_classes import BaseConnection, SubscriptionHandler
 
@@ -18,10 +18,19 @@ from .base_classes import BaseConnection, SubscriptionHandler
 class ModbusConnection(BaseConnection):
     """The OPC UA Connection class allows reading and writing from and to OPC UA servers and clients. Additionally
     it implements a subscription server, which reads continuously in a specified interval.
+
+    :param url: Url of the OPC UA Server
+    :param usr: Username in EnEffco for login
+    :param pwd: Password in EnEffco for login
+    :param nodes: List of nodes to use for all operations.
     """
 
-    def __init__(self, url: str, *, nodes: Optional[Nodes] = None) -> None:
-        super().__init__(url, nodes=nodes)
+    _PROTOCOL = "modbus"
+
+    def __init__(
+        self, url: str, usr: Optional[str] = None, pwd: Optional[str] = None, *, nodes: Optional[Nodes] = None
+    ) -> None:
+        super().__init__(url, usr, pwd, nodes=nodes)
 
         if self._url.scheme != "modbus.tcp":
             raise ValueError("Given URL is not a valid Modbus url (scheme: modbus.tcp)")
@@ -68,7 +77,7 @@ class ModbusConnection(BaseConnection):
 
             for node in nodes:
                 result = self._read_mb_value(node)
-                value = self._decode(result)
+                value = self._decode(result, node.mb_byteorder)
 
                 values[node.name] = value
 
@@ -141,25 +150,40 @@ class ModbusConnection(BaseConnection):
 
                 for node in self._subscription_nodes:
                     result = self._read_mb_value(node)
-                    self._decode(result)
+                    self._decode(result, node.mb_byteorder)
                     handler.push(node, result, tzlocal.get_localzone().localize(datetime.now()))
                 await asyncio.sleep(interval)
         except asyncio.CancelledError:
             pass
 
     @staticmethod
-    def _decode(value: Sequence[Any]) -> float:
+    def _decode(value: Sequence[int], byteorder: str, type: str = "f") -> Any:
         """
         Method to decode incoming modbus values
 
         :param read_val: current value to be decoded into float
-
-        struct.unpack("f", result_bytes)[0]: Decoded modbus value
+        :param byteorder: byteorder for decoding i.e. 'little' or 'big' endian
+        :param type: type of the output value. See `Python struct format character documentation
+                     <https://docs.python.org/3/library/struct.html#format-characters>` for all possible
+                      format strings. (default: f)
+        :return: decoded value as a python type
         """
-        res1 = format(value[0], "016b")
-        res2 = format(value[1], "016b")
-        result_bytes = int.to_bytes(int(res1 + res2, 2), 4, byteorder="little")
-        return struct.unpack("f", result_bytes)[0]
+        if byteorder == "little":
+            bo = "<"
+        elif byteorder == "big":
+            bo = ">"
+        else:
+            raise ValueError(f"Specified an invalid byteorder: '{byteorder}'")
+
+        # Determine the format strings for packing and unpacking the received byte sequences. These format strings
+        # depend on the endianness (determined by bo), the length of the value in bytes and
+        pack = f"{bo}{len(value):1d}H"
+
+        size_div = {"h": 2, "H": 2, "i": 4, "I": 4, "l": 4, "L": 4, "q": 8, "Q": 8, "f": 4, "d": 8}
+        unpack = f">{len(value) * 2 // size_div[type]:1d}{type}"
+
+        # pymodbus gives a Sequence of 16bit unsigned integers which must be converted into the correct format
+        return struct.unpack(unpack, struct.pack(pack, *value))[0]
 
     def _read_mb_value(self, node: Node) -> Optional[List[int]]:
         """Read raw value from modbus server. This function should not be used directly. It does not

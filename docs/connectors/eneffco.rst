@@ -1,9 +1,9 @@
 .. eneffco:
 
-EnEffCo Utility Functions
+EnEffCo Connector
 ====================================================
 
-Utility functions for connections to an EnEffCo server.
+Functions for connections to EnEffCo servers.
 
 .. automodule:: eta_utility.connectors.eneffco
   :members:

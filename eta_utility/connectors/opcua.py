@@ -7,13 +7,15 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta
 from typing import Any, Mapping, Optional
 
-import opcua.ua.uaerrors
 import pandas as pd
 import tzlocal
-from opcua import Client, ua
+from opcua import Client
+from opcua import Node as OpcNode
+from opcua import ua
+from opcua.ua import uaerrors
 
 from eta_utility import get_logger
-from eta_utility.type_hints.custom_types import Node, Nodes, TimeStep
+from eta_utility.type_hints import Node, Nodes, TimeStep
 
 from .base_classes import BaseConnection, SubscriptionHandler
 
@@ -25,8 +27,12 @@ class OpcUaConnection(BaseConnection):
     it implements a subscription method, which reads continuously in a specified interval.
 
     :param url: Url of the OPC UA Server
+    :param usr: Username in EnEffco for login
+    :param pwd: Password in EnEffco for login
     :param nodes: List of nodes to use for all operations.
     """
+
+    _PROTOCOL = "opcua"
 
     def __init__(
         self, url: str, usr: Optional[str] = None, pwd: Optional[str] = None, *, nodes: Optional[Nodes] = None
@@ -36,7 +42,7 @@ class OpcUaConnection(BaseConnection):
         if self._url.scheme != "opc.tcp":
             raise ValueError("Given URL is not a valid OPC url (scheme: opc.tcp)")
 
-        self.connection: opcua.Client = Client(self.url)
+        self.connection: Client = Client(self.url)
         self._sub: Optional[asyncio.Task] = None
 
     @classmethod
@@ -79,7 +85,7 @@ class OpcUaConnection(BaseConnection):
                 except RuntimeError as e:
                     raise ConnectionError(str(e)) from e
 
-        return pd.DataFrame(values, index=[tzlocal.get_localzone().localize(datetime.now())])
+        return pd.DataFrame(values, index=[self._local_tz.localize(datetime.now())])
 
     def write(self, values: Mapping[Node, Any]) -> None:
         """
@@ -96,7 +102,7 @@ class OpcUaConnection(BaseConnection):
                 try:
                     opcua_variable = self.connection.get_node(node.opc_id)
                     opcua_variable_type = opcua_variable.get_data_type_as_variant_type()
-                    opcua_variable.set_value(ua.Variant(values[node], opcua_variable_type))
+                    opcua_variable.set_value(ua.DataValue(ua.Variant(values[node], opcua_variable_type)))
                 except RuntimeError as e:
                     raise ConnectionError(str(e)) from e
 
@@ -108,7 +114,7 @@ class OpcUaConnection(BaseConnection):
         :raises ConnectionError: When an error occurs during node creation
         """
 
-        def create_object(parent: opcua.Node, child: Node):
+        def create_object(parent: OpcNode, child: Node):
             for obj in parent.get_children():
                 ident = (
                     obj.nodeid.Identifier.strip(" .") if type(obj.nodeid.Identifier) is str else obj.nodeid.Identifier
@@ -129,17 +135,20 @@ class OpcUaConnection(BaseConnection):
                         if key < len(node.opc_path):
                             last_obj = create_object(last_obj, node.opc_path[key])
                         else:
-                            init_val = 0.0
                             if not hasattr(node, "dtype"):
-                                pass
+                                init_val = 0.0
                             elif node.dtype is int:
                                 init_val = 0
                             elif node.dtype is bool:
                                 init_val = False
+                            elif node.dtype is str:
+                                init_val = ""
+                            else:
+                                init_val = 0.0
 
                             last_obj.add_variable(node.opc_id, node.opc_name, init_val)
                             log.debug(f"OPC UA Node created: {node.opc_id}")
-                except opcua.ua.uaerrors.BadNodeIdExists:
+                except uaerrors.BadNodeIdExists:
                     log.warning(f"Node with NodeId : {node.opc_id} could not be created. It already exists.")
                 except RuntimeError as e:
                     raise ConnectionError(str(e)) from e
@@ -152,7 +161,7 @@ class OpcUaConnection(BaseConnection):
         :raises ConnectionError: If deletion of nodes fails.
         """
 
-        def delete_node_parents(node: opcua.Node, depth: int = 20):
+        def delete_node_parents(node: OpcNode, depth: int = 20):
             parents = node.get_references(direction=ua.BrowseDirection.Inverse)
             if not node.get_children():
                 node.delete(delete_references=True)
@@ -193,7 +202,7 @@ class OpcUaConnection(BaseConnection):
                     handler_obj.add_node(node.opc_id, node)
                     _ = self._sub.subscribe_data_change(self.connection.get_node(node.opc_id))
                 except RuntimeError as e:
-                    log.warning("Server {}, Node Id '{}' error: {}".format(self.url, node.name, str(e)))
+                    log.warning(f"Server {self.url}, Node Id '{node.name}' error: {str(e)}")
 
         except RuntimeError as e:
             log.warning(str(e))

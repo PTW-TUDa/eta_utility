@@ -23,7 +23,7 @@ def scenario_from_csv(
     rename_cols: Optional[Mapping[str, str]] = None,
     prefix_renamed: Optional[bool] = True,
     infer_datetime_from: Optional[Union[str, Sequence[int]]] = "string",
-    time_conversion_str: str = "%Y-%m-%d %H:%M",
+    time_conversion_str: Optional[Union[str, Sequence[str]]] = "%Y-%m-%d %H:%M",
     scaling_factors: Union[Sequence[Mapping[str, SupportsFloat]], SupportsFloat, None] = None,
 ) -> pd.DataFrame:
     """Import (possibly multiple) scenario data files from csv files and return them as a single pandas
@@ -103,6 +103,25 @@ def scenario_from_csv(
     elif scaling_factors.__len__() != paths.__len__():
         raise ValueError("The number of scaling factors does not match the number of paths.")
 
+    # time conversion string needs to be a list, so on case of None create a list of Nones
+    if type(time_conversion_str) is str or not hasattr(time_conversion_str, "__len__"):
+        if paths.__len__() > 1:
+            time_conversion_str = [time_conversion_str] * len(paths)
+        else:
+            time_conversion_str = (time_conversion_str,)
+    elif time_conversion_str.__len__() != paths.__len__():
+        raise ValueError("The number of time conversion strings does not match the number of paths.")
+
+    # columns to consider as datetime values (infer_datetime_from)
+    # needs to be a list, so on case of None create a list of Nones
+    if type(infer_datetime_from) is str or not hasattr(infer_datetime_from, "__len__"):
+        infer_datetime_from = [infer_datetime_from] * len(paths) if paths.__len__() > 1 else (infer_datetime_from,)
+    elif infer_datetime_from.__len__() != paths.__len__():
+        raise ValueError(
+            "The number of columns to consider as datetime values (infer_datetime_from)"
+            " does not match the number of paths."
+        )
+
     # Set defaults and convert values where necessary
     if total_time:
         total_time = total_time if isinstance(total_time, timedelta) else timedelta(seconds=total_time)
@@ -123,8 +142,8 @@ def scenario_from_csv(
     for i, path in enumerate(paths):
         data = timeseries.df_from_csv(
             path,
-            infer_datetime_from=infer_datetime_from,
-            time_conversion_str=time_conversion_str,
+            infer_datetime_from=infer_datetime_from[i],
+            time_conversion_str=time_conversion_str[i],
         )
         if resample:
             data = timeseries.df_resample(
@@ -144,10 +163,10 @@ def scenario_from_csv(
                 pre = ""
                 name = str(rename_cols[col])
             elif prefix_renamed and rename_cols is not None and col in rename_cols:
-                pre = "{}_".format(data_prefixes[i]) if data_prefixes is not None else ""
+                pre = f"{data_prefixes[i]}_" if data_prefixes is not None else ""
                 name = str(rename_cols[col])
             else:
-                pre = "{}_".format(data_prefixes[i]) if data_prefixes is not None else ""
+                pre = f"{data_prefixes[i]}_" if data_prefixes is not None else ""
                 name = str(col)
             col_names[col] = pre + name
 

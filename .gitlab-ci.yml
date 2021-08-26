@@ -1,21 +1,31 @@
 # Setup pip cache so that it can be reused between jobs
 variables:
-  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip_cache"
+  GIT_CLEAN_FLAGS: -x -f -e .pip_cache/** -e venv/**
 
 workflow:
   rules:
-    - if: $CI_MERGE_REQUEST_IID
-    - if: $CI_COMMIT_TAG
-    - if: $CI_COMMIT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: ($CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "development")
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
 
 include:
   - template: Security/Secret-Detection.gitlab-ci.yml
   - template: Security/License-Scanning.gitlab-ci.yml
 
 stages:
+  - setup
   - check
   - test
   - deploy
+
+cache: &global_cache
+  key: $CI_COMMIT_REF_SLUG
+  paths:
+    - .pip_cache
+    - venv
+  policy: pull-push
 
 default:
   tags:
@@ -31,68 +41,69 @@ default:
     - pip install --upgrade pip
     - pip install .[eta_x]
 
-  # Make sure that the installation is cached between jobs
-  cache:
-    paths:
-      - .cache/pip
-      - venv
+create_cache:
+  stage: setup
+  script: pip install isort black==21.6b0 flakehell pytest pytest-cov
 
 isort:
   stage: check
   script:
     - pip install isort
     - isort -c -v .
+  cache:
+    <<: *global_cache
+    policy: pull
 
 black:
   stage: check
   script:
-    - pip install black
+    - pip install black==21.7b0
     - black --check --config pyproject.toml eta_utility/ test/
+  cache: []
 
 flakehell:
   stage: check
   script:
     - pip install flakehell
-    - flakehell lint --format=gitlab --output-file flakehell.json eta_utility/
-  allow_failure: false
+    - flakehell lint --format=gitlab --output-file flakehell.json eta_utility/ test/
   artifacts:
     reports:
       codequality: flakehell.json
+  cache:
+    <<: *global_cache
+    policy: pull
 
-license_scanning:
+license_scanning_local:
+  extends: license_scanning
   before_script:
     - echo ""
   stage: check
   rules:
-    - if: $CI_MERGE_REQUEST_IID
-    - if: $CI_COMMIT_TAG
-    - if: $CI_COMMIT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  cache:
+    <<: *global_cache
+    policy: pull
 
-secret_detection:
+secret_detection_local:
+  extends: secret_detection
   before_script:
     - echo ""
   stage: check
   rules:
-    - if: $CI_MERGE_REQUEST_IID
-    - if: $CI_COMMIT_TAG
-    - if: $CI_COMMIT_BRANCH
-
-secret_detection_default_branch:
-  before_script:
-    - echo ""
-  stage: check
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "development"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  cache:
+    <<: *global_cache
+    policy: pull
 
 test:
   stage: test
   script:
+    - pip install .[eta_x,develop]
     - pip install pytest pytest-cov
     - pytest --cov
-  rules:
-    - if: $CI_MERGE_REQUEST_IID
-    - if: $CI_COMMIT_TAG
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "development"
+  cache:
+    <<: *global_cache
+    policy: pull
 
 # build the sources
 build:
@@ -108,6 +119,9 @@ build:
       - eta_utility.egg-info/
   rules:
     - if: $CI_COMMIT_BRANCH == "master"
+  cache:
+    <<: *global_cache
+    policy: pull
 
 # Create sphinx html documentation
 pages:
@@ -125,3 +139,31 @@ pages:
       - public/
   rules:
     - if: $CI_COMMIT_BRANCH == "master"
+  cache:
+    <<: *global_cache
+    policy: pull
+
+compile_fmu:
+  stage: setup
+  before_script:
+    - echo ""
+  script:
+    - python -V  # Print out python version for debugging
+    - python3 -m venv venv
+    - source venv/bin/activate
+    - pip install fmpy
+    - apt-get update
+    - apt-get --yes install zip
+    - \[ ! -d $CI_PROJECT_DIR/fmu_extract ] && mkdir $CI_PROJECT_DIR/fmu_extract
+    - unzip -u $CI_PROJECT_DIR/test/test_resources/test_fmu.fmu -d fmu_extract
+    - cd fmu_extract/sources
+    - gcc -c -I. -I$CI_PROJECT_DIR/venv/lib/python3.7/site-packages/fmpy/c-code -fPIC all.c && gcc -static-libgcc -shared -oout.so *.o
+    - \[ ! -d ../binaries/linux64 ] && mkdir ../binaries/linux64
+    - mv out.so ../binaries/linux64/test_fmu.so
+    - cd ..
+    - zip -r ../test_fmu.fmu *
+    - cd ..
+    - rm -rf fmu_extract
+  rules:
+    - when: never
+  cache: []

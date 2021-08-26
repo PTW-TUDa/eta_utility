@@ -3,14 +3,13 @@
 """
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
-from re import search
-from typing import Any, AnyStr, Mapping, Optional, Sequence, Set, Union
-from urllib.parse import ParseResultBytes, urlparse
+from typing import Any, AnyStr, Mapping, Optional, Sequence, Union
 
 import pandas as pd
 import tzlocal
 
-from eta_utility.type_hints.custom_types import Node, Nodes, TimeStep
+from eta_utility import url_parse
+from eta_utility.type_hints import Node, Nodes, TimeStep
 
 
 class SubscriptionHandler(ABC):
@@ -135,40 +134,48 @@ class BaseConnection(ABC):
     :param nodes: List of nodes to select as a standard case
     """
 
+    #: Protocol of the connection. Value can be used to check if nodes correspond to the connection
+    _PROTOCOL = ""
+
     def __init__(
         self, url: str, usr: Optional[str] = None, pwd: Optional[str] = None, *, nodes: Optional[Nodes] = None
     ) -> None:
-        self._url: ParseResultBytes = urlparse(url)
+        #: URL of the server to connect to
+        self._url: str
+        #: Username fot login to server
+        self.usr: str
+        #: Password for login to server
+        self.pwd: str
+        self._url, self.usr, self.pwd = url_parse(url)
 
-        # Get username and password either from the arguments or from the parsed url string
+        if nodes is not None:
+            #: Preselected nodes which will be used for reading and writing, if no other nodes are specified
+            self.selected_nodes = self._validate_nodes(nodes)
+        else:
+            self.selected_nodes = set()
+
+        # Get username and password either from the arguments, from the parsed url string or from a Node object
+        node = next(iter(self.selected_nodes)) if len(self.selected_nodes) > 0 else None
         if type(usr) is not str and usr is not None:
             raise TypeError("Username should be a string value.")
-
-        elif usr is None and self._url.username is not None:
-            self.usr: Optional[str] = self._url.username
-
-        else:
+        elif usr is not None:
             self.usr = usr
+        elif self.usr is not None:
+            pass
+        elif node is not None:
+            self.usr = node.usr
 
         if type(pwd) is not str and pwd is not None:
             raise TypeError("Password should be a string value.")
-        elif pwd is None and self._url.password is not None:
-            self.pwd: Optional[str] = self._url.password
-        else:
+        elif pwd is not None:
             self.pwd = pwd
+        elif self.pwd is not None:
+            pass
+        elif node is not None:
+            self.pwd = node.pwd
 
-        # Find the "password-free" part of the netloc to prevent leaking secret info
-        if self._url.username is not None:
-            match = search("(?<=@).+$", self._url.netloc)
-            self._url.netloc = match.group() if match is not None else self._url.netloc
-
-        if nodes is not None:
-            if not hasattr(nodes, "__len__"):
-                self.selected_nodes: Set[Node] = {nodes}
-            else:
-                self.selected_nodes: Set[Node] = set(nodes)
-        else:
-            self.selected_nodes = set()
+        #: Store local time zone
+        self._local_tz = tzlocal.get_localzone()
 
     @classmethod
     @abstractmethod
@@ -217,16 +224,33 @@ class BaseConnection(ABC):
         return self._url.geturl()
 
     def _validate_nodes(self, nodes: Nodes) -> Nodes:
+        """Make sure that nodes are a Set of nodes and that all nodes correspond to the protocol and url
+        of the connection.
+
+        :param nodes: Sequence of Node objects to validate
+        :return: set of valid Node objects for this connection
+        """
         if nodes is None:
-            nodes = self.selected_nodes
-
-        if not hasattr(nodes, "__len__"):
-            nodes = {nodes}
+            _nodes = self.selected_nodes
         else:
-            if len(nodes) == 0:
-                raise ValueError("Some nodes to read from must be specified.")
+            if not hasattr(nodes, "__len__"):
+                nodes = {nodes}
 
-        return nodes
+            # If not using preselected nodes from self.selected_nodes, check if nodes correspond to the connection
+            _nodes = {
+                node
+                for node in nodes
+                if node.protocol == self._PROTOCOL and node.url_parsed.hostname == self._url.hostname
+            }
+
+        # Make sure that some nodes remain after the checks and raise an error if there are none.
+        if len(_nodes) == 0:
+            raise ValueError(
+                f"Some nodes to read from/write to must be specified. If nodes were specified, they do not "
+                f"match the connection {self.url}"
+            )
+
+        return _nodes
 
 
 class BaseSeriesConnection(BaseConnection, ABC):
