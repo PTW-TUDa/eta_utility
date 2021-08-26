@@ -1,79 +1,97 @@
-import unittest
-from unittest.mock import Mock, patch
+import pytest
 
-from eta_utility.connectors import Node
-from eta_utility.connectors.rest import RESTConnection
+from eta_utility.connectors import Node, RESTConnection
 
-SERVER_URL = "http://192.168.178.87:5000/"
+SERVER_URL = "http://192.168.178.87:5000"
 
-node = Node("TestNode1", SERVER_URL, "rest", rest_endpoint="/Test")
-node2 = Node("TestNode2", SERVER_URL, "rest", rest_endpoint="/Test2")
-node_fail = Node("TestNode2", "someurl", "bad_protocol", rest_endpoint="/Test")
-node_fail2 = Node("TestNode2", "someurl", "rest", rest_endpoint="/Test")
-node_fail3 = Node("TestNode2", SERVER_URL, "bad_protocol", rest_endpoint="/Test")
+node = Node("TestNode1", SERVER_URL, "rest", rest_endpoint="Test")
+node2 = Node("TestNode2", SERVER_URL, "rest", rest_endpoint="Test2")
+node_fail = Node("TestNode2", "someurl", "bad_protocol", rest_endpoint="Test")
+node_fail2 = Node("TestNode2", "someurl", "rest", rest_endpoint="Test")
+node_fail3 = Node("TestNode2", SERVER_URL, "bad_protocol", rest_endpoint="Test")
 
 test_dict = {"Test": "Ok"}
 
 
-class rest_connector_tests(unittest.TestCase):
+class MockResponse:
+    """custom class to mock the return value of requests.Response"""
 
-    # testing exception behaivor
-    def test_rest_from_node_failure(self):
-        with self.assertRaises(ValueError):
-            RESTConnection.from_node(node_fail)
+    def __init__(self, output):
+        self.output = output
 
-    # testing behavior on correct input
-    def test_rest_from_node_sucessful(self):
-        output = RESTConnection.from_node(node)
-        self.assertIsInstance(output, RESTConnection)
-        self.assertEqual(output.url, SERVER_URL)
-
-    # testing read method
-    @patch("eta_utility.connectors.rest.requests.get")
-    def test_rest_read(self, mock_get):
-        conn = RESTConnection(SERVER_URL)
-        # configure mock return to let requests.get return a Response filled with test_dict as content
-        mock_get.return_value = Mock(ok=True)
-        mock_get.return_value.json.return_value = test_dict
-        response = conn.read(node)
-        self.assertDictEqual(response, test_dict)
-
-    # testing write method
-    @patch("eta_utility.connectors.rest.requests.put")
-    def test_rest_write(self, mock_put):
-        conn = RESTConnection(SERVER_URL)
-        mock_put.return_value = Mock(ok=True)
-        mock_put.return_value.json.return_value = "OK"
-        response = conn.write(node, test_dict)
-        self.assertEqual(response.json(), "OK")
-
-    # testing init RESTConnection with single node as input
-    def test_rest_init_conn_single(self):
-        conn = RESTConnection(SERVER_URL, node)
-        self.assertIsInstance(conn, RESTConnection)
-        self.assertEqual(conn.url, SERVER_URL)
-        self.assertEqual(conn.selected_nodes, {node})
-
-    # testing init RESTConnection with multiple nodes as input
-    def test_rest_init_conn_multiple(self):
-        conn = RESTConnection(SERVER_URL, [node, node2])
-        self.assertIsInstance(conn, RESTConnection)
-        self.assertEqual(conn.url, SERVER_URL)
-        self.assertEqual(conn.selected_nodes, {node, node2})
-
-    # testing init RESTConnection with invalid nodes as input
-    def test_rest_init_conn_validate_nodes(self):
-        conn = RESTConnection(SERVER_URL, [node, node_fail3, node_fail2, node2])
-        self.assertIsInstance(conn, RESTConnection)
-        self.assertEqual(conn.url, SERVER_URL)
-        self.assertEqual(conn.selected_nodes, {node, node2})
-
-    # testing init RESTConnection failure due to invalid nodes
-    def test_rest_init_conn_badnode(self):
-        with self.assertRaises(ValueError):
-            conn = RESTConnection(SERVER_URL, node_fail)
-            self.assertIsNone(conn)
+    def json(self):
+        return self.output
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_rest_from_node_failure():
+    """ "testing from_node()-method (exception behaviour)"""
+    with pytest.raises(ValueError) as excinfo:
+        RESTConnection.from_node(node_fail)
+    assert "TestNode2" in str(excinfo.value)
+
+
+def test_rest_from_node_sucessful():
+    """ "testing from_node()-method (normal behaviour)"""
+    output = RESTConnection.from_node(node)
+    assert isinstance(output, RESTConnection)
+    assert output.url == SERVER_URL
+
+
+def test_rest_read(monkeypatch):
+    """ "testing read()-method"""
+
+    def mock_get(url):
+        """custom method to mock requests.get"""
+        assert url == SERVER_URL + "/Test/GetJson"
+        return MockResponse(test_dict)
+
+    conn = RESTConnection(SERVER_URL)
+    monkeypatch.setattr("eta_utility.connectors.rest.requests.get", mock_get)
+    response = conn.read(node)
+    assert response == test_dict
+
+
+def test_rest_write(monkeypatch):
+    """ "testing write()-method"""
+
+    def mock_put(url, json):
+        """cutom method to mock requests.put"""
+        assert url == SERVER_URL + "/Test/PutJson"
+        assert json == test_dict
+        return MockResponse("OK")
+
+    conn = RESTConnection(SERVER_URL)
+    monkeypatch.setattr("eta_utility.connectors.rest.requests.put", mock_put)
+    response = conn.write(node, test_dict)
+    assert response.json() == "OK"
+
+
+def test_rest_init_conn_single():
+    """ "testing init() RESTConnection with single node as input"""
+    conn = RESTConnection(SERVER_URL, node)
+    assert isinstance(conn, RESTConnection)
+    assert conn.url == SERVER_URL
+    assert conn.selected_nodes == {node}
+
+
+def test_rest_init_conn_multiple():
+    """ "testing init() RESTConnection with multiple nodes as input"""
+    conn = RESTConnection(SERVER_URL, [node, node2])
+    assert isinstance(conn, RESTConnection)
+    assert conn.url == SERVER_URL
+    assert conn.selected_nodes == {node, node2}
+
+
+def test_rest_init_conn_validate_nodes():
+    """ "testing init() RESTConnection with invalid nodes as input"""
+    conn = RESTConnection(SERVER_URL, [node, node_fail3, node_fail2, node2])
+    assert isinstance(conn, RESTConnection)
+    assert conn.url == SERVER_URL
+    assert conn.selected_nodes == {node, node2}
+
+
+def test_rest_init_conn_badnode():
+    """ "testing init() RESTConnection failure due to invalid nodes"""
+    with pytest.raises(ValueError):
+        conn = RESTConnection(SERVER_URL, node_fail)
+        assert conn is None

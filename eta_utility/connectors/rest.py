@@ -39,15 +39,11 @@ class RESTConnection(BaseConnection):
         :param handler: function to be called upon receiving new values, must accept attributes: node, val
         :param interval: interval for receiving new data. Interpreted as seconds when given as integer.
         """
-        raise NotImplementedError(
-            "This function is currently not implemented yet. Please talk to Thomas Weber about it"
-        )
+        raise NotImplementedError("This function is currently not implemented yet. Issue #67 on gitlab")
 
     def close_sub(self):
         """Close an open subscription. This should gracefully handle non-existant subscriptions."""
-        raise NotImplementedError(
-            "This function is currently not implemented yet. Please talk to Thomas Weber about it"
-        )
+        raise NotImplementedError("This function is currently not implemented yet. Issue #67 on gitlab")
 
     @classmethod
     def from_node(cls, node: Node, **kwargs: Any):
