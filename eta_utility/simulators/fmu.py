@@ -313,12 +313,13 @@ class FMUSimulator:
         init_values: Optional[Mapping[str, float]] = None,
     ) -> nptyping.NDArray:
         """Instantiate a simulator with the specified FMU, perform simulation and return results.
+
         :param fmu_path: Path to the FMU file
         :param start_time: Simulation start time in seconds (default: 0)
         :param float stop_time: Simulation stop time in seconds (default: 1)
         :param step_size: simulation step size in seconds (default: 1)
         :param init_values: Starting values for parameters that should be pushed to the FMU with names corresponding to
-                    variables in the FMU
+            variables in the FMU
         """
         simulator = cls(fmu_path, start_time, stop_time, step_size, init_values=init_values)
 
