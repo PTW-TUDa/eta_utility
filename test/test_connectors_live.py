@@ -16,7 +16,7 @@ def nodes_from_config(file=LIVE_CONNECT_CONFIG):  # noqa:F405
     for n in config["system"][0]["nodes"]:
         server = config["system"][0]["servers"][n["server"]]
         if "usr" in server and "pwd" in server:
-            n["url"] = f"{server['usr']}:{server['pwd']}@{server['url']}"
+            n["url"] = f"https://{server['usr']}:{server['pwd']}@{server['url']}"
         else:
             n["url"] = server["url"]
         n["protocol"] = server["protocol"]

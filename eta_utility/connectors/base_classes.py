@@ -238,7 +238,9 @@ class BaseConnection(ABC):
 
             # If not using preselected nodes from self.selected_nodes, check if nodes correspond to the connection
             _nodes = {
-                node for node in nodes if node.protocol == self._PROTOCOL and node._url.netloc == self._url.netloc
+                node
+                for node in nodes
+                if node.protocol == self._PROTOCOL and node.url_parsed.hostname == self._url.hostname
             }
 
         # Make sure that some nodes remain after the checks and raise an error if there are none.
