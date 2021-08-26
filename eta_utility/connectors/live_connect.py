@@ -3,11 +3,13 @@ import itertools as it
 import pathlib
 from contextlib import AbstractContextManager
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Union
+from urllib.parse import urlparse, urlunparse
 
 from eta_utility import get_logger, json_import
 from eta_utility.connectors import (
     Node,
     connections_from_nodes,
+    default_schemes,
     name_map_from_node_sequence,
 )
 from eta_utility.type_hints import Connection, Path
@@ -312,12 +314,19 @@ class LiveConnect(AbstractContextManager):
             # Combine config for nodes with server config and add system name to nodes
             for n in system["nodes"]:
                 server = system["servers"][n["server"]]
+
+                # Parse the url, make sure the scheme is valid and remove the scheme if present to enable the
+                # injection of username and password later on.
+                url = urlparse(server["url"])
+                scheme = url[0] if url[0] != "" else default_schemes[server["protocol"]]
+                url = urlunparse(["", *url[1:6]])
+
                 if usr is not None and pwd is not None:
-                    n["url"] = f"{usr}:{pwd}@{server['url']}"
+                    n["url"] = f"{scheme}://{usr}:{pwd}@{url}"
                 elif "usr" in server and "pwd" in server:
-                    n["url"] = f"{server['usr']}:{server['pwd']}@{server['url']}"
+                    n["url"] = f"{scheme}://{server['usr']}:{server['pwd']}@{url}"
                 else:
-                    n["url"] = server["url"]
+                    n["url"] = f"{scheme}://{url}"
                 n["protocol"] = server["protocol"]
                 n["name"] = f"{system['name']}.{n['name']}"
                 nodes_conf.append(n)

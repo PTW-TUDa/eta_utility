@@ -3,7 +3,7 @@
 """
 import pathlib
 from typing import Any, AnyStr, Dict, List, Mapping, Optional, Sequence, Union
-from urllib.parse import ParseResult
+from urllib.parse import ParseResult, urlparse, urlunparse
 
 import pandas as pd
 
@@ -15,6 +15,12 @@ from .modbus import ModbusConnection
 from .opcua import OpcUaConnection
 from .rest import RESTConnection
 
+default_schemes = {
+    "modbus": "modbus.tcp",
+    "opcua": "opc.tcp",
+    "eneffco": "https",
+}
+
 
 class Node:
     """The node objects represents a single variable. Valid keyword arguments depend on the protocol
@@ -24,8 +30,8 @@ class Node:
 
     :param name: Any name can be used to identify the node. It is used to identify the node, therefore it should
                      be unique.
-    :param url: Valid url string according to the standard format. E.g.: opc.tcp://127.0.0.1:4840.
-     Eneffco url with scheme (https://)
+    :param url: Valid url string according to the standard format. E.g.: opc.tcp://127.0.0.1:4840. The scheme must
+        be included (e.g.: https://).
     :param protocol: Protocol to be used for connection (either opcua, eneffco or modbus)
 
     :param mb_slave: (Required for Modbus) Modbus slave ID
@@ -180,6 +186,8 @@ class Node:
         """Initialize the node objcet for the rest API"""
         self.rest_endpoint = rest_endpoint
 
+        self._id = f"{self.url}{self.rest_endpoint}"
+
     @property
     def url(self) -> AnyStr:
         """Get node URL"""
@@ -194,7 +202,11 @@ class Node:
         """Create nodes from a dictionary of node configurations. The configuration must specify the following
         fields for each node:
 
-            * Code (or name), IP, Port, Protocol (modbus or opcua or eneffco).
+            * Code (or name), URL, Protocol (modbus or opcua or eneffco).
+            The URL should be a complete network location identifier. Alternatively it is possible to specify the
+            location in two fields: IP and Port. These should only contain the respective parts (as in only an IP
+            address and only the port number.
+            The IP-Address should always be given without scheme (https://)
 
         For Modbus nodes the following additional fiels are required:
 
@@ -208,10 +220,7 @@ class Node:
 
         For REST nodes the REST_Endpoint field must be present
 
-        The IP-Address should always be given without scheme (https://)
-
         :param dikt: Configuration dictionary
-
         :return: List of Node objects
         """
 
@@ -239,27 +248,32 @@ class Node:
                 else:
                     return default
 
-        iter = dikt.values() if isinstance(dikt, Mapping) else dikt
-        for node in iter:
+        iter = [dikt] if isinstance(dikt, Mapping) else dikt
+        for lnode in iter:
+            node = {k.strip().lower(): v for k, v in lnode.items()}
 
             # Find url or ip and port
             if "url" in node:
-                netloc = node["url"].strip().lower()
+                loc = urlparse(node["url"].strip())
+                scheme = None if loc.scheme == "" else loc.scheme
+                loc = loc[1:6]
             else:
-                netloc = str(dict_get_any(node, "IP")) + ":" + str(dict_get_any(node, "Port"))
-            name = dict_get_any(node, "name", "Code")
+                loc = urlparse(f"//{dict_get_any(node, 'ip')}:{dict_get_any(node, 'port')}")[1:6]
+                scheme = None
+            name = dict_get_any(node, "code", "name")
 
             # Initialize node if protocol is 'modbus'
-            if dict_get_any(node, "protocol", "Protocol").strip().lower() == "modbus":
-                scheme = "modbus.tcp"
+            if dict_get_any(node, "protocol").strip().lower() == "modbus":
                 protocol = "modbus"
-                mb_register = dict_get_any(node, "mb_register", "ModbusRegisterType")
-                mb_slave = int(dict_get_any(node, "mb_slave", "ModbusSlave"))
-                mb_channel = int(dict_get_any(node, "mb_channel", "ModbusChannel"))
-                mb_byteorder = dict_get_any(node, "mb_byteorder", "ModbusByteOrder")
-                dtype = dict_get_any(node, "dtype", "Datentyp", fail=False)
+                scheme = default_schemes[protocol] if scheme is None else scheme
+                url = urlunparse((scheme, *loc))
 
-                url = scheme + "://" + netloc
+                mb_register = dict_get_any(node, "mb_register", "modbusregistertype")
+                mb_slave = int(dict_get_any(node, "mb_slave", "modbusslave"))
+                mb_channel = int(dict_get_any(node, "mb_channel", "modbuschannel"))
+                mb_byteorder = dict_get_any(node, "mb_byteorder", "modbusbyteorder")
+                dtype = dict_get_any(node, "dtype", "datentyp", fail=False)
+
                 nodes.append(
                     cls(
                         name,
@@ -274,28 +288,34 @@ class Node:
                 )
 
             # Initialize node if protocol is 'opcua'
-            elif dict_get_any(node, "protocol", "Protocol").strip().lower() == "opcua":
-                scheme = "opc.tcp"
+            elif dict_get_any(node, "protocol").strip().lower() == "opcua":
                 protocol = "opcua"
-                opc_id = dict_get_any(node, "opc_id", "Identifier", "identifier")
-                dtype = dict_get_any(node, "dtype", "Datentyp", fail=False)
+                scheme = default_schemes[protocol] if scheme is None else scheme
+                url = urlunparse((scheme, *loc))
 
-                url = scheme + "://" + netloc
+                opc_id = dict_get_any(node, "opc_id", "identifier", "identifier")
+                dtype = dict_get_any(node, "dtype", "datentyp", fail=False)
+
                 nodes.append(cls(name, url, protocol, opc_id=opc_id, dtype=dtype))
 
             # Initialize node if protocol is 'eneffco'
-            elif dict_get_any(node, "protocol", "Protocol").strip().lower() == "eneffco":
-                scheme = "https"
+            elif dict_get_any(node, "protocol").strip().lower() == "eneffco":
                 protocol = "eneffco"
-                code = dict_get_any(node, "Code", "code")
+                scheme = default_schemes[protocol] if scheme is None else scheme
+                url = urlunparse((scheme, *loc))
 
-                url = scheme + "://" + netloc
+                code = dict_get_any(node, "code")
+
                 nodes.append(cls(name, url, protocol, eneffco_code=code))
-            elif dict_get_any(node, "Protocol").strip().lower() == "rest":
+
+            # Initialize node if protocol is 'REST'
+            elif dict_get_any(node, "protocol").strip().lower() == "rest":
                 protocol = "rest"
-                scheme = "http"
-                url = scheme + "://" + netloc
-                rest_endpoint = dict_get_any(node, "REST_Endpoint")
+                scheme = default_schemes[protocol] if scheme is None else scheme
+                url = urlunparse((scheme, *loc))
+
+                rest_endpoint = dict_get_any(node, "rest_endpoint")
+
                 nodes.append(cls(name, url, protocol, rest_endpoint=rest_endpoint))
 
         return nodes
@@ -328,7 +348,7 @@ class Node:
         file = path if isinstance(path, pathlib.Path) else pathlib.Path(path)
         input = pd.read_excel(file, sheet_name=sheet_name)
 
-        return cls.from_dict(input.to_dict("index"))
+        return cls.from_dict(list(input.to_dict("index").values()))
 
     @classmethod
     def get_eneffco_nodes_from_codes(cls, code_list: Sequence[str], eneffco_url: Optional[str]) -> List["Node"]:
