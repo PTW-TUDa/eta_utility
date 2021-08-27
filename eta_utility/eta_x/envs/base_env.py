@@ -433,8 +433,29 @@ class BaseEnv(Env, abc.ABC):
         :param scenario_paths: One or more scenario configuration dictionaries (Or a list of dicts), which each
             contain a path for loading data from a scenario file.
             The dictionary should have the following structure, with <X> denoting the
-            variable value: [{path: <X>, interpolation_method: <X>, resample_method: <X>,
-            scale_factors: {col_name: <X>}]
+            variable value:
+            [{path: <X>, prefix: <X>, interpolation_method: <X>, resample_method: <X>,
+            scale_factors: {col_name: <X>}, rename_cols: {col_name: <X>},
+            infer_datetime_cols: <X>, time_conversion_str: <X>]
+
+                * path: Path to the scenario file (relative to scenario_path)
+                * prefix: Prefix for all columns in the file, useful if multiple imported files
+                  have the same column names
+                * interpolation_method: A pandas interpolation method, required if the frequency of
+                  values must be increased in comparison to the files data. (e.g.: 'linear' or 'pad')
+                * resample_method: A pandas resample method, required if the frequency of values
+                  must be decreased in comparison to the files data. (e.g. 'asfreq' or 'sum')
+                * scale_factors: Scaling factors for specific columns. This can be useful for
+                  example if a column contains data in kilowatt and should be imported in watts.
+                  In this case the scaling factor for the column would be 1000.
+                * rename_cols: Mapping of column names from the file to new names for the imported
+                  data.
+                * infer_datetime_cols: Number of the column which contains datetime data. If this
+                  value is not present, the time_conversion_str variable will be used to determine
+                  the datetime format.
+                * time_conversion_str: Time conversion string, determining the datetime format
+                  used in the imported file (default: %Y-%m-%d %H:%M)
+        :param prefix_renamed: Determine whether the prefix is also applied to renamed columns.
         """
         paths = []
         prefix = []
