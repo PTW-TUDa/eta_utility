@@ -1,3 +1,4 @@
+import abc
 import datetime
 import pathlib
 from abc import abstractmethod
@@ -7,12 +8,14 @@ from typing import (
     Dict,
     List,
     Mapping,
+    MutableMapping,
     MutableSequence,
     MutableSet,
     NewType,
     Optional,
+    Sequence,
+    Set,
     SupportsFloat,
-    SupportsInt,
     Tuple,
     Union,
 )
@@ -20,6 +23,8 @@ from urllib.parse import ParseResult
 
 import numpy as np
 import pandas as pd
+from gym import Env
+from gym.vector.utils import spaces
 from nptyping import NDArray
 
 # Other custom types:
@@ -27,45 +32,26 @@ Path = NewType("Path", Union[pathlib.Path, str])  # better to use maybe os.Pathl
 Numbers = NewType("Numbers", Union[float, int, np.float64, np.float32, np.int64, np.int32])
 StepResult = NewType("StepResult", Tuple[NDArray[NDArray[float]], NDArray[float], NDArray[bool], List[Dict]])
 TimeStep = NewType("TimeStep", Union[int, datetime.timedelta])  # can't be used for Union[float, timedelta] in fmu.py
+DefSettings = NewType("DefSettings", Mapping[str, Mapping[str, Union[str, int, bool, None]]])
+ReqSettings = NewType("ReqSettings", Mapping[str, Set])
 
 
 class Node:
-    """Container class for the original Node class in connectors/common.py.
-    Helps in type annotation of node objects.
-    """
+    """Annotation class for the original Node class in connectors/common.py."""
 
     def __init__(self) -> None:
-        self.name: str
-        self.protocol: str
-        self._url: ParseResult
-        self.usr: str
-        self.pwd: str
-        #: Unique identifier for the node which can be used for hashing
-        self._id: str
-        self.dtype: Union[SupportsInt, SupportsFloat, AnyStr]
         raise NotImplementedError
 
     def _init_modbus(self) -> None:
         """Placeholder method with modbus relevant fields"""
-        self.mb_slave: int = None
-        self.mb_register: str = None
-        self.mb_channel: int = None
-
         pass
 
     def _init_opcua(self) -> None:
         """Placeholder method with opcua relevant fields"""
-        self.opc_path_str: str = None
-        self.opc_path: List[str] = None
-        self.opc_id: str = None
-        self.opc_ns: int = None
-        self.opc_name: str = None
-
         pass
 
     def _init_eneffco(self) -> None:
         """Placeholder method with EnEffCo API relevant fields"""
-        self.eneffco_code: str = None
 
     @property
     def url(self) -> AnyStr:
@@ -136,4 +122,99 @@ class Connection:
         pass
 
     def _validate_nodes(self, nodes: Nodes) -> Nodes:
+        pass
+
+
+class BaseEnv(Env, abc.ABC):
+    """Annotation class for BaseEnv in envs/base_env.py"""
+
+    @property
+    @abc.abstractmethod
+    def version(self) -> str:
+        """Version of the environment"""
+        pass
+
+    @property
+    @abc.abstractmethod
+    def description(self) -> str:
+        """Long description of the environment"""
+        pass
+
+    #: Required settings in the general 'settings' section
+    req_general_settings: Union[Sequence, MutableSet] = []
+    #: Required settings in the 'path' section
+    req_path_settings: Union[Sequence, MutableSet] = []
+    #: Required settings in the 'environment_specific' section
+    req_env_settings: Union[Sequence, MutableSet] = []
+    #: Some environments may required specific parameters in the 'environment_specific' section to have special
+    #   values. These parameter, value pairs can be specified in the req_env_config dictionary.
+    req_env_config: MutableMapping = {}
+
+    def __init__(self):
+        raise NotImplementedError
+
+    def append_state(self, *, name: Any, **kwargs) -> None:
+
+        pass
+
+    def _init_state_space(self) -> None:
+
+        pass
+
+    def _names_from_state(self) -> None:
+
+        pass
+
+    def _convert_state_config(self) -> pd.DataFrame:
+
+        pass
+
+    def _store_state_info(self) -> None:
+
+        pass
+
+    def import_scenario(self, *scenario_paths: Dict[str, Any], prefix_renamed: Optional[bool] = True) -> pd.DataFrame:
+
+        pass
+
+    def continuous_action_space_from_state(self) -> spaces.Space:
+
+        pass
+
+    def continuous_obs_space_from_state(self) -> spaces.Box:
+
+        pass
+
+    def within_abort_conditions(self, state: Mapping[str, float]) -> bool:
+
+        pass
+
+    def get_scenario_state(self) -> Dict[str, Any]:
+
+        pass
+
+    @abc.abstractmethod
+    def step(
+        self, action: np.ndarray
+    ) -> Tuple[np.ndarray, Union[np.float, SupportsFloat], bool, Union[str, Sequence[str]]]:
+
+        pass
+
+    @abc.abstractmethod
+    def reset(self) -> Tuple[np.ndarray, Union[np.float, SupportsFloat], bool, Union[str, Sequence[str]]]:
+
+        pass
+
+    @abc.abstractmethod
+    def close(self) -> None:
+
+        pass
+
+    def seed(self, seed: Union[str, int] = None) -> Tuple[np.random.BitGenerator, int]:
+
+        pass
+
+    @classmethod
+    def get_info(cls, _=None) -> Tuple[str, str]:
+
         pass
