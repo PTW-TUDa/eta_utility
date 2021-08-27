@@ -473,7 +473,7 @@ class BaseEnv(Env, abc.ABC):
 
         return self.ts_current
 
-    def continous_action_space_from_state(self) -> spaces.Space:
+    def continuous_action_space_from_state(self) -> spaces.Space:
         """Use the state_config to generate the action space according to the format required by the OpenAI
         specification. This will set the action_space attribute and return the corresponding space object.
         The generated action space is continous.
@@ -486,7 +486,7 @@ class BaseEnv(Env, abc.ABC):
 
         return self.action_space
 
-    def continous_obs_space_from_state(self) -> spaces.Box:
+    def continuous_obs_space_from_state(self) -> spaces.Box:
         """Use the state_config to generate the observation space according to the format required by the OpenAI
         specification. This will set the observation_space attribute and return the corresponding space object.
         The generated observation space is continous.

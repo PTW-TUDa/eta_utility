@@ -17,8 +17,7 @@ from stable_baselines.common.vec_env import DummyVecEnv, VecNormalize
 from stable_baselines.gail import ExpertDataset, generate_expert_traj
 
 from eta_utility import get_logger
-from eta_utility.eta_x.envs import BaseEnv
-from eta_utility.type_hints.custom_types import Path
+from eta_utility.type_hints.custom_types import BaseEnv, DefSettings, Path, ReqSettings
 
 log = get_logger("eta_x", 2)
 
@@ -69,7 +68,7 @@ class ETAx:
     :param relpath_config: relative path to configuration file, starting from root path (default: config/)
     """
 
-    _req_settings = {
+    _req_settings: ReqSettings = {
         "setup": {"agent_package", "agent_class", "environment_package", "environment_class"},
         "settings": {},
         "paths": {"relpath_results"},
@@ -77,7 +76,7 @@ class ETAx:
         "agent_specific": {},
     }
 
-    _default_settings = {
+    _default_settings: DefSettings = {
         "setup": {
             "tensorboard_log": False,
             "monitor_wrapper": False,
