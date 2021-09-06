@@ -62,8 +62,7 @@ class SubscriptionHandler(ABC):
                           timestamp can be None.
         :return: pd.Series with corresponding DatetimeIndex
         """
-        # todo timestamp entfernen
-        # todo resample to node.frequency
+
         # Check timestamp first
         # timestamp as datetime-index:
         if isinstance(timestamp, pd.DatetimeIndex):

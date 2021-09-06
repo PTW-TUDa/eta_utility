@@ -1,4 +1,5 @@
 test/*local*.py
+test/*local.py
 !test/config_local_dummy.py
 *.xls
 *.csv

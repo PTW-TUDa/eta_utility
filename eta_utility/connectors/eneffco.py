@@ -116,15 +116,16 @@ class EnEffCoConnection(BaseSeriesConnection):
         )
         return value
 
-    def write(
-        self, values: Mapping[Node, Mapping[datetime, Any]], time_interval: timedelta = timedelta(seconds=1)
-    ) -> None:
+    def write(self, values: Mapping[Node, Mapping[datetime, Any]], time_interval: timedelta = None) -> None:
         """Writes some values to the EnEffCo Database
 
         :param values: Dictionary of nodes and data to write. {node: value}
         :param time_interval: Interval between datapoints (i.e. between "From" and "To" in EnEffCo Upload), default 1s
         """
         nodes = self._validate_nodes(values.keys())
+
+        if time_interval is None:
+            time_interval = timedelta(seconds=1)
 
         for node in nodes:
             request_url = f"rawdatapoint/{self.id_from_code(node.eneffco_code, raw_datapoint=True)}/value"
@@ -318,7 +319,7 @@ class EnEffCoConnection(BaseSeriesConnection):
         handler: SubscriptionHandler,
         interval: TimeStep,
         req_interval: TimeStep,
-        offset,
+        offset: TimeStep,
         data_interval: TimeStep,
     ) -> None:
         """The subscription loop handles requesting data from the server in the specified interval

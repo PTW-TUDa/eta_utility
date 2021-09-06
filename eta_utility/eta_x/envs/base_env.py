@@ -103,7 +103,7 @@ class BaseEnv(Env, abc.ABC):
         env_settings: Dict[str, Any],
         verbose: int,
         callback: Callable = None,
-    ):
+    ) -> None:
         # Set some additional required settings
         self.req_path_settings: Set[Union[Sequence, MutableSet]] = set(self.req_path_settings)
         self.req_path_settings.update(("path_root", "path_results", "relpath_scenarios"))  # noqa
@@ -307,7 +307,7 @@ class BaseEnv(Env, abc.ABC):
 
         :param name: Name of the state variable
         :param kwargs: Column names and values to be inserted into the respective column. For possible columns, types
-                       and default values see state_config. See also: :func:`state_config`
+                       and default values see state_config. See also:: func:`state_config`
         """
         append = {}
         for key, item in self.__state_config_cols.items():
@@ -457,6 +457,7 @@ class BaseEnv(Env, abc.ABC):
                   used in the imported file (default: %Y-%m-%d %H:%M)
         :param prefix_renamed: Determine whether the prefix is also applied to renamed columns.
         """
+
         paths = []
         prefix = []
         int_methods = []
@@ -625,7 +626,7 @@ class BaseEnv(Env, abc.ABC):
         return self.np_random, self._seed
 
     @classmethod
-    def get_info(cls, _=None) -> Tuple[str, str]:
+    def get_info(cls, _=None) -> Tuple[str, str]:  # noqa: ANN001
         """
         get info about environment
 

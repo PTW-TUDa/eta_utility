@@ -1,12 +1,12 @@
 from typing import List
 
-from pyModbusTCP.client import ModbusClient as BaseClient
+from pyModbusTCP.client import ModbusClient as BaseClient  # noqa: I900
 
 
 class ModbusClient(BaseClient):
     value = [0, 0]
 
-    def open(self) -> bool:
+    def open(self) -> bool:  # noqa: A003
         return True
 
     def is_open(self) -> bool:

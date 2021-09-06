@@ -57,7 +57,15 @@ def scenario_from_csv(
                                  handling methods are supported. If a list with one value per file is given, the
                                  specified method will be selected according the order of paths.
     :param rename_cols: (Keyword only) Rename columns of the imported data. Maps the colunms as they appear in the
-                        data files to new names. Format: {old_name: new_name}
+                        data files to new names. Format: {old_name: new_name}.
+
+                        .. note::
+                            The column names are normalized to lowercase and underscores are added in place of spaces.
+                            Additionally everything after the first symbol is removed. For example
+                            "Water Temperature #2" becomes "water_temperature". So if you want to rename the column,
+                            you need to specify for example: {"water_temperature": "T_W"}
+
+
     :param prefix_renamed: (Keyword only) Should prefixes be applied to renamed columns as well? Default: True.
                            When setting this to false make sure that all columns in all loaded scenario files
                            have different names. Otherwise there is a risk of overwriting data.

@@ -1,5 +1,5 @@
 from datetime import timedelta
-from typing import Any, Union
+from typing import Any, Dict, Optional, Union
 
 import requests
 
@@ -19,20 +19,21 @@ class RESTConnection(BaseConnection):
 
     _PROTOCOL = "rest"
 
-    def __init__(self, url: str, nodes: Nodes = None):
+    def __init__(self, url: str, nodes: Nodes = None) -> None:
         super().__init__(url, nodes=nodes)
 
-    def read(self, node):
-        request_url = "{}/{}/GetJson".format(self.url, node.rest_endpoint)
+    # Signature of method 'RESTConnection.read()' does not match signature of the base method in class 'BaseConnection'
+    def read(self, node: Node) -> Dict[str, Any]:
+        request_url = f"{self.url}/{node.rest_endpoint}/GetJson"
         response = requests.get(request_url)
         return response.json()
 
-    def write(self, node, payload: dict):
-        request_url = "{}/{}/PutJson".format(self.url, node.rest_endpoint)
+    def write(self, node: Node, payload: dict) -> requests.Response:
+        request_url = f"{self.url}/{node.rest_endpoint}/PutJson"
         response = requests.put(request_url, json=payload)
         return response
 
-    def subscribe(self, handler: SubscriptionHandler, nodes: Nodes = None, interval: Union[int, timedelta] = 1):
+    def subscribe(self, handler: SubscriptionHandler, nodes: Nodes = None, interval: Union[int, timedelta] = 1) -> None:
         """Subscribe to nodes and call handler when new data is available.
 
         :param nodes: identifiers for the nodes to subscribe to
@@ -41,12 +42,12 @@ class RESTConnection(BaseConnection):
         """
         raise NotImplementedError("This function is currently not implemented yet. Issue #67 on gitlab")
 
-    def close_sub(self):
+    def close_sub(self) -> None:
         """Close an open subscription. This should gracefully handle non-existant subscriptions."""
         raise NotImplementedError("This function is currently not implemented yet. Issue #67 on gitlab")
 
     @classmethod
-    def from_node(cls, node: Node, **kwargs: Any):
+    def from_node(cls, node: Node, **kwargs: Any) -> Optional["RESTConnection"]:
         if node.protocol == "rest":
             cls.selected_nodes = {node}
             return cls(node.url)

@@ -93,7 +93,7 @@ class Connection:
 
     def __init__(
         self, url: str, usr: Optional[str] = None, pwd: Optional[str] = None, *, nodes: Optional[Nodes] = None
-    ):
+    ) -> None:
         raise NotImplementedError
 
     @classmethod

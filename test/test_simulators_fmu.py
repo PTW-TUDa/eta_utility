@@ -13,8 +13,6 @@ class TestFMUSimulator:
         which does this is initialized here."""
         init_values = {"u": 0}
 
-        # monkeypatch.setattr(eta_utility.simulators.fmu, "read_model_description", read_model_description)
-
         simulator = FMUSimulator(
             0,
             fmu_path=FMU_FILE,
@@ -84,13 +82,13 @@ class TestFMUSimulator:
         assert v == approx(-0.682, 0.01)
         assert a == approx(0.089, 0.01)
 
-    def test_FMUSimulator_reset(self, seq_simulator):
+    def test_fmu_simulator_reset(self, seq_simulator):
         """Test resetting the simulator"""
         seq_simulator.reset({"u": 0})
 
         assert seq_simulator.time == 0
 
-    def test_FMUSimulator_close(self, seq_simulator):
+    def test_fmu_simulator_close(self, seq_simulator):
         """Test closing the simulator object"""
         seq_simulator.close()
 

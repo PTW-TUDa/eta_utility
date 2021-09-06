@@ -22,13 +22,13 @@ class MultiVecEnv(DummyVecEnv):
     called before stepping the environment. This means that it will just execute the evaluation of all environments
     in sequence.
 
-    .. seealso:: stable_baselines.common.vec_env.DummyVecEnv
+    .. see also:: stable_baselines.common.vec_env.DummyVecEnv
 
     :param Sequence[Callable] env_fns: A list of functions that will create the environments
         (each callable returns a `Gym.Env` instance when called).
     """
 
-    def __init__(self, env_fns: Sequence[Callable]):
+    def __init__(self, env_fns: Sequence[Callable]) -> None:
         super().__init__(env_fns)
         for key, env in enumerate(self.envs):
             env.env_id = key
