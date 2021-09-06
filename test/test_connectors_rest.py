@@ -25,9 +25,8 @@ class MockResponse:
 
 def test_rest_from_node_failure():
     """ "testing from_node()-method (exception behaviour)"""
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(ValueError, match=".*TestNode2.*"):
         RESTConnection.from_node(node_fail)
-    assert "TestNode2" in str(excinfo.value)
 
 
 def test_rest_from_node_sucessful():
@@ -92,6 +91,5 @@ def test_rest_init_conn_validate_nodes():
 
 def test_rest_init_conn_badnode():
     """ "testing init() RESTConnection failure due to invalid nodes"""
-    with pytest.raises(ValueError):
-        conn = RESTConnection(SERVER_URL, node_fail)
-        assert conn is None
+    with pytest.raises(ValueError, match=".*"):
+        RESTConnection(SERVER_URL, node_fail)

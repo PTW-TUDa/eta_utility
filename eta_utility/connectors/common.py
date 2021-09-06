@@ -56,7 +56,7 @@ class Node:
                        of nodes.
     """
 
-    def __init__(self, name: str, url: str, protocol: str, *, usr=None, pwd=None, **kwargs: Any):
+    def __init__(self, name: str, url: str, protocol: str, *, usr: str = None, pwd: str = None, **kwargs: Any) -> None:
 
         #: Name for the node
         self.name: str = str(name).strip()
@@ -203,10 +203,10 @@ class Node:
         fields for each node:
 
             * Code (or name), URL, Protocol (modbus or opcua or eneffco).
-            The URL should be a complete network location identifier. Alternatively it is possible to specify the
-            location in two fields: IP and Port. These should only contain the respective parts (as in only an IP
-            address and only the port number.
-            The IP-Address should always be given without scheme (https://)
+              The URL should be a complete network location identifier. Alternatively it is possible to specify the
+              location in two fields: IP and Port. These should only contain the respective parts (as in only an IP
+              address and only the port number.
+              The IP-Address should always be given without scheme (https://)
 
         For Modbus nodes the following additional fiels are required:
 
@@ -248,8 +248,8 @@ class Node:
                 else:
                     return default
 
-        iter = [dikt] if isinstance(dikt, Mapping) else dikt
-        for lnode in iter:
+        iter_ = [dikt] if isinstance(dikt, Mapping) else dikt
+        for lnode in iter_:
             node = {k.strip().lower(): v for k, v in lnode.items()}
 
             # Find url or ip and port
@@ -346,9 +346,9 @@ class Node:
         """
 
         file = path if isinstance(path, pathlib.Path) else pathlib.Path(path)
-        input = pd.read_excel(file, sheet_name=sheet_name)
+        input_ = pd.read_excel(file, sheet_name=sheet_name)
 
-        return cls.from_dict(list(input.to_dict("index").values()))
+        return cls.from_dict(list(input_.to_dict("index").values()))
 
     @classmethod
     def get_eneffco_nodes_from_codes(cls, code_list: Sequence[str], eneffco_url: Optional[str]) -> List["Node"]:

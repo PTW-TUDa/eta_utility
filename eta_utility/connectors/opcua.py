@@ -114,7 +114,7 @@ class OpcUaConnection(BaseConnection):
         :raises ConnectionError: When an error occurs during node creation
         """
 
-        def create_object(parent: OpcNode, child: Node):
+        def create_object(parent: OpcNode, child: Node) -> OpcNode:
             for obj in parent.get_children():
                 ident = (
                     obj.nodeid.Identifier.strip(" .") if type(obj.nodeid.Identifier) is str else obj.nodeid.Identifier
@@ -161,7 +161,7 @@ class OpcUaConnection(BaseConnection):
         :raises ConnectionError: If deletion of nodes fails.
         """
 
-        def delete_node_parents(node: OpcNode, depth: int = 20):
+        def delete_node_parents(node: OpcNode, depth: int = 20) -> None:
             parents = node.get_references(direction=ua.BrowseDirection.Inverse)
             if not node.get_children():
                 node.delete(delete_references=True)

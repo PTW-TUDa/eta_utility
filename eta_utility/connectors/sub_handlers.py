@@ -8,7 +8,7 @@ import pathlib
 import signal
 from datetime import datetime
 from multiprocessing import Pipe, Process, connection
-from typing import Any, List, Optional, Sequence, Union
+from typing import Any, List, Mapping, Optional, Sequence, Union
 
 import numpy as np
 import pandas as pd
@@ -30,7 +30,7 @@ class MultiSubHandler(SubscriptionHandler):
     def __init__(self) -> None:
         super().__init__()
 
-        self._handlers: List = list()
+        self._handlers: List = []
 
     def register(self, sub_handler: SubscriptionHandler) -> None:
         """Register a subscription handler.
@@ -113,12 +113,12 @@ class CsvSubHandler(SubscriptionHandler):
         :param output_file: File to write data to
         :param write_buffer: Minimum number of lines in buffer, until writing should begin
         :param ignore_sigint: Use this to ignore the SIGINT signal (Useful if this should be handled in a calling
-        process)
+                              process)
         """
         if ignore_sigint:
             signal.signal(signal.SIGINT, signal.SIG_IGN)
 
-        def write_data(buffer, length, write_started, header):
+        def write_data(buffer: Mapping, length: int, write_started: bool, header: Sequence) -> List:
             write_times = sorted(buffer.keys())
 
             if len(write_times) < 1:

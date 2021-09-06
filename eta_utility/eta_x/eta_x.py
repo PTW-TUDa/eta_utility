@@ -164,7 +164,7 @@ class ETAx:
         :param config_overwrite: Config parameters to overwrite
         """
 
-        def deep_update(source, overrides):
+        def deep_update(source: DefSettings, overrides: Mapping[str, Any]) -> DefSettings:
             """Update a nested dictionary or similar mapping."""
             output = copy.deepcopy(source)
             for key, value in overrides.items():
@@ -468,7 +468,7 @@ class ETAx:
             if self.config["setup"]["tensorboard_log"]:
                 tensorboard_log = self.path_series_results
                 log.info("Tensorboard logging is enabled. \n" "\t Log file: {}".format(tensorboard_log))
-                print(
+                print(  # noqa: T001
                     "Please run the following command in the console to start tensorboard: \n"
                     '\t tensorboard --logdir "{}" --port 6006'.format(tensorboard_log)
                 )
@@ -524,7 +524,7 @@ class ETAx:
         if self.config["setup"]["tensorboard_log"]:
             tensorboard_log = self.path_series_results
             log.info("Tensorboard logging is enabled. Log file: \n" "\t {}".format(tensorboard_log))
-            print(
+            print(  # noqa: T001
                 "Please run the following command in the console to start tensorboard: \n"
                 '\t tensorboard --logdir "{}" --port 6006'.format(tensorboard_log)
             )

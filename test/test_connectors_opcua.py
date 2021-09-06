@@ -8,6 +8,7 @@ import opcua.ua.uaerrors
 import pandas as pd
 from pytest import fail, fixture, raises
 
+from eta_utility import get_logger
 from eta_utility.connectors import Node, OpcUaConnection
 from eta_utility.servers import OpcUaServer
 
@@ -136,8 +137,10 @@ class TestOpcUAServerAndConnection:
         assert int(server_and_connection.read(local_nodes[0])[local_nodes[0].name].iloc[0]) == 16
 
     def test_recreate_existing_node(self, server_and_connection_with_nodes, local_nodes, caplog):
-        sacwn = server_and_connection_with_nodes
+        log = get_logger()
+        log.propagate = True
 
+        sacwn = server_and_connection_with_nodes
         # Create Node that already exists
         sacwn.create_nodes(local_nodes[0])
         assert f"Node with NodeId : {local_nodes[0].opc_id} could not be created. It already exists." in caplog.text

@@ -8,11 +8,14 @@ from typing import Any, List, Mapping, Optional, Sequence, Set
 
 import pandas as pd
 import tzlocal
-from pyModbusTCP.client import ModbusClient
+from pyModbusTCP.client import ModbusClient  # noqa: I900
 
+from eta_utility import get_logger
 from eta_utility.type_hints import Node, Nodes, TimeStep
 
 from .base_classes import BaseConnection, SubscriptionHandler
+
+log = get_logger()
 
 
 class ModbusConnection(BaseConnection):
@@ -157,14 +160,14 @@ class ModbusConnection(BaseConnection):
             pass
 
     @staticmethod
-    def _decode(value: Sequence[int], byteorder: str, type: str = "f") -> Any:
-        """
+    def _decode(value: Sequence[int], byteorder: str, type_: str = "f") -> Any:
+        r"""
         Method to decode incoming modbus values
 
-        :param read_val: current value to be decoded into float
+        :param value: current value to be decoded into float
         :param byteorder: byteorder for decoding i.e. 'little' or 'big' endian
-        :param type: type of the output value. See `Python struct format character documentation
-                     <https://docs.python.org/3/library/struct.html#format-characters>` for all possible
+        :param type\_: type of the output value. See `Python struct format character documentation
+                      <https://docs.python.org/3/library/struct.html#format-characters>` for all possible
                       format strings. (default: f)
         :return: decoded value as a python type
         """
@@ -180,7 +183,7 @@ class ModbusConnection(BaseConnection):
         pack = f"{bo}{len(value):1d}H"
 
         size_div = {"h": 2, "H": 2, "i": 4, "I": 4, "l": 4, "L": 4, "q": 8, "Q": 8, "f": 4, "d": 8}
-        unpack = f">{len(value) * 2 // size_div[type]:1d}{type}"
+        unpack = f">{len(value) * 2 // size_div[type_]:1d}{type_}"
 
         # pymodbus gives a Sequence of 16bit unsigned integers which must be converted into the correct format
         return struct.unpack(unpack, struct.pack(pack, *value))[0]
@@ -207,7 +210,7 @@ class ModbusConnection(BaseConnection):
 
     def _handle_mb_error(self) -> None:
         error = self.connection.last_error()
-        print(self.connection.last_except())
+        log.error(self.connection.last_except())
         if error == 2:
             raise ConnectionError("ModbusError 2: Illegal Data Address")
         elif error == 4:
