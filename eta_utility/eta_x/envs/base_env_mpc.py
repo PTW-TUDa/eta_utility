@@ -172,7 +172,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             * done: Boolean value specifying whether an episode has been completed. If this is set to true,
               the reset function will automatically be called by the agent or by eta_i.
             * info: Provide some additional info about the state of the environment. The contents of this may
-                be used for logging purposes in the future but typically do not currently serve a purpose.
+              be used for logging purposes in the future but typically do not currently serve a purpose.
         """
         if not self.action_space.contains(action):
             raise RuntimeError(f"Action {action} ({type(action)}) is invalid. Not in action space.")

@@ -107,8 +107,8 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         """Perform a simulator step and return data as specified by the is_ext_observation parameter of the
         state_config.
 
-        :param state: state of the environment before the simulation
-        :return: output of the simulation, boolean showing whether all simulation steps where successful, time elapsed
+        :param state: State of the environment before the simulation
+        :return: Output of the simulation, boolean showing whether all simulation steps where successful, time elapsed
                  during simulation
         """
         # generate FMU input from current state
@@ -159,12 +159,12 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         :param action: Actions to perform in the environment.
         :return: The return value represents the state of the environment after the step was performed.
 
-            * observations: A numpy array with new observation values as defined by the observation space.
+            * **observations**: A numpy array with new observation values as defined by the observation space.
               Observations is a np.array() (numpy array) with floating point or integer values.
-            * reward: The value of the reward function. This is just one floating point value.
-            * done: Boolean value specifying whether an episode has been completed. If this is set to true,
+            * **reward**: The value of the reward function. This is just one floating point value.
+            * **done**: Boolean value specifying whether an episode has been completed. If this is set to true,
               the reset function will automatically be called by the agent or by eta_i.
-            * info: Provide some additional info about the state of the environment. The contents of this may
+            * **info**: Provide some additional info about the state of the environment. The contents of this may
               be used for logging purposes in the future but typically do not currently serve a purpose.
         """
         if self.action_space.shape != action.shape:
