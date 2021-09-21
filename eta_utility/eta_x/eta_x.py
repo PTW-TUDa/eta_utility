@@ -63,9 +63,9 @@ class ETAx:
     """Initialize an optimization model and provide interfaces for optimization, learning and execution (play)
 
     :param root_path: Root path of the eta_x application (the configuration will be interpreted relative to this)
-    :param config_name: name of configuration .ini file in configuration directory
-    :param config_overwrite: dictionary to overwrite selected configurations
-    :param relpath_config: relative path to configuration file, starting from root path (default: config/)
+    :param config_name: Name of configuration .ini file in configuration directory (should be json format)
+    :param config_overwrite: Dictionary to overwrite selected configurations
+    :param relpath_config: Relative path to configuration file, starting from root path (default: config/)
     """
 
     _req_settings: ReqSettings = {

@@ -43,24 +43,24 @@ class BaseEnv(Env, abc.ABC):
     is required to create concrete environments.
     The required attributes are:
 
-        - version: Version number of the environment
-        - description: Short description string of the environment
-        - action_space: The action space of the environment (see also gym.spaces for options)
-        - observation_space: The observation space of the environment (see also gym.spaces for options)
+        - **version**: Version number of the environment
+        - **description**: Short description string of the environment
+        - **action_space**: The action space of the environment (see also gym.spaces for options)
+        - **observation_space**: The observation space of the environment (see also gym.spaces for options)
 
     Some additional attributes can be used to simplify the creation of new environments but they are not required:
 
-        - req_general_settings: List/Set of general settings that need to be present
-        - req_path_settings: List/Set of path settings that need to be present
-        - req_env_settings: List/Set of environment settings that need to be present
-        - req_env_config: Mapping of environment settings that must have specific values
+        - **req_general_settings**: List/Set of general settings that need to be present
+        - **req_path_settings**: List/Set of path settings that need to be present
+        - **req_env_settings**: List/Set of environment settings that need to be present
+        - **req_env_config**: Mapping of environment settings that must have specific values
 
     The gym interface requires the following methods for the environment to work correctly within the framework.
     Consult the documentation of each method for more detail.
 
-        - step
-        - reset
-        - close
+        - **step()**
+        - **reset()**
+        - **close()**
 
     :param env_id: Identification for the environment, usefull when creating multiple environments
     :param run_name: Identification name for the optimization run
@@ -103,7 +103,7 @@ class BaseEnv(Env, abc.ABC):
         env_settings: Dict[str, Any],
         verbose: int,
         callback: Callable = None,
-    ) -> None:
+    ):
         # Set some additional required settings
         self.req_path_settings: Set[Union[Sequence, MutableSet]] = set(self.req_path_settings)
         self.req_path_settings.update(("path_root", "path_results", "relpath_scenarios"))  # noqa
@@ -254,29 +254,48 @@ class BaseEnv(Env, abc.ABC):
         #:
         #: Possible column names, their types and default values are:
         #:
-        #:   * name: str, Name of the state variable (This must always be specified (no default))
-        #:   * is_agent_action: bool, Should the agent specify actions for this variable? (default: False)
-        #:   * is_agent_observation: bool, Should the agent be allowed to observe the value
+        #:   * **name**: str, Name of the state variable (This must always be specified (no default)), names column
+        #:     becomes index in DataFrame
+        #:   * **is_agent_action**: bool, Should the agent specify actions for this variable? (default: False)
+        #:   * **is_agent_observation**: bool, Should the agent be allowed to observe the value
         #:     of this variable? (default: False)
-        #:   * ext_id: str, Name or identifier (order) of the variable in the external interaction model
+        #:   * **ext_id**: str, Name or identifier (order) of the variable in the external interaction model
         #:     (e.g.: environment or FMU) (default: None)
-        #:   * is_ext_input: bool, Should this variable be passed to the external model as an input? (default: False)
-        #:   * is_ext_output: bool, Should this variable be parsed from the external model output? (default: False)
-        #:   * ext_scale_add: int or float, Value to add to the output from an external model (default: 0)
-        #:   * ext_scale_mult: int or float, Value to multiply to the output from an external model (default: 1)
-        #:   * from_scenario: bool, Should this variable be read from imported timeseries date? (default: False)
-        #:   * scenario_id: str, Name of the scenario variable, this value should be read from (default: None)
-        #:   * low_value: int or float, lowest possible value of the state variable (default: None)
-        #:   * high_value: int or float, highest possible value of the state variable (default: None)
-        #:   * abort_condition_min: int or float, If value of variable dips below this, the episode
+        #:   * **is_ext_input**: bool, Should this variable be passed to the external model as an input?
+        #:     (default: False)
+        #:   * **is_ext_output**: bool, Should this variable be parsed from the external model output? (default: False)
+        #:   * **ext_scale_add**: int or float, Value to add to the output from an external model (default: 0)
+        #:   * **ext_scale_mult**: int or float, Value to multiply to the output from an external model (default: 1)
+        #:   * **from_scenario**: bool, Should this variable be read from imported timeseries date? (default: False)
+        #:   * **scenario_id**: str, Name of the scenario variable, this value should be read from (default: None)
+        #:   * **low_value**: int or float, lowest possible value of the state variable (default: None)
+        #:   * **high_value**: int or float, highest possible value of the state variable (default: None)
+        #:   * **abort_condition_min**: int or float, If value of variable dips below this, the episode
         #:     will be aborted (default: None)
-        #:   * abort_condition_max: int or float, If value of variable rises above this, the episode
+        #:   * **abort_condition_max**: int or float, If value of variable rises above this, the episode
         #:     will be aborted (default: None)
-        #:   * index: int, Specify, which Index this value should be read from, in case a list of values is returned.
-        #:     (default: 0)
+        #:   * **index**: int, Specify, which Index this value should be read from, in case a list of values is
+        #:     returned (default: 0)
+        #:
+        #: *State_config* can also be specified as a list of dictionaries if many default values are set:
+        #:
+        #: .. note ::
+        #:      state_config = pd.DataFrame(
+        #:      [{name:___, ext_id:___, ...},
+        #:      {name:___, ext_id:___, ...}])
         self.state_config: pd.DataFrame = pd.DataFrame(columns=self.__state_config_cols.keys())
         self.state_config.set_index("name", drop=True, inplace=True)
-        #: Array of shorthands to some frequently used variable names from state_config. .. seealso :: _names_from_state
+        #: Array of shorthands to some frequently used variable names from state_config.
+        #: See also: :func:`_names_from_state`
+        #:
+        #: General structure:
+        #: 'self.names = {'actions': array([], dtype=object),
+        #: 'observations': array([], dtype=object),
+        #: 'ext_inputs': array([], dtype=object),
+        #: 'ext_outputs': array([], dtype=object),
+        #: 'scenario': array([], dtype=object),
+        #: 'abort_conditions_min': array(['temp_tank'], dtype=object),
+        #: 'abort_conditions_max': array(['temp_tank'], dtype=object)}
         self.names: Dict[np.ndarray]
         #: Dictionary of scaling values for external input values (for example from simulations).
         #:  The structure of this dictionary is {"name": {"add": value, "multiply": value}}.
@@ -287,7 +306,7 @@ class BaseEnv(Env, abc.ABC):
         self.map_scenario_ids: Dict[str, str]
 
         # Store data logs and log other information
-        #: episode timer
+        #: Episode timer
         self.episode_timer: float = time.time()
         #: Current state of the environment
         self.state: Dict[str, float]
@@ -307,7 +326,7 @@ class BaseEnv(Env, abc.ABC):
 
         :param name: Name of the state variable
         :param kwargs: Column names and values to be inserted into the respective column. For possible columns, types
-                       and default values see state_config. See also:: func:`state_config`
+                       and default values see state_config. See also: :func:`state_config`
         """
         append = {}
         for key, item in self.__state_config_cols.items():
@@ -324,9 +343,15 @@ class BaseEnv(Env, abc.ABC):
     def _init_state_space(self) -> None:
         """Convert state config and store state information. This is a shorthand for the function calls:
 
-        * _convert_state_config
-        * _names_from_state
-        * _store_state_info
+        * **_convert_state_config()**
+
+            (See also: :func:`_convert_state_config`)
+        * **_names_from_state()**
+
+            (See also: :func:`_names_from_state`)
+        * **_store_state_info()**
+
+            (See also: :func:`_store_state_info`)
 
         """
         self._convert_state_config()
@@ -337,19 +362,20 @@ class BaseEnv(Env, abc.ABC):
         """Intialize the names array from state_config, which stores shorthands to some frequently used variable names.
         Also initialize some useful shorthand mappings that can be used to speed up lookups.
 
-        The names array contains the following (ordered) lists of variables:
-            * actions: Variables that are agent actions
-            * observations: Variables that are agent observations
-            * ext_inputs: Variables that should be provided to an external source (such as an FMU)
-            * ext_output: variables that can be received from an external source (such as an FMU)
-            * abort_conditions_min: Variables that have minimum values for an abort condition
-            * abort_conditions_max: Variables that have maximum values for an abort condition
+        The names array contains the following (ordered) lists of variables in a dictionary:
 
-        self.ext_scale is a dictionary of scaling values for external input values (for example from simulations).
+            * **actions**: Variables that are agent actions
+            * **observations**: Variables that are agent observations
+            * **ext_inputs**: Variables that should be provided to an external source (such as an FMU)
+            * **ext_output**: variables that can be received from an external source (such as an FMU)
+            * **abort_conditions_min**: Variables that have minimum values for an abort condition
+            * **abort_conditions_max**: Variables that have maximum values for an abort condition
 
-        self.map_ext_ids is a mapping of internatl environment names to external ids.
+        *self.ext_scale* is a dictionary of scaling values for external input values (for example from simulations).
 
-        self.map_scenario_ids is a mapping of interal environment names to scenario ids.
+        *self.map_ext_ids* is a mapping of internal environment names to external ids.
+
+        *self.map_scenario_ids* is a mapping of internal environment names to scenario ids.
         """
         self.names = {
             "actions": self.state_config.loc[self.state_config.is_agent_action == True].index.values,  # noqa: E712
@@ -430,34 +456,34 @@ class BaseEnv(Env, abc.ABC):
     def import_scenario(self, *scenario_paths: Dict[str, Any], prefix_renamed: Optional[bool] = True) -> pd.DataFrame:
         """Load data from csv into self.timeseries_data by using scenario_from_csv
 
-        :param scenario_paths: One or more scenario configuration dictionaries (Or a list of dicts), which each
-            contain a path for loading data from a scenario file.
-            The dictionary should have the following structure, with <X> denoting the
-            variable value:
-            [{path: <X>, prefix: <X>, interpolation_method: <X>, resample_method: <X>,
-            scale_factors: {col_name: <X>}, rename_cols: {col_name: <X>},
-            infer_datetime_cols: <X>, time_conversion_str: <X>]
+        :param scenario_paths: One or more scenario configuration dictionaries (Or a list of dicts), which each contain
+            a path for loading data from a scenario file. The dictionary should have the following structure, with <X>
+            denoting the variable value:
 
-                * path: Path to the scenario file (relative to scenario_path)
-                * prefix: Prefix for all columns in the file, useful if multiple imported files
-                  have the same column names
-                * interpolation_method: A pandas interpolation method, required if the frequency of
-                  values must be increased in comparison to the files data. (e.g.: 'linear' or 'pad')
-                * resample_method: A pandas resample method, required if the frequency of values
-                  must be decreased in comparison to the files data. (e.g. 'asfreq' or 'sum')
-                * scale_factors: Scaling factors for specific columns. This can be useful for
-                  example if a column contains data in kilowatt and should be imported in watts.
-                  In this case the scaling factor for the column would be 1000.
-                * rename_cols: Mapping of column names from the file to new names for the imported
-                  data.
-                * infer_datetime_cols: Number of the column which contains datetime data. If this
-                  value is not present, the time_conversion_str variable will be used to determine
-                  the datetime format.
-                * time_conversion_str: Time conversion string, determining the datetime format
-                  used in the imported file (default: %Y-%m-%d %H:%M)
+            .. note ::
+                [{*path*: <X>, *prefix*: <X>, *interpolation_method*: <X>, *resample_method*: <X>,
+                *scale_factors*: {col_name: <X>}, *rename_cols*: {col_name: <X>}, *infer_datetime_cols*: <X>,
+                *time_conversion_str*: <X>]
+
+            * **path**: Path to the scenario file (relative to scenario_path)
+            * **prefix**: Prefix for all columns in the file, useful if multiple imported files
+              have the same column names
+            * **interpolation_method**: A pandas interpolation method, required if the frequency of
+              values must be increased in comparison to the files data. (e.g.: 'linear' or 'pad')
+            * **resample_method**: A pandas resample method, required if the frequency of values
+              must be decreased in comparison to the files data. (e.g. 'asfreq' or 'sum')
+            * **scale_factors**: Scaling factors for specific columns. This can be useful for
+              example if a column contains data in kilowatt and should be imported in watts.
+              In this case the scaling factor for the column would be 1000.
+            * **rename_cols**: Mapping of column names from the file to new names for the imported
+              data.
+            * **infer_datetime_cols**: Number of the column which contains datetime data. If this
+              value is not present, the time_conversion_str variable will be used to determine
+              the datetime format.
+            * **time_conversion_str**: Time conversion string, determining the datetime format
+              used in the imported file (default: %Y-%m-%d %H:%M)
         :param prefix_renamed: Determine whether the prefix is also applied to renamed columns.
         """
-
         paths = []
         prefix = []
         int_methods = []
@@ -568,12 +594,12 @@ class BaseEnv(Env, abc.ABC):
         :return: The return value represents the state of the environment after the step was performed.
 
             * observations: A numpy array with new observation values as defined by the observation space.
-                            Observations is a np.array() (numpy array) with floating point or integer values.
+              Observations is a np.array() (numpy array) with floating point or integer values.
             * reward: The value of the reward function. This is just one floating point value.
             * done: Boolean value specifying whether an episode has been completed. If this is set to true, the reset
-                    function will automatically be called by the agent or by eta_i.
+              function will automatically be called by the agent or by eta_i.
             * info: Provide some additional info about the state of the environment. The contents of this may be used
-                    for logging purposes in the future but typically do not currently server a purpose.
+              for logging purposes in the future but typically do not currently server a purpose.
 
         """
         raise NotImplementedError("Cannot step an abstract Environment.")
@@ -626,9 +652,9 @@ class BaseEnv(Env, abc.ABC):
         return self.np_random, self._seed
 
     @classmethod
-    def get_info(cls, _=None) -> Tuple[str, str]:  # noqa: ANN001
+    def get_info(cls, _=None) -> Tuple[str, str]:
         """
-        get info about environment
+        Get info about environment
 
         :param _: This parameter should not be used in new implementations
         :return: version and description
