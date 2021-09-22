@@ -226,11 +226,14 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         # reset the FMU after every episode with new parameters
         self._init_simulator(self.model_parameters)
 
-        # Update scenario data, simulate one time step and store the results.
-        self.state = {act: 0 for act in self.names["actions"]}
+        # Update scenario data, read values from the fmu without time step and store the results
+        start_obs = []
+        for obs in self.names["ext_outputs"]:
+            start_obs.append(self.map_ext_ids[obs])
+
+        result = self.simulator.read_values(start_obs)
+        self.state = {name: result[idx] for idx, name in enumerate(self.names["ext_outputs"])}
         self.state.update(self.get_scenario_state())
-        sim_result, step_success, sim_time_elapsed = self.simulate(self.state)
-        self.state.update(sim_result)
         self.state_log.append(self.state)
 
         observations = np.empty(len(self.names["observations"]))
