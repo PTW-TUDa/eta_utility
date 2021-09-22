@@ -775,7 +775,11 @@ class ETAx:
         n_episodes_stop = self.config["settings"]["n_episodes_play"]
 
         try:
-            observations = self.environments.reset()
+            if "interact_with_env" in self.config["settings"] and self.config["settings"]["interact_with_env"]:
+                observations = self.interaction_env.reset()
+                observations = np.array(self.environments.env_method("reset", observations, indices=0))
+            else:
+                observations = self.environments.reset()
         except ValueError as e:
             raise ValueError(
                 "It is likely that returned observations do not conform to the specified state config."
@@ -798,7 +802,7 @@ class ETAx:
                 else:
                     action = np.round(action, 4)
                 observations, rewards, dones, info = self.interaction_env.step(action)  # environment gets called here
-                self.environments.env_method("update", observations, indices=0)
+                observations = np.array(self.environments.env_method("update", observations, indices=0))
 
             else:
                 action, _states = self.model.predict(observation=observations, deterministic=False)
