@@ -1,11 +1,11 @@
 import datetime
-from test.config_tests import *  # noqa
-from test.test_utilities.pyModbusTCP.client import ModbusClient
 
 import pandas as pd
 from pytest import approx, fixture, raises
 
 from eta_utility.connectors import ModbusConnection, Node
+
+from .test_utilities.pyModbusTCP.client import ModbusClient
 
 node = Node(
     "Serv.NodeName",

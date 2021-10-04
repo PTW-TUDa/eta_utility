@@ -1,5 +1,5 @@
 import os.path
-from test.config_tests import FMU_FILE
+from test.config_tests import Config
 
 from pytest import approx, fixture
 
@@ -15,7 +15,7 @@ class TestFMUSimulator:
 
         simulator = FMUSimulator(
             0,
-            fmu_path=FMU_FILE,
+            fmu_path=Config.FMU_FILE,
             start_time=0,
             stop_time=100,
             step_size=1,
@@ -29,7 +29,7 @@ class TestFMUSimulator:
     def map_simulator(self):
         """New format initialization also allows for the simulator to be initialized with just the fmu_path."""
 
-        simulator = FMUSimulator(0, fmu_path=FMU_FILE)
+        simulator = FMUSimulator(0, fmu_path=Config.FMU_FILE)
         return simulator
 
     def test_attributes(self, seq_simulator):

@@ -1,15 +1,15 @@
-from test.config_tests import SAMPLE_TIMESERIES
-
+import pandas as pd
 from pytest import mark
 
 from eta_utility.connectors import Node
 from eta_utility.connectors.sub_handlers import DFSubHandler
 
-# Cases
-# 1. value = Timeseries, timestamp=None
+sample_series = pd.Series(
+    data=[1, 2, 3], index=pd.DatetimeIndex(["2020-11-05 10:00:00", "2020-11-05 10:00:01.1", "2020-11-05 10:15:01.7"])
+)
 
 
-@mark.parametrize("value, timestamp", [(SAMPLE_TIMESERIES.values, SAMPLE_TIMESERIES.index)])
+@mark.parametrize("value, timestamp", [(sample_series.values, sample_series.index)])
 def test_push_timeseries_to_df(value, timestamp):
     """Test pushing a Series all at once"""
     handler = DFSubHandler(write_interval=1)
@@ -25,7 +25,7 @@ def test_housekeeping():
     keep_data_rows = 2
     handler = DFSubHandler(write_interval=1, keep_data_rows=keep_data_rows)
     test_node = Node(name="Test-node", url="", protocol="local")
-    handler.push(test_node, SAMPLE_TIMESERIES.values, SAMPLE_TIMESERIES.index)
+    handler.push(test_node, sample_series.values, sample_series.index)
     data = handler.data
 
     assert len(data) <= keep_data_rows
