@@ -2,7 +2,22 @@ from pytest import mark, raises
 
 from eta_utility.connectors import Node
 
-from .config_tests import *  # noqa
+from .config_tests import Config
+
+
+class TestNodeInitFail:
+    def test_node_wrong_byteorder(self):
+        """Node initialization should fail, if wrong value is provided for mb_byteorder"""
+        with raises(ValueError):
+            Node(
+                "Serv.NodeName",
+                "modbus.tcp://10.0.0.1:502",
+                "modbus",
+                mb_channel=3861,
+                mb_register="Holding",
+                mb_slave=32,
+                mb_byteorder="someendian",
+            )
 
 
 class TestNodeInit:
@@ -52,17 +67,33 @@ class TestNodeInit:
             mb_byteorder="big",
         )
 
+    @mark.parametrize("excel_file, excel_sheet", [(Config.EXCEL_NODES_FILE, Config.EXCEL_NODES_SHEET)])
+    def test_node_from_excel(self, excel_file, excel_sheet):
+        """Test reading nodes from excel files and check some parameters of the resulting node objects"""
+        nodes = Node.from_excel(excel_file, excel_sheet)
 
-class TestNodeInitFail:
-    def test_node_wrong_byteorder(self):
-        """Node initialization should fail, if wrong value is provided for mb_byteorder"""
-        with raises(ValueError):
-            Node(
-                "Serv.NodeName",
-                "modbus.tcp://10.0.0.1:502",
-                "modbus",
-                mb_channel=3861,
-                mb_register="Holding",
-                mb_slave=32,
-                mb_byteorder="someendian",
-            )
+        assert len(nodes) == 4
+
+        # OPC UA Node
+        assert nodes[0].name == "Pu3.425.Mech_n"
+        assert nodes[0].protocol == "opcua"
+        assert nodes[0].url == "opc.tcp://127.95.11.183:48050"
+        assert nodes[0].opc_id == "ns=6;s=.HLK.System_425.Pumpe_425.Zustand.Drehzahl"
+
+        # Modbus Node
+        assert nodes[2].mb_channel == 19050
+        assert nodes[2].protocol == "modbus"
+        assert type(nodes[2].mb_channel) is int
+        assert nodes[2].mb_slave == 32
+        assert type(nodes[2].mb_slave) is int
+
+        # EnEffCo Node
+        assert nodes[3].name == "CH1.Elek_U.L1-N"
+        assert nodes[3].protocol == "eneffco"
+        assert nodes[3].eneffco_code == "CH1.Elek_U.L1-N"
+
+    def test_get_eneffco_nodes_from_codes(self):
+        """Check if get_eneffco_nodes_from_codes works"""
+        SAMPLE_CODES = ["CH1.Elek_U.L1-N", "CH1.Elek_U.L1-N"]
+        nodes = Node.get_eneffco_nodes_from_codes(SAMPLE_CODES, eneffco_url=None)
+        assert {nodes[0].eneffco_code, nodes[1].eneffco_code} == set(SAMPLE_CODES)

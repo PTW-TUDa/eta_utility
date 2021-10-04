@@ -6,8 +6,7 @@ class Client(BaseClient):
         def get_value(self) -> float:
             return 2858.0
 
-    @staticmethod
-    def connect() -> None:
+    def connect(self) -> None:
         pass
 
     @classmethod
