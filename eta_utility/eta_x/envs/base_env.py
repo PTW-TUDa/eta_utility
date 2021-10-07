@@ -300,9 +300,11 @@ class BaseEnv(Env, abc.ABC):
         #: Dictionary of scaling values for external input values (for example from simulations).
         #:  The structure of this dictionary is {"name": {"add": value, "multiply": value}}.
         self.ext_scale: Dict[str, Dict[str, Union[int, float]]]
-        #: Mapping of internatl environment names to external ids.
+        #: Mapping of internal environment names to external ids.
         self.map_ext_ids: Dict[str, str]
-        #: Mapping of interal environment names to scenario ids.
+        #: Mapping of external ids to internal environment names.
+        self.rev_ext_ids: Dict[str, str]
+        #: Mapping of internal environment names to scenario ids.
         self.map_scenario_ids: Dict[str, str]
 
         # Store data logs and log other information
@@ -375,6 +377,8 @@ class BaseEnv(Env, abc.ABC):
 
         *self.map_ext_ids* is a mapping of internal environment names to external ids.
 
+        *self.rev_ext_ids* is a mapping of external ids to internal environment names.
+
         *self.map_scenario_ids* is a mapping of internal environment names to scenario ids.
         """
         self.names = {
@@ -394,6 +398,10 @@ class BaseEnv(Env, abc.ABC):
         self.map_ext_ids = {}
         for name in set(self.names["ext_inputs"]) | set(self.names["ext_outputs"]):
             self.map_ext_ids[name] = self.state_config.loc[name].ext_id
+
+        self.rev_ext_ids = {}
+        for name in set(self.names["ext_inputs"]) | set(self.names["ext_outputs"]):
+            self.rev_ext_ids[self.state_config.loc[name].ext_id] = name
 
         self.map_scenario_ids = {}
         for name in self.names["scenario"]:
