@@ -10,11 +10,10 @@ from functools import partial
 from typing import Any, Mapping, MutableMapping, Optional, Type, Union
 
 import numpy as np
-from stable_baselines.common import BaseRLModel
-from stable_baselines.common.callbacks import CheckpointCallback
-from stable_baselines.common.policies import BasePolicy
-from stable_baselines.common.vec_env import DummyVecEnv, VecNormalize
-from stable_baselines.gail import ExpertDataset, generate_expert_traj
+from stable_baselines3.common.base_class import BaseAlgorithm
+from stable_baselines3.common.callbacks import CheckpointCallback
+from stable_baselines3.common.policies import BasePolicy
+from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 from eta_utility import get_logger
 from eta_utility.type_hints.custom_types import BaseEnv, DefSettings, Path, ReqSettings
@@ -84,7 +83,7 @@ class ETAx:
             "norm_wrapper_reward": False,
             "policy_package": "eta_utility.eta_x.agents.common",
             "policy_class": "NoPolicy",
-            "vectorizer_package": "stable_baselines.common.vec_env.dummy_vec_env",
+            "vectorizer_package": "stable_baselines3.common.vec_env.dummy_vec_env",
             "vectorizer_class": "DummyVecEnv",
         },
         "settings": {"verbose": 2, "seed": None},
@@ -130,12 +129,12 @@ class ETAx:
         self.config: Optional[Mapping[str, Any]] = None  #: Configuration dictionary
 
         # Classes and instances
-        self.agent: Optional[Type[BaseRLModel]] = None  #: Agent class
+        self.agent: Optional[Type[BaseAlgorithm]] = None  #: Agent class
         self.policy: Optional[Type[BasePolicy]] = None  #: Policy class
         self.vectorizer: Optional[Type[DummyVecEnv]] = None  #: Environment vectorizer class
         self.environment: Optional[Type[BaseEnv]] = None  #: Environment class
         self.environments: Optional[DummyVecEnv] = None  #: Vectorized environment object
-        self.model: Optional[BaseRLModel] = None  #: Instantiated model
+        self.model: Optional[BaseAlgorithm] = None  #: Instantiated model
         self.interaction_env_class: Optional[Type[BaseEnv]] = None  #: Environment class for interactions
         self.interaction_env: Optional[BaseEnv] = None  #: Environment object for interactions
 
@@ -418,16 +417,18 @@ class ETAx:
                 )
 
             # check if normalization data are available; then load
-            file_obs_rms = os.path.join(self.path_series_results, "obs_rms.pkl")
-            file_ret_rms = os.path.join(self.path_series_results, "ret_rms.pkl")
-            if os.path.exists(file_obs_rms) and os.path.exists(file_ret_rms):
+            file_vec_normalize = os.path.join(self.path_series_results, "vec_normalize.pkl")
+            if os.path.exists(file_vec_normalize):
                 log.info(
                     "Normalization data detected. Loading running averages into "
                     "normalization wrapper: \n"
-                    "\t {}, \n"
-                    "\t {}".format(file_obs_rms, file_ret_rms)
+                    "\t {}, \n".format(file_vec_normalize)
                 )
-                self.environments.load_running_average(self.path_series_results)
+                self.environments = VecNormalize.load(file_vec_normalize, self.environments)
+                self.environments.training = (training,)
+                self.environments.norm_obs = (self.config["setup"]["norm_wrapper_obs"],)
+                self.environments.norm_reward = (self.config["setup"]["norm_wrapper_reward"],)
+                self.environments.clip_obs = self.config["setup"]["norm_wrapper_clip_obs"]
 
         self._environment_vectorized = True
         log.info("Environment vectorized successfully.")
@@ -563,30 +564,9 @@ class ETAx:
                 pathlib.Path(path_run_info) if not isinstance(path_run_info, pathlib.Path) else path_run_info
             )
 
-        with self.path_run_info.open("w") as f:
-            json.dump({**self.info, **self.config}, f)
-
-    def generate_expert_dataset(
-        self, series_name: Optional[str] = None, run_name: Optional[str] = None, run_description: Optional[str] = ""
-    ) -> None:
-        """Generate expert dataset for pretraining
-
-        .. note::
-            See also: https://stable-baselines.readthedocs.io/en/master/guide/pretrain.html
-
-        :param series_name: Name for a series of runs
-        :param run_name: Name for a specific run
-        :param run_description: Description for a specific run
-        """
-        if not self._prepared:
-            self.prepare_run(series_name, run_name, run_description, reset=False, training=True)
-
-        generate_expert_traj(
-            self.model,
-            os.path.join(self.path_series_results, run_name + "_expert-dataset.npz"),
-            self.environments,
-            n_episodes=10,
-        )
+        # TODO: commented out for now, gave problems in combination with config_overwrite function!
+        # with self.path_run_info.open("w") as f:
+        #     json.dump({**self.info, **self.config}, f)
 
     def pretrain(
         self,
@@ -628,24 +608,6 @@ class ETAx:
                 path_expert_dataset = pathlib.Path(self.config["agent_specific"]["path_expert_dataset"])
             else:
                 path_expert_dataset = self.path_series_results / (self.run_name + "_expert-dataset.npz")
-
-            # Pretrain with the expert dataset, if the file exists (fails otherwise)
-            if path_expert_dataset.is_file():
-                log.info(
-                    "Expert dataset found. Beginning pretraining of model. \n"
-                    "\t Expert data file: {}".format(path_expert_dataset)
-                )
-
-                trajectories = ExpertDataset(expert_path=path_expert_dataset, traj_limitation=-1, batch_size=128)
-                self.model.pretrain(trajectories, n_epochs=4000)
-                pretrained = True
-                log.info("Pretraining completed.")
-            else:
-                log.error(
-                    "Expert dataset file for pretraining not found. Pretrain will be skipped. \n"
-                    "\t Expert data file: {}".format(path_expert_dataset)
-                )
-
         elif "pretrain_env_method" in self.config["agent_specific"]:
             # Pretrain the agent with data generated by an environment method.
             if "pretrain_kwargs" not in self.config["agent_specific"]:
@@ -746,7 +708,8 @@ class ETAx:
         # save model
         self.save_model()
         if isinstance(self.environments, VecNormalize):
-            self.environments.save_running_average(self.path_series_results)
+            stats_path = os.path.join(self.path_series_results, "vec_normalize.pkl")
+            self.environments.save(stats_path)
 
         # close all environments when done (kill processes)
         self.environments.close()
