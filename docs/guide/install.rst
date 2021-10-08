@@ -90,35 +90,6 @@ This red marked *(venv)* is prefixed to the commands as long as the virtual envi
 	IDEs like e.g. Pycharm can also create a virtual environment for you.
 
 
-(Optional) Installation of Microsoft MPI and Visual Studio Build Tools
-######################################################################
-
-The requirement of installing MPI should now have been removed with the usage of a newer stable baseline version (v.3).
-However, for some reasons and troubleshooting you may need to install Microsoft MPI and/or VS Build Tools (last one only for ETA-X extension).
-
-Please **skip this step** at first and let us know if it worked despite that. If not, an installation of one of the following tools might help:
-
-
-* `Visual Studio Build Tools <https://visualstudio.microsoft.com/de/thank-you-downloading-visual-studio/?sku=BuildTools&rel=16>`_ (incl. C++ build tools)
-
-    .. figure:: Pictures/7_BuildToolsInstall.png
-       :scale: 30 %
-       :alt: What to choose during installation
-
-* `MPI <https://www.microsoft.com/en-us/download/details.aspx?id=57467>`_ - ATTENTION: install the msmpisetup.exe, not the .msi-file!
-
-.. note::
-
-   An indication that an installation of the MPI file is needed is the following error when executing the utility functions:
-
-   .. code-block:: bash
-
-      [...]
-      from mpi4py import MPI
-      ImportError: DLL load failed: Das angegebene Modul wurde nicht gefunden.
-
-
-
 
 Installation of Project ETA Utility Function
 ############################################
