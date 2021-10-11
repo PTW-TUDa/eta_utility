@@ -399,36 +399,37 @@ class ETAx:
 
         # Automatically normalize the input features
         if self.config["setup"]["norm_wrapper_obs"] or self.config["setup"]["norm_wrapper_reward"]:
-            self.environments = VecNormalize(
-                self.environments,
-                training=training,
-                norm_obs=self.config["setup"]["norm_wrapper_obs"],
-                norm_reward=self.config["setup"]["norm_wrapper_reward"],
-                clip_obs=self.config["setup"]["norm_wrapper_clip_obs"],
-            )
-
-            if "interact_with_env" in self.config["settings"] and self.config["settings"]["interact_with_env"]:
-                self.interaction_env = VecNormalize(
-                    self.interaction_env,
-                    training=training,
-                    norm_obs=self.config["setup"]["norm_wrapper_obs"],
-                    norm_reward=self.config["setup"]["norm_wrapper_reward"],
-                    clip_obs=self.config["setup"]["norm_wrapper_clip_obs"],
-                )
-
             # check if normalization data are available; then load
             file_vec_normalize = os.path.join(self.path_series_results, "vec_normalize.pkl")
             if os.path.exists(file_vec_normalize):
                 log.info(
                     "Normalization data detected. Loading running averages into "
                     "normalization wrapper: \n"
-                    "\t {}, \n".format(file_vec_normalize)
+                    "\t {}".format(file_vec_normalize)
                 )
                 self.environments = VecNormalize.load(file_vec_normalize, self.environments)
                 self.environments.training = (training,)
                 self.environments.norm_obs = (self.config["setup"]["norm_wrapper_obs"],)
                 self.environments.norm_reward = (self.config["setup"]["norm_wrapper_reward"],)
                 self.environments.clip_obs = self.config["setup"]["norm_wrapper_clip_obs"]
+            else:
+                log.info("No Normalization data detected.")
+                self.environments = VecNormalize(
+                    self.environments,
+                    training=training,
+                    norm_obs=self.config["setup"]["norm_wrapper_obs"],
+                    norm_reward=self.config["setup"]["norm_wrapper_reward"],
+                    clip_obs=self.config["setup"]["norm_wrapper_clip_obs"],
+                )
+                # TODO: Check if really necessary, does not seem like it is...
+                # if "interact_with_env" in self.config["settings"] and self.config["settings"]["interact_with_env"]:
+                #     self.interaction_env = VecNormalize(
+                #         self.interaction_env,
+                #         training=training,
+                #         norm_obs=self.config["setup"]["norm_wrapper_obs"],
+                #         norm_reward=self.config["setup"]["norm_wrapper_reward"],
+                #         clip_obs=self.config["setup"]["norm_wrapper_clip_obs"],
+                #     )
 
         self._environment_vectorized = True
         log.info("Environment vectorized successfully.")
@@ -446,7 +447,7 @@ class ETAx:
 
         # check for existing model
         if self.path_run_model.is_file():
-            log.info(f"Existing model detected: {self.path_run_model}")
+            log.info(f"Existing model detected: \n \t {self.path_run_model}")
             if reset:
                 new_name = str(
                     self.path_run_model
@@ -469,7 +470,7 @@ class ETAx:
             if self.config["setup"]["tensorboard_log"]:
                 tensorboard_log = self.path_series_results
                 log.info("Tensorboard logging is enabled. \n" "\t Log file: {}".format(tensorboard_log))
-                print(  # noqa: T001
+                log.info(
                     "Please run the following command in the console to start tensorboard: \n"
                     '\t tensorboard --logdir "{}" --port 6006'.format(tensorboard_log)
                 )
@@ -525,7 +526,7 @@ class ETAx:
         if self.config["setup"]["tensorboard_log"]:
             tensorboard_log = self.path_series_results
             log.info("Tensorboard logging is enabled. Log file: \n" "\t {}".format(tensorboard_log))
-            print(  # noqa: T001
+            log.info(
                 "Please run the following command in the console to start tensorboard: \n"
                 '\t tensorboard --logdir "{}" --port 6006'.format(tensorboard_log)
             )
