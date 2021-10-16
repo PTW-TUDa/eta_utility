@@ -287,7 +287,7 @@ class ETAx:
         # set paths for model, config, logs, trajectories and plot storage
         self.path_series_results = self.path_results / self.series_name
         self.config["paths"]["path_results"] = str(self.path_series_results)
-        self.path_run_model = self.path_series_results / (self.run_name + "_model.pkl")
+        self.path_run_model = self.path_series_results / (self.run_name + "_model.zip")
         self.path_run_info = self.path_series_results / (self.run_name + "_info.json")
         self.path_run_monitor = self.path_series_results / (self.run_name + "_monitor.csv")
 
