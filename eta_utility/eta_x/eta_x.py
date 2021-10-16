@@ -565,9 +565,12 @@ class ETAx:
                 pathlib.Path(path_run_info) if not isinstance(path_run_info, pathlib.Path) else path_run_info
             )
 
-        # TODO: commented out for now, gave problems in combination with config_overwrite function!
-        # with self.path_run_info.open("w") as f:
-        #     json.dump({**self.info, **self.config}, f)
+        with self.path_run_info.open("w") as f:
+            try:
+                json.dump({**self.info, **self.config}, f)
+                log.info("Log file successfully created.")
+            except TypeError:
+                log.warning("Log file could not be created because of non serializable input in config_overwrite.")
 
     def pretrain(
         self,
