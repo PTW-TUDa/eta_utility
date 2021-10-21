@@ -274,6 +274,7 @@ class FMUSimulator:
         input_values: Union[Sequence[Union[Numbers, bool]], Mapping[str, Union[Numbers, bool]], None] = None,
         output_names: Optional[Sequence[str]] = None,
         advance_time: Optional[bool] = True,
+        nr_substeps: Optional[int] = None,
     ) -> Union[List[float], Dict[str, float]]:
         """Simulate next time step in the FMU with defined input values and output values.
 
@@ -283,16 +284,18 @@ class FMUSimulator:
         :param bool advance_time: Decide if the FMUsimulator should add one timestep to the simulation time or not.
                                   This can be deactivated, if you just want to look at the result of a simulation step
                                   beforehand, whithout actually advancing simulation time.
+        :param int nr_substeps: if simulation steps are divided into substeps, this value will let the simulator know
+                                that no time violation warning is necessary.
         :return: Resulting input and output values from the FMU with the keys named corresponding to the variables
                  in the FMU
         """
         if input_values is not None:
             self.set_values(input_values)
 
-        # push input values to the FMU and do one timestep, doStep performs a step of certain size
-        if self.time > self.stop_time:
+        # put out warning for time limit violation, if self.time + self.step_size > selt.stop_time + full step size
+        if self.time + self.step_size > self.stop_time + (int(nr_substeps) if nr_substeps else 1) * self.step_size:
             log.warning(
-                f"Simulation time {self.time} s exceeds specified stop time of "
+                f"Simulation time {self.time + self.step_size} s exceeds specified stop time of "
                 f"{self.stop_time} s. Proceed with care, simulation may become inaccurate."
             )
 
