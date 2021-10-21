@@ -290,13 +290,16 @@ class FMUSimulator:
             self.set_values(input_values)
 
         # push input values to the FMU and do one timestep, doStep performs a step of certain size
-        if self.time + self.step_size > self.stop_time:
+        if self.time > self.stop_time:
             log.warning(
-                f"Simulation time {self.time + self.step_size} s exceeds specified stop time of "
+                f"Simulation time {self.time} s exceeds specified stop time of "
                 f"{self.stop_time} s. Proceed with care, simulation may become inaccurate."
             )
 
+        # push input values to the FMU and do one timestep, doStep performs a step of certain size
         self.fmu.doStep(currentCommunicationPoint=self.time, communicationStepSize=self.step_size)
+
+        # advance time
         if advance_time:
             self.time += int(self.step_size)  # advance the time
 
