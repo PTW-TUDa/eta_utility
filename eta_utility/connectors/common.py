@@ -149,18 +149,23 @@ class Node:
                     self.opc_ns: int = int(val)
                 else:
                     self.opc_id_type = key.strip().lower()
-                    self.opc_path_str: str = val.strip(" .")
-            self.opc_id: str = f"ns={self.opc_ns};{self.opc_id_type}=.{self.opc_path_str}"
+                    self.opc_path_str: str = val.strip(" ")
+            self.opc_id: str = f"ns={self.opc_ns};{self.opc_id_type}={self.opc_path_str}"
         elif "opc_path" in kwargs.keys() and "ns" in kwargs.keys():
             self.opc_ns = int(kwargs["ns"].strip().lower())
-            self.opc_path_str = kwargs["opc_path"].strip(" .")
+            self.opc_path_str = kwargs["opc_path"].strip(" ")
             self.opc_id_type = "s"
-            self.opc_id = f"ns={self.opc_ns};s=.{self.opc_path_str}"
+            self.opc_id = f"ns={self.opc_ns};s={self.opc_path_str}"
         else:
             raise ValueError("Specify opc_id or opc_path and ns for OPC UA nodes.")
 
-        split_path = self.opc_path_str.split(".")
-        self.opc_name: str = split_path[-1]
+        split_path = (
+            self.opc_path_str.rsplit(".", maxsplit=len(self.opc_path_str.split(".")) - 2)
+            if self.opc_path_str[0] == "."
+            else self.opc_path_str.split(".")
+        )
+
+        self.opc_name: str = split_path[-1].split(".")[-1]
         if len(split_path) > 1:
             for key in range(len(split_path) - 1):
                 self.opc_path.append(
@@ -170,7 +175,7 @@ class Node:
                         "opcua",
                         usr=self.usr,
                         pwd=self.pwd,
-                        opc_id="ns={};s=.{}".format(self.opc_ns, ".".join(split_path[: key + 1])),
+                        opc_id="ns={};s={}".format(self.opc_ns, ".".join(split_path[: key + 1])),
                     )
                 )
 

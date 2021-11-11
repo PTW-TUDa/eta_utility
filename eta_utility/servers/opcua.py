@@ -59,9 +59,7 @@ class OpcUaServer:
 
         def create_object(parent: OpcNode, child: Node) -> OpcNode:
             for obj in parent.get_children():
-                ident = (
-                    obj.nodeid.Identifier.strip(" .") if type(obj.nodeid.Identifier) is str else obj.nodeid.Identifier
-                )
+                ident = obj.nodeid.Identifier if type(obj.nodeid.Identifier) is str else obj.nodeid.Identifier
                 if child.opc_path_str == ident:
                     return obj
             else:
