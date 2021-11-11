@@ -22,7 +22,7 @@ from pyomo.opt import SolverResults
 
 from eta_utility.eta_x.envs import BaseEnv
 from eta_utility.eta_x.envs.base_env import log
-from eta_utility.type_hints.custom_types import Path
+from eta_utility.type_hints import Path
 
 
 class BaseEnvMPC(BaseEnv, abc.ABC):

@@ -3,20 +3,24 @@
 """
 
 import csv
-import functools as ft
+import io
 import pathlib
-import signal
-from datetime import datetime
-from multiprocessing import Pipe, Process, connection
-from typing import Any, List, Mapping, Optional, Sequence, Union
+import queue
+import re
+import threading
+from collections import deque
+from contextlib import AbstractContextManager
+from datetime import datetime, timedelta
+from typing import Any, Deque, Dict, List, Optional, Sequence, Union
 
 import numpy as np
 import pandas as pd
+from dateutil import tz
 
 from eta_utility import get_logger
-from eta_utility.type_hints import Path, TimeStep
+from eta_utility.type_hints import Node, Number, Path, TimeStep
 
-from .base_classes import Node, SubscriptionHandler
+from .base_classes import SubscriptionHandler
 
 log = get_logger("eta_utilty.connectors")
 
@@ -67,27 +71,31 @@ class CsvSubHandler(SubscriptionHandler):
 
     :param output_file: CSV file to write data to
     :param write_interval: Interval for writing data to csv file
-    :param write_buffer: Number of lines to keep in buffer
-    :param ignore_sigint: Use this to ignore the SIGINT signal (Useful if this should be handled in a calling process)
+    :param size_limit: Size limit for the csv file. A new file with a unique name will be created when the size
+        is exceeded.
+    :param dialect: Dialect of the csv file. This takes objects, which correspond to the csv.Dialect interface from the
+        python csv module.
     """
 
     def __init__(
         self,
         output_file: Path,
         write_interval: Union[float, int] = 1,
-        write_buffer: int = 500,
-        ignore_sigint: bool = False,
+        size_limit: int = 1024,
+        dialect: csv.Dialect = csv.excel,
     ) -> None:
         super().__init__(write_interval=write_interval)
 
-        self._recv, self._send = Pipe(duplex=False)
-        self._recv: connection.Connection
-        self._send: connection.Connection
+        # Create the csv file handler object which writes data to disc
+        self._csv_file = _CSVFileDB(output_file, write_interval, size_limit, dialect)
 
-        run_func = ft.partial(self._run, self._recv, output_file, write_buffer, ignore_sigint)
-        self._proc: Process = Process(target=run_func, daemon=True)
-        self._proc.start()
-        log.debug(f"CSV Subscription Handler process started: {self._proc.name}")
+        # Enable propagation of exceptions
+        self.exc = None
+
+        # Create the queue and thread
+        self._queue = queue.Queue()
+        self._thread = threading.Thread(target=self._run)
+        self._thread.start()
 
     def push(self, node: Node, value: Any, timestamp: Optional[datetime] = None) -> None:
         """Receive data from a subcription. THis should contain the node that was requested, a value and a timestemp
@@ -98,110 +106,307 @@ class CsvSubHandler(SubscriptionHandler):
         :param timestamp: Timestamp of receiving the data
         """
         timestamp = timestamp if timestamp is not None else datetime.now()
-        self._send.send((node, value, timestamp))
+        self._queue.put_nowait((node, value, timestamp))
 
-    def _run(
-        self,
-        receiver: connection.Connection,
-        output_file: Path,
-        write_buffer: int = 30,
-        ignore_sigint: bool = False,
-    ) -> None:
-        """Create the output file and periodically write data to it.
+        # Reraise exceptions if any
+        if self.exc:
+            raise self.exc
 
-        :param receiver: Receiving end of a pipe
-        :param output_file: File to write data to
-        :param write_buffer: Minimum number of lines in buffer, until writing should begin
-        :param ignore_sigint: Use this to ignore the SIGINT signal (Useful if this should be handled in a calling
-                              process)
-        """
-        if ignore_sigint:
-            signal.signal(signal.SIGINT, signal.SIG_IGN)
+    def _run(self) -> None:
+        """Take data from the queue, preprocess it and write to output file."""
 
-        def write_data(buffer: Mapping, length: int, write_started: bool, header: Sequence) -> List:
-            write_times = sorted(buffer.keys())
+        with self._csv_file as f:
+            try:
+                while True:
+                    data = self._queue.get()
+                    if data is None:
+                        self._queue.task_done()
+                        break
 
-            if len(write_times) < 1:
-                return None
+                    node, value, timestamp = data
 
-            if write_started is False:
-                header = set()
-                for dikt in buffer.values():
-                    header.update(dikt.keys())
-                header = ["Time"] + list(header)
-                writer.writerow(header)
+                    # Make sure not to send lists to the file handler
+                    if hasattr(value, "__len__"):
+                        value = value[0]
+                    if hasattr(timestamp, "__len__"):
+                        timestamp = timestamp[0]
+                    timestamp = self._round_timestamp(timestamp).astimezone(self._local_tz)
 
-            for time in write_times[: length + 1]:
-                row = buffer.pop(time)
-
-                write = [time]
-                for name in header:
-                    try:
-                        write.append(row[name])
-                    except KeyError:
-                        if name != "Time":
-                            write.append("")
-                writer.writerow(write)
-
-                if len(row) > len(header):
-                    raise RuntimeWarning("Some values were missed while writing to csv.")
-
-            log.debug(f"CSV Subscription wrote {length} lines")
-
-            return header
-
-        output_file = output_file if isinstance(output_file, pathlib.Path) else pathlib.Path(output_file)
-        buffer = {}
-        write_started = False
-        header = []
-
-        with open(output_file, "x", newline="") as file:
-            log.info(f"CSV output file created: {output_file}")
-            writer = csv.writer(file)
-            while True:
-                data = receiver.recv()
-
-                # Check for sentinel and write final data
-                if data is None:
-                    write_data(buffer, len(buffer), write_started, header)
-                    break
-
-                node, value, timestamp = data
-
-                if hasattr(value, "__len__"):
-                    value = value[0]
-                if hasattr(timestamp, "__len__"):
-                    timestamp = timestamp[0]
-                timestamp = self._round_timestamp(timestamp)
-
-                if timestamp not in buffer:
-                    buffer[timestamp] = {}
-                buffer[timestamp][node.name] = value
-
-                # write to file when write buffer is full, making
-                if len(buffer) > write_buffer:
-                    header = write_data(buffer, write_buffer // 2, write_started, header)
-                    write_started = True if header is not None else False
+                    f.write(timestamp, node.name, value)
+                    self._queue.task_done()
+            except BaseException as e:
+                self.exc = e
 
     def close(self) -> None:
         """Finalize and close the subscription handler."""
-        self._send.send(None)  # Send sentinel to subprocess to force writing of buffered data
-        self._proc.join(timeout=50)
-        self._send.close()
-        log.debug(f"CSV Subscription Handler process stopped: {self._proc.name}")
+        # Reraise exceptions if any
+        if self.exc:
+            raise self.exc
+
+        self._queue.put_nowait(None)
+        self._queue.join()
+        self._thread.join()
+
+
+class _CSVFileDB(AbstractContextManager):
+    """Handle CSV file content
+
+    :param file: Path to the csv file
+    :param write_interval: interval in seconds between values (rows in csv file).
+    :param file_size_limit: Size limit for the file in MB. A new file will be created, once the limit is exceeded.
+    :param dialect: Dialect of the csv file. This takes objects, which correspond to the csv.Dialect interface from the
+        python csv module.
+    """
+
+    def __init__(
+        self, file: Path, write_interval: Number, file_size_limit: int = 1024, dialect: csv.Dialect = csv.excel
+    ):
+        #: Path to the file that is being written to
+        self.filepath: pathlib.Path = file if isinstance(file, pathlib.Path) else pathlib.Path(file)
+        #: File descriptor
+        self._file: Optional[io.TextIOWrapper] = None
+
+        #: Interval between values in seconds
+        self.write_interval: Number = write_interval
+        #: Size limit for written files in bytes
+        self.file_size_limit: int = file_size_limit * 1024 * 1024
+        #: CSV dialect to be used for reading and writing data
+        self.dialect: csv.Dialect = dialect
+
+        #: List of header fields
+        self._header: List[str] = []
+        #: Ending position of the header in the file stream (used for extending the header)
+        self._endof_header: int = 0
+        #: Write buffer
+        self._buffer: Deque[Dict[str, Union[datetime, Number]]] = deque()
+        #: Latest timestamp in the write buffer
+        self._latest_ts: datetime = datetime.fromtimestamp(10000, tz=tz.tzlocal())
+        #: Latest known value for each of the names in the header
+        self._latest_values: Dict[str, Number] = {}
+        #: Length of the line terminator in bytes (for finding file positions)
+        self._len_lineterminator: int = len(bytes(self.dialect.lineterminator, "UTF-8"))
+
+    def __enter__(self):
+        """Enter the context managed file database."""
+        self._open_file()
+        return self
+
+    def _open_file(self, exclusive_creation: bool = False):
+        """Open a new file and check whether it is writable. If the file exists, try to figure out the dialect and
+        header of the existing file.
+
+        :param exclusive_creation: Set to True, to request exclusive creation of a new file. If set to False, an
+            existing file may be updated.
+        :return:
+        """
+        # Try opening or creating the specified file.
+        try:
+            if exclusive_creation:
+                raise FileNotFoundError
+
+            self._file = self.filepath.open("r+t", newline="", encoding="UTF-8")
+            log.debug(f"Opened existing '.csv' file for updating: {self.filepath}.")
+        except FileNotFoundError:
+            try:
+                self._file = self.filepath.open("x+t", newline="", encoding="UTF-8")
+                log.debug(f"Created a new '.csv' file: {self.filepath}.")
+            except OSError:
+                raise OSError(f"Unable to read or write the requested '.csv' file: {self.filepath}.")
+
+        # Check whether the file is accessible in the required ways.
+        if not self._file.readable() or not self._file.seekable() or not self._file.writable():
+            raise ValueError("Output file for writing to '.csv' is not readable or writable.")
+        else:
+            log.debug("Successfully verified full '.csv' file access")
+
+        # If the file is not empty, go to the beginning and try to figure out, whether existing data could be extended.
+        if self._file.readline() in "":
+            valid = True
+            self._header = ["Timestamp"]
+            self._write_file(self._header)
+            self._endof_header = self._file.tell() - self._len_lineterminator
+            log.debug(f"The '.csv' file was empty, dialect set to {self.dialect}, started writing header.")
+        else:
+            self._file.seek(0)
+
+            # Read a maximum of 30 lines from the file to use as a sample for figuring out, whether the file
+            # is valid csv
+            sample_lines = []
+            for _ in range(30):
+                sample_lines.append(self._file.readline())
+
+                if sample_lines[-1] == "":
+                    break
+
+            sample = "".join(sample_lines)
+            try:
+                valid = csv.Sniffer().has_header(sample)
+                self.dialect = csv.Sniffer().sniff(sample)
+                self.dialect.delimiter = "," if self.dialect.delimiter not in {",", ";"} else self.dialect.delimiter
+                self._len_lineterminator = len(bytes(self.dialect.lineterminator, "UTF-8"))
+            except csv.Error:
+                valid = False
+                self.dialect = csv.excel
+
+            # Determine the header of the existing csv file
+            self._file.seek(0)
+            self._header = list(re.sub(r"\s+", "", self._file.readline()).split(self.dialect.delimiter))
+            self._endof_header = self._file.tell() - self._len_lineterminator
+
+        if not valid:
+            raise ValueError(f"Output file for writing to '.csv' is not a valid '.csv' file: {self.filepath}.")
+
+        # Go to the end to get ready for updating/extending the file.
+        self._file.seek(0, 2)
+
+    def _write_file(self, field_list: List[str], insert_pos: Optional[int] = None) -> int:
+        """Write data to the file.
+
+        :param field_list: List of strings to be inserted into the csv file
+        :param insert_pos: Position to insert the fields (stream position). If None, insertion will be at end of file.
+        :return: ending position of the last insertion (stream position)
+        """
+
+        if insert_pos is None:
+            string = self.dialect.delimiter.join(field_list) + self.dialect.lineterminator
+
+            try:
+                self._file.write(string)
+            except ValueError:
+                self._open_file()
+                self._file.write(string)
+
+            pos = self._file.tell()
+        else:
+            # When inserting, everything else in the file must be moved along as well
+            # (otherwise it would be overwritten). Therefore, a chunk of the file is read before inserting
+            string = self.dialect.delimiter + self.dialect.delimiter.join(field_list)
+            chunksize = max(100000, len(string))
+
+            self._file.seek(insert_pos)
+            chunk = self._file.read(chunksize)
+            nextpos_read = self._file.tell()
+            self._file.seek(insert_pos)
+            self._file.write(string)
+            pos = nextpos_insert = self._file.tell()
+
+            while nextpos_insert < nextpos_read:
+                self._file.seek(nextpos_read)
+                newchunk = self._file.read(chunksize)
+                nextpos_read = self._file.tell()
+                # Insert last chunk into file and store next chunk
+                self._file.seek(nextpos_insert)
+                self._file.write(chunk)
+
+                # Store current position for next insertion, then read next chunk
+                nextpos_insert = self._file.tell()
+                chunk = newchunk
+            else:
+                self._file.seek(nextpos_insert)
+                self._file.write(chunk)
+
+        return pos
+
+    def write(
+        self,
+        timestamp: Optional[datetime] = None,
+        name: Optional[str] = None,
+        value: Optional[Number] = None,
+        flush: bool = False,
+        _len_buffer: int = 20,
+    ) -> None:
+        """Write value to the file and manage the data buffer.
+
+        :param timestamp: Timestamp of the value to be written (can be empty if only flushing the buffer is intended)
+        :param name: Name/Header for the value to be written (can be empty if only flushing the buffer is intended)
+        :param value: Value to be written to the file (can be empty if only flushing the buffer is intended)
+        :param flush: Flush the entire buffer to file if set to True (default: False)
+        :param _len_buffer: Length of the buffer in lines (default: 20). Does not usually need to be changed.
+        """
+        if self._file is None:
+            raise RuntimeError("Enter context manager before trying to write to CSVFileDB.")
+
+        # Check whether the file size limit is exceeded to initiate switching to a new file.
+        size_limit_exceeded = True if self.filepath.stat().st_size > self.file_size_limit else False
+
+        # Determine how large the buffer should be, depending on whether data is being flushed to file or preparing to
+        # switch to a new file.
+        if flush:
+            buffer_target = 0
+        elif size_limit_exceeded and not len(self._buffer) >= 2 * _len_buffer:
+            buffer_target = 2 * _len_buffer
+            log.debug("Preparing to switch files due to exceeded CSV file size limit.")
+        else:
+            buffer_target = _len_buffer
+
+        # New values are inserted into the buffer, depending on their timestamp in relation to self._latest_ts.
+        if timestamp is not None and name is not None and value is not None:
+            if name not in self._header:
+                self._header.append(name)
+                self._endof_header = self._write_file([name], self._endof_header)
+
+            if timestamp > self._latest_ts:
+                self._buffer.append({name: value})
+                self._latest_ts = timestamp
+            else:
+                idx = int(len(self._buffer) - ((self._latest_ts - timestamp).total_seconds() // self.write_interval))
+                try:
+                    self._buffer[idx].update({name: value})
+                except IndexError:
+                    if timestamp == self._latest_ts:
+                        self._buffer.append({name: value})
+                    else:
+                        self._buffer.appendleft({name: value})
+
+        # Write any rows in the buffer which exceed the size of buffer_target to the file.
+        while len(self._buffer) >= buffer_target and len(self._buffer) > 0:
+            row = self._buffer.popleft()
+            row[self._header[0]] = (
+                self._latest_ts - timedelta(seconds=len(self._buffer) * self.write_interval)
+            ).strftime("%Y-%m-%d %H:%M:%S.%f")
+
+            processed_row = [""] * len(self._header)
+            for idx, col in enumerate(self._header):
+                if col in row:
+                    processed_row[idx] = self._latest_values[col] = str(row[col])
+                else:
+                    processed_row[idx] = self._latest_values.get(col, "")
+
+            log.debug(f"Writing line with index {processed_row[0]} to CSV file .")
+            self._write_file(processed_row)
+
+        # Close current file and create a new file with a different name if the size limit was exceeded.
+        if size_limit_exceeded and buffer_target <= _len_buffer:
+            log.info(f"CSV File size limit exceeded. Closing current file {self._filepath}.")
+            self._file.close()
+            self._file = None
+            self.filepath = self.filepath.with_name(f"{self.filepath.stem}_{datetime.now().strftime('%y%m%d%H%M')}.csv")
+
+            self._open_file(exclusive_creation=True)
+
+            if flush:
+                self.write(flush=True)
+
+    def __exit__(self, *exc_details):
+        """Exit the context manager
+
+        :param exc_details: Execution details
+        """
+        self.write(flush=True)
+        self._file.close()
 
 
 class DFSubHandler(SubscriptionHandler):
     """Subscription handler for returning pandas data frames when requested
 
     :param write_interval: Interval for writing data
-    :param keep_data_rows: Number of rows to keep in internal _data memory. Default 100.
+    :param size_limit: Number of rows to keep in internal _data memory. Default 100.
     """
 
-    def __init__(self, write_interval: int = 1, keep_data_rows: int = 100) -> None:
+    def __init__(self, write_interval: int = 1, size_limit: int = 100) -> None:
         super().__init__(write_interval=write_interval)
         self._data: pd.DataFrame = pd.DataFrame()
-        self.keep_data_rows: int = keep_data_rows
+        self.keep_data_rows: int = size_limit
 
     def push(
         self,
@@ -239,18 +444,20 @@ class DFSubHandler(SubscriptionHandler):
             self._data.loc[timestamp, node.name] = value
 
         # Housekeeping (Keep internal data short)
-        self.housekeeping()
+        self._housekeeping()
 
     def get_latest(self) -> Union[pd.DataFrame, None]:
         """Return a copy of the dataframe, this ensures they can be worked on freely. Returns None if data is empty."""
         if len(self._data.index) == 0:
             return None  # If no data in self._data, return None
         else:
+            self._data.fillna(method="ffill", inplace=True)
             return self._data.iloc[[-1]].copy()
 
     @property
     def data(self) -> Union[pd.DataFrame, None]:
         """This contains the interval dataframe and will return a copy of that."""
+        self._data.fillna(method="ffill", inplace=True)
         return self._data.copy()
 
     def reset(self) -> None:
@@ -258,7 +465,7 @@ class DFSubHandler(SubscriptionHandler):
         self._data = pd.DataFrame()
         log.info(f"Subscribed DataFrame {hash(self._data)} was reset successfully.")
 
-    def housekeeping(self) -> None:
+    def _housekeeping(self) -> None:
         """Keep internal data short by only keeping last rows as specified in self.keep_data_rows"""
         self._data.drop(index=self._data.index[: -self.keep_data_rows], inplace=True)
 

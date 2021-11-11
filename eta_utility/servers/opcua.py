@@ -6,7 +6,7 @@ from opcua import Server, ua
 from opcua.ua import uaerrors
 
 from eta_utility import get_logger
-from eta_utility.type_hints.custom_types import Node, Nodes
+from eta_utility.type_hints import Node, Nodes
 
 log = get_logger("servers.opcua")
 

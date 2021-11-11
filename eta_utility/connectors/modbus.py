@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 from typing import Any, List, Mapping, Optional, Sequence, Set
 
 import pandas as pd
-import tzlocal
 from pyModbusTCP.client import ModbusClient  # noqa: I900
 
 from eta_utility import get_logger
@@ -90,7 +89,7 @@ class ModbusConnection(BaseConnection):
         finally:
             self.connection.close()
 
-        return pd.DataFrame(values, index=[tzlocal.get_localzone().localize(datetime.now())])
+        return pd.DataFrame(values, index=[self._assert_tz_awareness(datetime.now())])
 
     def write(self, values: Mapping[Node, Any]) -> None:
         """Write some manually selected values on OPCUA capable controller
@@ -154,7 +153,7 @@ class ModbusConnection(BaseConnection):
                 for node in self._subscription_nodes:
                     result = self._read_mb_value(node)
                     self._decode(result, node.mb_byteorder)
-                    handler.push(node, result, tzlocal.get_localzone().localize(datetime.now()))
+                    handler.push(node, result, self._assert_tz_awareness(datetime.now()))
                 await asyncio.sleep(interval)
         except asyncio.CancelledError:
             pass

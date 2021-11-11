@@ -8,7 +8,6 @@ from datetime import datetime, timedelta
 from typing import Any, Mapping, Optional
 
 import pandas as pd
-import tzlocal
 from opcua import Client
 from opcua import Node as OpcNode
 from opcua import ua
@@ -85,7 +84,7 @@ class OpcUaConnection(BaseConnection):
                 except RuntimeError as e:
                     raise ConnectionError(str(e)) from e
 
-        return pd.DataFrame(values, index=[self._local_tz.localize(datetime.now())])
+        return pd.DataFrame(values, index=[self._assert_tz_awareness(datetime.now())])
 
     def write(self, values: Mapping[Node, Any]) -> None:
         """
@@ -287,4 +286,4 @@ class _OPCSubHandler:
         :param data: raw data of OPC UA (not used)
         """
 
-        self.handler.push(self._sub_nodes[str(node)], val, tzlocal.get_localzone().localize(datetime.now()))
+        self.handler.push(self._sub_nodes[str(node)], val, self.handler._assert_tz_awareness(datetime.now()))

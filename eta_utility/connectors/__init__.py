@@ -7,6 +7,6 @@ from .common import (
 from .eneffco import EnEffCoConnection
 from .live_connect import LiveConnect
 from .modbus import ModbusConnection
-from .opcua import OpcUaConnection
+from .opc_ua import OpcUaConnection
 from .rest import RESTConnection
 from .sub_handlers import CsvSubHandler, DFSubHandler, MultiSubHandler

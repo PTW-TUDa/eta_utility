@@ -7,12 +7,12 @@ from urllib.parse import ParseResult, urlparse, urlunparse
 
 import pandas as pd
 
-from eta_utility import url_parse
+from eta_utility import get_logger, url_parse
 from eta_utility.type_hints import Connection, Nodes, Path
 
 from .eneffco import EnEffCoConnection
 from .modbus import ModbusConnection
-from .opcua import OpcUaConnection
+from .opc_ua import OpcUaConnection
 from .rest import RESTConnection
 
 default_schemes = {
@@ -20,6 +20,8 @@ default_schemes = {
     "opcua": "opc.tcp",
     "eneffco": "https",
 }
+
+log = get_logger("connectors")
 
 
 class Node:
@@ -56,6 +58,20 @@ class Node:
                        of nodes.
     """
 
+    _dtypes = {
+        "boolean": bool,
+        "bool": bool,
+        "int": int,
+        "uint32": int,
+        "integer": int,
+        "sbyte": int,
+        "float": float,
+        "double": float,
+        "short": float,
+        "string": str,
+        "str": str,
+    }
+
     def __init__(self, name: str, url: str, protocol: str, *, usr: str = None, pwd: str = None, **kwargs: Any) -> None:
 
         #: Name for the node
@@ -73,19 +89,14 @@ class Node:
         self._id: str = self.name
 
         if "dtype" in kwargs:
-            map_dtypes = {
-                "boolean": bool,
-                "bool": bool,
-                "int": int,
-                "integer": int,
-                "sbyte": int,
-                "float": float,
-                "double": float,
-                "short": float,
-                "string": str,
-                "str": str,
-            }
-            self.dtype = map_dtypes[kwargs.pop("dtype").strip().lower()]
+            dtype = kwargs.pop("dtype").strip().lower()
+            try:
+                self.dtype = self._dtypes[dtype]
+            except KeyError:
+                log.warning(
+                    f"The specified data type ({dtype}) is currently not available in the datatype map and "
+                    f"will not be applied."
+                )
 
         if self.protocol == "modbus":
             if not {"mb_slave", "mb_register", "mb_channel", "mb_byteorder"} == kwargs.keys():
@@ -249,7 +260,7 @@ class Node:
                     return dikt[name]
             else:
                 if fail is True:
-                    raise KeyError(f"None of the requested keys are in the configuration: {names}")
+                    raise KeyError(f"Did not find one of the required keys in the configuration: {names}")
                 else:
                     return default
 

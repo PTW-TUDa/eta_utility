@@ -15,7 +15,7 @@ from fmpy.sundials import CVodeSolver
 from fmpy.util import compile_platform_binary
 
 from eta_utility import get_logger
-from eta_utility.type_hints.custom_types import Numbers, Path
+from eta_utility.type_hints import Number, Path
 
 log = get_logger("simulators.FMUSimulator")
 
@@ -227,7 +227,7 @@ class FMUSimulator:
 
         return output
 
-    def set_values(self, values: Union[Sequence[Union[Numbers, bool]], Mapping[str, Union[Numbers, bool]]]) -> None:
+    def set_values(self, values: Union[Sequence[Union[Number, bool]], Mapping[str, Union[Number, bool]]]) -> None:
         """Set values of simulation variables without advancing a simulation step or the simulation time.
 
         :param values: Values that should be pushed to the FMU. Names of the input_values must correspond
@@ -271,7 +271,7 @@ class FMUSimulator:
 
     def step(
         self,
-        input_values: Union[Sequence[Union[Numbers, bool]], Mapping[str, Union[Numbers, bool]], None] = None,
+        input_values: Union[Sequence[Union[Number, bool]], Mapping[str, Union[Number, bool]], None] = None,
         output_names: Optional[Sequence[str]] = None,
         advance_time: Optional[bool] = True,
         nr_substeps: Optional[int] = None,

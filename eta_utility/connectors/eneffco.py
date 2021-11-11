@@ -7,8 +7,6 @@ from typing import Any, Dict, Mapping, Optional
 import numpy as np
 import pandas as pd
 import requests
-import tzlocal
-from pytz import BaseTzInfo
 
 from eta_utility import get_logger
 from eta_utility.type_hints import Node, Nodes, TimeStep
@@ -44,7 +42,6 @@ class EnEffCoConnection(BaseSeriesConnection):
         self._sub: Optional[asyncio.Task] = None
         self._subscription_nodes = set()
         self._subscription_open: bool = False
-        self._local_tz: BaseTzInfo = tzlocal.get_localzone()
 
     @classmethod
     def from_node(cls, node: Node, *, usr: str, pwd: str, api_token: str) -> "EnEffCoConnection":
@@ -66,39 +63,6 @@ class EnEffCoConnection(BaseSeriesConnection):
                 "protocol: {}.".format(node.name)
             )
 
-    @staticmethod
-    def round_time(time: datetime, interval: int) -> datetime:
-        """Rounds time to full intervals in seconds (also supports decimals of seconds)"""
-        intervals = time.timestamp() // interval
-        return datetime.fromtimestamp(intervals * interval)
-
-    def _round_timestamp(self, timestamp: datetime, interval: int = 1) -> datetime:
-        """Helper method for rounding date time objects to specified interval in seconds.
-        The method will also add local timezone information if not already present.
-
-        :param datetime timestamp: Datetime object to be rounded
-        :param interval: Interval in seconds to be rounded to
-        :return: Rounded datetime object with timezone information
-        """
-        ts_store = self._assert_tz_awareness(timestamp)  # store previous information, include timezone information
-
-        # Round timestamp
-        intervals = timestamp.timestamp() // interval
-        timestamp = datetime.fromtimestamp(intervals * interval)
-
-        # Restore timezone information
-        timestamp = timestamp.replace(tzinfo=ts_store.tzinfo)
-        return timestamp
-
-    def _assert_tz_awareness(self, timestamp: datetime) -> datetime:
-        """Helper function to check if timestamp has timezone and if not assign local time zone.
-
-        :param datetime timestamp: Datetime object to be rounded
-        :return: Rounded datetime object with timezone information"""
-        if timestamp.tzinfo is None:
-            timestamp = self._local_tz.localize(timestamp)
-        return timestamp
-
     def read(self, nodes: Optional[Nodes] = None) -> pd.DataFrame:
         """Download current value from the EnEffCo Database
 
@@ -106,14 +70,9 @@ class EnEffCoConnection(BaseSeriesConnection):
         :return: Pandas DataFrame containing the data read from the connection
         """
         nodes = self._validate_nodes(nodes)
-        now = datetime.now()
-        base_time = 1  # 1 second
-        value = self.read_series(
-            self.round_time(now, base_time) - timedelta(seconds=base_time),
-            self.round_time(now, base_time),
-            nodes,
-            base_time,
-        )
+        base_time = 1  # seconds
+        the_time = self._round_timestamp(datetime.now(), base_time).replace(tzinfo=None)
+        value = self.read_series(the_time - timedelta(seconds=base_time), the_time, nodes, base_time)
         return value
 
     def write(self, values: Mapping[Node, Mapping[datetime, Any]], time_interval: timedelta = None) -> None:
