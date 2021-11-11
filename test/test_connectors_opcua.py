@@ -2,14 +2,16 @@ import datetime
 import random
 import socket
 import struct
-from test.test_utilities.opcua import Client
 
 import opcua.ua.uaerrors
 import pandas as pd
 from pytest import fail, fixture, raises
 
+from eta_utility import get_logger
 from eta_utility.connectors import Node, OpcUaConnection
 from eta_utility.servers import OpcUaServer
+
+from .test_utilities.opcua import Client as OpcuaClient
 
 node = Node(
     "Serv.NodeName",
@@ -80,7 +82,7 @@ class TestOpcUABasics:
     def connection(self, monkeypatch):
         # Test reading a single node
         connection = OpcUaConnection(node.url)
-        mock_opcua_client = Client(connection.url)
+        mock_opcua_client = OpcuaClient(connection.url)
         monkeypatch.setattr(connection, "connection", mock_opcua_client)
         return connection
 
@@ -136,8 +138,10 @@ class TestOpcUAServerAndConnection:
         assert int(server_and_connection.read(local_nodes[0])[local_nodes[0].name].iloc[0]) == 16
 
     def test_recreate_existing_node(self, server_and_connection_with_nodes, local_nodes, caplog):
-        sacwn = server_and_connection_with_nodes
+        log = get_logger()
+        log.propagate = True
 
+        sacwn = server_and_connection_with_nodes
         # Create Node that already exists
         sacwn.create_nodes(local_nodes[0])
         assert f"Node with NodeId : {local_nodes[0].opc_id} could not be created. It already exists." in caplog.text

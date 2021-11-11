@@ -8,7 +8,6 @@ from datetime import datetime, timedelta
 from typing import Any, Mapping, Optional
 
 import pandas as pd
-import tzlocal
 from opcua import Client
 from opcua import Node as OpcNode
 from opcua import ua
@@ -85,7 +84,7 @@ class OpcUaConnection(BaseConnection):
                 except RuntimeError as e:
                     raise ConnectionError(str(e)) from e
 
-        return pd.DataFrame(values, index=[self._local_tz.localize(datetime.now())])
+        return pd.DataFrame(values, index=[self._assert_tz_awareness(datetime.now())])
 
     def write(self, values: Mapping[Node, Any]) -> None:
         """
@@ -114,11 +113,9 @@ class OpcUaConnection(BaseConnection):
         :raises ConnectionError: When an error occurs during node creation
         """
 
-        def create_object(parent: OpcNode, child: Node):
+        def create_object(parent: OpcNode, child: Node) -> OpcNode:
             for obj in parent.get_children():
-                ident = (
-                    obj.nodeid.Identifier.strip(" .") if type(obj.nodeid.Identifier) is str else obj.nodeid.Identifier
-                )
+                ident = obj.nodeid.Identifier if type(obj.nodeid.Identifier) is str else obj.nodeid.Identifier
                 if child.opc_path_str == ident:
                     return obj
             else:
@@ -161,7 +158,7 @@ class OpcUaConnection(BaseConnection):
         :raises ConnectionError: If deletion of nodes fails.
         """
 
-        def delete_node_parents(node: OpcNode, depth: int = 20):
+        def delete_node_parents(node: OpcNode, depth: int = 20) -> None:
             parents = node.get_references(direction=ua.BrowseDirection.Inverse)
             if not node.get_children():
                 node.delete(delete_references=True)
@@ -289,4 +286,4 @@ class _OPCSubHandler:
         :param data: raw data of OPC UA (not used)
         """
 
-        self.handler.push(self._sub_nodes[str(node)], val, tzlocal.get_localzone().localize(datetime.now()))
+        self.handler.push(self._sub_nodes[str(node)], val, self.handler._assert_tz_awareness(datetime.now()))

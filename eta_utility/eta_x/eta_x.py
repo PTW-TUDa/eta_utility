@@ -10,15 +10,13 @@ from functools import partial
 from typing import Any, Mapping, MutableMapping, Optional, Type, Union
 
 import numpy as np
-from stable_baselines.common import BaseRLModel
-from stable_baselines.common.callbacks import CheckpointCallback
-from stable_baselines.common.policies import BasePolicy
-from stable_baselines.common.vec_env import DummyVecEnv, VecNormalize
-from stable_baselines.gail import ExpertDataset, generate_expert_traj
+from stable_baselines3.common.base_class import BaseAlgorithm
+from stable_baselines3.common.callbacks import CheckpointCallback
+from stable_baselines3.common.policies import BasePolicy
+from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 from eta_utility import get_logger
-from eta_utility.eta_x.envs import BaseEnv
-from eta_utility.type_hints.custom_types import Path
+from eta_utility.type_hints import BaseEnv, DefSettings, Path, ReqSettings
 
 log = get_logger("eta_x", 2)
 
@@ -64,12 +62,12 @@ class ETAx:
     """Initialize an optimization model and provide interfaces for optimization, learning and execution (play)
 
     :param root_path: Root path of the eta_x application (the configuration will be interpreted relative to this)
-    :param config_name: name of configuration .ini file in configuration directory
-    :param config_overwrite: dictionary to overwrite selected configurations
-    :param relpath_config: relative path to configuration file, starting from root path (default: config/)
+    :param config_name: Name of configuration .ini file in configuration directory (should be json format)
+    :param config_overwrite: Dictionary to overwrite selected configurations
+    :param relpath_config: Relative path to configuration file, starting from root path (default: config/)
     """
 
-    _req_settings = {
+    _req_settings: ReqSettings = {
         "setup": {"agent_package", "agent_class", "environment_package", "environment_class"},
         "settings": {},
         "paths": {"relpath_results"},
@@ -77,7 +75,7 @@ class ETAx:
         "agent_specific": {},
     }
 
-    _default_settings = {
+    _default_settings: DefSettings = {
         "setup": {
             "tensorboard_log": False,
             "monitor_wrapper": False,
@@ -85,7 +83,7 @@ class ETAx:
             "norm_wrapper_reward": False,
             "policy_package": "eta_utility.eta_x.agents.common",
             "policy_class": "NoPolicy",
-            "vectorizer_package": "stable_baselines.common.vec_env.dummy_vec_env",
+            "vectorizer_package": "stable_baselines3.common.vec_env.dummy_vec_env",
             "vectorizer_class": "DummyVecEnv",
         },
         "settings": {"verbose": 2, "seed": None},
@@ -131,12 +129,12 @@ class ETAx:
         self.config: Optional[Mapping[str, Any]] = None  #: Configuration dictionary
 
         # Classes and instances
-        self.agent: Optional[Type[BaseRLModel]] = None  #: Agent class
+        self.agent: Optional[Type[BaseAlgorithm]] = None  #: Agent class
         self.policy: Optional[Type[BasePolicy]] = None  #: Policy class
         self.vectorizer: Optional[Type[DummyVecEnv]] = None  #: Environment vectorizer class
         self.environment: Optional[Type[BaseEnv]] = None  #: Environment class
         self.environments: Optional[DummyVecEnv] = None  #: Vectorized environment object
-        self.model: Optional[BaseRLModel] = None  #: Instantiated model
+        self.model: Optional[BaseAlgorithm] = None  #: Instantiated model
         self.interaction_env_class: Optional[Type[BaseEnv]] = None  #: Environment class for interactions
         self.interaction_env: Optional[BaseEnv] = None  #: Environment object for interactions
 
@@ -165,7 +163,7 @@ class ETAx:
         :param config_overwrite: Config parameters to overwrite
         """
 
-        def deep_update(source, overrides):
+        def deep_update(source: DefSettings, overrides: Mapping[str, Any]) -> DefSettings:
             """Update a nested dictionary or similar mapping."""
             output = copy.deepcopy(source)
             for key, value in overrides.items():
@@ -289,7 +287,7 @@ class ETAx:
         # set paths for model, config, logs, trajectories and plot storage
         self.path_series_results = self.path_results / self.series_name
         self.config["paths"]["path_results"] = str(self.path_series_results)
-        self.path_run_model = self.path_series_results / (self.run_name + "_model.pkl")
+        self.path_run_model = self.path_series_results / (self.run_name + "_model.zip")
         self.path_run_info = self.path_series_results / (self.run_name + "_info.json")
         self.path_run_monitor = self.path_series_results / (self.run_name + "_monitor.csv")
 
@@ -401,34 +399,37 @@ class ETAx:
 
         # Automatically normalize the input features
         if self.config["setup"]["norm_wrapper_obs"] or self.config["setup"]["norm_wrapper_reward"]:
-            self.environments = VecNormalize(
-                self.environments,
-                training=training,
-                norm_obs=self.config["setup"]["norm_wrapper_obs"],
-                norm_reward=self.config["setup"]["norm_wrapper_reward"],
-                clip_obs=self.config["setup"]["norm_wrapper_clip_obs"],
-            )
-
-            if "interact_with_env" in self.config["settings"] and self.config["settings"]["interact_with_env"]:
-                self.interaction_env = VecNormalize(
-                    self.interaction_env,
+            # check if normalization data are available; then load
+            file_vec_normalize = os.path.join(self.path_series_results, "vec_normalize.pkl")
+            if os.path.exists(file_vec_normalize):
+                log.info(
+                    "Normalization data detected. Loading running averages into "
+                    "normalization wrapper: \n"
+                    "\t {}".format(file_vec_normalize)
+                )
+                self.environments = VecNormalize.load(file_vec_normalize, self.environments)
+                self.environments.training = (training,)
+                self.environments.norm_obs = (self.config["setup"]["norm_wrapper_obs"],)
+                self.environments.norm_reward = (self.config["setup"]["norm_wrapper_reward"],)
+                self.environments.clip_obs = self.config["setup"]["norm_wrapper_clip_obs"]
+            else:
+                log.info("No Normalization data detected.")
+                self.environments = VecNormalize(
+                    self.environments,
                     training=training,
                     norm_obs=self.config["setup"]["norm_wrapper_obs"],
                     norm_reward=self.config["setup"]["norm_wrapper_reward"],
                     clip_obs=self.config["setup"]["norm_wrapper_clip_obs"],
                 )
-
-            # check if normalization data are available; then load
-            file_obs_rms = os.path.join(self.path_series_results, "obs_rms.pkl")
-            file_ret_rms = os.path.join(self.path_series_results, "ret_rms.pkl")
-            if os.path.exists(file_obs_rms) and os.path.exists(file_ret_rms):
-                log.info(
-                    "Normalization data detected. Loading running averages into "
-                    "normalization wrapper: \n"
-                    "\t {}, \n"
-                    "\t {}".format(file_obs_rms, file_ret_rms)
-                )
-                self.environments.load_running_average(self.path_series_results)
+                # TODO: Check if really necessary, does not seem like it is...
+                # if "interact_with_env" in self.config["settings"] and self.config["settings"]["interact_with_env"]:
+                #     self.interaction_env = VecNormalize(
+                #         self.interaction_env,
+                #         training=training,
+                #         norm_obs=self.config["setup"]["norm_wrapper_obs"],
+                #         norm_reward=self.config["setup"]["norm_wrapper_reward"],
+                #         clip_obs=self.config["setup"]["norm_wrapper_clip_obs"],
+                #     )
 
         self._environment_vectorized = True
         log.info("Environment vectorized successfully.")
@@ -446,7 +447,7 @@ class ETAx:
 
         # check for existing model
         if self.path_run_model.is_file():
-            log.info(f"Existing model detected: {self.path_run_model}")
+            log.info(f"Existing model detected: \n \t {self.path_run_model}")
             if reset:
                 new_name = str(
                     self.path_run_model
@@ -469,7 +470,7 @@ class ETAx:
             if self.config["setup"]["tensorboard_log"]:
                 tensorboard_log = self.path_series_results
                 log.info("Tensorboard logging is enabled. \n" "\t Log file: {}".format(tensorboard_log))
-                print(
+                log.info(
                     "Please run the following command in the console to start tensorboard: \n"
                     '\t tensorboard --logdir "{}" --port 6006'.format(tensorboard_log)
                 )
@@ -525,7 +526,7 @@ class ETAx:
         if self.config["setup"]["tensorboard_log"]:
             tensorboard_log = self.path_series_results
             log.info("Tensorboard logging is enabled. Log file: \n" "\t {}".format(tensorboard_log))
-            print(
+            log.info(
                 "Please run the following command in the console to start tensorboard: \n"
                 '\t tensorboard --logdir "{}" --port 6006'.format(tensorboard_log)
             )
@@ -565,29 +566,11 @@ class ETAx:
             )
 
         with self.path_run_info.open("w") as f:
-            json.dump({**self.info, **self.config}, f)
-
-    def generate_expert_dataset(
-        self, series_name: Optional[str] = None, run_name: Optional[str] = None, run_description: Optional[str] = ""
-    ) -> None:
-        """Generate expert dataset for pretraining
-
-        .. note::
-            See also: https://stable-baselines.readthedocs.io/en/master/guide/pretrain.html
-
-        :param series_name: Name for a series of runs
-        :param run_name: Name for a specific run
-        :param run_description: Description for a specific run
-        """
-        if not self._prepared:
-            self.prepare_run(series_name, run_name, run_description, reset=False, training=True)
-
-        generate_expert_traj(
-            self.model,
-            os.path.join(self.path_series_results, run_name + "_expert-dataset.npz"),
-            self.environments,
-            n_episodes=10,
-        )
+            try:
+                json.dump({**self.info, **self.config}, f)
+                log.info("Log file successfully created.")
+            except TypeError:
+                log.warning("Log file could not be created because of non serializable input in config_overwrite.")
 
     def pretrain(
         self,
@@ -629,24 +612,6 @@ class ETAx:
                 path_expert_dataset = pathlib.Path(self.config["agent_specific"]["path_expert_dataset"])
             else:
                 path_expert_dataset = self.path_series_results / (self.run_name + "_expert-dataset.npz")
-
-            # Pretrain with the expert dataset, if the file exists (fails otherwise)
-            if path_expert_dataset.is_file():
-                log.info(
-                    "Expert dataset found. Beginning pretraining of model. \n"
-                    "\t Expert data file: {}".format(path_expert_dataset)
-                )
-
-                trajectories = ExpertDataset(expert_path=path_expert_dataset, traj_limitation=-1, batch_size=128)
-                self.model.pretrain(trajectories, n_epochs=4000)
-                pretrained = True
-                log.info("Pretraining completed.")
-            else:
-                log.error(
-                    "Expert dataset file for pretraining not found. Pretrain will be skipped. \n"
-                    "\t Expert data file: {}".format(path_expert_dataset)
-                )
-
         elif "pretrain_env_method" in self.config["agent_specific"]:
             # Pretrain the agent with data generated by an environment method.
             if "pretrain_kwargs" not in self.config["agent_specific"]:
@@ -747,7 +712,8 @@ class ETAx:
         # save model
         self.save_model()
         if isinstance(self.environments, VecNormalize):
-            self.environments.save_running_average(self.path_series_results)
+            stats_path = os.path.join(self.path_series_results, "vec_normalize.pkl")
+            self.environments.save(stats_path)
 
         # close all environments when done (kill processes)
         self.environments.close()
@@ -776,7 +742,11 @@ class ETAx:
         n_episodes_stop = self.config["settings"]["n_episodes_play"]
 
         try:
-            observations = self.environments.reset()
+            if "interact_with_env" in self.config["settings"] and self.config["settings"]["interact_with_env"]:
+                observations = self.interaction_env.reset()
+                observations = np.array(self.environments.env_method("reset", observations, indices=0))
+            else:
+                observations = self.environments.reset()
         except ValueError as e:
             raise ValueError(
                 "It is likely that returned observations do not conform to the specified state config."
@@ -795,11 +765,22 @@ class ETAx:
             if "interact_with_env" in self.config["settings"] and self.config["settings"]["interact_with_env"]:
                 action, _states = self.model.predict(observation=observations, deterministic=False)
                 if "scale_interaction_actions" in self.config["settings"]:
-                    action = np.round(action * self.config["settings"]["scale_interaction_actions"], 4)
+                    action = (
+                        np.round(
+                            action * self.config["settings"]["scale_interaction_actions"],
+                            self.config["settings"]["round_actions"],
+                        )
+                        if "round_actions" in self.config["settings"]
+                        else (action * self.config["settings"]["scale_interaction_actions"])
+                    )
                 else:
-                    action = np.round(action, 4)
+                    action = (
+                        np.round(action, self.config["settings"]["round_actions"])
+                        if "round_actions" in self.config["settings"]
+                        else action
+                    )
                 observations, rewards, dones, info = self.interaction_env.step(action)  # environment gets called here
-                self.environments.env_method("update", observations, indices=0)
+                observations = np.array(self.environments.env_method("update", observations, indices=0))
 
             else:
                 action, _states = self.model.predict(observation=observations, deterministic=False)

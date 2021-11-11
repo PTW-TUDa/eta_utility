@@ -15,7 +15,7 @@ from fmpy.sundials import CVodeSolver
 from fmpy.util import compile_platform_binary
 
 from eta_utility import get_logger
-from eta_utility.type_hints.custom_types import Numbers, Path
+from eta_utility.type_hints import Number, Path
 
 log = get_logger("simulators.FMUSimulator")
 
@@ -201,7 +201,7 @@ class FMUSimulator:
         """Ordered list of all available output variable names in the FMU."""
         return self._output_map["names"].copy()
 
-    def read_values(self, names: Optional[Sequence[str]] = None):
+    def read_values(self, names: Optional[Sequence[str]] = None) -> Union[Dict[str, List], List]:
         """Return current values of the simulation without advancing a simulation step or the simulation time.
 
         :param names: Sequence of values to read from the FMU. If this is None (default), all available values will be
@@ -210,24 +210,24 @@ class FMUSimulator:
         # Find value references and names for the variables that should be read from the FMU
         if names is None:
             refs = self._output_map["refs"]
-            vars = self._output_map["names"]
+            vars_ = self._output_map["names"]
         else:
             refs = []
-            vars = []
+            vars_ = []
             for var in names:
                 try:
                     refs.append(self._model_vars[var]["ref"])
-                    vars.append(var)
+                    vars_.append(var)
                 except KeyError:
                     raise KeyError(f"Specified an input value for a variable which is not available in the FMU: {var}")
 
         # Get values from the FMU and convert to specified output format (dict or list)
         output_values = self.fmu.getReal(refs)
-        output = dict(zip(vars, output_values)) if self._return_dict else output_values
+        output = dict(zip(vars_, output_values)) if self._return_dict else output_values
 
         return output
 
-    def set_values(self, values: Union[Sequence[Union[Numbers, bool]], Mapping[str, Union[Numbers, bool]]]):
+    def set_values(self, values: Union[Sequence[Union[Number, bool]], Mapping[str, Union[Number, bool]]]) -> None:
         """Set values of simulation variables without advancing a simulation step or the simulation time.
 
         :param values: Values that should be pushed to the FMU. Names of the input_values must correspond
@@ -271,9 +271,10 @@ class FMUSimulator:
 
     def step(
         self,
-        input_values: Union[Sequence[Union[Numbers, bool]], Mapping[str, Union[Numbers, bool]], None] = None,
+        input_values: Union[Sequence[Union[Number, bool]], Mapping[str, Union[Number, bool]], None] = None,
         output_names: Optional[Sequence[str]] = None,
         advance_time: Optional[bool] = True,
+        nr_substeps: Optional[int] = None,
     ) -> Union[List[float], Dict[str, float]]:
         """Simulate next time step in the FMU with defined input values and output values.
 
@@ -283,20 +284,25 @@ class FMUSimulator:
         :param bool advance_time: Decide if the FMUsimulator should add one timestep to the simulation time or not.
                                   This can be deactivated, if you just want to look at the result of a simulation step
                                   beforehand, whithout actually advancing simulation time.
+        :param int nr_substeps: if simulation steps are divided into substeps, this value will let the simulator know
+                                that no time violation warning is necessary.
         :return: Resulting input and output values from the FMU with the keys named corresponding to the variables
                  in the FMU
         """
         if input_values is not None:
             self.set_values(input_values)
 
-        # push input values to the FMU and do one timestep, doStep performs a step of certain size
-        if self.time + self.step_size > self.stop_time:
+        # put out warning for time limit violation, if self.time + self.step_size > selt.stop_time + full step size
+        if self.time + self.step_size > self.stop_time + (int(nr_substeps) if nr_substeps else 1) * self.step_size:
             log.warning(
-                f"Simulation time {self.time + self.step_size} s exceeds specified stop time of"
+                f"Simulation time {self.time + self.step_size} s exceeds specified stop time of "
                 f"{self.stop_time} s. Proceed with care, simulation may become inaccurate."
             )
 
+        # push input values to the FMU and do one timestep, doStep performs a step of certain size
         self.fmu.doStep(currentCommunicationPoint=self.time, communicationStepSize=self.step_size)
+
+        # advance time
         if advance_time:
             self.time += int(self.step_size)  # advance the time
 
@@ -319,11 +325,12 @@ class FMUSimulator:
         :param float stop_time: Simulation stop time in seconds (default: 1)
         :param step_size: simulation step size in seconds (default: 1)
         :param init_values: Starting values for parameters that should be pushed to the FMU with names corresponding to
-            variables in the FMU
+                            variables in the FMU
         """
+
         simulator = cls(fmu_path, start_time, stop_time, step_size, init_values=init_values)
 
-        result = list()
+        result = []
         while simulator.time <= simulator.stop_time:
             result.append(simulator.step())
 
@@ -350,7 +357,7 @@ class FMUSimulator:
         shutil.rmtree(self._unzipdir)  # clean up unzipped files
 
 
-class FMU2_ME_Slave(FMU2Model):
+class FMU2MESlave(FMU2Model):
     """Helper class for simulation of FMU2 FMUs. This is as wrapper for FMU2Model.
     It can be used to wrap model exchange FMUs such that they can be simulated similar to a co-simulation FMU. This
     is especially helpful for testing model exchange FMUs.
@@ -370,12 +377,13 @@ class FMU2_ME_Slave(FMU2Model):
     fmi2Pending: int = 5
 
     def __init__(self, **kwargs: Any) -> None:
-        """Initialize the FMU2Slave object
+        r"""Initialize the FMU2Slave object
 
-        .. seealso:: fmpy.fmi2.FMU2Model
+        ..see also:: fmpy.fmi2.FMU2Model
+        :param Any \**kwargs: Accepts any parameters that fmpy.FMU2Model accepts.
 
-        :param Any **kwargs: Accepts any parameters that fmpy.FMU2Model accepts.
         """
+
         super().__init__(**kwargs)
         self._model_description: ModelDescription = read_model_description(kwargs["unzipDirectory"])
         self._solver: Optional[CVodeSolver] = None
@@ -383,12 +391,12 @@ class FMU2_ME_Slave(FMU2Model):
         self._stop_time: float = 0.0
         self._start_time: float = 0.0
 
-    def setupExperiment(
+    def setupExperiment(  # noqa: N802
         self, tolerance: Optional[float] = None, startTime: float = 0.0, stopTime: Optional[float] = None, **kwargs: Any
     ) -> int:
         """Experiment setup and storage of required values.
 
-        .. seealso::
+        .. see also::
             fmpy.fmi2.FMU2Model.setupExperiment
 
         :param tolerance: Solver tolerance, default value is 1e-5
@@ -397,6 +405,7 @@ class FMU2_ME_Slave(FMU2Model):
         :param kwargs: Other keyword arguments that might be required for FMU2Model.setupExperiment in the future.
         :return: FMI2 return value
         """
+
         self._tolerance = 1e-5 if tolerance is None else tolerance
         self._stop_time = 0.0 if stopTime is None else stopTime
         self._start_time = startTime
@@ -408,24 +417,25 @@ class FMU2_ME_Slave(FMU2Model):
 
         return super().setupExperiment(**kwargs)
 
-    def exitInitializationMode(self, **kwargs) -> int:
+    def exitInitializationMode(self, **kwargs) -> int:  # noqa: N802
         """Exit the initialization mode and setup the cvode solver.
 
-        .. seealso::
+        .. see also::
             fmpy.fmi2.FMU2Model.exitInitializationMode
 
         :param kwargs: Keyword arguments accepted by FMU2Model.exitInitializationMode
         :return: FMI2 return value
         """
+
         ret = super().exitInitializationMode(**kwargs)
 
         # Collect discrete states from FMU
-        self.eventInfo.newDiscreteStatesNeeded: int = self.fmi2True
-        self.eventInfo.terminateSimulation: int = self.fmi2False
+        self.eventInfo.newDiscreteStatesNeeded: int = self.fmi2true
+        self.eventInfo.terminateSimulation: int = self.fmi2false
 
         while (
-            self.eventInfo.newDiscreteStatesNeeded == self.fmi2True
-            and self.eventInfo.terminateSimulation == self.fmi2False
+            self.eventInfo.newDiscreteStatesNeeded == self.fmi2true
+            and self.eventInfo.terminateSimulation == self.fmi2false
         ):
             # update discrete states
             self.newDiscreteStates()
@@ -447,7 +457,7 @@ class FMU2_ME_Slave(FMU2Model):
 
         return ret
 
-    def doStep(
+    def doStep(  # noqa: N802
         self,
         currentCommunicationPoint: float,
         communicationStepSize: float,
@@ -473,4 +483,4 @@ class FMU2_ME_Slave(FMU2Model):
         # Check for events that might have occured during the step
         step_event, _ = self.completedIntegratorStep()
 
-        return self.fmi2OK
+        return self.fmi2ok

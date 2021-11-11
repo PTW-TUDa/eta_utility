@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 
 from eta_utility import get_logger
-from eta_utility.type_hints.custom_types import Path, TimeStep
+from eta_utility.type_hints import Path, TimeStep
 
 log = get_logger("timeseries")
 

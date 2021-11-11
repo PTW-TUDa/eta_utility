@@ -18,7 +18,7 @@ import numpy as np
 from eta_utility.eta_x.envs import BaseEnv
 from eta_utility.eta_x.envs.base_env import log
 from eta_utility.simulators import FMUSimulator
-from eta_utility.type_hints.custom_types import Path
+from eta_utility.type_hints import Path
 
 
 class BaseEnvSim(BaseEnv, abc.ABC):
@@ -107,8 +107,8 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         """Perform a simulator step and return data as specified by the is_ext_observation parameter of the
         state_config.
 
-        :param state: state of the environment before the simulation
-        :return: output of the simulation, boolean showing whether all simulation steps where successful, time elapsed
+        :param state: State of the environment before the simulation
+        :return: Output of the simulation, boolean showing whether all simulation steps where successful, time elapsed
                  during simulation
         """
         # generate FMU input from current state
@@ -159,12 +159,12 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         :param action: Actions to perform in the environment.
         :return: The return value represents the state of the environment after the step was performed.
 
-            * observations: A numpy array with new observation values as defined by the observation space.
+            * **observations**: A numpy array with new observation values as defined by the observation space.
               Observations is a np.array() (numpy array) with floating point or integer values.
-            * reward: The value of the reward function. This is just one floating point value.
-            * done: Boolean value specifying whether an episode has been completed. If this is set to true,
+            * **reward**: The value of the reward function. This is just one floating point value.
+            * **done**: Boolean value specifying whether an episode has been completed. If this is set to true,
               the reset function will automatically be called by the agent or by eta_i.
-            * info: Provide some additional info about the state of the environment. The contents of this may
+            * **info**: Provide some additional info about the state of the environment. The contents of this may
               be used for logging purposes in the future but typically do not currently serve a purpose.
         """
         if self.action_space.shape != action.shape:
@@ -226,11 +226,14 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         # reset the FMU after every episode with new parameters
         self._init_simulator(self.model_parameters)
 
-        # Update scenario data, simulate one time step and store the results.
-        self.state = {act: 0 for act in self.names["actions"]}
+        # Update scenario data, read values from the fmu without time step and store the results
+        start_obs = []
+        for obs in self.names["ext_outputs"]:
+            start_obs.append(self.map_ext_ids[obs])
+
+        result = self.simulator.read_values(start_obs)
+        self.state = {name: result[idx] for idx, name in enumerate(self.names["ext_outputs"])}
         self.state.update(self.get_scenario_state())
-        sim_result, step_success, sim_time_elapsed = self.simulate(self.state)
-        self.state.update(sim_result)
         self.state_log.append(self.state)
 
         observations = np.empty(len(self.names["observations"]))

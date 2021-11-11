@@ -38,11 +38,11 @@ from typing import (
 import mmh3
 import numpy as np
 from gym import spaces
-from stable_baselines.common import BaseRLModel
-from stable_baselines.common.vec_env import VecEnv
+from stable_baselines3.common.base_class import BaseAlgorithm
+from stable_baselines3.common.vec_env import VecEnv
 
 from eta_utility import get_logger
-from eta_utility.type_hints.custom_types import Numbers
+from eta_utility.type_hints import Number
 
 from ..common import ProcessPool, cpu_count
 from ..common.policies import NoPolicy
@@ -50,7 +50,7 @@ from ..common.policies import NoPolicy
 log = get_logger("eta_x.agents")
 
 
-class NSGA2(BaseRLModel):
+class NSGA2(BaseAlgorithm):
     """The NSGA2 class implements the non-dominated sorting genetic algorithm 2
 
     The agent can work with discrete event systems and with continous or mixed integer problems. Alternatively a
@@ -89,7 +89,7 @@ class NSGA2(BaseRLModel):
                             (default: 1000) Using the default should usually be fine.
     :param threads: Use this number of threads to perform calculations (default: 4)
     :param _init_setup_model: Determine whether model should be initialized during setup
-    :param kwargs: Additional arguments as specified in stable_baselins.BaseRLModel
+    :param kwargs: Additional arguments as specified in stable_baselins3.commom.base_class
     """
 
     def __init__(
@@ -104,7 +104,7 @@ class NSGA2(BaseRLModel):
         max_cross_len: float = 1,
         max_retries: int = 10000,
         threads: int = cpu_count(),
-        _init_setup_model=True,
+        _init_setup_model: bool = True,
         **kwargs,
     ) -> None:
 
@@ -284,7 +284,7 @@ class NSGA2(BaseRLModel):
                 raise ValueError(f"Variables cannot be nested further. Received {type(var_space)}.")
 
         # Generate the first generation
-        def empty_generation(this) -> Iterable["GeneticSolution"]:
+        def empty_generation(this: "NSGA2") -> Iterable["GeneticSolution"]:
             return (GeneticSolution() for _ in range(0, this.population))
 
         if self._threads > 1:
@@ -295,9 +295,9 @@ class NSGA2(BaseRLModel):
                 method="modify_rng",
             )
         else:
-            self._generation_parent = list(
+            self._generation_parent = [
                 sol.initialize(events, vari, params, self._rng) for sol in empty_generation(self)
-            )
+            ]
 
         retries = 0
         for solution in self._generation_parent:
@@ -547,7 +547,7 @@ class NSGA2(BaseRLModel):
         if self._threads > 1:
             offspr = self._processes.map("mutate", generation, args=(adjusted_rate,), method="return_rng")
         else:
-            offspr = list(sol.mutate(adjusted_rate, self._rng) for sol in generation)
+            offspr = [sol.mutate(adjusted_rate, self._rng) for sol in generation]
         return offspr
 
     def _crossover(self, generation: Sequence["GeneticSolution"]) -> List["GeneticSolution"]:
@@ -574,7 +574,7 @@ class NSGA2(BaseRLModel):
                 method="return_rng",
             )
         else:
-            offspr = list(sol.crossover(generation, self.max_cross_len, self._rng) for sol in generation)
+            offspr = [sol.crossover(generation, self.max_cross_len, self._rng) for sol in generation]
 
         return offspr
 
@@ -809,7 +809,7 @@ class GeneticSolution:
 
         self.dominates: List[int] = []
         self.dominatedby: int = 0
-        self.crowding_distance: Numbers = np.inf
+        self.crowding_distance: Number = np.inf
 
     def initialize(
         self,
@@ -865,13 +865,15 @@ class GeneticSolution:
         self._hash = None
         return self
 
-    def randomize(self, rng: np.random.Generator = np.random.default_rng(), flag: bool = False) -> None:
+    def randomize(self, rng: np.random.Generator = None, flag: bool = False) -> None:
         """Randomize both chromosomes of the solution. This essentially reinitializes the solution
 
         :param rng: Random number generator. Defaults to numpy default_rng().
         :param flag: Ignore self.randomize_flag
         :return: None
         """
+        if rng is None:
+            rng = np.random.default_rng()
 
         if self.randomize_flag or flag:
             if self.echromo is not None:
@@ -896,7 +898,7 @@ class GeneticSolution:
     def mutate(
         self,
         probability: float,
-        rng: np.random.Generator = np.random.default_rng(),
+        rng: np.random.Generator = None,
         flag: bool = False,
     ) -> "GeneticSolution":
         """Mutate values of the chromosomes. Returns a new solution object and does not modify the current solution.
@@ -908,6 +910,9 @@ class GeneticSolution:
         """
         echromo = None
         vchromo = None
+
+        if rng is None:
+            rng = np.random.default_rng()
 
         if self.mutate_flag or flag:
             # If both echromo and vchromo are available the mutation rate must be divided between both.
@@ -962,7 +967,7 @@ class GeneticSolution:
         self,
         generation: Sequence["GeneticSolution"],
         max_cross_len: float,
-        rng: np.random.Generator = np.random.default_rng(),
+        rng: np.random.Generator = None,
     ) -> "GeneticSolution":
         """Cross the solution with another solution. Returns a new solution object and does not modify the current
         solution.
@@ -974,6 +979,9 @@ class GeneticSolution:
         """
         echromo = None
         vchromo = None
+
+        if rng is None:
+            rng = np.random.default_rng()
 
         if self.cross_with is not None:
             length = rng.integers(0, len(self.echromo) * max_cross_len, endpoint=True)

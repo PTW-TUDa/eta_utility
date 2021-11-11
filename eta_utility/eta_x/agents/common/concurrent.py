@@ -83,9 +83,9 @@ def pool_worker(
             if method in {"return", "return_rng"}:
                 if not callable(func):
                     caller = methodcaller(func, *args, **kwargs)
-                    result = (True, list(caller(i) for i in iterable))
+                    result = (True, [caller(i) for i in iterable])
                 else:
-                    result = (True, list(func(i, *args, **kwargs) for i in iterable))
+                    result = (True, [func(i, *args, **kwargs) for i in iterable])
 
             elif method in {"modify", "modify_rng"}:
                 if not callable(func):
@@ -158,7 +158,9 @@ class ProcessPool(Pool):
             w.start()
             util.debug("added worker")
 
-    def _guarded_task_generation(self, result_job, func, iterable, method, args, kwargs) -> None:
+    def _guarded_task_generation(
+        self, result_job: int, func: Callable, iterable: Iterable, method: str, args: Sequence, kwargs: Mapping
+    ) -> None:
         try:
             i = -1
             for i, iter_ in enumerate(iterable):
@@ -169,7 +171,7 @@ class ProcessPool(Pool):
         except Exception as e:
             yield result_job, i + 1, _helper_reraises_exception, (e,), "", (), {}  # noqa
 
-    def map(
+    def map(  # noqa: A003
         self,
         func: Union[str, Callable],
         iterable: Iterable[Any],

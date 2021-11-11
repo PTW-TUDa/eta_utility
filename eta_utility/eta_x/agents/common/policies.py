@@ -1,4 +1,4 @@
-from stable_baselines.common import policies
+from stable_baselines3.common import policies
 
 
 class NoPolicy(policies.BasePolicy):

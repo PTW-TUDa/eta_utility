@@ -5,17 +5,17 @@ import gym
 import numpy as np
 import pyomo.environ as pyo
 from pyomo import opt
-from stable_baselines.common import BaseRLModel
-from stable_baselines.common.policies import BasePolicy
-from stable_baselines.common.vec_env import VecNormalize
+from stable_baselines3.common.base_class import BaseAlgorithm
+from stable_baselines3.common.policies import BasePolicy
+from stable_baselines3.common.vec_env import VecNormalize
 
 from eta_utility import get_logger
-from eta_utility.type_hints.custom_types import Path
+from eta_utility.type_hints import Path
 
 log = get_logger("eta_x.agents")
 
 
-class MPCBasic(BaseRLModel):
+class MPCBasic(BaseAlgorithm):
     """Simple, Pyomo based MPC agent
 
     The agent requires an environment that specifies a the 'model' attribute returning a pyo.ConcreteModel and
@@ -27,7 +27,7 @@ class MPCBasic(BaseRLModel):
     :param env: Environment to be optimized
     :param verbose: Logging verbosity
     :param solver_name: Name of the solver, could be cplex or glpk
-    :param kwargs: Additional arguments as specified in stable_baselins.BaseRLModel or as provided by solver
+    :param kwargs: Additional arguments as specified in stable_baselins3.commom.base_class or as provided by solver
     """
 
     def __init__(

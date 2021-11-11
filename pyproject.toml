@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 include = "\\.pyi?$|^eta_utility/|^test/"
 exclude = "\\.xlsx?$|\\.fmu?$|test_resources/|__pycache__/"
 line_length = 120
-target_version = ["py36","py37","py38"]
+target_version = ["py37","py38","py39"]
 
 [tool.isort]
 profile = "black"
@@ -28,7 +28,26 @@ max_line_length = 120
 [tool.flakehell.plugins]
 pycodestyle = ["+*", "-E203", "-W503", "--max_line_length=120"]
 pyflakes = ["+*", "-D203"]
+flake8-builtins = ["+*"]
+flake8-eradicate = ["+*"]
+flake8-comprehensions = ["+*"]
+flake8-mutable = ["+*"]
+flake8-print = ["+*"]
+flake8-pytest-style = ["+*"]
+flake8-requirements = ["+*"]
+pep8-naming = ["+*"]
+flake8-rst-docstrings = ["+*"]
+flake8-pytest = ["+*"]
+# No annotations for *args, **kwargs, self and cls required:
+flake8-annotations = ["+*", "-ANN002", "-ANN003", "-ANN101", "-ANN102"]
+flake8-typing-imports = ["+*"]
+# Simplify can give interesting hints, consider enabling in the future:
+flake8-simplify = ["-*"]
+
 max-complexity = 20
+
+[tool.flakehell.exceptions."test/"]
+flake8-annotations = ["-*"]
 
 [tool.flakehell.exceptions."*/__init__.py"]
 pyflakes = ["-F401"]

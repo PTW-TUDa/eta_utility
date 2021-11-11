@@ -7,12 +7,12 @@ from urllib.parse import ParseResult, urlparse, urlunparse
 
 import pandas as pd
 
-from eta_utility import url_parse
+from eta_utility import get_logger, url_parse
 from eta_utility.type_hints import Connection, Nodes, Path
 
 from .eneffco import EnEffCoConnection
 from .modbus import ModbusConnection
-from .opcua import OpcUaConnection
+from .opc_ua import OpcUaConnection
 from .rest import RESTConnection
 
 default_schemes = {
@@ -20,6 +20,8 @@ default_schemes = {
     "opcua": "opc.tcp",
     "eneffco": "https",
 }
+
+log = get_logger("connectors")
 
 
 class Node:
@@ -56,7 +58,21 @@ class Node:
                        of nodes.
     """
 
-    def __init__(self, name: str, url: str, protocol: str, *, usr=None, pwd=None, **kwargs: Any):
+    _dtypes = {
+        "boolean": bool,
+        "bool": bool,
+        "int": int,
+        "uint32": int,
+        "integer": int,
+        "sbyte": int,
+        "float": float,
+        "double": float,
+        "short": float,
+        "string": str,
+        "str": str,
+    }
+
+    def __init__(self, name: str, url: str, protocol: str, *, usr: str = None, pwd: str = None, **kwargs: Any) -> None:
 
         #: Name for the node
         self.name: str = str(name).strip()
@@ -73,19 +89,14 @@ class Node:
         self._id: str = self.name
 
         if "dtype" in kwargs:
-            map_dtypes = {
-                "boolean": bool,
-                "bool": bool,
-                "int": int,
-                "integer": int,
-                "sbyte": int,
-                "float": float,
-                "double": float,
-                "short": float,
-                "string": str,
-                "str": str,
-            }
-            self.dtype = map_dtypes[kwargs.pop("dtype").strip().lower()]
+            dtype = kwargs.pop("dtype").strip().lower()
+            try:
+                self.dtype = self._dtypes[dtype]
+            except KeyError:
+                log.warning(
+                    f"The specified data type ({dtype}) is currently not available in the datatype map and "
+                    f"will not be applied."
+                )
 
         if self.protocol == "modbus":
             if not {"mb_slave", "mb_register", "mb_channel", "mb_byteorder"} == kwargs.keys():
@@ -149,18 +160,23 @@ class Node:
                     self.opc_ns: int = int(val)
                 else:
                     self.opc_id_type = key.strip().lower()
-                    self.opc_path_str: str = val.strip(" .")
-            self.opc_id: str = f"ns={self.opc_ns};{self.opc_id_type}=.{self.opc_path_str}"
+                    self.opc_path_str: str = val.strip(" ")
+            self.opc_id: str = f"ns={self.opc_ns};{self.opc_id_type}={self.opc_path_str}"
         elif "opc_path" in kwargs.keys() and "ns" in kwargs.keys():
             self.opc_ns = int(kwargs["ns"].strip().lower())
-            self.opc_path_str = kwargs["opc_path"].strip(" .")
+            self.opc_path_str = kwargs["opc_path"].strip(" ")
             self.opc_id_type = "s"
-            self.opc_id = f"ns={self.opc_ns};s=.{self.opc_path_str}"
+            self.opc_id = f"ns={self.opc_ns};s={self.opc_path_str}"
         else:
             raise ValueError("Specify opc_id or opc_path and ns for OPC UA nodes.")
 
-        split_path = self.opc_path_str.split(".")
-        self.opc_name: str = split_path[-1]
+        split_path = (
+            self.opc_path_str.rsplit(".", maxsplit=len(self.opc_path_str.split(".")) - 2)
+            if self.opc_path_str[0] == "."
+            else self.opc_path_str.split(".")
+        )
+
+        self.opc_name: str = split_path[-1].split(".")[-1]
         if len(split_path) > 1:
             for key in range(len(split_path) - 1):
                 self.opc_path.append(
@@ -170,7 +186,7 @@ class Node:
                         "opcua",
                         usr=self.usr,
                         pwd=self.pwd,
-                        opc_id="ns={};s=.{}".format(self.opc_ns, ".".join(split_path[: key + 1])),
+                        opc_id="ns={};s={}".format(self.opc_ns, ".".join(split_path[: key + 1])),
                     )
                 )
 
@@ -203,10 +219,10 @@ class Node:
         fields for each node:
 
             * Code (or name), URL, Protocol (modbus or opcua or eneffco).
-            The URL should be a complete network location identifier. Alternatively it is possible to specify the
-            location in two fields: IP and Port. These should only contain the respective parts (as in only an IP
-            address and only the port number.
-            The IP-Address should always be given without scheme (https://)
+              The URL should be a complete network location identifier. Alternatively it is possible to specify the
+              location in two fields: IP and Port. These should only contain the respective parts (as in only an IP
+              address and only the port number.
+              The IP-Address should always be given without scheme (https://)
 
         For Modbus nodes the following additional fiels are required:
 
@@ -244,12 +260,12 @@ class Node:
                     return dikt[name]
             else:
                 if fail is True:
-                    raise KeyError(f"None of the requested keys are in the configuration: {names}")
+                    raise KeyError(f"Did not find one of the required keys in the configuration: {names}")
                 else:
                     return default
 
-        iter = [dikt] if isinstance(dikt, Mapping) else dikt
-        for lnode in iter:
+        iter_ = [dikt] if isinstance(dikt, Mapping) else dikt
+        for lnode in iter_:
             node = {k.strip().lower(): v for k, v in lnode.items()}
 
             # Find url or ip and port
@@ -346,9 +362,9 @@ class Node:
         """
 
         file = path if isinstance(path, pathlib.Path) else pathlib.Path(path)
-        input = pd.read_excel(file, sheet_name=sheet_name)
+        input_ = pd.read_excel(file, sheet_name=sheet_name)
 
-        return cls.from_dict(list(input.to_dict("index").values()))
+        return cls.from_dict(list(input_.to_dict("index").values()))
 
     @classmethod
     def get_eneffco_nodes_from_codes(cls, code_list: Sequence[str], eneffco_url: Optional[str]) -> List["Node"]:

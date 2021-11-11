@@ -6,10 +6,10 @@ from eta_utility import json_import
 from eta_utility.connectors import LiveConnect, Node
 from eta_utility.servers import OpcUaServer
 
-from .config_tests import *  # noqa
+from .config_tests import Config
 
 
-def nodes_from_config(file=LIVE_CONNECT_CONFIG):  # noqa:F405
+def nodes_from_config(file=Config.LIVE_CONNECT_CONFIG):  # noqa:F405
     config = json_import(file)
 
     # Combine config for nodes with server config
@@ -32,12 +32,12 @@ def setup_live_connect():
     server.create_nodes(nodes)
     server._server.allow_remote_admin(True)
 
-    config = json_import(LIVE_CONNECT_CONFIG)  # noqa:F405
+    config = json_import(Config.LIVE_CONNECT_CONFIG)  # noqa:F405
     config["system"][0]["servers"]["glt"]["url"] = f"{socket.gethostbyname(socket.gethostname())}:4840"
 
     connector = LiveConnect.from_dict(**config)
 
-    connector.set({"CHP.u": 0})
+    connector.step({"CHP.u": 0})
     connector.deactivate()
     yield connector
     server.stop()
@@ -92,13 +92,13 @@ def test_read_write(setup_live_connect):
 def test_set_activate_and_deactivate(setup_live_connect):
     connector = setup_live_connect
 
-    result = connector.set({"u": 0.7})
+    result = connector.step({"u": 0.7})
     assert result == {"CHP.power_elek": 0, "CHP.operation": False, "CHP.control_value_opti": 70}
 
     result = connector.read("op_request")
     assert result == {"CHP.op_request": True}
 
-    result = connector.set({"u": 0.3})
+    result = connector.step({"u": 0.3})
     assert result == {"CHP.power_elek": 0, "CHP.operation": False, "CHP.control_value_opti": 30}
 
     result = connector.read("op_request")

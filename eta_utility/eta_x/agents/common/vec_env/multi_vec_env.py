@@ -8,7 +8,7 @@ from stable_baselines.common.vec_env import (
     NotSteppingError,
 )
 
-from eta_utility.type_hints.custom_types import Numbers, StepResult
+from eta_utility.type_hints import Number, StepResult
 
 from .. import ProcessPool
 
@@ -22,13 +22,13 @@ class MultiVecEnv(DummyVecEnv):
     called before stepping the environment. This means that it will just execute the evaluation of all environments
     in sequence.
 
-    .. seealso:: stable_baselines.common.vec_env.DummyVecEnv
+    .. see also:: stable_baselines.common.vec_env.DummyVecEnv
 
     :param Sequence[Callable] env_fns: A list of functions that will create the environments
         (each callable returns a `Gym.Env` instance when called).
     """
 
-    def __init__(self, env_fns: Sequence[Callable]):
+    def __init__(self, env_fns: Sequence[Callable]) -> None:
         super().__init__(env_fns)
         for key, env in enumerate(self.envs):
             env.env_id = key
@@ -50,7 +50,7 @@ class MultiVecEnv(DummyVecEnv):
         self._running = True
 
         # Store actions and tell environments which actions to execute if necessary
-        self.actions: Sequence[Numbers] = actions
+        self.actions: Sequence[Number] = actions
         if hasattr(self.envs[0], "actions"):
             chunksize, remain = divmod(len(self.actions), len(self.envs))
             chunksize += 1 if remain else 0

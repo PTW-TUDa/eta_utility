@@ -1,5 +1,5 @@
 import os.path
-from test.config_tests import FMU_FILE
+from test.config_tests import Config
 
 from pytest import approx, fixture
 
@@ -13,11 +13,9 @@ class TestFMUSimulator:
         which does this is initialized here."""
         init_values = {"u": 0}
 
-        # monkeypatch.setattr(eta_utility.simulators.fmu, "read_model_description", read_model_description)
-
         simulator = FMUSimulator(
             0,
-            fmu_path=FMU_FILE,
+            fmu_path=Config.FMU_FILE,
             start_time=0,
             stop_time=100,
             step_size=1,
@@ -31,7 +29,7 @@ class TestFMUSimulator:
     def map_simulator(self):
         """New format initialization also allows for the simulator to be initialized with just the fmu_path."""
 
-        simulator = FMUSimulator(0, fmu_path=FMU_FILE)
+        simulator = FMUSimulator(0, fmu_path=Config.FMU_FILE)
         return simulator
 
     def test_attributes(self, seq_simulator):
@@ -84,13 +82,13 @@ class TestFMUSimulator:
         assert v == approx(-0.682, 0.01)
         assert a == approx(0.089, 0.01)
 
-    def test_FMUSimulator_reset(self, seq_simulator):
+    def test_fmu_simulator_reset(self, seq_simulator):
         """Test resetting the simulator"""
         seq_simulator.reset({"u": 0})
 
         assert seq_simulator.time == 0
 
-    def test_FMUSimulator_close(self, seq_simulator):
+    def test_fmu_simulator_close(self, seq_simulator):
         """Test closing the simulator object"""
         seq_simulator.close()
 

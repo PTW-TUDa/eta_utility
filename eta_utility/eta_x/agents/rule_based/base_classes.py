@@ -2,8 +2,8 @@ import abc
 from typing import Callable, Tuple
 
 import numpy as np
-from stable_baselines.common import BaseRLModel
-from stable_baselines.common.vec_env import VecEnv
+from stable_baselines3.common.base_class import BaseAlgorithm
+from stable_baselines3.common.vec_env import VecEnv
 
 from eta_utility import get_logger
 
@@ -12,7 +12,7 @@ from ..common.policies import NoPolicy
 log = get_logger("eta_x.agents.rule_based")
 
 
-class RuleBased(BaseRLModel, abc.ABC):
+class RuleBased(BaseAlgorithm, abc.ABC):
     """The rule based agent base class provides the facilities to easily build a complete rule based agent. To achieve
     this, only the predict function must be implemented. It should take an observation from the environment as input
     and provide actions as an output.
@@ -20,17 +20,15 @@ class RuleBased(BaseRLModel, abc.ABC):
     :param policy: Agent policy. Parameter is not used in this agent and can be set to NoPolicy.
     :param env: Environment to be controlled
     :param verbose: Logging verbosity
-    :param kwargs: Additional arguments as specified in stable_baselins.BaseRLModel
+    :param kwargs: Additional arguments as specified in stable_baselins3.commom.base_class
     """
 
     def __init__(self, policy: NoPolicy, env: VecEnv, verbose: int = 4, **kwargs) -> None:
         # Ensure that arguments required by super class are always present
-        if "requires_vec_env" not in kwargs:
-            kwargs["requires_vec_env"] = False
         if "policy_base" not in kwargs:
             kwargs["policy_base"] = None
 
-        super().__init__(policy=policy, env=env, verbose=verbose, **kwargs)
+        super().__init__(policy=policy, env=env, verbose=verbose, learning_rate=0, **kwargs)
 
         #: Last / initial State of the agent.
         self.state: np.ndarray = np.zeros(self.action_space.shape)
@@ -61,13 +59,9 @@ class RuleBased(BaseRLModel, abc.ABC):
                               deterministic actions
         :return: Tuple of the model's action and the next state (state is typically None in this agent)
         """
-        if self._vectorize_action or self._is_vectorized_observation(observation, self.observation_space):
-            action = []
-            for obs in observation:
-                action.append(np.array(self.control_rules(obs)))
-
-        else:
-            action = self.control_rules(observation)
+        action = []
+        for obs in observation:
+            action.append(np.array(self.control_rules(obs)))
 
         return np.array(action), None
 
@@ -110,7 +104,7 @@ class RuleBased(BaseRLModel, abc.ABC):
         """Learning is not implemented for the rule based agent."""
         raise NotImplementedError("The rule based agent cannot learn a model.")
 
-    def setup_model(self) -> None:
+    def _setup_model(self) -> None:
         """Setup model is not required for the rule based agent."""
         pass
 

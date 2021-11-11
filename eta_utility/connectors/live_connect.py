@@ -1,8 +1,9 @@
 """ Initiate live connections that automate certain tasks associated with the creation of such connections."""
 import itertools as it
 import pathlib
+import types
 from contextlib import AbstractContextManager
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Union
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Type, Union
 from urllib.parse import urlparse, urlunparse
 
 from eta_utility import get_logger, json_import
@@ -114,7 +115,7 @@ class LiveConnect(AbstractContextManager):
         observe: Sequence[str] = None,
         activation_indicators: Mapping[str, Any] = None,
         set_values: Mapping[str, Any] = None,
-    ):
+    ) -> None:
         #: Name of the system
         self.name: Optional[str] = name.strip() if name is not None else None
         #: Connection objects to the resources
@@ -407,7 +408,7 @@ class LiveConnect(AbstractContextManager):
             activated = True
         return activated
 
-    def set(self, value: Mapping[str, Any]) -> Dict[str, Any]:
+    def step(self, value: Mapping[str, Any]) -> Dict[str, Any]:
         """Take the set_value and determine, whether the system must be activated or deactivated. Then set the value
         and finally read and return all values as specified by the 'observe' parameter.
 
@@ -490,7 +491,7 @@ class LiveConnect(AbstractContextManager):
 
         return result
 
-    def activate(self, system=None) -> None:
+    def activate(self, system: Optional[str] = None) -> None:
         """Take the list of nodes to activate and set them to the correct values to activate the system
 
         :param system: System for which should be activated (default: self.name)
@@ -500,7 +501,7 @@ class LiveConnect(AbstractContextManager):
         if not self._activated(system) and self._activate_vals[system] is not None:
             self.write(self._activate_vals[system])
 
-    def deactivate(self, system=None) -> None:
+    def deactivate(self, system: Optional[str] = None) -> None:
         """Take the list of nodes to deactivate and set them to the correct values to deactivate the system
 
         :param system: System for which should be activated (default: self.name)
@@ -515,9 +516,11 @@ class LiveConnect(AbstractContextManager):
         if self._close_vals is not None:
             self.write(self._close_vals)
 
-    def __enter__(self):
+    def __enter__(self) -> "LiveConnect":
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self, exc_type: Optional[Type[Exception]], exc_val: Optional[Exception], exc_tb: Optional[types.TracebackType]
+    ) -> bool:
         self.close()
         return False

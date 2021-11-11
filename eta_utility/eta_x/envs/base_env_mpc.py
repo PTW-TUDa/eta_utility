@@ -22,7 +22,7 @@ from pyomo.opt import SolverResults
 
 from eta_utility.eta_x.envs import BaseEnv
 from eta_utility.eta_x.envs.base_env import log
-from eta_utility.type_hints.custom_types import Path
+from eta_utility.type_hints import Path
 
 
 class BaseEnvMPC(BaseEnv, abc.ABC):
@@ -134,7 +134,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         return self._concrete_model, self.names["actions"]
 
     @model.setter
-    def model(self, value) -> None:
+    def model(self, value: pyo.ConcreteModel) -> None:
         """The model attribute setter should be used for returning the solved model.
 
         :param value:
@@ -172,7 +172,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             * done: Boolean value specifying whether an episode has been completed. If this is set to true,
               the reset function will automatically be called by the agent or by eta_i.
             * info: Provide some additional info about the state of the environment. The contents of this may
-                be used for logging purposes in the future but typically do not currently serve a purpose.
+              be used for logging purposes in the future but typically do not currently serve a purpose.
         """
         if not self.action_space.contains(action):
             raise RuntimeError(f"Action {action} ({type(action)}) is invalid. Not in action space.")
@@ -218,7 +218,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             ts_current = self.pyo_convert_timeseries(
                 self.timeseries.iloc[self.n_steps : self.n_prediction_steps + self.n_steps + 1],
                 index=tuple(index),
-                _add_wrapping_None=False,
+                _add_wrapping_none=False,
             )
             ts_current[self.time_var] = list(index)
             log.debug(
@@ -231,7 +231,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             ts_current = self.pyo_convert_timeseries(
                 self.timeseries.iloc[self.n_steps : self.n_prediction_steps + self.n_steps + 1],
                 index=tuple(index),
-                _add_wrapping_None=False,
+                _add_wrapping_none=False,
             )
 
         # Log current time shift
@@ -278,7 +278,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         self.pyo_update_params(updated_params, self.nonindex_update_append_string)
         return np.array(return_obs)
 
-    def solve_failed(self, model: pyo.ConcreteModel, result: SolverResults):
+    def solve_failed(self, model: pyo.ConcreteModel, result: SolverResults) -> None:
         """This method will try to render the result in case the model could not be solved. It should automatically
         be called by the agent.
 
@@ -363,7 +363,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         If required, timeseries can be added to the parameters and timeseries may be reindexed. The
         pyo_convert_timeseries function is used for timeseries handling.
 
-        .. seealso:: pyo_convert_timeseries
+        .. see also:: pyo_convert_timeseries
 
         :param component_name: Name of the component
         :param ts: Timeseries for the component
@@ -386,7 +386,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
 
         # If component name was specified only look for relevant time series
         if ts is not None:
-            out.update(self.pyo_convert_timeseries(ts, index, component_name, _add_wrapping_None=False))
+            out.update(self.pyo_convert_timeseries(ts, index, component_name, _add_wrapping_none=False))
 
         return {None: out}
 
@@ -396,7 +396,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         index: Optional[Union[pd.Index, Sequence, pyo.Set]] = None,
         component_name: Optional[str] = None,
         *,
-        _add_wrapping_None: bool = True,
+        _add_wrapping_none: bool = True,
     ) -> Union[Dict[None, Dict[str, Any]], Dict[str, Any]]:
         """Convert a time series data into a pyomo format. Data will be reindexed if a new index is provided.
 
@@ -405,7 +405,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
                               reindexed.
         :param component_name: Name of a specific component that the timeseries is used for. This limits which
                                    timeseries are returned.
-        :param _add_wrapping_None: default is True
+        :param _add_wrapping_none: default is True
         :return: pyomo parameter dictionary
         """
         output = {}
@@ -471,7 +471,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         else:
             output[None] = convert_index(ts, index)
 
-        return {None: output} if _add_wrapping_None else output
+        return {None: output} if _add_wrapping_none else output
 
     def pyo_update_params(
         self,
