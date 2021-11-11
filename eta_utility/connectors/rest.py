@@ -5,7 +5,8 @@ import requests
 
 from eta_utility import get_logger
 
-from .base_classes import BaseConnection, Node, Nodes, SubscriptionHandler
+from ..type_hints import Node, Nodes
+from .base_classes import BaseConnection, SubscriptionHandler
 
 log = get_logger("connectors.rest")
 

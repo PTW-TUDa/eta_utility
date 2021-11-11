@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 from eta_utility import timeseries
-from eta_utility.type_hints.custom_types import TimeStep
+from eta_utility.type_hints import TimeStep
 
 
 def scenario_from_csv(

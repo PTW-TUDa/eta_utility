@@ -25,7 +25,7 @@ import pandas as pd
 from gym import Env, spaces, utils
 
 from eta_utility import get_logger, timeseries
-from eta_utility.type_hints.custom_types import Path
+from eta_utility.type_hints import Path
 
 log = get_logger("eta_x.envs")
 

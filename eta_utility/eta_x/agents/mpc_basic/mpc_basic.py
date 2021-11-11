@@ -10,7 +10,7 @@ from stable_baselines.common.policies import BasePolicy
 from stable_baselines.common.vec_env import VecNormalize
 
 from eta_utility import get_logger
-from eta_utility.type_hints.custom_types import Path
+from eta_utility.type_hints import Path
 
 log = get_logger("eta_x.agents")
 

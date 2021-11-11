@@ -8,7 +8,7 @@ from stable_baselines.common.vec_env import (
     NotSteppingError,
 )
 
-from eta_utility.type_hints.custom_types import Numbers, StepResult
+from eta_utility.type_hints import Number, StepResult
 
 from .. import ProcessPool
 
@@ -50,7 +50,7 @@ class MultiVecEnv(DummyVecEnv):
         self._running = True
 
         # Store actions and tell environments which actions to execute if necessary
-        self.actions: Sequence[Numbers] = actions
+        self.actions: Sequence[Number] = actions
         if hasattr(self.envs[0], "actions"):
             chunksize, remain = divmod(len(self.actions), len(self.envs))
             chunksize += 1 if remain else 0

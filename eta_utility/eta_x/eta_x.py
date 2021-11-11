@@ -16,7 +16,7 @@ from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 from eta_utility import get_logger
-from eta_utility.type_hints.custom_types import BaseEnv, DefSettings, Path, ReqSettings
+from eta_utility.type_hints import BaseEnv, DefSettings, Path, ReqSettings
 
 log = get_logger("eta_x", 2)
 

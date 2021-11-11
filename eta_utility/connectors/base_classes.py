@@ -1,12 +1,13 @@
 """ Base classes for the connectors
 
 """
+import math
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from typing import Any, AnyStr, Mapping, Optional, Sequence, Union
 
 import pandas as pd
-import tzlocal
+from dateutil import tz
 
 from eta_utility import url_parse
 from eta_utility.type_hints import Node, Nodes, TimeStep
@@ -21,7 +22,16 @@ class SubscriptionHandler(ABC):
 
     def __init__(self, write_interval: Union[float, int] = 1) -> None:
         self._write_interval: Union[float, int] = write_interval
-        self._local_tz = tzlocal.get_localzone()
+        self._local_tz = tz.tzlocal()
+
+    def _assert_tz_awareness(self, timestamp: datetime) -> datetime:
+        """Helper function to check if timestamp has timezone and if not assign local time zone.
+
+        :param datetime timestamp: Datetime object to be rounded
+        :return: Rounded datetime object with timezone information"""
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=self._local_tz)
+        return timestamp
 
     def _round_timestamp(self, timestamp: datetime) -> datetime:
         """Helper method for rounding date time objects to the specified write interval.
@@ -33,20 +43,11 @@ class SubscriptionHandler(ABC):
         ts_store = self._assert_tz_awareness(timestamp)  # store previous information, include timezone information
 
         # Round timestamp
-        intervals = timestamp.timestamp() // self._write_interval
-        timestamp = datetime.fromtimestamp(intervals * self._write_interval)
+        intervals = math.ceil(ts_store.timestamp() / self._write_interval) * self._write_interval
+        timestamp = datetime.fromtimestamp(intervals)
 
         # Restore timezone information
-        timestamp = timestamp.replace(tzinfo=ts_store.tzinfo)
-        return timestamp
-
-    def _assert_tz_awareness(self, timestamp: datetime) -> datetime:
-        """Helper function to check if timestamp has timezone and if not assign local time zone.
-
-        :param datetime timestamp: Datetime object to be rounded
-        :return: Rounded datetime object with timezone information"""
-        if timestamp.tzinfo is None:
-            timestamp = self._local_tz.localize(timestamp)
+        timestamp = timestamp.replace(tzinfo=ts_store.tzinfo).astimezone(self._local_tz)
         return timestamp
 
     def _convert_series(
@@ -174,7 +175,7 @@ class BaseConnection(ABC):
             self.pwd = node.pwd
 
         #: Store local time zone
-        self._local_tz = tzlocal.get_localzone()
+        self._local_tz = tz.tzlocal()
 
     @classmethod
     @abstractmethod
@@ -250,6 +251,34 @@ class BaseConnection(ABC):
             )
 
         return _nodes
+
+    def _assert_tz_awareness(self, timestamp: datetime) -> datetime:
+        """Helper function to check if timestamp has timezone and if not assign local time zone.
+
+        :param datetime timestamp: Datetime object to be rounded
+        :return: datetime object with timezone information"""
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=self._local_tz)
+        return timestamp
+
+    def _round_timestamp(self, timestamp: datetime, interval: float = 1) -> datetime:
+        """Helper method for rounding date time objects to specified interval in seconds.
+        The method will also add local timezone information if not already present.
+
+        :param datetime timestamp: Datetime object to be rounded
+        :param interval: Interval in seconds to be rounded to
+        :return: Rounded datetime object with timezone information
+        """
+        ts_store = self._assert_tz_awareness(timestamp)  # store previous information, include timezone information
+
+        # Round timestamp
+        # Round timestamp
+        intervals = math.ceil(ts_store.timestamp() / interval) * interval
+        timestamp = datetime.fromtimestamp(intervals)
+
+        # Restore timezone information
+        timestamp = timestamp.replace(tzinfo=ts_store.tzinfo)
+        return timestamp
 
 
 class BaseSeriesConnection(BaseConnection, ABC):

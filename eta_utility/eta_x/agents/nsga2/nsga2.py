@@ -42,7 +42,7 @@ from stable_baselines.common import BaseRLModel
 from stable_baselines.common.vec_env import VecEnv
 
 from eta_utility import get_logger
-from eta_utility.type_hints.custom_types import Numbers
+from eta_utility.type_hints import Number
 
 from ..common import ProcessPool, cpu_count
 from ..common.policies import NoPolicy
@@ -809,7 +809,7 @@ class GeneticSolution:
 
         self.dominates: List[int] = []
         self.dominatedby: int = 0
-        self.crowding_distance: Numbers = np.inf
+        self.crowding_distance: Number = np.inf
 
     def initialize(
         self,
