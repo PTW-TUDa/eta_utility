@@ -762,9 +762,20 @@ class ETAx:
             if "interact_with_env" in self.config["settings"] and self.config["settings"]["interact_with_env"]:
                 action, _states = self.model.predict(observation=observations, deterministic=False)
                 if "scale_interaction_actions" in self.config["settings"]:
-                    action = np.round(action * self.config["settings"]["scale_interaction_actions"], 4)
+                    action = (
+                        np.round(
+                            action * self.config["settings"]["scale_interaction_actions"],
+                            self.config["settings"]["round_actions"],
+                        )
+                        if "round_actions" in self.config["settings"]
+                        else (action * self.config["settings"]["scale_interaction_actions"])
+                    )
                 else:
-                    action = np.round(action, 4)
+                    action = (
+                        np.round(action, self.config["settings"]["round_actions"])
+                        if "round_actions" in self.config["settings"]
+                        else action
+                    )
                 observations, rewards, dones, info = self.interaction_env.step(action)  # environment gets called here
                 observations = np.array(self.environments.env_method("update", observations, indices=0))
 
