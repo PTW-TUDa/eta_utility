@@ -38,8 +38,8 @@ from typing import (
 import mmh3
 import numpy as np
 from gym import spaces
-from stable_baselines.common import BaseRLModel
-from stable_baselines.common.vec_env import VecEnv
+from stable_baselines3.common.base_class import BaseAlgorithm
+from stable_baselines3.common.vec_env import VecEnv
 
 from eta_utility import get_logger
 from eta_utility.type_hints.custom_types import Numbers
@@ -50,7 +50,7 @@ from ..common.policies import NoPolicy
 log = get_logger("eta_x.agents")
 
 
-class NSGA2(BaseRLModel):
+class NSGA2(BaseAlgorithm):
     """The NSGA2 class implements the non-dominated sorting genetic algorithm 2
 
     The agent can work with discrete event systems and with continous or mixed integer problems. Alternatively a
@@ -89,7 +89,7 @@ class NSGA2(BaseRLModel):
                             (default: 1000) Using the default should usually be fine.
     :param threads: Use this number of threads to perform calculations (default: 4)
     :param _init_setup_model: Determine whether model should be initialized during setup
-    :param kwargs: Additional arguments as specified in stable_baselins.BaseRLModel
+    :param kwargs: Additional arguments as specified in stable_baselins3.commom.base_class
     """
 
     def __init__(
