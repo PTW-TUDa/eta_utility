@@ -80,6 +80,8 @@ license_scanning_local:
   stage: check
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+      when: never
   cache:
     <<: *global_cache
     policy: pull
@@ -91,6 +93,8 @@ secret_detection_local:
   stage: check
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+      when: never
   cache:
     <<: *global_cache
     policy: pull
@@ -109,9 +113,10 @@ test:
 build:
   stage: deploy
   script:
+    - rm -rf dist/
     - pip install build twine
     - python -m build --sdist --wheel
-    - TWINE_PASSWORD=$CI_DEPLOY_PASSWORD TWINE_USERNAME=$CI_DEPLOY_USER python -m twine upload --repository-url https://$CI_SERVER_HOST/api/v4/projects/$CI_PROJECT_ID/packages/pypi dist/*
+    - TWINE_PASSWORD=${CI_JOB_TOKEN} TWINE_USERNAME=gitlab-ci-token python -m twine upload --verbose --repository-url https://$CI_SERVER_HOST/api/v4/projects/$CI_PROJECT_ID/packages/pypi dist/*
   artifacts:
     name: "eta_utility-build-$CI_COMMIT_REF_NAME-$CI_JOB_STATUS"
     paths:
@@ -119,6 +124,7 @@ build:
       - eta_utility.egg-info/
   rules:
     - if: $CI_COMMIT_BRANCH == "master"
+      when: always
   cache:
     <<: *global_cache
     policy: pull
