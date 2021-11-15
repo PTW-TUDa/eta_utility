@@ -2,7 +2,7 @@ import asyncio
 import os
 
 import requests
-from pyModbusTCP.client import ModbusClient
+from pyModbusTCP import client as mbclient
 from pytest import fixture, mark
 
 from eta_utility.connectors import CsvSubHandler, Node, connections_from_nodes
@@ -40,13 +40,8 @@ def local_server():
 
 
 @fixture
-def setup_mock_attributes(monkeypatch):
-    monkeypatch.setattr(ModbusClient, "open", MockModbusClient.open)
-    monkeypatch.setattr(ModbusClient, "is_open", MockModbusClient.is_open)
-    monkeypatch.setattr(ModbusClient, "close", MockModbusClient.close)
-    monkeypatch.setattr(ModbusClient, "mode", MockModbusClient.mode)
-    monkeypatch.setattr(ModbusClient, "unit_id", MockModbusClient.unit_id)
-    monkeypatch.setattr(ModbusClient, "read_holding_registers", MockModbusClient.read_holding_registers)
+def mock_client(monkeypatch):
+    monkeypatch.setattr(mbclient, "ModbusClient", MockModbusClient)
     monkeypatch.setattr(requests, "request", request)
 
 
@@ -56,7 +51,7 @@ def setup_mock_attributes(monkeypatch):
         (EXCEL_NODES_FILE, EXCEL_NODES_SHEET, ENEFFCO_USER, ENEFFCO_PW),
     ],
 )
-def test_multi_connect(excel_file, excel_sheet, eneffco_usr, eneffco_pw, setup_mock_attributes, local_server):
+def test_multi_connect(excel_file, excel_sheet, eneffco_usr, eneffco_pw, mock_client, local_server):
     try:
         nodes = Node.from_excel(excel_file, excel_sheet)
     except AttributeError:
@@ -78,7 +73,7 @@ def test_multi_connect(excel_file, excel_sheet, eneffco_usr, eneffco_pw, setup_m
         for host, connection in connections.items():
             connection.subscribe(subscription_handler)
 
-        loop.run_until_complete(stop_execution(20))
+        loop.run_until_complete(stop_execution(10))
 
     except KeyboardInterrupt:
         pass
@@ -86,6 +81,9 @@ def test_multi_connect(excel_file, excel_sheet, eneffco_usr, eneffco_pw, setup_m
         for host, connection in connections.items():
             connection.close_sub()
 
-        subscription_handler.close()
+        try:
+            subscription_handler.close()
+        except Exception:
+            pass
 
         local_server.stop()

@@ -1,12 +1,12 @@
 import asyncio
 import pathlib
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import pandas as pd
 from pytest import mark
 
-from eta_utility.connectors import Node
-from eta_utility.connectors.sub_handlers import CsvSubHandler, DFSubHandler
+from eta_utility.connectors import CsvSubHandler, DFSubHandler, Node
 
 from .config_tests import Config
 
@@ -19,13 +19,11 @@ sample_series2 = pd.Series(
 
 
 class TestCSVSubHandler:
-    async def push_values(self):
+    async def push_values(self, handler: CsvSubHandler):
         test_node = Node(name="FirstNode", url="", protocol="local")
         test_node2 = Node(name="SecondNode", url="", protocol="local")
 
-        handler = None
         try:
-            handler = CsvSubHandler(Config.CSV_OUTPUT_FILE, 0.5)
             for num in range(6):
                 idx = num // 2 if num > 1 else 0
                 if num % 2 == 0:
@@ -44,8 +42,13 @@ class TestCSVSubHandler:
         except FileNotFoundError:
             pass
 
+        handler = CsvSubHandler(Config.CSV_OUTPUT_FILE, 0.5)
+
+        executor = ThreadPoolExecutor(max_workers=3)
         loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.push_values())
+        loop.set_default_executor(executor)
+        loop.run_until_complete(self.push_values(handler))
+        executor.shutdown()
 
         with pathlib.Path(Config.CSV_OUTPUT_FILE).open("r") as f:
             df = pd.read_csv(f)
@@ -55,11 +58,10 @@ class TestCSVSubHandler:
                 index=[
                     "2020-11-05 10:00:00.000000",
                     "2020-11-05 10:00:00.500000",
-                    "2020-11-05 10:00:01.000000",
                     "2020-11-05 10:00:01.500000",
                     "2020-11-05 10:00:02.000000",
                 ],
-                data=[[1, np.nan], [1, 1], [2, 1], [2, 2], [3, 3]],
+                data=[[1, np.nan], [1, 1], [2, 3], [3, 3]],
             )
             df_check.index.name = "Timestamp"
 

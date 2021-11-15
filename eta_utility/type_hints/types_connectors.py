@@ -8,6 +8,7 @@ from typing import (
     MutableSet,
     NewType,
     Optional,
+    Type,
     Union,
 )
 from urllib.parse import ParseResult
@@ -19,6 +20,25 @@ from eta_utility.type_hints import TimeStep
 
 class Node:
     """Annotation class for the original Node class in connectors/common.py."""
+
+    name: str
+    url: str
+    protocol: str
+
+    dtype: Union[Type[int], Type[str], Type[float], Type[bool]]
+
+    mb_slave: int
+    mb_register: str
+    mb_channel: int
+    mb_byteorder: str
+
+    opc_id: Union[str, int]
+    opc_path: str
+    opc_ns: int
+
+    eneffco_code: str
+
+    rest_endpoint: str
 
     def __init__(self) -> None:
         raise NotImplementedError
