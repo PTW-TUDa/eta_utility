@@ -3,10 +3,13 @@
 """
 import asyncio
 import socket
+from concurrent.futures._base import CancelledError
+from concurrent.futures._base import TimeoutError as ConTimeoutError
 from contextlib import contextmanager
 from datetime import datetime, timedelta
-from typing import Any, Mapping, Optional
+from typing import Any, Mapping, Optional, Set
 
+import opcua
 import pandas as pd
 from opcua import Client
 from opcua import Node as OpcNode
@@ -42,7 +45,12 @@ class OpcUaConnection(BaseConnection):
             raise ValueError("Given URL is not a valid OPC url (scheme: opc.tcp)")
 
         self.connection: Client = Client(self.url)
-        self._sub: Optional[asyncio.Task] = None
+        self._connected = False
+
+        self._sub: Optional[opcua.Subscription] = None
+        self._sub_task: Optional[asyncio.Task] = None
+        self._subscription_open: bool = False
+        self._subscription_nodes: Set[Node] = set()
 
     @classmethod
     def from_node(cls, node: Node, **kwargs: Any) -> "OpcUaConnection":
@@ -189,25 +197,65 @@ class OpcUaConnection(BaseConnection):
         nodes = self._validate_nodes(nodes)
         interval = interval if isinstance(interval, timedelta) else timedelta(seconds=interval)
 
-        self._connect()
-        handler_obj = _OPCSubHandler(handler)
+        self._subscription_nodes.update(nodes)
 
+        if self._subscription_open:
+            # Adding nodes to subscription is enough to include them in the query. Do not start an additional loop
+            # if one already exists
+            return
+
+        self._subscription_open = True
+
+        loop = asyncio.get_event_loop()
+        self._sub_task = loop.create_task(
+            self._subscription_loop(_OPCSubHandler(handler), float(interval.total_seconds()))
+        )
+
+    async def _subscription_loop(self, handler: "_OPCSubHandler", interval: float) -> None:
+        """The subscription loop makes sure that the subscription is reset in case the server generates an error.
+
+        :param handler: Handler object with a push function to receive data
+        :param interval: Interval for requesting data in seconds
+        """
+        retry_wait = 0
         try:
-            self._sub = self.connection.create_subscription(int(interval.total_seconds() * 1000), handler_obj)
-            for node in nodes:
+            while self._subscription_open:
+                await asyncio.sleep(retry_wait)
                 try:
-                    handler_obj.add_node(node.opc_id, node)
-                    _ = self._sub.subscribe_data_change(self.connection.get_node(node.opc_id))
-                except RuntimeError as e:
-                    log.warning(f"Server {self.url}, Node Id '{node.name}' error: {str(e)}")
+                    retry_wait = 2
+                    if not self._connected:
+                        self._connect()
+                except ConnectionError as e:
+                    log.error(str(e))
+                    continue
 
-        except RuntimeError as e:
-            log.warning(str(e))
+                if self._connected:
+                    try:
+                        self._sub = self.connection.create_subscription(interval * 1000, handler)
+                    except RuntimeError as e:
+                        log.warning(str(e))
+                        self._disconnect()
+                        continue
+
+                    for node in self._subscription_nodes:
+                        try:
+                            handler.add_node(node.opc_id, node)
+                            _ = self._sub.subscribe_data_change(self.connection.get_node(node.opc_id))
+                        except RuntimeError as e:
+                            log.warning(f"Server {self.url}, Node Id '{node.name}' error: {str(e)}")
+
+        except BaseException as e:
+            self.exc = e
 
     def close_sub(self) -> None:
         """Close an open subscription."""
+        self._subscription_open = False
+        if self.exc:
+            raise self.exc
+
         try:
             self._sub.delete()
+            self._sub_task.cancel()
         except (OSError, RuntimeError) as e:
             log.error(f"Deleting subscription for server {self.url} failed")
             log.debug(f"Server {self.url} returned error: {e}")
@@ -216,7 +264,7 @@ class OpcUaConnection(BaseConnection):
 
         self._disconnect()
 
-    def _connect(self) -> None:
+    def _connect(self) -> bool:
         """Connect to server."""
         try:
             if self.usr is not None:
@@ -226,22 +274,24 @@ class OpcUaConnection(BaseConnection):
             self.connection.connect()
 
             log.debug(f"Connected to OPC UA server: {self.url}")
+            self._connected = True
         except (socket.herror, socket.gaierror) as e:
             raise ConnectionError(f"Host not found: {self.url}") from e
-        except socket.timeout as e:
+        except (socket.timeout, TimeoutError, ConTimeoutError) as e:
             raise ConnectionError(f"Host timeout: {self.url}") from e
-        except RuntimeError as e:
-            raise ConnectionError(str(e)) from e
-        except ConnectionError as e:
-            raise e
+        except CancelledError as e:
+            raise ConnectionError(f"Connection cancelled by host: {self.url}") from e
+        except (RuntimeError, ConnectionError) as e:
+            raise ConnectionError(f"OPC Connection Error: {self.url}, Error: {str(e)}") from e
 
     def _disconnect(self) -> None:
         """Disconnect from server"""
         try:
             self.connection.disconnect()
+            self._connected = False
         except (OSError, RuntimeError) as e:
             log.error(f"Closing connection to server {self.url} failed")
-            log.info(f"Server {self.url} returned error: {e}")
+            log.info(f"Connection to {self.url} returned error: {e}")
         except AttributeError:
             log.error(f"Connection to server {self.url} already closed.")
 
@@ -251,10 +301,6 @@ class OpcUaConnection(BaseConnection):
         try:
             self._connect()
             yield None
-        except (socket.herror, socket.gaierror) as e:
-            raise ConnectionError(f"Host not found: {self.url}") from e
-        except socket.timeout as e:
-            raise ConnectionError(f"Host timeout: {self.url}") from e
         except ConnectionError as e:
             raise e
         finally:

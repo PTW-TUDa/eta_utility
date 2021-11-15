@@ -267,9 +267,14 @@ class EnEffCoConnection(BaseSeriesConnection):
         )
 
     def close_sub(self) -> None:
+        """Close an open subscription."""
+        self._subscription_open = False
+
+        if self.exc:
+            raise self.exc
+
         try:
             self._sub.cancel()
-            self._subscription_open = False
         except Exception:
             pass
 
@@ -301,8 +306,8 @@ class EnEffCoConnection(BaseSeriesConnection):
                     handler.push(node, value[node.name], value[node.name].index)
 
                 await asyncio.sleep(interval)
-        except asyncio.CancelledError:
-            pass
+        except BaseException as e:
+            self.exc = e
 
     def id_from_code(self, code: str, raw_datapoint: bool = False) -> str:
         """

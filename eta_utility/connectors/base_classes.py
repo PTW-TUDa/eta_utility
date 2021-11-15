@@ -177,6 +177,8 @@ class BaseConnection(ABC):
         #: Store local time zone
         self._local_tz = tz.tzlocal()
 
+        self.exc: Optional[BaseException] = None
+
     @classmethod
     @abstractmethod
     def from_node(cls, node: Node, **kwargs: Any) -> "BaseConnection":

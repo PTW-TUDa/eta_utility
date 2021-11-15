@@ -10,7 +10,7 @@ import re
 import threading
 from collections import deque
 from contextlib import AbstractContextManager
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Deque, Dict, List, Optional, Sequence, Union
 
 import numpy as np
@@ -22,7 +22,7 @@ from eta_utility.type_hints import Node, Number, Path, TimeStep
 
 from .base_classes import SubscriptionHandler
 
-log = get_logger("eta_utilty.connectors")
+log = get_logger("connectors")
 
 
 class MultiSubHandler(SubscriptionHandler):
@@ -114,13 +114,23 @@ class CsvSubHandler(SubscriptionHandler):
 
     def _run(self) -> None:
         """Take data from the queue, preprocess it and write to output file."""
+        cancelled = False
 
         with self._csv_file as f:
             try:
                 while True:
-                    data = self._queue.get()
+                    try:
+                        data = self._queue.get_nowait()
+                    except queue.Empty:
+                        if not cancelled:
+                            continue
+
+                    # Check for sentinel and finalize thread after completing open tasks
                     if data is None:
                         self._queue.task_done()
+                        cancelled = True
+                        continue
+                    elif cancelled is True and self._queue.empty():
                         break
 
                     node, value, timestamp = data
@@ -179,6 +189,7 @@ class _CSVFileDB(AbstractContextManager):
         self._endof_header: int = 0
         #: Write buffer
         self._buffer: Deque[Dict[str, Union[datetime, Number]]] = deque()
+        self._timebuffer: Deque[datetime] = deque()
         #: Latest timestamp in the write buffer
         self._latest_ts: datetime = datetime.fromtimestamp(10000, tz=tz.tzlocal())
         #: Latest known value for each of the names in the header
@@ -339,31 +350,45 @@ class _CSVFileDB(AbstractContextManager):
         else:
             buffer_target = _len_buffer
 
-        # New values are inserted into the buffer, depending on their timestamp in relation to self._latest_ts.
+        # New values are inserted into the buffer, depending on their timestamp
         if timestamp is not None and name is not None and value is not None:
+            # Extend header, if the value does not exist there yet
             if name not in self._header:
                 self._header.append(name)
                 self._endof_header = self._write_file([name], self._endof_header)
 
-            if timestamp > self._latest_ts:
+            # Find out, where to insert the current timestamp
+            if len(self._timebuffer) == 0 or self._timebuffer[-1] < timestamp:
+                # If the new timestamp occurred later than the latest timestamp
                 self._buffer.append({name: value})
-                self._latest_ts = timestamp
+                self._timebuffer.append(timestamp)
+            elif self._timebuffer[-1] == timestamp:
+                # If the timestamp is equal to the latest timestamp
+                self._buffer[-1].update({name: value})
+            elif self._timebuffer[0] > timestamp:
+                # If the new timestamp occurred before the earliest buffered timestamp
+                self._buffer.appendleft({name: value})
+                self._timebuffer.appendleft(timestamp)
+                log.debug(f"Buffer time for CSV file exceeded, older value received with {timestamp}")
             else:
-                idx = int(len(self._buffer) - ((self._latest_ts - timestamp).total_seconds() // self.write_interval))
-                try:
-                    self._buffer[idx].update({name: value})
-                except IndexError:
-                    if timestamp == self._latest_ts:
-                        self._buffer.append({name: value})
+                # If none of the special cases above apply, search through the timebuffer to figure out, where to
+                # insert the value
+                last_ts = self._timebuffer[0]
+                for idx, ts in enumerate(self._timebuffer):
+                    if timestamp == ts:
+                        self._buffer[idx].update({name: value})
+                        break
+                    elif last_ts < timestamp < ts:
+                        self._buffer.insert(idx, {name: value})
+                        self._timebuffer.insert(idx, timestamp)
+                        break
                     else:
-                        self._buffer.appendleft({name: value})
+                        last_ts = ts
 
         # Write any rows in the buffer which exceed the size of buffer_target to the file.
         while len(self._buffer) >= buffer_target and len(self._buffer) > 0:
             row = self._buffer.popleft()
-            row[self._header[0]] = (
-                self._latest_ts - timedelta(seconds=len(self._buffer) * self.write_interval)
-            ).strftime("%Y-%m-%d %H:%M:%S.%f")
+            row[self._header[0]] = self._timebuffer.popleft().strftime("%Y-%m-%d %H:%M:%S.%f")
 
             processed_row = [""] * len(self._header)
             for idx, col in enumerate(self._header):
