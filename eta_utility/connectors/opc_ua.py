@@ -218,6 +218,7 @@ class OpcUaConnection(BaseConnection):
         :param interval: Interval for requesting data in seconds
         """
         retry_wait = 0
+        subscribed = False
         try:
             while self._subscription_open:
                 await asyncio.sleep(retry_wait)
@@ -229,11 +230,13 @@ class OpcUaConnection(BaseConnection):
                     log.error(str(e))
                     continue
 
-                if self._connected:
+                if self._connected and not subscribed:
                     try:
                         self._sub = self.connection.create_subscription(interval * 1000, handler)
+                        subscribed = True
                     except RuntimeError as e:
                         log.warning(str(e))
+                        subscribed = False
                         self._disconnect()
                         continue
 
