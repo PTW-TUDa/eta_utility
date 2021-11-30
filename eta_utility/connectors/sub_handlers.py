@@ -136,7 +136,7 @@ class CsvSubHandler(SubscriptionHandler):
                     node, value, timestamp = data
 
                     # Make sure not to send lists to the file handler
-                    if hasattr(value, "__len__"):
+                    if not isinstance(value, str) and hasattr(value, "__len__"):
                         value = value[0]
                     if hasattr(timestamp, "__len__"):
                         timestamp = timestamp[0]
