@@ -18,7 +18,6 @@ def scenario_from_csv(
     total_time: Optional[TimeStep] = None,
     random: Union[np.random.BitGenerator, bool, None] = False,
     resample_time: Optional[TimeStep] = None,
-    resample_method: Optional[Union[Sequence[str], str]] = "asfreq",
     interpolation_method: Union[Sequence[str], str, None] = None,
     rename_cols: Optional[Mapping[str, str]] = None,
     prefix_renamed: Optional[bool] = True,
@@ -51,8 +50,6 @@ def scenario_from_csv(
                           one of 'upsample_fill' or downsample_method' must be supplied as well to determin how
                           the new data points should be determined. If given as an in, this will be interpreted as
                           seconds. The default is no resampling.
-    :param resample_method: (Keyword only) Method for filling in / aggregating data when resampling. Pandas
-                            resampling methods are supported. Default is None (no resampling)
     :param interpolation_method: (Keyword only) Method for interpolating missing data values. Pandas missing data
                                  handling methods are supported. If a list with one value per file is given, the
                                  specified method will be selected according the order of paths.
@@ -83,15 +80,6 @@ def scenario_from_csv(
 
     if not hasattr(paths, "__len__"):
         paths = (paths,)
-
-    # resample methods needs to be a list, so on case of None create a list of Nones
-    if not hasattr(resample_method, "__len__"):
-        if paths.__len__() > 1:
-            resample_method = [resample_method] * len(paths)
-        else:
-            resample_method = (resample_method,)
-    elif resample_method.__len__() != paths.__len__():
-        raise ValueError("The number of resample methods does not match the number of paths.")
 
     # interpolation methods needs to be a list, so in case of None create a list of Nones
     if not hasattr(interpolation_method, "__len__"):
@@ -157,7 +145,6 @@ def scenario_from_csv(
             data = timeseries.df_resample(
                 data,
                 resample_time,
-                resample_method=resample_method[i],
                 missing_data=interpolation_method[i],
             )
         else:

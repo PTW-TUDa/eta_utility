@@ -453,7 +453,7 @@ class DFSubHandler(SubscriptionHandler):
             self._data[node.name] = np.nan
 
         # Multiple values
-        if hasattr(value, "__len__"):
+        if not isinstance(value, str) and hasattr(value, "__len__"):
             value = self._convert_series(value, timestamp)
             # Push Series
             # Values are rounded to self.write_interval in _convert_series
