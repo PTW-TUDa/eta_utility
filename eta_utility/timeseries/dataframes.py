@@ -228,15 +228,18 @@ def df_resample(
                          examples: 'interpolate', 'fillna' (default: asfreq)
     :return: Copy of the dataframe
     """
-    interpolation_method = op.methodcaller("asfreq")
     if missing_data == "fillna":
         interpolation_method = op.methodcaller(missing_data, method="pad")
     elif missing_data == "interpolate":
         interpolation_method = op.methodcaller(missing_data, method="time")
+    elif missing_data is None:
+        interpolation_method = op.methodcaller("asfreq")
+    else:
+        interpolation_method = op.methodcaller(missing_data)
 
     if len(periods_deltas) == 1:
         delta = periods_deltas[0].total_seconds() if isinstance(periods_deltas[0], timedelta) else periods_deltas[0]
-        new_df = interpolation_method(df.resample(str(delta) + "S"))
+        new_df = interpolation_method(interpolation_method(df.resample(str(delta) + "S")))
 
     elif len(periods_deltas) % 2 > 0:
         raise ValueError("Number of arguments must be either 1 or a multiple of two " "(Pairs of periods and delta_T)")
@@ -252,7 +255,9 @@ def df_resample(
             )
             new_df = pd.concat(
                 df,
-                interpolation_method(df.iloc[total_periods : periods_deltas[key]].resample(str(delta) + "S")),
+                interpolation_method(
+                    interpolation_method(df.iloc[total_periods : periods_deltas[key]].resample(str(delta) + "S"))
+                ),
             )
             total_periods += periods_deltas[key]
 
