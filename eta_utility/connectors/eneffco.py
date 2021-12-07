@@ -327,9 +327,15 @@ class EnEffCoConnection(BaseSeriesConnection):
             self._node_ids_raw = pd.DataFrame(data=response.json())
 
         if raw_datapoint:
-            return self._node_ids_raw.loc[self._node_ids_raw["Code"] == code, "Id"].values.item()
+            if len(self._node_ids_raw.loc[self._node_ids_raw["Code"] == code, "Id"]) > 0:
+                return self._node_ids_raw.loc[self._node_ids_raw["Code"] == code, "Id"].values.item()
+            else:
+                raise ValueError(f"Code {code} does not exist on server {self.url}.")
         else:
-            return self._node_ids.loc[self._node_ids["Code"] == code, "Id"].values.item()
+            if len(self._node_ids.loc[self._node_ids["Code"] == code, "Id"]) > 0:
+                return self._node_ids.loc[self._node_ids["Code"] == code, "Id"].values.item()
+            else:
+                raise ValueError(f"Code {code} does not exist on server {self.url}.")
 
     def timestr_from_datetime(self, dt: datetime) -> str:
         """Create an EnEffCo compatible time string
