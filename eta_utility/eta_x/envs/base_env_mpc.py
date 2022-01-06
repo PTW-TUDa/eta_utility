@@ -256,6 +256,8 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         for var_name in self.names["observations"]:
             settings = self.state_config.loc[var_name]
             value = None
+
+            # Read values from external environment (for example simulation)
             if observations is not None and settings["is_ext_output"] is True:
                 value = round(
                     (observations[0][settings["ext_id"]] + settings["ext_scale_add"]) * settings["ext_scale_mult"],
@@ -263,6 +265,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
                 )
                 return_obs.append(value)
             else:
+                # Read additional values from the mathematical model
                 for component in self._concrete_model.component_objects():
                     if component.name == var_name:
                         # Get value for the component from specified index
@@ -273,7 +276,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
                     log.error(f"Specified observation value {var_name} could not be found")
             updated_params[var_name] = value
 
-            log.info(f"Observed value {var_name}: {value}")
+            log.debug(f"Observed value {var_name}: {value}")
 
         self.pyo_update_params(updated_params, self.nonindex_update_append_string)
         return np.array(return_obs)

@@ -478,8 +478,6 @@ class BaseEnv(Env, abc.ABC):
               have the same column names
             * **interpolation_method**: A pandas interpolation method, required if the frequency of
               values must be increased in comparison to the files data. (e.g.: 'linear' or 'pad')
-            * **resample_method**: A pandas resample method, required if the frequency of values
-              must be decreased in comparison to the files data. (e.g. 'asfreq' or 'sum')
             * **scale_factors**: Scaling factors for specific columns. This can be useful for
               example if a column contains data in kilowatt and should be imported in watts.
               In this case the scaling factor for the column would be 1000.
@@ -495,7 +493,6 @@ class BaseEnv(Env, abc.ABC):
         paths = []
         prefix = []
         int_methods = []
-        res_methods = []
         scale_factors = []
         rename_cols = {}
         infer_datetime_from = []
@@ -505,7 +502,6 @@ class BaseEnv(Env, abc.ABC):
             paths.append(self.path_scenarios / path["path"])
             prefix.append(path.get("prefix", None))
             int_methods.append(path.get("interpolation_method", None))
-            res_methods.append(path.get("resample_method", "asfreq"))
             scale_factors.append(path.get("scale_factors", None))
             rename_cols.update(path.get("rename_cols", {})),
             infer_datetime_from.append(path.get("infer_datetime_cols", "string"))
@@ -519,7 +515,6 @@ class BaseEnv(Env, abc.ABC):
             total_time=self.scenario_duration,
             random=self.np_random,
             interpolation_method=int_methods,
-            resample_method=res_methods,
             scaling_factors=scale_factors,
             rename_cols=rename_cols,
             prefix_renamed=prefix_renamed,

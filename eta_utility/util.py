@@ -8,11 +8,20 @@ from urllib.parse import ParseResult, urlparse, urlunparse
 from .type_hints import Path
 
 
-def get_logger(name: str = None, level: int = None) -> logging.Logger:
+def get_logger(name: str = None, level: int = None, format: str = None) -> logging.Logger:
     """Get eta_utility specific logger
+
+    Call this without specifying a name to initiate logging. Set the "level" and "format" parameters to determine
+    log output.
+
+    .. note::
+        When using this function internally (inside eta_utility) a name should always be specified to avoid leaking
+        logging info to external loggers. Also note that this can only be called once without specifying a name!
+        Subsequent calls will have no effect.
 
     :param name: Name of the logger
     :param level: Logging level (higher is more verbose)
+    :param format: Format of the log output. One of: simple, logname. (default: simple)
     :return: logger
     """
     prefix = "eta_utility"
@@ -25,10 +34,14 @@ def get_logger(name: str = None, level: int = None) -> logging.Logger:
         # Main logger (only add handler if it does not have one already)
         log = logging.getLogger(prefix)
         log.propagate = False
+
+        formats = {"simple": "[%(levelname)s] %(message)s", "logname": "[%(name)s: %(levelname)s] %(message)s"}
+        fmt = formats[format] if format in formats else formats["simple"]
+
         if not log.hasHandlers():
             handler = logging.StreamHandler(stream=sys.stdout)
             handler.setLevel(logging.DEBUG)
-            handler.setFormatter(logging.Formatter(fmt="[%(levelname)s] %(message)s"))
+            handler.setFormatter(logging.Formatter(fmt=fmt))
             log.addHandler(handler)
 
     if level is not None:

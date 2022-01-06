@@ -1,5 +1,5 @@
 import sys
-from typing import Any, Callable, List, Optional, Sequence, Tuple
+from typing import Any, Callable, List, Optional, Sequence, Tuple, Type
 
 import gym
 import numpy as np
@@ -32,9 +32,9 @@ class MPCBasic(BaseAlgorithm):
 
     def __init__(
         self,
-        policy: BasePolicy,
+        policy: Type[BasePolicy],
         env: gym.Env,
-        verbose: int = 4,
+        verbose: int = 1,
         *,
         solver_name: str = "cplex",
         **kwargs,
@@ -43,23 +43,32 @@ class MPCBasic(BaseAlgorithm):
         # Prepare kwargs to be sent to the super class and to the solver.
         super_args = {}
         solver_args = {}
-        for key in {
-            "requires_vec_env",
-            "policy_base",
-            "policy_kwargs",
-            "seed",
-            "n_cpu_tf_sess",
-        } | kwargs.keys():
-            if key in {"requires_vec_env"}:
-                super_args[key] = kwargs.get(key, True)
-            elif key in {"policy_base", "policy_kwargs", "seed", "n_cpu_tf_sess"}:
+
+        # Set default values for superclass arguments
+        kwargs.setdefault("policy_base", None)
+        kwargs.setdefault("learning_rate", 0)
+
+        for key in kwargs.keys():
+            # Find arguments which are meant for the BaseAlgorithm class and extract them into super_args
+            if key in {
+                "policy_base",
+                "learning_rate",
+                "policy_kwargs",
+                "device",
+                "support_multi_env",
+                "create_eval_env",
+                "monitor_wrapper",
+                "seed",
+                "use_sde",
+                "sde_sample_freq",
+                "supported_action_spaces",
+            }:
                 super_args[key] = kwargs.get(key, None)
             elif key in {"tensorboard_log"}:
                 log.warning(
                     "The MPC Basic agent does not support logging to tensorboard. "
                     "Ignoring parameter tensorboard_log."
                 )
-                continue
             else:
                 solver_args[key] = kwargs[key]
 
@@ -85,9 +94,9 @@ class MPCBasic(BaseAlgorithm):
 
         self.model: pyo.ConcreteModel  #: Pyomo optimization model as specified by the environment.
         self.actions_order: Sequence[str]  #: Specification of the order in which action values should be returned.
-        self.model, self.actions_order = self.setup_model()
+        self.model, self.actions_order = self._setup_model()
 
-    def setup_model(self) -> List[Any]:
+    def _setup_model(self) -> List[Any]:
         """Load the MILP model from the environment"""
         return self.env.get_attr("model", 0)[0]
 
@@ -180,7 +189,7 @@ class MPCBasic(BaseAlgorithm):
         # Make sure that actions are returned in the correct order and as a numpy array.
         actions = np.ndarray((1, len(self.actions_order)))
         for i, action in enumerate(self.actions_order):
-            log.info(f"Action '{action}' value: {solution[action]}")
+            log.debug(f"Action '{action}' value: {solution[action]}")
             actions[0][i] = solution[action]
 
         return actions, state
@@ -203,9 +212,11 @@ class MPCBasic(BaseAlgorithm):
         seed: Optional[int] = None,
         log_interval: int = 100,
         tb_log_name: str = "MPCSimple",
+        **kwargs,
     ) -> None:
         """The MPC approach cannot learn a new model. Specify the model attribute as a pyomo Concrete model instead,
         to use the prediction function of this agent.
+        :param **kwargs:
 
         """
         raise NotImplementedError("The MPC_simple approach does not need to learn a model.")

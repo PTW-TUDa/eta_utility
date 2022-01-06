@@ -210,36 +210,36 @@ def df_time_slice(
 
 
 def df_resample(
-    df: pd.DataFrame,
-    *periods_deltas: Union[TimeStep, Sequence[TimeStep]],
-    resample_method: str = "asfreq",
-    missing_data: Optional[str] = None,
+    df: pd.DataFrame, *periods_deltas: Union[TimeStep, Sequence[TimeStep]], missing_data: Optional[str] = None
 ) -> pd.DataFrame:
     """Resample the time index of a data frame. This method can be used for resampling in multiple different
     periods with multiple different deltas between single time entries.
 
-    :param df: datafram for processing
+    :param df: dataframe for processing
     :param periods_deltas: If one argument is specified this will resample the data to the specified interval
                            in seconds. If more than one argument is specified, they will be interpreted as
                            (periods, interval) pairs. The first argument specifies a number of periods that should
                            be resampled, the second value specifies the interval that these periods should be
                            resampled to. A third argument would determine the next number of periods that should
                            be resampled to the interval specified by the fourth argument and so on.
-    :param resample_method: If upsampling, this parameter must specify the upsampling method. All pandas resampling
-                            methods are valid. See also: https://pandas.pydata.org/docs/reference/resampling.html. Some
-                            examples: 'ffill', 'bfill', 'asfreq'
     :param missing_data: Specify a method for handling missing data values. If this is not specified, missing data
                          will not be handled. All missing data handling functions for pandas dataframes are valid.
                          See also: https://pandas.pydata.org/docs/reference/frame.html#missing-data-handling. Some
-                         examples: 'interpolate', 'fillna'
+                         examples: 'interpolate', 'fillna' (default: asfreq)
     :return: Copy of the dataframe
     """
-
-    sample_method = op.methodcaller(resample_method)
+    if missing_data == "fillna":
+        interpolation_method = op.methodcaller(missing_data, method="pad")
+    elif missing_data == "interpolate":
+        interpolation_method = op.methodcaller(missing_data, method="time")
+    elif missing_data is None:
+        interpolation_method = op.methodcaller("asfreq")
+    else:
+        interpolation_method = op.methodcaller(missing_data)
 
     if len(periods_deltas) == 1:
         delta = periods_deltas[0].total_seconds() if isinstance(periods_deltas[0], timedelta) else periods_deltas[0]
-        new_df = sample_method(df.resample(str(delta) + "S"))
+        new_df = interpolation_method(interpolation_method(df.resample(str(delta) + "S")))
 
     elif len(periods_deltas) % 2 > 0:
         raise ValueError("Number of arguments must be either 1 or a multiple of two " "(Pairs of periods and delta_T)")
@@ -255,17 +255,10 @@ def df_resample(
             )
             new_df = pd.concat(
                 df,
-                sample_method(df.iloc[total_periods : periods_deltas[key]].resample(delta + "S")),
+                interpolation_method(
+                    interpolation_method(df.iloc[total_periods : periods_deltas[key]].resample(str(delta) + "S"))
+                ),
             )
             total_periods += periods_deltas[key]
-
-    if missing_data is not None:
-        if missing_data == "fillna":
-            interpolation_method = op.methodcaller(missing_data, method="pad")
-        elif missing_data == "interpolate":
-            interpolation_method = op.methodcaller(missing_data, method="time")
-        else:
-            interpolation_method = op.methodcaller(missing_data)
-        new_df = interpolation_method(new_df)
 
     return new_df

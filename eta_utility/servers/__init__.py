@@ -1,1 +1,1 @@
-from .opcua import OpcUaServer
+from .opc_ua import OpcUaServer

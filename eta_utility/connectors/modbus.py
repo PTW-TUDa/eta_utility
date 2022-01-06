@@ -3,6 +3,7 @@
 import asyncio
 import socket
 import struct
+from contextlib import contextmanager
 from datetime import datetime, timedelta
 from typing import Any, List, Mapping, Optional, Sequence, Set
 
@@ -14,14 +15,14 @@ from eta_utility.type_hints import Node, Nodes, TimeStep
 
 from .base_classes import BaseConnection, SubscriptionHandler
 
-log = get_logger()
+log = get_logger("connectors.modbus")
 
 
 class ModbusConnection(BaseConnection):
-    """The OPC UA Connection class allows reading and writing from and to OPC UA servers and clients. Additionally
+    """The Modbus Connection class allows reading and writing from and to Modbus servers and clients. Additionally
     it implements a subscription server, which reads continuously in a specified interval.
 
-    :param url: Url of the OPC UA Server
+    :param url: Url of the Modbus Server
     :param usr: Username in EnEffco for login
     :param pwd: Password in EnEffco for login
     :param nodes: List of nodes to use for all operations.
@@ -67,32 +68,26 @@ class ModbusConnection(BaseConnection):
 
         :param nodes: List of nodes to read from
 
-        :return: dictionary containing current values of the OPCUA-variables
+        :return: dictionary containing current values of the Modbus-variables
         """
         nodes = self._validate_nodes(nodes)
 
         values = {}
 
-        try:
-            self.connection.open()
-            self.connection.mode(1)
-
+        with self._connection():
             for node in nodes:
                 result = self._read_mb_value(node)
                 value = self._decode(result, node.mb_byteorder)
 
                 values[node.name] = value
 
-        except socket.gaierror as e:
-            raise ConnectionError(f"Host not found: {self.url}") from e
-
-        finally:
-            self.connection.close()
-
         return pd.DataFrame(values, index=[self._assert_tz_awareness(datetime.now())])
 
     def write(self, values: Mapping[Node, Any]) -> None:
-        """Write some manually selected values on OPCUA capable controller
+        """Write some manually selected values on Modbus capable controller
+
+        .. warning::
+            This is not implemented
 
         :param values: Dictionary of nodes and data to write. {node: value}
         """
@@ -119,12 +114,16 @@ class ModbusConnection(BaseConnection):
         self._subscription_open = True
 
         loop = asyncio.get_event_loop()
-        self._sub = loop.create_task(self._subscription_loop(handler, int(interval.total_seconds())))
+        self._sub = loop.create_task(self._subscription_loop(handler, float(interval.total_seconds())))
 
     def close_sub(self) -> None:
+        """Close the subsription"""
+        self._subscription_open = False
+        if self.exc:
+            raise self.exc
+
         try:
             self._sub.cancel()
-            self._subscription_open = False
         except Exception:
             pass
 
@@ -133,7 +132,7 @@ class ModbusConnection(BaseConnection):
         except Exception:
             pass
 
-    async def _subscription_loop(self, handler: SubscriptionHandler, interval: TimeStep) -> None:
+    async def _subscription_loop(self, handler: SubscriptionHandler, interval: float) -> None:
         """The subscription loop handles requesting data from the server in the specified interval
 
         :param handler: Handler object with a push function to receive data
@@ -143,20 +142,24 @@ class ModbusConnection(BaseConnection):
         try:
             while self._subscription_open:
                 try:
-                    if not self.connection.is_open():
-                        if not self.connection.open():
-                            raise ConnectionError(f"Could not establish connection to host {self.url}")
-                        self.connection.mode(1)
-                except socket.gaierror as e:
-                    raise ConnectionError(f"Host not found: {self.url}") from e
+                    self._connect()
+                except ConnectionError as e:
+                    log.warning(str(e))
 
                 for node in self._subscription_nodes:
-                    result = self._read_mb_value(node)
-                    self._decode(result, node.mb_byteorder)
-                    handler.push(node, result, self._assert_tz_awareness(datetime.now()))
+                    result = None
+                    try:
+                        result = self._read_mb_value(node)
+                    except (ValueError, ConnectionError) as e:
+                        log.warning(str(e))
+
+                    if result is not None:
+                        self._decode(result, node.mb_byteorder)
+                        handler.push(node, result, self._assert_tz_awareness(datetime.now()))
+
                 await asyncio.sleep(interval)
-        except asyncio.CancelledError:
-            pass
+        except BaseException as e:
+            self.exc = e
 
     @staticmethod
     def _decode(value: Sequence[int], byteorder: str, type_: str = "f") -> Any:
@@ -207,12 +210,48 @@ class ModbusConnection(BaseConnection):
 
         return result
 
+    def _connect(self) -> None:
+        """Connect to server."""
+        try:
+            if not self.connection.is_open():
+                if not self.connection.open():
+                    raise ConnectionError(f"Could not establish connection to host {self.url}")
+                self.connection.mode(1)
+        except (socket.herror, socket.gaierror) as e:
+            raise ConnectionError(f"Host not found: {self.url}") from e
+        except (socket.timeout) as e:
+            raise ConnectionError(f"Host timeout: {self.url}") from e
+        except (RuntimeError, ConnectionError) as e:
+            raise ConnectionError(f"Connection Error: {self.url}, Error: {str(e)}") from e
+
+    def _disconnect(self) -> None:
+        """Disconnect from server"""
+        try:
+            self.connection.close()
+        except (OSError, RuntimeError) as e:
+            log.error(f"Closing connection to server {self.url} failed")
+            log.info(f"Connection to {self.url} returned error: {e}")
+        except AttributeError:
+            log.error(f"Connection to server {self.url} already closed.")
+
+    @contextmanager
+    def _connection(self) -> None:
+        """Connect to the server and return a context manager that automatically disconnects when finished."""
+        try:
+            self._connect()
+            yield None
+        except ConnectionError as e:
+            raise e
+        finally:
+            self._disconnect()
+
     def _handle_mb_error(self) -> None:
         error = self.connection.last_error()
-        log.error(self.connection.last_except())
-        if error == 2:
-            raise ConnectionError("ModbusError 2: Illegal Data Address")
-        elif error == 4:
-            raise ConnectionResetError("ModbusError 4: Slave Device Failure")
+        exception = self.connection.last_except()
+
+        if error is not None:
+            raise ConnectionError(f"ModbusError {error} at {self.url}: {self.connection.last_error_txt()}")
+        elif exception is not None:
+            raise ConnectionError(f"ModbusError {exception} at {self.url}: {self.connection.last_except_txt()}")
         else:
-            raise ConnectionError(f"ModbusError {error}: Unknown ModbusError")
+            raise ConnectionError(f"Unknown ModbusError at {self.url}")

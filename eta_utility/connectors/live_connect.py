@@ -1,5 +1,4 @@
 """ Initiate live connections that automate certain tasks associated with the creation of such connections."""
-import itertools as it
 import pathlib
 import types
 from contextlib import AbstractContextManager
@@ -463,14 +462,15 @@ class LiveConnect(AbstractContextManager):
             nodes = dict(zip(nodes, values))
 
         # Sort nodes to be written by connection
-        writes = dict(zip(self._connections.keys(), it.repeat({})))
+        writes = {url: {} for url in self._connections.keys()}
         for name, value in nodes.items():
             n = f"{self.name}.{name}" if "." not in name and self.name is not None else name
             writes[self._connection_map[n]][self._nodes[n]] = value
 
         # Write to all selected nodes for each connection
         for connection in self._connections:
-            self._connections[connection].write(writes[connection])
+            if writes[connection]:
+                self._connections[connection].write(writes[connection])
 
     def read(self, *nodes: str) -> Dict[str, Any]:
         """Take a list of nodes and return their names and most recent values
@@ -479,7 +479,7 @@ class LiveConnect(AbstractContextManager):
         :return: Dictionary of the most current node values.
         """
         # Sort nodes to be read by connection
-        reads = dict(zip(self._connections.keys(), it.repeat([])))
+        reads = {url: [] for url in self._connections.keys()}
         for name in nodes:
             n = f"{self.name}.{name}" if "." not in name and self.name is not None else name
             reads[self._connection_map[n]].append(self._nodes[n])
@@ -487,7 +487,8 @@ class LiveConnect(AbstractContextManager):
         # Read from all selected nodes for each connection
         result = {}
         for connection in self._connections:
-            result.update(self._connections[connection].read(reads[connection]).iloc[0].to_dict())
+            if reads[connection]:
+                result.update(self._connections[connection].read(reads[connection]).iloc[0].to_dict())
 
         return result
 

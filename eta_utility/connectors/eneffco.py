@@ -267,9 +267,14 @@ class EnEffCoConnection(BaseSeriesConnection):
         )
 
     def close_sub(self) -> None:
+        """Close an open subscription."""
+        self._subscription_open = False
+
+        if self.exc:
+            raise self.exc
+
         try:
             self._sub.cancel()
-            self._subscription_open = False
         except Exception:
             pass
 
@@ -301,8 +306,8 @@ class EnEffCoConnection(BaseSeriesConnection):
                     handler.push(node, value[node.name], value[node.name].index)
 
                 await asyncio.sleep(interval)
-        except asyncio.CancelledError:
-            pass
+        except BaseException as e:
+            self.exc = e
 
     def id_from_code(self, code: str, raw_datapoint: bool = False) -> str:
         """
@@ -322,9 +327,15 @@ class EnEffCoConnection(BaseSeriesConnection):
             self._node_ids_raw = pd.DataFrame(data=response.json())
 
         if raw_datapoint:
-            return self._node_ids_raw.loc[self._node_ids_raw["Code"] == code, "Id"].values.item()
+            if len(self._node_ids_raw.loc[self._node_ids_raw["Code"] == code, "Id"]) > 0:
+                return self._node_ids_raw.loc[self._node_ids_raw["Code"] == code, "Id"].values.item()
+            else:
+                raise ValueError(f"Code {code} does not exist on server {self.url}.")
         else:
-            return self._node_ids.loc[self._node_ids["Code"] == code, "Id"].values.item()
+            if len(self._node_ids.loc[self._node_ids["Code"] == code, "Id"]) > 0:
+                return self._node_ids.loc[self._node_ids["Code"] == code, "Id"].values.item()
+            else:
+                raise ValueError(f"Code {code} does not exist on server {self.url}.")
 
     def timestr_from_datetime(self, dt: datetime) -> str:
         """Create an EnEffCo compatible time string
