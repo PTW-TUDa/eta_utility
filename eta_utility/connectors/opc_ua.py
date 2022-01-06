@@ -88,7 +88,7 @@ class OpcUaConnection(BaseConnection):
                 try:
                     opcua_variable = self.connection.get_node(node.opc_id)
                     value = opcua_variable.get_value()
-                    values[node.name] = value
+                    values[node.name] = [value]
                 except RuntimeError as e:
                     raise ConnectionError(str(e)) from e
 
