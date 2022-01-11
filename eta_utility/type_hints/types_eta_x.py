@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 from gym import Env
 from gym.vector.utils import spaces
-from nptyping import NDArray
+from nptyping import Float, NDArray
 
 StepResult = NewType("StepResult", Tuple[NDArray[NDArray[float]], NDArray[float], NDArray[bool], List[Dict]])
 DefSettings = NewType("DefSettings", Mapping[str, Mapping[str, Union[str, int, bool, None]]])
@@ -51,12 +51,11 @@ class BaseEnv(Env, abc.ABC):
     #   values. These parameter, value pairs can be specified in the req_env_config dictionary.
     req_env_config: MutableMapping = {}
 
-    def __init__(self):
-        raise NotImplementedError
+    def __init__(self) -> None:
+        ...
 
-    def append_state(self, *, name: Any, **kwargs) -> None:
-
-        pass
+    def append_state(self, *, name: Any, **kwargs: Dict[str, Any]) -> None:
+        ...
 
     def _init_state_space(self) -> None:
 
@@ -95,27 +94,20 @@ class BaseEnv(Env, abc.ABC):
         pass
 
     @abc.abstractmethod
-    def step(
-        self, action: np.ndarray
-    ) -> Tuple[np.ndarray, Union[np.float, SupportsFloat], bool, Union[str, Sequence[str]]]:
-
-        pass
+    def step(self, action: NDArray) -> Tuple[NDArray, Union[Float, SupportsFloat], bool, Union[str, Sequence[str]]]:
+        ...
 
     @abc.abstractmethod
-    def reset(self) -> Tuple[np.ndarray, Union[np.float, SupportsFloat], bool, Union[str, Sequence[str]]]:
-
-        pass
+    def reset(self) -> Tuple[NDArray, Union[Float, SupportsFloat], bool, Union[str, Sequence[str]]]:
+        ...
 
     @abc.abstractmethod
     def close(self) -> None:
+        ...
 
-        pass
-
-    def seed(self, seed: Union[str, int] = None) -> Tuple[np.random.BitGenerator, int]:
-
-        pass
+    def seed(self, seed: Union[str, int, None] = None) -> Tuple[np.random.BitGenerator, int]:
+        ...
 
     @classmethod
-    def get_info(cls, _=None) -> Tuple[str, str]:
-
-        pass
+    def get_info(cls, _: Any = None) -> Tuple[str, str]:
+        ...

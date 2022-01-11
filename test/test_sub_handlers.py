@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import pandas as pd
-from pytest import mark
+import pytest
 
 from eta_utility.connectors import CsvSubHandler, DFSubHandler, Node
 
@@ -69,7 +69,7 @@ class TestCSVSubHandler:
 
 
 class TestDFSubHandler:
-    @mark.parametrize("value, timestamp", [(sample_series.values, sample_series.index)])
+    @pytest.mark.parametrize(("value", "timestamp"), [(sample_series.values, sample_series.index)])
     def test_push_timeseries_to_df(self, value, timestamp):
         """Test pushing a Series all at once"""
         handler = DFSubHandler(write_interval=1)

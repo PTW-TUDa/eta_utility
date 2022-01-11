@@ -48,8 +48,7 @@ def df_from_csv(
 
     :param time_conversion_str: Time conversion string according to the python (strptime) format
     """
-    if type(path) is str:
-        path = pathlib.Path(path)
+    path = pathlib.Path(path) if not isinstance(path, pathlib.Path) else path
 
     conversion_string = None
     infer_datetime_format = False
@@ -77,7 +76,7 @@ def df_from_csv(
         reader = csv.reader(f, delimiter=delimiter)
         try:
             first_line = next(reader)
-            if type(infer_datetime_from) in {list, tuple}:
+            if isinstance(infer_datetime_from, list) or isinstance(infer_datetime_from, tuple):
                 if infer_datetime_from[0] > 0:
                     for _ in range(1, infer_datetime_from[0]):
                         conversion_line = next(reader)
@@ -99,13 +98,13 @@ def df_from_csv(
     if infer_datetime_format:
         parse_dates = True
 
-    def converter(val: str) -> np.float:
+    def converter(val: str) -> float:
         val = str(val).strip().replace(" ", "").replace(",", ".")
         if len(val) > 0:
-            val = np.float(val)
+            fval = float(val)
         else:
-            val = np.nan
-        return val
+            fval = float("nan")
+        return fval
 
     data = pd.read_csv(
         path,
@@ -129,7 +128,7 @@ def find_time_slice(
     time_end: Optional[datetime] = None,
     total_time: Optional[TimeStep] = None,
     round_to_interval: Optional[TimeStep] = None,
-    random: Union[bool, np.random.BitGenerator] = False,
+    random: Union[bool, np.random.Generator] = False,
 ) -> Tuple[datetime, datetime]:
     """Return a (potentially random) slicing interval that can be used to slice a data frame.
 
@@ -144,13 +143,13 @@ def find_time_slice(
     :return: Tuple of slice_begin time and slice_end time. Both times are datetime objects.
     """
     # Determine ending time and total time depending on what was supplied.
-    if time_end is None and total_time is None:
-        raise ValueError("At least one of time_end and total_time must be specified to fully constrain the interval.")
-    elif time_end is not None and total_time is None:
+    if time_end is not None and total_time is None:
         total_time = time_end - time_begin
-    else:
+    elif total_time is not None:
         total_time = timedelta(seconds=total_time) if not isinstance(total_time, timedelta) else total_time
         time_end = time_begin + total_time if time_end is None else time_end
+    else:
+        raise ValueError("At least one of time_end and total_time must be specified to fully constrain the interval.")
 
     round_to_interval = (
         round_to_interval.total_seconds() if isinstance(round_to_interval, timedelta) else round_to_interval
@@ -158,7 +157,7 @@ def find_time_slice(
 
     # Determine the (possibly random) beginning time of the time slice and round it if necessary
     if random:
-        if type(random) is bool:
+        if isinstance(random, bool):
             random = np.random.default_rng()
             log.info(
                 "Using an unseeded random generator for time slicing. This will not produce deterministic " "results."
@@ -189,7 +188,7 @@ def df_time_slice(
     time_end: Optional[datetime] = None,
     total_time: Optional[TimeStep] = None,
     round_to_interval: Optional[TimeStep] = None,
-    random: Union[bool, np.random.BitGenerator] = False,
+    random: Union[bool, np.random.Generator] = False,
 ) -> pd.DataFrame:
     """Return a data frame which has been sliced starting at time_begin and ending at time_end, from df.
 
@@ -206,7 +205,7 @@ def df_time_slice(
     """
 
     slice_begin, slice_end = find_time_slice(time_begin, time_end, total_time, round_to_interval, random)
-    return df[slice_begin:slice_end].copy()
+    return df[slice_begin:slice_end].copy()  # type: ignore
 
 
 def df_resample(
@@ -238,27 +237,28 @@ def df_resample(
         interpolation_method = op.methodcaller(missing_data)
 
     if len(periods_deltas) == 1:
-        delta = periods_deltas[0].total_seconds() if isinstance(periods_deltas[0], timedelta) else periods_deltas[0]
+        delta = str(
+            periods_deltas[0].total_seconds() if isinstance(periods_deltas[0], timedelta) else periods_deltas[0]
+        )
         new_df = interpolation_method(interpolation_method(df.resample(str(delta) + "S")))
-
-    elif len(periods_deltas) % 2 > 0:
-        raise ValueError("Number of arguments must be either 1 or a multiple of two " "(Pairs of periods and delta_T)")
     else:
         new_df = pd.DataFrame()
         total_periods = 0
         for i in range(len(periods_deltas) // 2):
             key = i * 2
             delta = str(
-                periods_deltas[key + 1].total_seconds()
+                periods_deltas[key + 1].total_seconds()  # type: ignore
                 if isinstance(periods_deltas[key + 1], timedelta)
                 else periods_deltas[key + 1]
             )
             new_df = pd.concat(
                 df,
                 interpolation_method(
-                    interpolation_method(df.iloc[total_periods : periods_deltas[key]].resample(str(delta) + "S"))
+                    interpolation_method(
+                        df.iloc[total_periods : periods_deltas[key]].resample(str(delta) + "S")  # type: ignore
+                    )
                 ),
             )
-            total_periods += periods_deltas[key]
+            total_periods += periods_deltas[key]  # type: ignore
 
     return new_df

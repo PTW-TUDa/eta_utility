@@ -4,7 +4,8 @@
 import math
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
-from typing import Any, AnyStr, Mapping, Optional, Sequence, Union
+from typing import Any, Mapping, Optional, Sequence, Set, Union
+from urllib.parse import ParseResult
 
 import pandas as pd
 from dateutil import tz
@@ -141,7 +142,7 @@ class BaseConnection(ABC):
         self, url: str, usr: Optional[str] = None, pwd: Optional[str] = None, *, nodes: Optional[Nodes] = None
     ) -> None:
         #: URL of the server to connect to
-        self._url: str
+        self._url: ParseResult
         #: Username fot login to server
         self.usr: str
         #: Password for login to server
@@ -222,10 +223,10 @@ class BaseConnection(ABC):
         pass
 
     @property
-    def url(self) -> AnyStr:
+    def url(self) -> str:
         return self._url.geturl()
 
-    def _validate_nodes(self, nodes: Nodes) -> Nodes:
+    def _validate_nodes(self, nodes: Union[Nodes, None]) -> Set[Node]:
         """Make sure that nodes are a Set of nodes and that all nodes correspond to the protocol and url
         of the connection.
 

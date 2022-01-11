@@ -2,7 +2,7 @@ from copy import deepcopy
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
-from stable_baselines.common.vec_env import (
+from stable_baselines3.common.vec_env import (
     AlreadySteppingError,
     DummyVecEnv,
     NotSteppingError,

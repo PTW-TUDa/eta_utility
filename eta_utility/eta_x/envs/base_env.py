@@ -383,10 +383,12 @@ class BaseEnv(Env, abc.ABC):
         """
         self.names = {
             "actions": self.state_config.loc[self.state_config.is_agent_action == True].index.values,  # noqa: E712
-            "observations": self.state_config.loc[self.state_config.is_agent_observation == True].index.values,
-            "ext_inputs": self.state_config.loc[self.state_config.is_ext_input == True].index.values,
-            "ext_outputs": self.state_config.loc[self.state_config.is_ext_output == True].index.values,
-            "scenario": self.state_config.loc[self.state_config.from_scenario == True].index.values,
+            "observations": self.state_config.loc[
+                self.state_config.is_agent_observation == True  # noqa: E712
+            ].index.values,
+            "ext_inputs": self.state_config.loc[self.state_config.is_ext_input == True].index.values,  # noqa: E712
+            "ext_outputs": self.state_config.loc[self.state_config.is_ext_output == True].index.values,  # noqa: E712
+            "scenario": self.state_config.loc[self.state_config.from_scenario == True].index.values,  # noqa: E712
             "abort_conditions_min": self.state_config.loc[self.state_config.abort_condition_min.notnull()].index.values,
             "abort_conditions_max": self.state_config.loc[self.state_config.abort_condition_max.notnull()].index.values,
         }
@@ -655,7 +657,7 @@ class BaseEnv(Env, abc.ABC):
         return self.np_random, self._seed
 
     @classmethod
-    def get_info(cls, _=None) -> Tuple[str, str]:
+    def get_info(cls, _: Any = None) -> Tuple[str, str]:
         """
         Get info about environment
 

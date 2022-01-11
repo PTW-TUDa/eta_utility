@@ -2,7 +2,7 @@
 import pathlib
 import types
 from contextlib import AbstractContextManager
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Type, Union
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Type, Union
 from urllib.parse import urlparse, urlunparse
 
 from eta_utility import get_logger, json_import
@@ -125,33 +125,38 @@ class LiveConnect(AbstractContextManager):
         self._connection_map = {node.name: node.url_parsed.hostname for node in self._nodes.values()}
 
         errors = False
+
         #: Nodes for initializing the system
-        self._init_vals: Optional[Dict[str, Any]] = {}
-        if init is not None:
-            for key, sys_val in init.items():
-                if isinstance(sys_val, Mapping):
-                    self._init_vals.update({k: v for k, v in sys_val.items()})
-                elif sys_val is not None:
-                    self._init_vals[key] = sys_val
-        if len(self._init_vals) <= 0:
-            self._init_vals = None
-        elif not self._init_vals.keys() <= self._nodes.keys():
-            log.error("Not all nodes required for initialization are configured as nodes.")
-            errors = True
+        self._init_vals: Optional[Dict[str, Any]]
+        self._init_vals, e = self._read_value_mapping(
+            init, e_msg="Not all nodes required for initialization are configured as nodes."
+        )
+        if e:
+            errors = e
 
         #: Nodes for closing the connection
-        self._close_vals: Optional[Dict[str, Any]] = {}
-        if close is not None:
-            for key, sys_val in close.items():
-                if isinstance(sys_val, Mapping):
-                    self._close_vals.update({k: v for k, v in sys_val.items()})
-                elif sys_val is not None:
-                    self._close_vals[key] = sys_val
-        if len(self._close_vals) <= 0:
-            self._close_vals = None
-        elif not self._close_vals.keys() <= self._nodes.keys():
-            log.error("Not all nodes required for closing the object are configured as nodes.")
-            errors = True
+        self._close_vals: Optional[Dict[str, Any]]
+        self._close_vals, e = self._read_value_mapping(
+            close, e_msg="Not all nodes required for closing the object are configured as nodes."
+        )
+        if e:
+            errors = e
+
+        #: Nodes for activating the system
+        self._activate_vals: Dict[str, Any] = {}
+        self._activate_vals, e = self._read_value_mapping(
+            activate, flatten=False, e_msg="Not all nodes required for system activation are configured as nodes."
+        )
+        if e:
+            errors = e
+
+        #: Nodes for deactivating the system
+        self._deactivate_vals: Dict[str, Any] = {}
+        self._deactivate_vals, e = self._read_value_mapping(
+            deactivate, flatten=False, e_msg="Not all nodes required for system deactivation are configured as nodes."
+        )
+        if e:
+            errors = e
 
         #: Nodes to observe
         self._observe_vals: Optional[List[str]] = []
@@ -189,55 +194,56 @@ class LiveConnect(AbstractContextManager):
             set_value.setdefault("min", None)
             set_value.setdefault("max", None)
 
-        #: Nodes for activating the system
-        self._activate_vals: Dict[str, Any] = {}
-        if activate is not None:
-            for key, sys_val in activate.items():
-                if sys_val is not None:
-                    self._activate_vals[key] = sys_val
-                    if not sys_val.keys() <= self._nodes.keys():
-                        log.error(
-                            f"Not all nodes required for system activation of system {key} are " f"configured as nodes."
-                        )
-                        errors = True
-                else:
-                    self._activate_vals[key] = None
-
-        #: Nodes for deactivating the system
-        self._deactivate_vals: Dict[str, Any] = {}
-        if deactivate is not None:
-            for key, sys_val in deactivate.items():
-                if sys_val is not None:
-                    self._deactivate_vals[key] = sys_val
-                    if not sys_val.keys() <= self._nodes.keys():
-                        log.error(
-                            f"Not all nodes required for system activation of system {key} are " f"configured as nodes."
-                        )
-                        errors = True
-                else:
-                    self._deactivate_vals[key] = None
-
         #: Indicator to keep track of to know whether the system must be activated or deactivated. If this is not
         #: set, the user must keep track of when the activation and deactivation functions need to be called. This
         #: may not be necessary for all systems.
         self._activation_indicators: Dict[str, Any] = {}
-        if activation_indicators is not None:
-            for key, sys_val in activation_indicators.items():
-                if sys_val is not None:
-                    self._activation_indicators[key] = sys_val
-                    if not sys_val.keys() <= self._nodes.keys():
-                        log.error(
-                            f"Not all nodes required for system activation of system {key} are " f"configured as nodes."
-                        )
-                        errors = True
-                else:
-                    self._activation_indicators[key] = None
+        self._activation_indicators, e = self._read_value_mapping(
+            activation_indicators,
+            flatten=False,
+            e_msg="Not all nodes required for checking system activation are configured as nodes.",
+        )
 
-        if errors:
+        if e or errors:
             raise KeyError("Not all required nodes are configured.")
 
         if self._init_vals is not None:
             self.write(self._init_vals)
+
+    def _read_value_mapping(
+        self, values: Mapping[str, Any], flatten: bool = True, *, e_msg
+    ) -> Tuple[Optional[Dict[str, Any]], bool]:
+        """Read a list of values and deserialize it to a mapping
+
+        :param values: Values to deserialize
+        :param flatten: Output into a single layer (not separated by system) (default: True)
+        :param e_msg: Error message to log if function fails
+        :return: Tuple of deserialized values and bool indicating an error if true
+        """
+        errors = False
+        vals = {}
+
+        if values is not None:
+            for key, sys_val in values.items():
+                if isinstance(sys_val, Mapping) and flatten:
+                    vals.update({k: v for k, v in sys_val.items()})
+                elif sys_val is not None:
+                    vals[key] = sys_val
+                else:
+                    vals[key] = None
+
+        if len(vals) <= 0:
+            vals = None
+        elif not vals.keys() <= self._nodes.keys() and flatten:
+            log.error(e_msg)
+            errors = True
+        elif not flatten:
+            for key, sys_val in vals.items():
+                if not sys_val.keys() <= self._nodes.keys():
+                    log.error(e_msg)
+                    errors = True
+
+        return vals, errors
 
     @classmethod
     def from_json(cls, files: Union[Path, Sequence[Path]], usr: str = None, pwd: str = None) -> "LiveConnect":

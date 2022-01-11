@@ -1,14 +1,17 @@
 import json
 import logging
+import pathlib
 import re
 import sys
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple, Union
 from urllib.parse import ParseResult, urlparse, urlunparse
 
 from .type_hints import Path
 
 
-def get_logger(name: str = None, level: int = None, format: str = None) -> logging.Logger:
+def get_logger(
+    name: Optional[str] = None, level: Optional[int] = None, format: Optional[str] = None  # noqa: A002
+) -> logging.Logger:
     """Get eta_utility specific logger
 
     Call this without specifying a name to initiate logging. Set the "level" and "format" parameters to determine
@@ -58,6 +61,8 @@ def json_import(path: Path) -> Dict[str, Any]:
     :param path: path to json file
     :return: Parsed dictionary
     """
+    path = pathlib.Path(path) if not isinstance(path, pathlib.Path) else path
+
     try:
         # Remove comments from the json file (using regular expression), then parse it into a dictionary
         cleanup = re.compile(r"^\s*(.*?)(?=/{2}|$)", re.MULTILINE)
@@ -72,7 +77,7 @@ def json_import(path: Path) -> Dict[str, Any]:
     return result
 
 
-def url_parse(url: str) -> Tuple[ParseResult, str, str]:
+def url_parse(url: str) -> Tuple[ParseResult, Union[str, None], Union[str, None]]:
     """Extend parsing of url strings to find passwords and remove them from the original URL
 
     :param url: URL string to be parsed
@@ -87,6 +92,9 @@ def url_parse(url: str) -> Tuple[ParseResult, str, str]:
     # Find the "password-free" part of the netloc to prevent leaking secret info
     if usr is not None:
         match = re.search("(?<=@).+$", _url.netloc)
-        _url = urlparse(urlunparse((_url.scheme, match.group(), _url.path, _url.query, _url.fragment, _url.fragment)))
+        if match:
+            _url = urlparse(
+                urlunparse((_url.scheme, match.group(), _url.path, _url.query, _url.fragment, _url.fragment))
+            )
 
     return _url, usr, pwd

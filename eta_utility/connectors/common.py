@@ -151,6 +151,8 @@ class Node:
         self.opc_ns: int
         #: Type of the OPC UA Node ID Specification
         self.opc_id_type: str
+        #: Name of the OPC UA Node
+        self.opc_name: str
 
         if "opc_id" in kwargs.keys():
             parts = str(kwargs["opc_id"]).strip().split(";")

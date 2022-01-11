@@ -5,7 +5,7 @@ import socket
 import struct
 from contextlib import contextmanager
 from datetime import datetime, timedelta
-from typing import Any, List, Mapping, Optional, Sequence, Set
+from typing import Any, Generator, List, Mapping, Optional, Sequence, Set
 
 import pandas as pd
 from pyModbusTCP.client import ModbusClient  # noqa: I900
@@ -42,7 +42,7 @@ class ModbusConnection(BaseConnection):
 
         self._subscription_open: bool = False
         self._subscription_nodes: Set[Node] = set()
-        self._sub: Optional[asyncio.Task] = None
+        self._sub: asyncio.Task
 
     @classmethod
     def from_node(cls, node: Node, **kwargs: Any) -> "ModbusConnection":
@@ -70,12 +70,12 @@ class ModbusConnection(BaseConnection):
 
         :return: dictionary containing current values of the Modbus-variables
         """
-        nodes = self._validate_nodes(nodes)
+        _nodes = self._validate_nodes(nodes)
 
         values = {}
 
         with self._connection():
-            for node in nodes:
+            for node in _nodes:
                 result = self._read_mb_value(node)
                 value = self._decode(result, node.mb_byteorder)
 
@@ -100,11 +100,11 @@ class ModbusConnection(BaseConnection):
         :param handler: SubscriptionHandler object with a push method that accepts node, value pairs
         :param interval: interval for receiving new data. It it interpreted as seconds when given as an integer.
         """
-        nodes = self._validate_nodes(nodes)
+        _nodes = self._validate_nodes(nodes)
 
         interval = interval if isinstance(interval, timedelta) else timedelta(seconds=interval)
 
-        self._subscription_nodes.update(nodes)
+        self._subscription_nodes.update(_nodes)
 
         if self._subscription_open:
             # Adding nodes to subscription is enough to include them in the query. Do not start an additional loop
@@ -190,7 +190,7 @@ class ModbusConnection(BaseConnection):
         # pymodbus gives a Sequence of 16bit unsigned integers which must be converted into the correct format
         return struct.unpack(unpack, struct.pack(pack, *value))[0]
 
-    def _read_mb_value(self, node: Node) -> Optional[List[int]]:
+    def _read_mb_value(self, node: Node) -> List[int]:
         """Read raw value from modbus server. This function should not be used directly. It does not
         establish a connection or handle connection errors.
 
@@ -235,7 +235,7 @@ class ModbusConnection(BaseConnection):
             log.error(f"Connection to server {self.url} already closed.")
 
     @contextmanager
-    def _connection(self) -> None:
+    def _connection(self) -> Generator:
         """Connect to the server and return a context manager that automatically disconnects when finished."""
         try:
             self._connect()
