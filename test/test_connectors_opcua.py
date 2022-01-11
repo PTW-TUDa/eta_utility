@@ -3,9 +3,8 @@ import random
 import socket
 import struct
 
-import opcua.ua.uaerrors
 import pandas as pd
-from pytest import fail, fixture, raises
+import pytest
 
 from eta_utility import get_logger
 from eta_utility.connectors import Node, OpcUaConnection
@@ -35,7 +34,7 @@ node_fail = Node(
 )
 
 
-@fixture
+@pytest.fixture()
 def local_nodes():
     return (
         Node(
@@ -53,7 +52,7 @@ def local_nodes():
     )
 
 
-@fixture
+@pytest.fixture()
 def local_node_case_sensitive():
     return Node(
         "Serv.NodeName",
@@ -67,18 +66,18 @@ def test_opcua_failures():
     """Test opcua failures"""
     server_fail = OpcUaConnection(node_fail.url)
 
-    with raises(ConnectionError):
+    with pytest.raises(ConnectionError):
         server_fail.read(node_fail)
 
     server = OpcUaConnection(node.url)
 
     # Reading without specifying nodes raises Value Error
-    with raises(ValueError):
+    with pytest.raises(ValueError, match="Some nodes to read from/write to must be specified"):
         server.read()
 
 
 class TestOpcUABasics:
-    @fixture
+    @pytest.fixture()
     def connection(self, monkeypatch):
         # Test reading a single node
         connection = OpcUaConnection(node.url)
@@ -116,7 +115,7 @@ class TestOpcUABasics:
 
 
 class TestOpcUAServerAndConnection:
-    @fixture
+    @pytest.fixture()
     def server_and_connection(self, local_nodes):
         server = OpcUaServer(6)
         connection = OpcUaConnection(local_nodes[0].url, "admin", nodes=local_nodes[0])
@@ -124,12 +123,12 @@ class TestOpcUAServerAndConnection:
 
         server.stop()
 
-    @fixture
+    @pytest.fixture()
     def server_and_connection_with_nodes(self, server_and_connection, local_nodes):
         server_and_connection.create_nodes(local_nodes)
         values = {local_nodes[0]: 16, local_nodes[1]: 56}
         server_and_connection.write(values)
-        yield (server_and_connection)
+        return server_and_connection
 
     def test_opcua_client_write(self, server_and_connection, local_nodes):
         server_and_connection.create_nodes(local_nodes)
@@ -148,16 +147,15 @@ class TestOpcUAServerAndConnection:
 
     def test_read_non_existent_node(self, server_and_connection, local_nodes):
         # Read from a node that does not exist
-        with raises(ConnectionError) as e:
+        with pytest.raises(ConnectionError, match="The node id refers to a node that does not exist"):
             server_and_connection.read(local_nodes[0])
-            assert e == opcua.ua.uaerrors.BadNodeIdUnknown
 
     def test_delete_one_node_check_for_another(self, server_and_connection_with_nodes, local_nodes):
         sacwn = server_and_connection_with_nodes
 
         # Delete one of the nodes and check that the other one remains
         sacwn.delete_nodes(local_nodes[0])
-        with raises(ConnectionError):
+        with pytest.raises(ConnectionError):
             sacwn.read(local_nodes[0])
         assert int(sacwn.read(local_nodes[1])[local_nodes[1].name].iloc[0]) == 56
 
@@ -172,7 +170,7 @@ class TestOpcUAServerAndConnection:
 
 
 class TestOpcUAServer:
-    @fixture
+    @pytest.fixture()
     def server_with_nodes(self, local_nodes):
         server = OpcUaServer(6)
         server.create_nodes(local_nodes)
@@ -188,7 +186,7 @@ class TestOpcUAServer:
             server = OpcUaServer(5, ip=ip)
             server.stop()
         except ConnectionError as e:
-            fail(str(e))
+            pytest.fail(str(e))
 
     def test_server_recreate_first_node_write_diff_value(self, server_with_nodes, local_nodes):
         server = server_with_nodes
@@ -206,5 +204,5 @@ class TestOpcUAServer:
 
         # Finally delete all those nodes using the server
         server.delete_nodes(local_nodes)
-        with raises(ConnectionError):
+        with pytest.raises(ConnectionError):
             connection.read(local_nodes[0])

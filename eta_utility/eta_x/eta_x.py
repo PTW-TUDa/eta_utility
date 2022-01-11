@@ -395,7 +395,7 @@ class ETAx:
 
         if self.config["setup"]["monitor_wrapper"]:
             log.error("Monitoring is not supported for vectorized environments!")
-            log.warn("The monitor_wrapper parameter will be ignored.")
+            log.warning("The monitor_wrapper parameter will be ignored.")
 
         # Automatically normalize the input features
         if self.config["setup"]["norm_wrapper_obs"] or self.config["setup"]["norm_wrapper_reward"]:
@@ -421,15 +421,6 @@ class ETAx:
                     norm_reward=self.config["setup"]["norm_wrapper_reward"],
                     clip_obs=self.config["setup"]["norm_wrapper_clip_obs"],
                 )
-                # TODO: Check if really necessary, does not seem like it is...
-                # if "interact_with_env" in self.config["settings"] and self.config["settings"]["interact_with_env"]:
-                #     self.interaction_env = VecNormalize(
-                #         self.interaction_env,
-                #         training=training,
-                #         norm_obs=self.config["setup"]["norm_wrapper_obs"],
-                #         norm_reward=self.config["setup"]["norm_wrapper_reward"],
-                #         clip_obs=self.config["setup"]["norm_wrapper_clip_obs"],
-                #     )
 
         self._environment_vectorized = True
         log.info("Environment vectorized successfully.")

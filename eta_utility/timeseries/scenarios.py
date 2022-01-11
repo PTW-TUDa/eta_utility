@@ -153,17 +153,8 @@ def scenario_from_csv(
 
         col_names = {}
         for col in data.columns:
-            # Figure out correct name for the column
-            if not prefix_renamed and rename_cols is not None and col in rename_cols:
-                pre = ""
-                name = str(rename_cols[col])
-            elif prefix_renamed and rename_cols is not None and col in rename_cols:
-                pre = f"{data_prefixes[i]}_" if data_prefixes is not None else ""
-                name = str(rename_cols[col])
-            else:
-                pre = f"{data_prefixes[i]}_" if data_prefixes is not None else ""
-                name = str(col)
-            col_names[col] = pre + name
+            prefix = data_prefixes[i] if not data_prefixes else None
+            col_names[col] = _fix_col_name(col, prefix, prefix_renamed, rename_cols)
 
             # Scale data values in the column
             if scaling_factors[i] and col in scaling_factors[i]:
@@ -187,3 +178,30 @@ def scenario_from_csv(
         )
 
     return df
+
+
+def _fix_col_name(
+    name: str,
+    prefix: Optional[str] = None,
+    prefix_renamed: bool = False,
+    rename_cols: Optional[Mapping[str, str]] = None,
+) -> str:
+    """Figure out correct name for the column
+
+    :param name: Name to rename
+    :param prefix: Prefix to preprend to the name
+    :param prefix_renamed: Prepend prefix if name is renamed?
+    :param rename_cols: Mapping of old names to new names
+    """
+    if not prefix_renamed and rename_cols is not None and name in rename_cols:
+        pre = ""
+        name = str(rename_cols[name])
+    elif prefix_renamed and rename_cols is not None and name in rename_cols:
+        pre = f"{prefix}_" if prefix else ""
+        name = str(rename_cols[name])
+    else:
+        pre = f"{prefix}_" if prefix is not None else ""
+        name = str(name)
+
+    name = f"{pre}{name}"
+    return name

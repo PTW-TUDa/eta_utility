@@ -1,4 +1,4 @@
-from pytest import mark, raises
+import pytest
 
 from eta_utility.connectors import Node
 
@@ -8,7 +8,7 @@ from .config_tests import Config
 class TestNodeInitFail:
     def test_node_wrong_byteorder(self):
         """Node initialization should fail, if wrong value is provided for mb_byteorder"""
-        with raises(ValueError):
+        with pytest.raises(ValueError, match="Byteorder must be either 'big' or 'little' endian"):
             Node(
                 "Serv.NodeName",
                 "modbus.tcp://10.0.0.1:502",
@@ -54,7 +54,7 @@ class TestNodeInit:
         ),
     ]
 
-    @mark.parametrize(("name", "node"), init_nodes)
+    @pytest.mark.parametrize(("name", "node"), init_nodes)
     def test_node_init_modbus(self, name, node):
         """Check whether a modbus node can be initialized"""
         Node(
@@ -67,7 +67,7 @@ class TestNodeInit:
             mb_byteorder="big",
         )
 
-    @mark.parametrize("excel_file, excel_sheet", [(Config.EXCEL_NODES_FILE, Config.EXCEL_NODES_SHEET)])
+    @pytest.mark.parametrize(("excel_file", "excel_sheet"), [(Config.EXCEL_NODES_FILE, Config.EXCEL_NODES_SHEET)])
     def test_node_from_excel(self, excel_file, excel_sheet):
         """Test reading nodes from excel files and check some parameters of the resulting node objects"""
         nodes = Node.from_excel(excel_file, excel_sheet)
@@ -94,6 +94,6 @@ class TestNodeInit:
 
     def test_get_eneffco_nodes_from_codes(self):
         """Check if get_eneffco_nodes_from_codes works"""
-        SAMPLE_CODES = ["CH1.Elek_U.L1-N", "CH1.Elek_U.L1-N"]
-        nodes = Node.get_eneffco_nodes_from_codes(SAMPLE_CODES, eneffco_url=None)
-        assert {nodes[0].eneffco_code, nodes[1].eneffco_code} == set(SAMPLE_CODES)
+        sample_codes = ["CH1.Elek_U.L1-N", "CH1.Elek_U.L1-N"]
+        nodes = Node.get_eneffco_nodes_from_codes(sample_codes, eneffco_url=None)
+        assert {nodes[0].eneffco_code, nodes[1].eneffco_code} == set(sample_codes)

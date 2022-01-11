@@ -216,7 +216,7 @@ class MPCBasic(BaseAlgorithm):
     ) -> None:
         """The MPC approach cannot learn a new model. Specify the model attribute as a pyomo Concrete model instead,
         to use the prediction function of this agent.
-        :param **kwargs:
+        :param kwargs:
 
         """
         raise NotImplementedError("The MPC_simple approach does not need to learn a model.")

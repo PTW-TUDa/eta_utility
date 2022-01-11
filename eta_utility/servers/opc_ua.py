@@ -1,5 +1,5 @@
 import socket
-from typing import Any, Mapping, Union
+from typing import Any, Mapping, Optional, Set, Sized, Union
 
 from opcua import Node as OpcNode
 from opcua import Server, ua
@@ -19,12 +19,13 @@ class OpcUaServer:
     :param port: Port to listen on (default: 4840)
     """
 
-    def __init__(self, namespace: Union[str, int], ip: str = None, port: int = 4840) -> None:
+    def __init__(self, namespace: Union[str, int], ip: Optional[str] = None, port: int = 4840) -> None:
+        #: URL of the OPC UA Server
+        self.url: str
         if ip is None:
-            #: URL of the OPC UA Server
-            self.url: str = f"opc.tcp://{socket.gethostbyname(socket.gethostname())}:{port}"
+            self.url = f"opc.tcp://{socket.gethostbyname(socket.gethostname())}:{port}"
         else:
-            self.url: str = f"opc.tcp://{ip}:{port}"
+            self.url = f"opc.tcp://{ip}:{port}"
         log.info(f"Server Address is {self.url}")
 
         self._server: Server = Server()
@@ -75,6 +76,7 @@ class OpcUaServer:
                     if key < len(node.opc_path):
                         last_obj = create_object(last_obj, node.opc_path[key])
                     else:
+                        init_val: Any
                         if not hasattr(node, "dtype"):
                             init_val = 0.0
                         elif node.dtype is int:
@@ -119,10 +121,12 @@ class OpcUaServer:
         """This should always be called, when the server is not needed anymore. It stops the server."""
         self._server.stop()
 
-    def _validate_nodes(self, nodes: Nodes) -> Nodes:
-        if not hasattr(nodes, "__len__"):
+    def _validate_nodes(self, nodes: Nodes) -> Set[Node]:
+        if not isinstance(nodes, Sized):
             nodes = {nodes}
         else:
             if len(nodes) == 0:
                 raise ValueError("Some nodes to read from must be specified.")
+            nodes = set(nodes)
+
         return nodes

@@ -1,6 +1,6 @@
 import socket
 
-from pytest import fixture
+import pytest
 
 from eta_utility import json_import
 from eta_utility.connectors import LiveConnect, Node
@@ -24,7 +24,7 @@ def nodes_from_config(file=Config.LIVE_CONNECT_CONFIG):  # noqa:F405
     return Node.from_dict(config["system"][0]["nodes"])
 
 
-@fixture
+@pytest.fixture()
 def setup_live_connect():
     nodes = nodes_from_config()
 

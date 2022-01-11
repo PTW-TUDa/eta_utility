@@ -1,7 +1,7 @@
 import datetime
 
 import pandas as pd
-from pytest import approx, fixture, raises
+import pytest
 
 from eta_utility.connectors import ModbusConnection, Node
 
@@ -28,7 +28,7 @@ def test_modbus_connection_fail():
     """Test modbus failures"""
     server_fail = ModbusConnection(node.url)
 
-    with raises(ConnectionError):
+    with pytest.raises(ConnectionError):
         server_fail.read(node)
 
 
@@ -50,7 +50,7 @@ class TestMBBigEndian:
         columns=["Serv.NodeName"],
     )
 
-    @fixture()
+    @pytest.fixture()
     def mb_connect(self, monkeypatch):
         server = ModbusConnection(node.url)
 
@@ -65,7 +65,7 @@ class TestMBBigEndian:
         res = mb_connect.read(node)
 
         assert set(res.columns) == set(check.columns)
-        assert res["Serv.NodeName"].values == approx(check["Serv.NodeName"].values, 0.001)
+        assert res["Serv.NodeName"].values == pytest.approx(check["Serv.NodeName"].values, 0.001)
         assert isinstance(res.index, pd.DatetimeIndex)
 
     def test_modbus_multiple_nodes_read(self, mb_connect, monkeypatch):
@@ -83,8 +83,8 @@ class TestMBBigEndian:
         )
 
         assert set(res.columns) == set(check.columns)
-        assert res["Serv.NodeName"].values == approx(check["Serv.NodeName"].values, 0.001)
-        assert res["Serv.NodeName2"].values == approx(check["Serv.NodeName2"].values, 0.001)
+        assert res["Serv.NodeName"].values == pytest.approx(check["Serv.NodeName"].values, 0.001)
+        assert res["Serv.NodeName2"].values == pytest.approx(check["Serv.NodeName2"].values, 0.001)
         assert isinstance(res.index, pd.DatetimeIndex)
 
 
@@ -105,7 +105,7 @@ class TestMBLittleEndian:
         columns=["Serv.NodeName"],
     )
 
-    @fixture()
+    @pytest.fixture()
     def mb_connect(self, monkeypatch):
         server = ModbusConnection(self.node.url)
 
@@ -120,5 +120,5 @@ class TestMBLittleEndian:
         res = mb_connect.read(self.node)
 
         assert set(res.columns) == set(self.check.columns)
-        assert res["Serv.NodeName"].values == approx(self.check["Serv.NodeName"].values, 0.001)
+        assert res["Serv.NodeName"].values == pytest.approx(self.check["Serv.NodeName"].values, 0.001)
         assert isinstance(res.index, pd.DatetimeIndex)

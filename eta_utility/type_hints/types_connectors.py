@@ -1,13 +1,14 @@
 from abc import abstractmethod
 from typing import (
+    AbstractSet,
     Any,
     AnyStr,
     List,
     Mapping,
-    MutableSequence,
-    MutableSet,
     NewType,
     Optional,
+    Sequence,
+    Set,
     Type,
     Union,
 )
@@ -33,8 +34,11 @@ class Node:
     mb_byteorder: str
 
     opc_id: Union[str, int]
-    opc_path: str
+    opc_path: List["Node"]
     opc_ns: int
+    opc_path_str: str
+    opc_id_type: str
+    opc_name: str
 
     eneffco_code: str
 
@@ -53,11 +57,6 @@ class Node:
 
     def _init_eneffco(self) -> None:
         """Placeholder method with EnEffCo API relevant fields"""
-
-    @property
-    def url(self) -> AnyStr:
-        """Get node URL"""
-        pass
 
     @property
     def url_parsed(self) -> ParseResult:
@@ -84,7 +83,8 @@ class Node:
         pass
 
 
-Nodes = NewType("Nodes", Union[MutableSequence[Node], MutableSet[Node], Node])
+Nodes = Union[Sequence[Node], Set[Node], AbstractSet[Node], Node]
+SubscriptionHandler = NewType("SubscriptionHandler", object)
 
 
 class Connection:
@@ -110,9 +110,12 @@ class Connection:
 
     @abstractmethod
     def subscribe(
-        self, handler: "SubscriptionHandler", nodes: Optional[Nodes] = None, interval: TimeStep = 1  # noqa:F821
+        self,
+        handler: SubscriptionHandler,
+        nodes: Optional[Nodes] = None,
+        interval: TimeStep = 1,
     ) -> None:
-        pass
+        ...
 
     @abstractmethod
     def close_sub(self) -> None:

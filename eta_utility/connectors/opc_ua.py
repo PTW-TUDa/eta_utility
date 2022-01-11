@@ -7,7 +7,7 @@ from concurrent.futures._base import CancelledError
 from concurrent.futures._base import TimeoutError as ConTimeoutError
 from contextlib import contextmanager
 from datetime import datetime, timedelta
-from typing import Any, Mapping, Optional, Set
+from typing import Any, Dict, Generator, Mapping, Optional, Set, Union
 
 import opcua
 import pandas as pd
@@ -47,8 +47,8 @@ class OpcUaConnection(BaseConnection):
         self.connection: Client = Client(self.url)
         self._connected = False
 
-        self._sub: Optional[opcua.Subscription] = None
-        self._sub_task: Optional[asyncio.Task] = None
+        self._sub: opcua.Subscription
+        self._sub_task: asyncio.Task
         self._subscription_open: bool = False
         self._subscription_nodes: Set[Node] = set()
 
@@ -80,11 +80,11 @@ class OpcUaConnection(BaseConnection):
 
         :raises ConnectionError: When an error occurs during reading.
         """
-        nodes = self._validate_nodes(nodes)
+        _nodes = self._validate_nodes(nodes)
 
         with self._connection():
             values = {}
-            for node in nodes:
+            for node in _nodes:
                 try:
                     opcua_variable = self.connection.get_node(node.opc_id)
                     value = opcua_variable.get_value()
@@ -102,7 +102,7 @@ class OpcUaConnection(BaseConnection):
 
         :raises ConnectionError: When an error occurs during reading.
         """
-        nodes = self._validate_nodes(values.keys())
+        nodes = self._validate_nodes(set(values.keys()))
 
         with self._connection():
             for node in nodes:
@@ -129,14 +129,16 @@ class OpcUaConnection(BaseConnection):
             else:
                 return parent.add_object(child.opc_id, child.opc_name)
 
-        nodes = self._validate_nodes(nodes)
+        _nodes = self._validate_nodes(nodes)
 
         with self._connection():
-            for node in nodes:
+            for node in _nodes:
                 try:
                     last_obj = create_object(self.connection.get_objects_node(), node.opc_path[0])
 
                     for key in range(1, len(node.opc_path) + 1):
+                        init_val: Any
+
                         if key < len(node.opc_path):
                             last_obj = create_object(last_obj, node.opc_path[key])
                         else:
@@ -177,10 +179,10 @@ class OpcUaConnection(BaseConnection):
                 if depth > 0:
                     delete_node_parents(self.connection.get_node(parent.NodeId), depth=depth - 1)
 
-        nodes = self._validate_nodes(nodes)
+        _nodes = self._validate_nodes(nodes)
 
         with self._connection():
-            for node in nodes:
+            for node in _nodes:
                 try:
                     delete_node_parents(self.connection.get_node(node.opc_id))
                 except RuntimeError as e:
@@ -194,10 +196,10 @@ class OpcUaConnection(BaseConnection):
         :param handler: SubscriptionHandler object with a push method that accepts node, value pairs
         :param interval: interval for receiving new data. It it interpreted as seconds when given as an integer.
         """
-        nodes = self._validate_nodes(nodes)
+        _nodes = self._validate_nodes(nodes)
         interval = interval if isinstance(interval, timedelta) else timedelta(seconds=interval)
 
-        self._subscription_nodes.update(nodes)
+        self._subscription_nodes.update(_nodes)
 
         if self._subscription_open:
             # Adding nodes to subscription is enough to include them in the query. Do not start an additional loop
@@ -267,7 +269,7 @@ class OpcUaConnection(BaseConnection):
 
         self._disconnect()
 
-    def _connect(self) -> bool:
+    def _connect(self) -> None:
         """Connect to server."""
         try:
             if self.usr is not None:
@@ -299,7 +301,7 @@ class OpcUaConnection(BaseConnection):
             log.error(f"Connection to server {self.url} already closed.")
 
     @contextmanager
-    def _connection(self) -> None:
+    def _connection(self) -> Generator:
         """Connect to the server and return a context manager that automatically disconnects when finished."""
         try:
             self._connect()
@@ -319,9 +321,9 @@ class _OPCSubHandler:
 
     def __init__(self, handler: SubscriptionHandler) -> None:
         self.handler = handler
-        self._sub_nodes = {}
+        self._sub_nodes: Dict[Union[str, int], Node] = {}
 
-    def add_node(self, opc_id: str, node: Node) -> None:
+    def add_node(self, opc_id: Union[str, int], node: Node) -> None:
         """Add a node to the subscription. This is necessary to translate between formats."""
         self._sub_nodes[opc_id] = node
 

@@ -1,13 +1,13 @@
 import os.path
 from test.config_tests import Config
 
-from pytest import approx, fixture
+import pytest
 
 from eta_utility.simulators import FMUSimulator
 
 
 class TestFMUSimulator:
-    @fixture()
+    @pytest.fixture()
     def seq_simulator(self, monkeypatch):
         """Legacy initialization required all values and would expect the simulator to return lists. A simulator
         which does this is initialized here."""
@@ -25,7 +25,7 @@ class TestFMUSimulator:
         )
         return simulator
 
-    @fixture(scope="class", autouse=False)
+    @pytest.fixture(scope="class", autouse=False)
     def map_simulator(self):
         """New format initialization also allows for the simulator to be initialized with just the fmu_path."""
 
@@ -45,14 +45,20 @@ class TestFMUSimulator:
         input_values = [0.5]
         s, v, a = seq_simulator.step(input_values)
 
-        assert s == approx(0.768, 0.01)
-        assert v == approx(0.569, 0.01)
-        assert a == approx(-1.627, 0.01)
+        assert s == pytest.approx(0.768, 0.01)
+        assert v == pytest.approx(0.569, 0.01)
+        assert a == pytest.approx(-1.627, 0.01)
 
         s, v, a = seq_simulator.step(input_values)
-        assert s == approx(0.550, 0.01)
-        assert v == approx(-0.682, 0.01)
-        assert a == approx(0.089, 0.01)
+        assert s == pytest.approx(0.550, 0.01)
+        assert v == pytest.approx(-0.682, 0.01)
+        assert a == pytest.approx(0.089, 0.01)
+
+    def test_simulate(self):
+        """Test stepping function with the sequence input and output formats"""
+        init_values = {"u": 0.12}
+        result = FMUSimulator.simulate(Config.FMU_FILE, stop_time=10, init_values=init_values)
+        assert len(result) == 11
 
     def test_set_read_map_values(self, map_simulator):
         """Test setting and reading a value from a mapping"""
@@ -70,17 +76,17 @@ class TestFMUSimulator:
         s = output["s"]
         v = output["v"]
         a = output["a"]
-        assert s == approx(0.768, 0.01)
-        assert v == approx(0.569, 0.01)
-        assert a == approx(-1.627, 0.01)
+        assert s == pytest.approx(0.768, 0.01)
+        assert v == pytest.approx(0.569, 0.01)
+        assert a == pytest.approx(-1.627, 0.01)
 
         output = map_simulator.step(input_values)
         s = output["s"]
         v = output["v"]
         a = output["a"]
-        assert s == approx(0.550, 0.01)
-        assert v == approx(-0.682, 0.01)
-        assert a == approx(0.089, 0.01)
+        assert s == pytest.approx(0.550, 0.01)
+        assert v == pytest.approx(-0.682, 0.01)
+        assert a == pytest.approx(0.089, 0.01)
 
     def test_fmu_simulator_reset(self, seq_simulator):
         """Test resetting the simulator"""
