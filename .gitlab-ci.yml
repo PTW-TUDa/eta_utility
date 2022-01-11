@@ -43,6 +43,7 @@ default:
 
 create_cache:
   stage: setup
+  interruptible: true
   before_script:
     - echo ""
   script:
@@ -57,6 +58,7 @@ create_cache:
 
 isort:
   stage: check
+  interruptible: true
   script:
     - pip install isort
     - isort -c -v .
@@ -66,6 +68,7 @@ isort:
 
 black:
   stage: check
+  interruptible: true
   script:
     - pip install black==21.12b0
     - black --check --config pyproject.toml eta_utility/ test/
@@ -73,8 +76,9 @@ black:
 
 flake8:
   stage: check
+  interruptible: true
   script:
-    - pip install .[develop] flake8-json
+    - pip install flake8-json
     - flake8 --version
     - flake8 --config=setup.cfg --format=codeclimate --tee --output-file=flake8.json eta_utility test
   artifacts:
@@ -84,11 +88,13 @@ flake8:
     <<: *global_cache
     policy: pull
 
-license_scanning_local:
-  extends: license_scanning
-  before_script:
-    - echo ""
+license_scanning:
   stage: check
+  interruptible: true
+  needs: []
+  before_script: []
+  variables:
+    ASDF_PYTHON_VERSION: 3
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH
@@ -97,11 +103,10 @@ license_scanning_local:
     <<: *global_cache
     policy: pull
 
-secret_detection_local:
-  extends: secret_detection
-  before_script:
-    - echo ""
+secret_detection:
   stage: check
+  interruptible: true
+  before_script: []
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH
@@ -112,8 +117,8 @@ secret_detection_local:
 
 test:
   stage: test
+  interruptible: true
   script:
-    - pip install .[develop]
     - pip install pytest pytest-cov
     - pytest --cov
   cache:
@@ -122,8 +127,8 @@ test:
 
 typecheck:
   stage: test
+  interruptible: true
   script:
-    - pip install .[develop]
     - mypy -V
     - mypy --config-file pyproject.toml
   cache:
