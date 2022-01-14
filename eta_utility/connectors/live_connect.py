@@ -1,7 +1,9 @@
 """ Initiate live connections that automate certain tasks associated with the creation of such connections."""
 import pathlib
+import time
 import types
 from contextlib import AbstractContextManager
+from datetime import timedelta
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Type, Union
 from urllib.parse import urlparse, urlunparse
 
@@ -12,7 +14,7 @@ from eta_utility.connectors import (
     default_schemes,
     name_map_from_node_sequence,
 )
-from eta_utility.type_hints import Connection, Path
+from eta_utility.type_hints import Connection, Path, TimeStep
 
 log = get_logger("live_connect")
 
@@ -91,6 +93,7 @@ class LiveConnect(AbstractContextManager):
 
     :param name: Name to uniquely identify the system. The name is also used as the default system prefix.
     :param nodes: Sequence/List of Nodes, which should be used for the actions and for initializing connections
+    :param step_size: Step size (time) for the live connector in time increments
     :param init: Nodes for initializing the system (see above, default: None)
     :param activate: Nodes for activating the system (see above, default: None)
     :param deactivate: Nodes for deactivating the system (see above, default: None)
@@ -106,6 +109,7 @@ class LiveConnect(AbstractContextManager):
         self,
         nodes: Sequence[Node],
         name: str = None,
+        step_size: TimeStep = 1,
         *,
         init: Mapping[str, Any] = None,
         activate: Mapping[str, Any] = None,
@@ -123,6 +127,12 @@ class LiveConnect(AbstractContextManager):
         self._nodes: Dict[str, Node] = name_map_from_node_sequence(nodes)
         #: Mapping of node names to connections
         self._connection_map = {node.name: node.url_parsed.hostname for node in self._nodes.values()}
+        #: Start time of initialisation
+        self.start_time = time.time()
+        #: Step size (time) for the live connector in time increments
+        self.step_size = step_size if not isinstance(step_size, timedelta) else int(step_size)
+        #: Current step of the live connector (number of completed steps)
+        self.steps_counter: int = 0
 
         errors = False
 
@@ -246,16 +256,23 @@ class LiveConnect(AbstractContextManager):
         return vals, errors
 
     @classmethod
-    def from_json(cls, files: Union[Path, Sequence[Path]], usr: str = None, pwd: str = None) -> "LiveConnect":
+    def from_json(
+        cls,
+        files: Union[Path, Sequence[Path]],
+        usr: str = None,
+        pwd: str = None,
+        step_size: TimeStep = 1,
+    ) -> "LiveConnect":
         """Initialize the connection directly from json configuration files. The file should contain parameters
         as described above. A list of file names can be supplied to enable the creation of larger, combined systems.
 
         Username and password supplied as keyword arguments will take precedence over information given in
         the config file.
 
-        :param file: Configuration file paths. Accepts a single file or a list of files
-        :param usr: Username for authenticaiton with the resource
+        :param files: Configuration file paths. Accepts a single file or a list of files
+        :param usr: Username for authentication with the resource
         :param pwd: Password for authentication with the resource
+        :param step_size: Step size (time) for the live connector in time increments
         :return: LiveConnect instance as specified by the json file.
         """
         files = [files] if not isinstance(files, Sequence) else files
@@ -269,18 +286,19 @@ class LiveConnect(AbstractContextManager):
             else:
                 config["system"].append(result)
 
-        return cls.from_dict(usr=usr, pwd=pwd, **config)
+        return cls.from_dict(usr=usr, pwd=pwd, step_size=step_size, **config)
 
     @classmethod
-    def from_dict(cls, usr: str = None, pwd: str = None, **config) -> "LiveConnect":
+    def from_dict(cls, usr: str = None, pwd: str = None, step_size: TimeStep = 1, **config) -> "LiveConnect":
         """Initialize the connection directly from a config dictionary. The dictionary should contain parameters
         as described above.
 
         Username and password supplied as keyword arguments will take precedence over information given in
         the config file.
 
-        :param usr: Username for authenticaiton with the resource
+        :param usr: Username for authentication with the resource
         :param pwd: Password for authentication with the resource
+        :param step_size: Step size (time) for the live connector in time increments
         :param config: Configuration dictionary
         :return: LiveConnect instance as specified by the json file.
         """
@@ -374,6 +392,7 @@ class LiveConnect(AbstractContextManager):
         return cls(
             nodes,
             name,
+            step_size=step_size,
             init=actions["init"],
             activate=actions["activate"],
             deactivate=actions["deactivate"],
@@ -420,6 +439,8 @@ class LiveConnect(AbstractContextManager):
         :param value: Value to use as the control value/set_value
         :return: Values read from the connection as specified by 'observer' parameter
         """
+        self.steps_counter += 1
+
         write = {}
         for name, val in value.items():
             n = f"{self.name}.{name}" if "." not in name and self.name is not None else name
@@ -446,6 +467,12 @@ class LiveConnect(AbstractContextManager):
 
         # Write the scaled control value and return the observed values.
         self.write(write)
+
+        try:
+            time.sleep((self.steps_counter * self.step_size) - time.time() + self.start_time)
+        except Exception:
+            log.error("Step_size between write and read function is too small")
+
         return self.read(*self._observe_vals)
 
     def write(self, nodes: Union[Mapping[str, Any], Sequence[str]], values: Optional[Sequence[Any]] = None) -> None:
