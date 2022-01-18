@@ -166,6 +166,7 @@ pages:
     - pip install sphinx sphinx-rtd-theme
     - cd docs
     - make html
+    - rm -rf ../public/html/*
     - mv _build/html ../public
   artifacts:
     name: "eta_utility-docs-$CI_COMMIT_REF_NAME"
