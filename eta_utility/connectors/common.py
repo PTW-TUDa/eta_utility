@@ -127,6 +127,10 @@ class Node:
         #: Byteorder of values returned by modbus
         self.mb_byteorder: str
 
+        # Set IP- addresses port to default 502 if port does not exist
+        if not isinstance(self._url.port, int) and self.protocol == "modbus":
+            self._url = self._url._replace(netloc=f"{self._url.hostname}:502")
+
         # Figure out the correct byteorder, even if "littleendian" or "bigendian" are provided.
         mb_byteorder = mb_byteorder.strip().lower()
         if mb_byteorder in {"little", "big"}:
@@ -153,6 +157,10 @@ class Node:
         self.opc_id_type: str
         #: Name of the OPC UA Node
         self.opc_name: str
+
+        # Set IP- addresses port to default 4840 if port does not exist
+        if not isinstance(self._url.port, int) and self.protocol == "opcua":
+            self._url = self._url._replace(netloc=f"{self._url.hostname}:4840")
 
         if "opc_id" in kwargs.keys():
             parts = str(kwargs["opc_id"]).strip().split(";")
