@@ -199,7 +199,7 @@ class BaseEnv(Env, abc.ABC):
         #: Ending time of the scenario
         self.scenario_time_end: datetime = self.env_settings["scenario_time_end"]
         #: Sampling time (interval between optimization time steps) in seconds
-        self.sampling_time: int = int(self.settings["sampling_time"])
+        self.sampling_time: float = float(self.settings["sampling_time"])
         #: Number of time steps (of width sampling_time) in each episode
         self.n_episode_steps: int = int(self.settings["episode_duration"]) // self.sampling_time
         #: Duration of one episode in seconds
