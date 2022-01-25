@@ -353,18 +353,20 @@ class EnEffCoConnection(BaseSeriesConnection):
         :param endpoint: endpoint for the request (server uri is added automatically
         :param kwargs: Additional arguments for the request.
         """
-
         response = requests.request(method, self.url + "/" + str(endpoint), auth=(self.usr, self.pwd), **kwargs)
 
         # Check for request errors
-        status_code = response.status_code
-        if status_code == 400:
-            raise ConnectionError(f"EnEffCo Error {status_code}: API is unavailable or insufficient user permissions.")
-        elif status_code == 404:
-            raise ConnectionError(f"EnEffCo Error {status_code}: Endpoint not found '{self.url + str(endpoint)}'")
-        elif status_code == 401:
-            raise ConnectionError(f"EnEffCo Error {status_code}: Invalid login info")
-        elif status_code == 500:
-            raise ConnectionError(f"EnEffCo Error {status_code}: Server is unavailable")
+        if response.status_code != 200:
+            error = f"EnEffco Error {response.status_code}"
+            if hasattr(response, "json") and "Message" in response.json():
+                error = f"{error}: {response.json()['Message']}"
+            elif response.status_code == 401:
+                error = f"{error}: Access Forbidden, Invalid login info"
+            elif response.status_code == 404:
+                error = f"{error}: Endpoint not found '{self.url + str(endpoint)}'"
+            elif response.status_code == 500:
+                error = f"{error}: Server is unavailable"
+
+            raise ConnectionError(error)
 
         return response

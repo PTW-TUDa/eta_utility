@@ -4,7 +4,7 @@
 import math
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
-from typing import Any, Mapping, Optional, Sequence, Set, Union
+from typing import Any, Iterable, Mapping, Optional, Sequence, Set, Union
 from urllib.parse import ParseResult
 
 import pandas as pd
@@ -21,8 +21,10 @@ class SubscriptionHandler(ABC):
     :param write_interval: Interval for writing data to csv file
     """
 
-    def __init__(self, write_interval: Union[float, int] = 1) -> None:
-        self._write_interval: Union[float, int] = write_interval
+    def __init__(self, write_interval: TimeStep = 1) -> None:
+        self._write_interval: float = (
+            write_interval.total_seconds() if isinstance(write_interval, timedelta) else write_interval
+        )
         self._local_tz = tz.tzlocal()
 
     def _assert_tz_awareness(self, timestamp: datetime) -> datetime:
@@ -144,9 +146,9 @@ class BaseConnection(ABC):
         #: URL of the server to connect to
         self._url: ParseResult
         #: Username fot login to server
-        self.usr: str
+        self.usr: Optional[str]
         #: Password for login to server
-        self.pwd: str
+        self.pwd: Optional[str]
         self._url, self.usr, self.pwd = url_parse(url)
 
         if nodes is not None:
@@ -236,7 +238,7 @@ class BaseConnection(ABC):
         if nodes is None:
             _nodes = self.selected_nodes
         else:
-            if not hasattr(nodes, "__len__"):
+            if not isinstance(nodes, Iterable):
                 nodes = {nodes}
 
             # If not using preselected nodes from self.selected_nodes, check if nodes correspond to the connection

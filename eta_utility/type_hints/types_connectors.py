@@ -25,6 +25,8 @@ class Node:
     name: str
     url: str
     protocol: str
+    usr: str
+    pwd: str
 
     dtype: Union[Type[int], Type[str], Type[float], Type[bool]]
 
