@@ -44,8 +44,6 @@ show_column_numbers = true
 exclude = [
     "^test/",
     "^eta_utility/connectors/eneffco\\.py$",
-    "^eta_utility/connectors/base_classes\\.py$",
-    "^eta_utility/connectors/sub_handlers\\.py$",
     "^eta_utility/connectors/rest\\.py$",
     "^eta_utility/connectors/common\\.py$",
     "^eta_utility/connectors/live_connect\\.py$",
@@ -80,8 +78,6 @@ ignore_missing_imports = true
 # Overrides must be specified again to satisfy mypy when run with pre-commit
 module = [
     "eta_utility.connectors.eneffco",
-    "eta_utility.connectors.base_classes",
-    "eta_utility.connectors.sub_handlers",
     "eta_utility.connectors.rest",
     "eta_utility.connectors.common",
     "eta_utility.connectors.live_connect",

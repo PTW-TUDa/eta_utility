@@ -58,8 +58,6 @@ repos:
           (?x)^(setup.py|
                 test/.+|
                 eta_utility/connectors/eneffco.py|
-                eta_utility/connectors/base_classes.py|
-                eta_utility/connectors/sub_handlers.py|
                 eta_utility/connectors/rest.py|
                 eta_utility/connectors/common.py|
                 eta_utility/connectors/live_connect.py|
