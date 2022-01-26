@@ -83,7 +83,7 @@ class OpcUaConnection(BaseConnection):
         """
         _nodes = self._validate_nodes(nodes)
 
-        def read_node(node):
+        def read_node(node: Node) -> Mapping[str, list]:
             try:
                 opcua_variable = self.connection.get_node(node.opc_id)
                 value = opcua_variable.get_value()
