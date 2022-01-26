@@ -83,7 +83,7 @@ class OpcUaConnection(BaseConnection):
         """
         _nodes = self._validate_nodes(nodes)
 
-        def read_node(node: Node) -> Mapping[str, list]:
+        def read_node(node: Node) -> Dict[str, list]:
             try:
                 opcua_variable = self.connection.get_node(node.opc_id)
                 value = opcua_variable.get_value()
@@ -91,7 +91,7 @@ class OpcUaConnection(BaseConnection):
             except RuntimeError as e:
                 raise ConnectionError(str(e)) from e
 
-        values = {}
+        values: Dict[str, list] = {}
         with self._connection():
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 results = executor.map(read_node, _nodes)
