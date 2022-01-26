@@ -1,13 +1,13 @@
 """ Utility functions for connecting to the EnEffCo database and reading data.
 """
 import asyncio
+import concurrent.futures
 from datetime import datetime, timedelta
 from typing import Any, Dict, Mapping, Optional
 
 import numpy as np
 import pandas as pd
 import requests
-import concurrent.futures
 
 from eta_utility import get_logger
 from eta_utility.type_hints import Node, Nodes, TimeStep

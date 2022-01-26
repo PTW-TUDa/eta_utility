@@ -1,12 +1,12 @@
 """ Utilities for connecting to modbus servers
 """
 import asyncio
+import concurrent.futures
 import socket
 import struct
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from typing import Any, Generator, List, Mapping, Optional, Sequence, Set
-import concurrent.futures
 
 import pandas as pd
 from pyModbusTCP.client import ModbusClient  # noqa: I900

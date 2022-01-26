@@ -2,13 +2,13 @@
 
 """
 import asyncio
+import concurrent.futures
 import socket
 from concurrent.futures._base import CancelledError
 from concurrent.futures._base import TimeoutError as ConTimeoutError
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from typing import Any, Dict, Generator, Mapping, Optional, Set, Union
-import concurrent.futures
 
 import opcua
 import pandas as pd
