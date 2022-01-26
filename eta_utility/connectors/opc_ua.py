@@ -2,6 +2,7 @@
 
 """
 import asyncio
+import concurrent.futures
 import socket
 from concurrent.futures._base import CancelledError
 from concurrent.futures._base import TimeoutError as ConTimeoutError
@@ -82,15 +83,20 @@ class OpcUaConnection(BaseConnection):
         """
         _nodes = self._validate_nodes(nodes)
 
+        def read_node(node: Node) -> Dict[str, list]:
+            try:
+                opcua_variable = self.connection.get_node(node.opc_id)
+                value = opcua_variable.get_value()
+                return {node.name: [value]}
+            except RuntimeError as e:
+                raise ConnectionError(str(e)) from e
+
+        values: Dict[str, list] = {}
         with self._connection():
-            values = {}
-            for node in _nodes:
-                try:
-                    opcua_variable = self.connection.get_node(node.opc_id)
-                    value = opcua_variable.get_value()
-                    values[node.name] = [value]
-                except RuntimeError as e:
-                    raise ConnectionError(str(e)) from e
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                results = executor.map(read_node, _nodes)
+        for result in results:
+            values.update(result)
 
         return pd.DataFrame(values, index=[self._assert_tz_awareness(datetime.now())])
 

@@ -1,6 +1,7 @@
 """ Utility functions for connecting to the EnEffCo database and reading data.
 """
 import asyncio
+import concurrent.futures
 from datetime import datetime, timedelta
 from typing import Any, Dict, Mapping, Optional
 
@@ -188,9 +189,7 @@ class EnEffCoConnection(BaseSeriesConnection):
         nodes = self._validate_nodes(nodes)
         interval = interval if isinstance(interval, timedelta) else timedelta(seconds=interval)
 
-        values = pd.DataFrame()
-
-        for node in nodes:
+        def read_node(node):
             request_url = "datapoint/{}/value?from={}&to={}&timeInterval={}&includeNanValues=True".format(
                 self.id_from_code(node.eneffco_code),
                 self.timestr_from_datetime(from_time),
@@ -210,7 +209,12 @@ class EnEffCoConnection(BaseSeriesConnection):
                 dtype="float64",
             )
             data.index.name = "Time (with timezone)"
-            values = pd.concat([values, data], axis=1, sort=False)
+            return data
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            results = executor.map(read_node, nodes)
+
+        values = pd.concat(results, axis=1, sort=False)
         return values
 
     def subscribe_series(
@@ -301,9 +305,10 @@ class EnEffCoConnection(BaseSeriesConnection):
                 from_time = datetime.now() + offset
                 to_time = from_time + req_interval
 
+                values = self.read_series(from_time, to_time, self._subscription_nodes, interval=data_interval)
+
                 for node in self._subscription_nodes:
-                    value = self.read_series(from_time, to_time, node, interval=data_interval)
-                    handler.push(node, value[node.name], value[node.name].index)
+                    handler.push(node, values[node.name])
 
                 await asyncio.sleep(interval)
         except BaseException as e:
