@@ -6,6 +6,7 @@ import struct
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from typing import Any, Generator, List, Mapping, Optional, Sequence, Set
+import concurrent.futures
 
 import pandas as pd
 from pyModbusTCP.client import ModbusClient  # noqa: I900
@@ -75,11 +76,12 @@ class ModbusConnection(BaseConnection):
         values = {}
 
         with self._connection():
-            for node in _nodes:
-                result = self._read_mb_value(node)
-                value = self._decode(result, node.mb_byteorder)
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                results = {node: executor.submit(self._read_mb_value, node) for node in _nodes}
 
-                values[node.name] = value
+        for node, result in results.items():
+            value = self._decode(result.result(), node.mb_byteorder)
+            values[node.name] = value
 
         return pd.DataFrame(values, index=[self._assert_tz_awareness(datetime.now())])
 
