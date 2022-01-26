@@ -153,7 +153,7 @@ def scenario_from_csv(
 
         col_names = {}
         for col in data.columns:
-            prefix = data_prefixes[i] if not data_prefixes else None
+            prefix = data_prefixes[i] if data_prefixes else None
             col_names[col] = _fix_col_name(col, prefix, prefix_renamed, rename_cols)
 
             # Scale data values in the column
