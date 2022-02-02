@@ -10,6 +10,7 @@ import threading
 from collections import deque
 from contextlib import AbstractContextManager
 from datetime import datetime
+from threading import Lock
 from types import TracebackType
 from typing import Any, Deque, Dict, List, Optional, Sequence, TextIO, Type, Union
 
@@ -444,6 +445,7 @@ class DFSubHandler(SubscriptionHandler):
     def __init__(self, write_interval: TimeStep = 1, size_limit: int = 100) -> None:
         super().__init__(write_interval=write_interval)
         self._data: pd.DataFrame = pd.DataFrame()
+        self._data_lock: threading.Lock = Lock()
         self.keep_data_rows: int = size_limit
 
     def push(
@@ -462,8 +464,10 @@ class DFSubHandler(SubscriptionHandler):
                           pd.Series and has a pd.DatetimeIndex, timestamp is ignored.
         """
         # Check if node.name is in _data.columns
+        self._data_lock.acquire()
         if node.name not in self._data.columns:
             self._data[node.name] = np.nan
+        self._data_lock.release()
 
         # Multiple values
         if not isinstance(value, str) and hasattr(value, "__len__"):
@@ -472,40 +476,55 @@ class DFSubHandler(SubscriptionHandler):
             # Values are rounded to self.write_interval in _convert_series
             for _timestamp, _value in value.items():
                 _timestamp = self._assert_tz_awareness(_timestamp)
+                self._data_lock.acquire()
                 self._data.loc[_timestamp, node.name] = _value
+                self._data_lock.release()
 
         # Single value
         else:
             if not isinstance(timestamp, datetime) and timestamp is not None:
                 raise ValueError("Timestamp must be a datetime object or None.")
             timestamp = self._round_timestamp(timestamp if timestamp is not None else datetime.now())
+            self._data_lock.acquire()
             self._data.loc[timestamp, node.name] = value
+            self._data_lock.release()
 
         # Housekeeping (Keep internal data short)
         self._housekeeping()
 
     def get_latest(self) -> Union[pd.DataFrame, None]:
         """Return a copy of the dataframe, this ensures they can be worked on freely. Returns None if data is empty."""
+        self._data_lock.acquire()
         if len(self._data.index) == 0:
+            self._data_lock.release()
             return None  # If no data in self._data, return None
         else:
             self._data.fillna(method="ffill", inplace=True)
-            return self._data.iloc[[-1]].copy()
+            data = self._data.iloc[[-1]].copy()
+            self._data_lock.release()
+            return data
 
     @property
     def data(self) -> Union[pd.DataFrame, None]:
         """This contains the interval dataframe and will return a copy of that."""
+        self._data_lock.acquire()
         self._data.fillna(method="ffill", inplace=True)
-        return self._data.copy()
+        data = self._data.copy()
+        self._data_lock.release()
+        return data
 
     def reset(self) -> None:
         """Reset the internal data and restart collection"""
+        self._data_lock.acquire()
         self._data = pd.DataFrame()
+        self._data_lock.release()
         log.info(f"Subscribed DataFrame {hash(self._data)} was reset successfully.")
 
     def _housekeeping(self) -> None:
         """Keep internal data short by only keeping last rows as specified in self.keep_data_rows"""
+        self._data_lock.acquire()
         self._data.drop(index=self._data.index[: -self.keep_data_rows], inplace=True)
+        self._data_lock.release()
 
     def close(self) -> None:
         """This is just here to satisfy the interface, not needed in this case."""
