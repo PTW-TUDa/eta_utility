@@ -17,6 +17,11 @@ sample_series2 = pd.Series(
     data=[1, 2, 3], index=pd.DatetimeIndex(["2020-11-05 10:00:0.4", "2020-11-05 10:00:01.2", "2020-11-05 10:00:01.5"])
 )
 
+sample_series_nan = pd.Series(
+    data=[1, np.nan, np.nan],
+    index=pd.DatetimeIndex(["2020-11-05 10:00:0.4", "2020-11-05 10:00:01.2", "2020-11-05 10:00:01.5"]),
+)
+
 
 class TestCSVSubHandler:
     async def push_values(self, handler: CsvSubHandler):
@@ -88,3 +93,25 @@ class TestDFSubHandler:
         data = handler.data
 
         assert len(data) <= keep_data_rows
+
+    def test_get_latest(self):
+        handler = DFSubHandler(write_interval=1)
+        test_node = Node(name="Test-node", url="", protocol="local")
+        handler.push(test_node, sample_series.values, sample_series.index)
+        data = handler.get_latest()
+
+        assert (data.values == sample_series.values[-1]).all()
+
+    def test_auto_fillna(self):
+        # First test default behaviour: nans are filled
+        handler = DFSubHandler(write_interval=1)
+        test_node = Node(name="Test-node", url="", protocol="local")
+        handler.push(test_node, sample_series_nan)
+        data = handler.data
+        assert data.notna().all().all()
+
+        # Next test auto_fillna = False
+        handler = DFSubHandler(write_interval=1, auto_fillna=False)
+        handler.push(test_node, sample_series_nan)
+        data = handler.data
+        assert data.isna().any().any()
