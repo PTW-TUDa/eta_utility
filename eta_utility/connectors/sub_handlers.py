@@ -439,12 +439,16 @@ class DFSubHandler(SubscriptionHandler):
 
     :param write_interval: Interval for writing data
     :param size_limit: Number of rows to keep in internal _data memory. Default 100.
+    :param auto_fillna: If True, missing values in self._data are filled with the pandas-method
+                        df.fillna(method='ffill')
+                        each time self.data is called.
     """
 
-    def __init__(self, write_interval: TimeStep = 1, size_limit: int = 100) -> None:
+    def __init__(self, write_interval: TimeStep = 1, size_limit: int = 100, auto_fillna: bool = True) -> None:
         super().__init__(write_interval=write_interval)
         self._data: pd.DataFrame = pd.DataFrame()
         self.keep_data_rows: int = size_limit
+        self.auto_fillna: bool = auto_fillna
 
     def push(
         self,
@@ -489,13 +493,13 @@ class DFSubHandler(SubscriptionHandler):
         if len(self._data.index) == 0:
             return None  # If no data in self._data, return None
         else:
-            self._data.fillna(method="ffill", inplace=True)
-            return self._data.iloc[[-1]].copy()
+            return self.data.iloc[[-1]]
 
     @property
-    def data(self) -> Union[pd.DataFrame, None]:
+    def data(self) -> pd.DataFrame:
         """This contains the interval dataframe and will return a copy of that."""
-        self._data.fillna(method="ffill", inplace=True)
+        if self.auto_fillna:
+            self._data.fillna(method="ffill", inplace=True)
         return self._data.copy()
 
     def reset(self) -> None:
