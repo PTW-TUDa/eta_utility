@@ -1,9 +1,9 @@
 {
     "setup": {
-        "environment_package": "environment.pendulum",
+        "environment_package": "test.test_resources.etax.environment.pendulum",
         "environment_class": "PendulumEnv",
-        "agent_package": "controller.simple_control",
-        "agent_class": "SimpleControl"
+        "agent_package": "test.test_resources.etax.controller.pendulum_control",
+        "agent_class": "PendulumControl"
     },
     "paths": {
         "relpath_scenarios": "data/scenarios/",

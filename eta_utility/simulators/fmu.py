@@ -214,7 +214,7 @@ class FMUSimulator:
         """Ordered list of all available output variable names in the FMU."""
         return self._outputs["names"].copy()
 
-    def read_values(self, names: Optional[Sequence[str]] = None) -> Union[Dict[str, Any], List]:
+    def read_values(self, names: Optional[Sequence[str]] = None) -> Union[Dict[Union[str, int], Any], List]:
         """Return current values of the simulation without advancing a simulation step or the simulation time.
 
         :param names: Sequence of values to read from the FMU. If this is None (default), all available values will be
@@ -288,7 +288,7 @@ class FMUSimulator:
         output_names: Optional[Sequence[str]] = None,
         advance_time: bool = True,
         nr_substeps: Optional[int] = None,
-    ) -> Union[Dict[str, Any], List[Any]]:
+    ) -> Union[Dict[Union[str, int], Any], List[Any]]:
         """Simulate next time step in the FMU with defined input values and output values.
 
         :param input_values: Current values that should be pushed to the FMU. Names of the input_values must correspond
