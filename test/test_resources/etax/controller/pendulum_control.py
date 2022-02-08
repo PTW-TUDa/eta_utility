@@ -5,7 +5,7 @@ from eta_utility.eta_x.agents import RuleBased
 from eta_utility.eta_x.agents.common.policies import NoPolicy
 
 
-class SimpleControl(RuleBased):
+class PendulumControl(RuleBased):
     def __init__(self, policy: NoPolicy, env: VecEnv, verbose: int = 1, **kwargs) -> None:
         """
         Simple controller to test environments

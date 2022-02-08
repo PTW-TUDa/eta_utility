@@ -1,9 +1,10 @@
+import csv
 import json
 import logging
 import pathlib
 import re
 import sys
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Collection, Dict, List, Optional, Tuple, Union
 from urllib.parse import ParseResult, urlparse, urlunparse
 
 from .type_hints import Path
@@ -98,3 +99,55 @@ def url_parse(url: str) -> Tuple[ParseResult, Union[str, None], Union[str, None]
             )
 
     return _url, usr, pwd
+
+
+def csv_export_from_list(
+    path: Union[str, pathlib.Path],
+    name: str,
+    data: List[Any],
+    fields: Collection[str],
+) -> None:
+    """
+    Export csv data from list.
+
+    :param path: directory path to export data
+    :param name: name of the file (with or without preffix)
+    :param data: data to be saved
+    :param fields: names of the data columns
+    """
+    path = path if isinstance(path, pathlib.Path) else pathlib.Path(path)
+
+    if len(name.split(".")) <= 1:
+        name = name + ".csv"
+
+    full_path = path / name
+
+    with open(full_path, "a") as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(data)
+
+
+def csv_export_from_dict(path: Union[str, pathlib.Path], name: str, data: Dict[str, Any]) -> None:
+    """
+    Export csv data from list.
+
+    :param path: directory path to export data
+    :param name: name of the file (with or without preffix)
+    :param data: data to be saved
+    :param fields: names of the data columns
+    """
+
+    path = path if isinstance(path, pathlib.Path) else pathlib.Path(path)
+    fields = list(data.keys())
+
+    if len(name.split(".")) <= 1:
+        name = name + ".csv"
+
+    full_path = path / name
+    full_path_is_file = full_path.is_file()
+
+    with open(full_path, "a") as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=fields)
+        if not full_path_is_file:
+            writer.writeheader()
+        writer.writerow(data)

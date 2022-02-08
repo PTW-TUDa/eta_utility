@@ -1,4 +1,3 @@
-import pathlib
 from typing import Any, Callable, Dict
 
 import numpy as np
@@ -7,6 +6,7 @@ from eta_utility import get_logger
 from eta_utility.eta_x import callback_environment
 from eta_utility.eta_x.envs import BaseEnv
 from eta_utility.type_hints import Path
+from eta_utility.util import csv_export_from_dict
 
 log = get_logger("test_etax", 2)
 
@@ -123,19 +123,10 @@ class PendulumEnv(BaseEnv):
         return reset_observations
 
     def render(self):
-        # save information for report
-        import csv
+        # Method replaced for integration test purpose
 
         data = {"n_iter": self.n_steps, "n_episode": self.n_episodes}
-        fields = ["n_iter", "n_episode"]
-
-        report_path = pathlib.Path(self.path_settings["path_results"]) / "report.csv"
-        report_is_file = report_path.is_file()
-        with open(report_path, "a") as csv_file:
-            writer = csv.DictWriter(csv_file, fieldnames=fields)
-            if not report_is_file:
-                writer.writeheader()
-            writer.writerow(data)
+        csv_export_from_dict(path=self.path_settings["path_results"], name="report.csv", data=data)
 
     def close(self):
         pass

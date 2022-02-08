@@ -6,8 +6,10 @@ from typing import (
     Callable,
     Dict,
     Mapping,
+    MutableSet,
     Optional,
     Sequence,
+    Set,
     SupportsFloat,
     Tuple,
     Union,
@@ -36,10 +38,10 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         path_settings: Dict[str, Path],
         env_settings: Dict[str, Any],
         verbose: int,
-        callback: Callable = None,
+        callback: Optional[Callable] = None,
     ) -> None:
 
-        self.req_general_settings = set(self.req_general_settings)
+        self.req_general_settings: Set[Union[Sequence, MutableSet]] = set(self.req_general_settings)
         self.req_general_settings.update(("sim_steps_per_sample",))  # noqa
         super().__init__(
             env_id,
@@ -78,7 +80,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         #: Instance of the FMU. This can be used to directly access the eta_utility.FMUSimulator interface.
         self.simulator: FMUSimulator
 
-    def _init_simulator(self, init_values: Mapping[str, Union[int, float]]) -> None:
+    def _init_simulator(self, init_values: Optional[Mapping[str, Union[int, float]]] = None) -> None:
         """Initialize the simulator object. Make sure to call _names_from_state before this or to otherwise initialize
         the names array.
 
@@ -122,13 +124,12 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         sim_time_start = time.time()
 
         step_success = True
-        for i in range(self.sim_steps_per_sample):  # do multiple FMU steps in one environment-step
-            try:
-                step_outputs = self.simulator.step(step_inputs)
+        try:
+            step_output = self.simulator.step(step_inputs)
 
-            except Exception as e:
-                step_success = False
-                log.error(e)
+        except Exception as e:
+            step_success = False
+            log.error(e)
 
         # stop timer for simulation step time debugging
         sim_time_elapsed = time.time() - sim_time_start
@@ -137,7 +138,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         output = {}
         if step_success:
             for idx, name in enumerate(self.names["ext_outputs"]):
-                output[name] = (step_outputs[idx] + self.ext_scale[key]["add"]) * self.ext_scale[key]["multiply"]
+                output[name] = (step_output[idx] + self.ext_scale[name]["add"]) * self.ext_scale[name]["multiply"]
 
         return output, step_success, sim_time_elapsed
 
@@ -176,6 +177,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
             raise RuntimeError(
                 f"Action {action} ({type(action)}) is invalid. At least one of the actions is not in action space."
             )
+
         self.n_steps += 1
 
         # Store actions
@@ -185,9 +187,10 @@ class BaseEnvSim(BaseEnv, abc.ABC):
 
         # Update scenario data, simulate one time step and store the results.
         self.state.update(self.get_scenario_state())
-        sim_result, step_success, sim_time_elapsed = self.simulate(self.state)
-        self.state.update(sim_result)
-        self.state_log.append(self.state)
+        for _ in range(self.sim_steps_per_sample):  # do multiple FMU steps in one environment-step
+            sim_result, step_success, sim_time_elapsed = self.simulate(self.state)
+            self.state.update(sim_result)
+            self.state_log.append(self.state)
 
         # Check if the episode is over or not
         done = self.n_steps >= self.n_episode_steps or not step_success
