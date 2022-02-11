@@ -12,7 +12,8 @@ def read_file(path: pathlib.Path) -> Dict[str, Any]:
             reader = csv.reader(f)
             file = []
             for line in reader:
-                file.append(line)
+                if line:
+                    file.append(line)
     elif file_type == ".json":
         with open(path) as f:
             file = json.load(f)
