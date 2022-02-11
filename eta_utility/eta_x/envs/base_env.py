@@ -610,7 +610,7 @@ class BaseEnv(Env, abc.ABC):
         raise NotImplementedError("Cannot step an abstract Environment.")
 
     @abc.abstractmethod
-    def reset(self) -> Tuple[np.ndarray, Union[np.float, SupportsFloat], bool, Union[str, Sequence[str]]]:
+    def reset(self) -> np.ndarray:
         """Reset the environment. This is called after each episode is completed and should be used to reset the
         state of the environment such that simulation of a new episode can begin.
 

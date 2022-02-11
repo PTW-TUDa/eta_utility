@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Sequence, SupportsFloat, Tuple, Union
 
 import numpy as np
 
@@ -65,7 +65,7 @@ class PendulumEnv(BaseEnv):
         self.action_space = self.continuous_action_space_from_state()
         self.observation_space = self.continuous_obs_space_from_state()
 
-    def step(self, u):
+    def step(self, u: np.ndarray) -> Tuple[np.ndarray, Union[np.float, SupportsFloat], bool, Union[str, Sequence[str]]]:
         """See base_env documentation"""
         # Here, u is a scalar value, but it can also be a numpy array for multiple actions.
         # This depends on the action and observation space chosen
@@ -80,7 +80,7 @@ class PendulumEnv(BaseEnv):
         th, thdot = self.state  # get current state variables (th := theta)
         newthdot = (
             thdot
-            + (-3 * self.g / (2 * self.length) * np.sin(th + np.pi) + 3.0 / (self.m * self.length ** 2) * u)
+            + (-3 * self.g / (2 * self.length) * np.sin(th + np.pi) + 3.0 / (self.m * self.length**2) * u)
             * self.sampling_time
         )
         newth = th + newthdot * self.sampling_time
@@ -94,14 +94,14 @@ class PendulumEnv(BaseEnv):
         )  # observations (derived from state and given to the agent)
 
         # reward function
-        costs = angle_normalize(th) ** 2 + 0.1 * thdot ** 2 + 0.001 * (u ** 2)
+        costs = angle_normalize(th) ** 2 + 0.1 * thdot**2 + 0.001 * (u**2)
 
         # check if episode is over or not
         done = self.n_steps >= self.n_episode_steps
 
         return observations, -costs, done, {}
 
-    def reset(self):
+    def reset(self) -> np.ndarray:
         # update counters
         if self.n_steps > 0:
             log.info("Finished Episode " + str(self.n_episodes) + ".")
@@ -122,16 +122,16 @@ class PendulumEnv(BaseEnv):
 
         return reset_observations
 
-    def render(self):
+    def render(self, mode: str = "human") -> None:
         # Method replaced for integration test purpose
 
         data = {"n_iter": self.n_steps, "n_episode": self.n_episodes}
         csv_export_from_dict(path=self.path_settings["path_results"], name="report.csv", data=data)
 
-    def close(self):
+    def close(self) -> None:
         pass
 
 
 # helper functions
-def angle_normalize(x):
+def angle_normalize(x: float) -> float:
     return ((x + np.pi) % (2 * np.pi)) - np.pi
