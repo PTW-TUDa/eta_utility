@@ -70,7 +70,7 @@ black:
   stage: check
   interruptible: true
   script:
-    - pip install black==21.12b0
+    - pip install black
     - black --check --config pyproject.toml eta_utility/ test/
   cache: []
 

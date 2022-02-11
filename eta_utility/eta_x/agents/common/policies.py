@@ -1,3 +1,4 @@
+import torch as th
 from stable_baselines3.common import policies
 
 
@@ -5,18 +6,23 @@ class NoPolicy(policies.BasePolicy):
     """No Policy allows for the creation of agents which do not use neural networks. It does not implement any of
     the typical policy functions but is a simple interface that can be used and ignored. There is no need
     to worry about the implementation details of policies.
-
-    :param args: Any arguments that should be passed to the BasePolicy
-    :param kwargs: Any keywords that should be passed to the Base Policy
     """
 
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+    def forward(self, *args, **kwargs):
+        """No Policy allows for the creation of agents which do not use neural networks. It does not implement any of
+        the typical policy functions but is a simple interface that can be used and ignored. There is no need
+        to worry about the implementation details of policies.
+        """
+        raise NotImplementedError("'NoPolicy' should be used only, when predictions are calculated otherwise.")
 
-    def step(self, *args, **kwargs) -> None:
-        """NoPolicy should be used only, when steps results are calculated otherwise."""
-        raise NotImplementedError("NoPolicy should be used only, when steps results are calculated otherwise.")
+    def _predict(self, observation: th.Tensor, deterministic: bool = False) -> th.Tensor:
+        """
+        Get the action according to the policy for a given observation.
 
-    def proba_step(self) -> None:
-        """NoPolicy should be used only, when probabilities are calculated otherwise."""
-        raise NotImplementedError("NoPolicy should be used only, when probabilities are calculated otherwise.")
+        Not implemented in NoPolicy.
+
+        :param observation: Observations of the agent
+        :param deterministic: Whether to use stochastic or deterministic actions
+        :return: Taken action according to the policy
+        """
+        raise NotImplementedError("'NoPolicy' should be used only, when predictions are calculated otherwise.")
