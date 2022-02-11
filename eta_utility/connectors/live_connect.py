@@ -239,19 +239,22 @@ class LiveConnect(AbstractContextManager):
                     vals.update({k: v for k, v in sys_val.items()})
                 elif sys_val is not None:
                     vals[key] = sys_val
-                else:
-                    vals[key] = None
 
         if len(vals) <= 0:
             vals = None
-        elif not vals.keys() <= self._nodes.keys() and flatten:
-            log.error(e_msg)
-            errors = True
-        elif not flatten:
-            for key, sys_val in vals.items():
-                if not sys_val.keys() <= self._nodes.keys():
+        else:
+            if flatten:
+                for key, sys_val in vals.items():
+                    if sys_val and key not in self._nodes.keys():
+                        errors = True
+                        break
+                if errors:
                     log.error(e_msg)
-                    errors = True
+            else:
+                for key, sys_val in vals.items():
+                    if sys_val and not sys_val.keys() <= self._nodes.keys():
+                        log.error(e_msg)
+                        errors = True
 
         return vals, errors
 
