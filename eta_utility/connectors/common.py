@@ -51,6 +51,8 @@ def connections_from_nodes(
                 connections[node.url_parsed.hostname] = EnEffCoConnection.from_node(
                     node, usr=usr, pwd=pwd, api_token=eneffco_api_token
                 )
+            elif node.protocol == "rest":
+                connections[node.url_parsed.hostname] = RESTConnection.from_node(node)
             else:
                 raise ValueError(
                     f"Node {node.name} does not specify a recognized protocol for initializing a connection."
