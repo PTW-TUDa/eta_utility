@@ -6,9 +6,8 @@ SERVER_URL = "http://192.168.178.87:5000"
 
 node = Node("TestNode1", SERVER_URL, "rest", rest_endpoint="Test")
 node2 = Node("TestNode2", SERVER_URL, "rest", rest_endpoint="Test2")
-node_fail = Node("TestNode2", "someurl", "bad_protocol", rest_endpoint="Test")
 node_fail2 = Node("TestNode2", "someurl", "rest", rest_endpoint="Test")
-node_fail3 = Node("TestNode2", SERVER_URL, "bad_protocol", rest_endpoint="Test")
+node_fail3 = Node("TestNode2", SERVER_URL, "rest", rest_endpoint="Test")
 
 test_dict = {"Test": "Ok"}
 
@@ -25,8 +24,8 @@ class MockResponse:
 
 def test_rest_from_node_failure():
     """ "testing from_node()-method (exception behaviour)"""
-    with pytest.raises(ValueError, match=".*TestNode2.*"):
-        RESTConnection.from_node(node_fail)
+    with pytest.raises(ValueError, match="Specified an unsupported protocol: "):
+        Node("TestNode2", "someurl", "bad_protocol", rest_endpoint="Test")
 
 
 def test_rest_from_node_sucessful():
@@ -83,13 +82,7 @@ def test_rest_init_conn_multiple():
 
 def test_rest_init_conn_validate_nodes():
     """ "testing init() RESTConnection with invalid nodes as input"""
-    conn = RESTConnection(SERVER_URL, [node, node_fail3, node_fail2, node2])
+    conn = RESTConnection(SERVER_URL, [node, node_fail2, node2])
     assert isinstance(conn, RESTConnection)
     assert conn.url == SERVER_URL
     assert conn.selected_nodes == {node, node2}
-
-
-def test_rest_init_conn_badnode():
-    """ "testing init() RESTConnection failure due to invalid nodes"""
-    with pytest.raises(ValueError, match=".*"):
-        RESTConnection(SERVER_URL, node_fail)
