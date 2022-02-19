@@ -2,14 +2,26 @@
 
 """
 import pathlib
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Sized,
+    Tuple,
+    Union,
+)
 from urllib.parse import ParseResult, urlparse, urlunparse
 
 import pandas as pd
-from attrs import converters, define, field, validators
+from attrs import converters, define, field, validators  # noqa: I900
 
 from eta_utility import get_logger, url_parse
-from eta_utility.type_hints import Connection, Nodes, Path
+from eta_utility.type_hints import Node as _TNode
+from eta_utility.type_hints import Nodes, Path
 
 from .eneffco import EnEffCoConnection
 from .modbus import ModbusConnection
@@ -43,15 +55,42 @@ def _lower_str(value: str) -> str:
     return value.strip().lower()
 
 
-class NodeMeta(type):
-    """Metaclass to instantiate the correct type of node for each protocol."""
+def _dtype_converter(value: str) -> Optional[Callable]:
+    """Specify data type conversion functions (i.e. to convert modbus types to python)."""
+    _dtypes = {
+        "boolean": bool,
+        "bool": bool,
+        "int": int,
+        "uint32": int,
+        "integer": int,
+        "sbyte": int,
+        "float": float,
+        "double": float,
+        "short": float,
+        "string": str,
+        "str": str,
+    }
+    try:
+        dtype = _dtypes[_lower_str(value)]
+    except KeyError:
+        log.warning(
+            f"The specified data type ({value}) is currently not available in the datatype map and "
+            f"will not be applied."
+        )
+        dtype = None
 
-    def __new__(cls, name: str, bases: Tuple, namespace: Dict[str, Any]) -> "NodeMeta":
-        new_cls = super().__new__(cls, name, bases, namespace)
+    return dtype
+
+
+class NodeMeta(type):
+    """Metaclass to define all Node classes as frozen attr dataclasses."""
+
+    def __new__(cls, name: str, bases: Tuple, namespace: Dict[str, Any], **kwargs: Any) -> "NodeMeta":
+        new_cls = super().__new__(cls, name, bases, namespace, **kwargs)
         return define(frozen=True, slots=False)(new_cls)
 
 
-class Node:
+class Node(metaclass=NodeMeta):
     """The node objects represents a single variable. Valid keyword arguments depend on the protocol
 
     The url may contain the username and password (schema://username:password@hostname:port/path). This is handled
@@ -85,48 +124,56 @@ class Node:
                        of nodes.
     """
 
-    #: data type conversion functions (i.e. to convert modbus types to python)
-    _dtypes = {
-        "boolean": bool,
-        "bool": bool,
-        "int": int,
-        "uint32": int,
-        "integer": int,
-        "sbyte": int,
-        "float": float,
-        "double": float,
-        "short": float,
-        "string": str,
-        "str": str,
-    }
+    #: Name for the node
+    name: str = field(converter=_strip_str, eq=True)
+    #: Url of the connection
+    url: str = field(eq=True, order=True)
+    #: Parse result object of the url (in case more post-processing is required)
+    url_parsed: ParseResult = field(init=False, repr=False, eq=False, order=False)
+    #: Protocol of the connection
+    protocol: str = field(repr=False, eq=False, order=False)
+    #: Username for login to the connection (default: None)
+    usr: Optional[str] = field(default=None, kw_only=True, repr=False, eq=False, order=False)
+    #: Password for login to the connection (default: None)
+    pwd: Optional[str] = field(default=None, kw_only=True, repr=False, eq=False, order=False)
+    #: Data type of the node (for value conversion)
+    dtype: Optional[Callable] = field(
+        default=None, converter=converters.optional(_dtype_converter), kw_only=True, repr=False, eq=False, order=False
+    )
 
-    def __new__(cls, name, url, protocol, *args, **kwargs):
-        # Subclass definitions to instantiate based on protocol
-        sub_cls = {
-            "modbus": NodeModbus,
-            "opcua": NodeOpcUa,
-            "eneffco": NodeEnEffCo,
-            "entsoe": NodeEntsoE,
-            "rest": NodeREST,
-        }
+    _registry = {}
 
-        # Check to make sure that if dtype is specified as an argument it is also present in the _dtypes map.
-        _dtype = None
-        if "dtype" in kwargs:
-            dtype = _lower_str(kwargs.pop("dtype"))
-            try:
-                _dtype = cls._dtypes[dtype]
-            except KeyError:
-                log.warning(
-                    f"The specified data type ({dtype}) is currently not available in the datatype map and "
-                    f"will not be applied."
-                )
+    def __init_subclass__(cls, **kwargs):
+        """Store subclass definitions to instantiate based on protocol."""
+        protocol = kwargs.pop("protocol", None)
+        if protocol:
+            cls._registry[protocol] = cls
 
-        # Return the class instance
+        return super().__init_subclass__(**kwargs)
+
+    def __new__(cls, name: str, url: str, protocol: str, *args: Any, **kwargs: Any) -> "Node":
+        """Create node object of correct subclass corresponding to protocol."""
         try:
-            return sub_cls[_lower_str(protocol)](name, url, protocol, *args, dtype=_dtype, **kwargs)
+            subclass = cls._registry[protocol]
         except KeyError:
             raise ValueError(f"Specified an unsupported protocol: {protocol}.")
+
+        # Return the correct subclass for the specified protocol
+        obj = object.__new__(subclass)
+        return obj
+
+    def __attrs_post_init__(self) -> None:
+        """Add post-processing to the url, username and password information. Username and password specified during
+        class init take precedence.
+        """
+        url, usr, pwd = url_parse(self.url)
+        if self.usr is None:
+            object.__setattr__(self, "usr", usr)
+        if self.pwd is None:
+            object.__setattr__(self, "pwd", pwd)
+
+        object.__setattr__(self, "url", url.geturl())
+        object.__setattr__(self, "url_parsed", url)
 
     @classmethod
     def from_dict(cls, dikt: Union[Sequence[Mapping], Mapping[str, Any]]) -> List["Node"]:
@@ -282,7 +329,7 @@ class Node:
         return cls.from_dict(list(input_.to_dict("index").values()))
 
     @classmethod
-    def get_eneffco_nodes_from_codes(cls, code_list: Sequence[str], eneffco_url: Optional[str]) -> List["Node"]:
+    def get_eneffco_nodes_from_codes(cls, code_list: Sequence[str], eneffco_url: str) -> List["Node"]:
         """
         Utility function to retrieve Node objects from a list of EnEffCo Codes (Identifiers).
 
@@ -296,39 +343,17 @@ class Node:
         return nodes
 
 
-class _NodeBase(metaclass=NodeMeta):
-
-    #: Name for the node
-    name: str = field(converter=_strip_str, eq=True)
-    #: Url of the connection
-    url: str = field(eq=True, order=True)
-    #: Parse result object of the url (in case more post-processing is required)
-    url_parsed: ParseResult = field(init=False, repr=False, eq=False, order=False)
-    #: Protocol of the connection
-    protocol: str = field(repr=False, eq=False, order=False)
-    #: Username for login to the connection (default: None)
-    usr: str = field(default=None, kw_only=True, repr=False, eq=False, order=False)
-    #: Password for login to the connection (default: None)
-    pwd: str = field(default=None, kw_only=True, repr=False, eq=False, order=False)
-    #: Data type of the node (for value conversion)
-    dtype: Optional[Callable] = field(default=None, kw_only=True, repr=False, eq=False, order=False)
-
-    def __attrs_post_init__(self):
-        """Add post-processing to the url, username and password information. Username and password specified during
-        class init take precedence.
-        """
-        url, usr, pwd = url_parse(self.url)
-        if self.usr is None and usr is not None:
-            object.__setattr__(self, "usr", usr)
-        if self.pwd is None and pwd is not None:
-            object.__setattr__(self, "pwd", pwd)
-
-        object.__setattr__(self, "url", url.geturl())
-        object.__setattr__(self, "url_parsed", url)
+class NodeLocal(Node, protocol="local"):
+    def __attrs_post_init__(self) -> None:
+        """Ensure username and password are processed correctly."""
+        super().__attrs_post_init__()
 
 
 def _mb_byteorder_converter(value: str) -> str:
-    # Convert some values for mb_byteorder
+    """Convert some values for mb_byteorder
+    :param value: value to be converted to mb_byteorder
+    :return: mb_byteorder corresponding to correct scheme
+    """
     value = _lower_str(value)
     if value in {"little", "littleendian"}:
         return "little"
@@ -336,8 +361,10 @@ def _mb_byteorder_converter(value: str) -> str:
     if value in {"big", "bigendian"}:
         return "big"
 
+    return ""
 
-class NodeModbus(_NodeBase):
+
+class NodeModbus(Node, protocol="modbus"):
     #: Modbus Slave ID
     mb_slave: int = field(kw_only=True)
     #: Modbus Register name (i.e. "Holding")
@@ -351,26 +378,26 @@ class NodeModbus(_NodeBase):
         kw_only=True, converter=_mb_byteorder_converter, validator=validators.in_({"little", "big"})
     )
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         """Add default port to the url and convert mb_byteorder values."""
         super().__attrs_post_init__()
 
         # Set port to default 502 if it was not explicitly specified
         if not isinstance(self.url_parsed.port, int):
             url = self.url_parsed._replace(netloc=f"{self.url_parsed.hostname}:502")
-            object.__setattr__(self, "url", url.get_url())
+            object.__setattr__(self, "url", url.geturl())
             object.__setattr__(self, "url_parsed", url)
 
 
-class NodeOpcUa(_NodeBase):
+class NodeOpcUa(Node, protocol="opcua"):
     #: Node ID of the OPC UA Node
-    opc_id: str = field(default=None, kw_only=True, converter=converters.optional(_strip_str))
+    opc_id: Optional[str] = field(default=None, kw_only=True, converter=converters.optional(_strip_str))
     #: Path to the OPC UA node
-    opc_path_str: str = field(
+    opc_path_str: Optional[str] = field(
         default=None, kw_only=True, converter=converters.optional(_strip_str), repr=False, eq=False, order=False
     )
     #: Namespace of the OPC UA Node
-    opc_ns: int = field(default=None, kw_only=True, converter=converters.optional(_lower_str))
+    opc_ns: Optional[int] = field(default=None, kw_only=True, converter=converters.optional(_lower_str))
 
     # Additional fields which will be determined automatically
     #: Type of the OPC UA Node ID Specification
@@ -381,14 +408,14 @@ class NodeOpcUa(_NodeBase):
     #: parent objects
     opc_path: List[Node] = field(init=False, repr=False, eq=False, order=False)
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         """Add default port to the url and convert mb_byteorder values."""
         super().__attrs_post_init__()
 
         # Set port to default 4840 if it was not explicitly specified
         if not isinstance(self.url_parsed.port, int):
             url = self.url_parsed._replace(netloc=f"{self.url_parsed.hostname}:4840")
-            object.__setattr__(self, "url", url.get_url())
+            object.__setattr__(self, "url", url.geturl())
             object.__setattr__(self, "url_parsed", url)
 
         # Determine, which values to use for initialization and set values
@@ -412,40 +439,55 @@ class NodeOpcUa(_NodeBase):
 
         # Determine the name and path of the opc node
         split_path = (
-            self.opc_path_str.rsplit(".", maxsplit=len(self.opc_path_str.split(".")) - 2)
-            if self.opc_path_str[0] == "."
-            else self.opc_path_str.split(".")
+            self.opc_path_str.rsplit(".", maxsplit=len(self.opc_path_str.split(".")) - 2)  # type: ignore
+            if self.opc_path_str[0] == "."  # type: ignore
+            else self.opc_path_str.split(".")  # type: ignore
         )
 
         object.__setattr__(self, "opc_name", split_path[-1].split(".")[-1])
         path = []
         if len(split_path) > 1:
-            for key in range(len(split_path) - 1):
+            for k in range(len(split_path) - 1):
                 path.append(
                     Node(
-                        split_path[key].strip(" ."),
+                        split_path[k].strip(" ."),
                         self.url,
                         "opcua",
                         usr=self.usr,
                         pwd=self.pwd,
-                        opc_id="ns={};s={}".format(self.opc_ns, ".".join(split_path[: key + 1])),
+                        opc_id="ns={};s={}".format(self.opc_ns, ".".join(split_path[: k + 1])),
                     )
                 )
         object.__setattr__(self, "opc_path", path)
 
 
-class NodeEnEffCo(_NodeBase):
+class NodeEnEffCo(Node, protocol="eneffco"):
     #: EnEffCo datapoint code / id
     eneffco_code: str = field(kw_only=True)
 
+    def __attrs_post_init__(self) -> None:
+        """Ensure username and password are processed correctly."""
+        super().__attrs_post_init__()
 
-class NodeREST(_NodeBase):
-    #: Rest endpoint
+
+class NodeREST(Node, protocol="rest"):
+    #: REST endpoint
     rest_endpoint: str = field(kw_only=True)
 
+    def __attrs_post_init__(self) -> None:
+        """Ensure username and password are processed correctly."""
+        super().__attrs_post_init__()
 
-class NodeEntsoE(NodeREST):
-    pass
+
+class NodeEntsoE(Node, protocol="entsoe"):
+    #: REST endpoint
+    endpoint: str = field(kw_only=True)
+    #: Bidding zone
+    bidding_zone: str = field(kw_only=True)
+
+    def __attrs_post_init__(self) -> None:
+        """Ensure username and password are processed correctly."""
+        super().__attrs_post_init__()
 
 
 def connections_from_nodes(
@@ -453,7 +495,7 @@ def connections_from_nodes(
     eneffco_usr: Optional[str] = None,
     eneffco_pw: Optional[str] = None,
     eneffco_api_token: Optional[str] = None,
-) -> Dict[str, Connection]:
+) -> Dict[str, Any]:
     """Take a list of nodes and return a list of connections
 
     :param nodes: List of nodes defining servers to connect to
@@ -463,23 +505,26 @@ def connections_from_nodes(
     :return: Dictionary of connection objects {hostname: connection}
     """
 
-    connections = {}
+    connections: Dict[str, Any] = {}
+
+    if not isinstance(nodes, Sized):
+        nodes = {nodes}
 
     for node in nodes:
         # Create connection if it does not exist
         if node.url_parsed.hostname not in connections:
             if node.protocol == "modbus":
-                connections[node.url_parsed.hostname] = ModbusConnection.from_node(node)
+                connections[node.url_parsed.hostname] = ModbusConnection.from_node(node)  # type: ignore
             elif node.protocol == "opcua":
-                connections[node.url_parsed.hostname] = OpcUaConnection.from_node(node)
+                connections[node.url_parsed.hostname] = OpcUaConnection.from_node(node)  # type: ignore
             elif node.protocol == "eneffco":
                 if eneffco_usr is None or eneffco_pw is None or eneffco_api_token is None:
                     raise ValueError("Specify username, password and API token for EnEffco access.")
-                connections[node.url_parsed.hostname] = EnEffCoConnection.from_node(
+                connections[node.url_parsed.hostname] = EnEffCoConnection.from_node(  # type: ignore
                     node, usr=eneffco_usr, pwd=eneffco_pw, api_token=eneffco_api_token
                 )
             elif node.protocol == "rest":
-                connections[node.url_parsed.hostname] = RESTConnection.from_node(node)
+                connections[node.url_parsed.hostname] = RESTConnection.from_node(node)  # type: ignore
             else:
                 raise ValueError(
                     f"Node {node.name} does not specify a recognized protocol for initializing a connection."
@@ -491,7 +536,7 @@ def connections_from_nodes(
     return connections
 
 
-def name_map_from_node_sequence(nodes: Nodes) -> Dict[str, Node]:
+def name_map_from_node_sequence(nodes: Nodes) -> Dict[str, _TNode]:
     """Convert a Sequence/List of Nodes into a dictionary of nodes, identified by their name.
 
     .. warning ::
@@ -501,6 +546,9 @@ def name_map_from_node_sequence(nodes: Nodes) -> Dict[str, Node]:
     :param nodes: Sequence of Node objects
     :return: Dictionary of Node objects (format: {node.name: Node})
     """
+    if not isinstance(nodes, Sized):
+        nodes = {nodes}
+
     if len({node.name for node in nodes}) != len([node.name for node in nodes]):
         raise ValueError("Not all node names are unique. Cannot safely convert to named dictionary.")
 

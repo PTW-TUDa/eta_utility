@@ -78,7 +78,7 @@ class TestDFSubHandler:
     def test_push_timeseries_to_df(self, value, timestamp):
         """Test pushing a Series all at once"""
         handler = DFSubHandler(write_interval=1)
-        test_node = Node(name="FirstNode", url="", protocol="rest", rest_endpoint="")
+        test_node = Node(name="FirstNode", url="", protocol="local")
         handler.push(test_node, value, timestamp)
         data = handler.data
 
@@ -88,7 +88,7 @@ class TestDFSubHandler:
         """Test keeping the internal data of DFSubHandler short"""
         keep_data_rows = 2
         handler = DFSubHandler(write_interval=1, size_limit=keep_data_rows)
-        test_node = Node(name="FirstNode", url="", protocol="rest", rest_endpoint="")
+        test_node = Node(name="FirstNode", url="", protocol="local")
         handler.push(test_node, sample_series.values, sample_series.index)
         data = handler.data
 

@@ -178,6 +178,8 @@ pages:
     <<: *global_cache
     policy: pull
 
+# This can be used in case an FMU file has to be compiled on a linux system for the tests to work.
+# Usually it isn't needed though and therefore excluded with a 'never' rule.
 compile_fmu:
   stage: setup
   before_script:
