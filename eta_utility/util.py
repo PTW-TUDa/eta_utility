@@ -1,17 +1,23 @@
+from __future__ import annotations
+
 import csv
 import json
 import logging
 import pathlib
 import re
 import sys
-from typing import Any, Collection, Dict, List, Optional, Tuple, Union
-from urllib.parse import ParseResult, urlparse, urlunparse
+from typing import TYPE_CHECKING
+from urllib.parse import urlparse, urlunparse
 
-from .type_hints import Path
+if TYPE_CHECKING:
+    from typing import Any, Collection
+    from urllib.parse import ParseResult
+
+    from .type_hints import Path
 
 
 def get_logger(
-    name: Optional[str] = None, level: Optional[int] = None, format: Optional[str] = None  # noqa: A002
+    name: str | None = None, level: int | None = None, format: str | None = None  # noqa: A002
 ) -> logging.Logger:
     """Get eta_utility specific logger
 
@@ -56,7 +62,7 @@ def get_logger(
 log = get_logger("util", 2)
 
 
-def json_import(path: Path) -> Dict[str, Any]:
+def json_import(path: Path) -> dict[str, Any]:
     """Extend standard json import to allow comments in json files
 
     :param path: path to json file
@@ -78,7 +84,7 @@ def json_import(path: Path) -> Dict[str, Any]:
     return result
 
 
-def url_parse(url: str) -> Tuple[ParseResult, Union[str, None], Union[str, None]]:
+def url_parse(url: str) -> tuple[ParseResult, str | None, str | None]:
     """Extend parsing of url strings to find passwords and remove them from the original URL
 
     :param url: URL string to be parsed
@@ -102,9 +108,9 @@ def url_parse(url: str) -> Tuple[ParseResult, Union[str, None], Union[str, None]
 
 
 def csv_export_from_list(
-    path: Union[str, pathlib.Path],
+    path: str | pathlib.Path,
     name: str,
-    data: List[Any],
+    data: list[Any],
     fields: Collection[str],
 ) -> None:
     """
@@ -127,7 +133,7 @@ def csv_export_from_list(
         writer.writerow(data)
 
 
-def csv_export_from_dict(path: Union[str, pathlib.Path], name: str, data: Dict[str, Any]) -> None:
+def csv_export_from_dict(path: str | pathlib.Path, name: str, data: dict[str, Any]) -> None:
     """
     Export csv data from list.
 

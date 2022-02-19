@@ -16,36 +16,32 @@ sum from (i=1 to n) of (n-i) = (2n^2 - n) iterations. The construction of all of
 sum from (i=1 to n/2) of (n-i) = (3n^2/2 - n/2) iterations. This means that this implementation of the algorithm has an
 overall time complexity of O(7/2 n^2) as compared to the complexity of the original NSGA-II of O(8n^2)
 """
+from __future__ import annotations
 
 import operator
 import pickle
 import time
 from copy import deepcopy
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    MutableSequence,
-    Optional,
-    Sequence,
-    Set,
-    Tuple,
-    Union,
-)
+from typing import TYPE_CHECKING
 
 import mmh3
 import numpy as np
 from gym import spaces
 from stable_baselines3.common.base_class import BaseAlgorithm
-from stable_baselines3.common.vec_env import VecEnv
 
 from eta_utility import get_logger
-from eta_utility.type_hints import Number
 
 from ..common import ProcessPool, cpu_count
-from ..common.policies import NoPolicy
+
+if TYPE_CHECKING:
+    from typing import Any, Callable, Iterable, MutableSequence, Sequence
+
+    from stable_baselines3.common.vec_env import VecEnv
+
+    from eta_utility.type_hints import Number
+
+    from ..common.policies import NoPolicy
+
 
 log = get_logger("eta_x.agents")
 
@@ -142,14 +138,14 @@ class NSGA2(BaseAlgorithm):
         # random entropy will be used.
         log.info(f"Initialized random generator with seed {self.seed}, entropy: {self._seed_sequence.entropy}")
 
-        self._generation_parent: List[float] = []
-        self._seen_solutions: Set[str] = set()
+        self._generation_parent: list[float] = []
+        self._seen_solutions: set[str] = set()
         self.generation: int = 0
         self._model_trained: bool = False
 
         if threads > 1:
             self._chunksize: int = self.population // self._threads
-            self._processes: Optional[ProcessPool] = ProcessPool(threads, seed_sequence=self._seed_sequence)
+            self._processes: ProcessPool | None = ProcessPool(threads, seed_sequence=self._seed_sequence)
             if hasattr(self.env, "set_proc_pool"):
                 self.env.set_proc_pool(self._processes)
             log.debug(f"Set up processing pool with {self._chunksize} solutions per process.")
@@ -157,7 +153,7 @@ class NSGA2(BaseAlgorithm):
             self._chunksize = self.population
             self._processes = None
 
-        self._data_store: Dict[str, Dict[str, Any]] = {
+        self._data_store: dict[str, dict[str, Any]] = {
             "settings": {
                 "seed": self._seed_sequence.entropy,
                 "population": self.population,
@@ -193,7 +189,7 @@ class NSGA2(BaseAlgorithm):
         )
 
     @classmethod
-    def load(cls, load_path: str, env: Optional[VecEnv] = None, **kwargs) -> "NSGA2":
+    def load(cls, load_path: str, env: VecEnv | None = None, **kwargs) -> NSGA2:
         """
         TODO: Reimplement this function using stable baselines facilities
 
@@ -284,7 +280,7 @@ class NSGA2(BaseAlgorithm):
                 raise ValueError(f"Variables cannot be nested further. Received {type(var_space)}.")
 
         # Generate the first generation
-        def empty_generation(this: "NSGA2") -> Iterable["GeneticSolution"]:
+        def empty_generation(this: NSGA2) -> Iterable[GeneticSolution]:
             return (GeneticSolution() for _ in range(0, this.population))
 
         if self._threads > 1:
@@ -357,11 +353,11 @@ class NSGA2(BaseAlgorithm):
     def learn(
         self,
         total_timesteps: int,
-        callback: Optional[Callable] = None,
+        callback: Callable | None = None,
         log_interval: int = 10,
         tb_log_name: str = "run",
         reset_num_timesteps: bool = True,
-    ) -> "NSGA2":
+    ) -> NSGA2:
         """Return a trained model.
 
         .. note:: Parameters tb_log_name and reset_num_timesteps are currently ignored because tensorboard logging is
@@ -481,8 +477,8 @@ class NSGA2(BaseAlgorithm):
     def predict(
         self,
         observation: np.ndarray,
-        state: Optional[np.ndarray] = None,
-        mask: Optional[np.ndarray] = None,
+        state: np.ndarray | None = None,
+        mask: np.ndarray | None = None,
         deterministic: bool = False,
     ) -> None:
         """
@@ -499,9 +495,9 @@ class NSGA2(BaseAlgorithm):
     def action_probability(
         self,
         observation: np.ndarray,
-        state: Optional[np.ndarray] = None,
-        mask: Optional[np.ndarray] = None,
-        actions: Optional[np.ndarray] = None,
+        state: np.ndarray | None = None,
+        mask: np.ndarray | None = None,
+        actions: np.ndarray | None = None,
         **kwargs,
     ) -> None:
         """This function is not implemented for the genetic algorithm because it cannot determine the probability
@@ -528,7 +524,7 @@ class NSGA2(BaseAlgorithm):
         with open(save_path, "wb") as f:
             pickle.dump(self, f)
 
-    def _mutate(self, generation: Sequence["GeneticSolution"]) -> List["GeneticSolution"]:
+    def _mutate(self, generation: Sequence[GeneticSolution]) -> list[GeneticSolution]:
         """Mutate the generation
 
         :param generation: List of solutions to be mutated
@@ -550,7 +546,7 @@ class NSGA2(BaseAlgorithm):
             offspr = [sol.mutate(adjusted_rate, self._rng) for sol in generation]
         return offspr
 
-    def _crossover(self, generation: Sequence["GeneticSolution"]) -> List["GeneticSolution"]:
+    def _crossover(self, generation: Sequence[GeneticSolution]) -> list[GeneticSolution]:
         """Cross some solutions of the generation
 
         :param generation: Lists of solution to be crossed over
@@ -578,7 +574,7 @@ class NSGA2(BaseAlgorithm):
 
         return offspr
 
-    def _evaluate(self, generation: MutableSequence["GeneticSolution"]) -> Tuple[List["GeneticSolution"], int, int]:
+    def _evaluate(self, generation: MutableSequence[GeneticSolution]) -> tuple[list[GeneticSolution], int, int]:
         """Evaluate all solutions in the generation and store rewards
 
         :param generation: Sequence of solutions to evaluate
@@ -651,8 +647,8 @@ class NSGA2(BaseAlgorithm):
         return list(generation), hash_retries, invalid_retries
 
     def _sort_nondominated(
-        self, parent: List["GeneticSolution"], offspr: List["GeneticSolution"]
-    ) -> List[List["GeneticSolution"]]:
+        self, parent: list[GeneticSolution], offspr: list[GeneticSolution]
+    ) -> list[list[GeneticSolution]]:
         """Perform non-dominated sort
 
         Perform the non-dominated sort and return as many fronts as necessary to completey fill the offspring
@@ -722,7 +718,7 @@ class NSGA2(BaseAlgorithm):
         return fronts
 
     @staticmethod
-    def _sort_crowding_distance(front: List["GeneticSolution"], length: int) -> List["GeneticSolution"]:
+    def _sort_crowding_distance(front: list[GeneticSolution], length: int) -> list[GeneticSolution]:
         """Sort a front by crowding distance
 
         Take the front and sort it by crowding distance for all optimisation objectives. Return as many solutions as
@@ -753,7 +749,7 @@ class NSGA2(BaseAlgorithm):
         # Return solutions with the highest crowding distance
         return sorted(front, key=attrgetter("crowding_distance"), reverse=True)[:length]
 
-    def _check_hash(self, sol: "GeneticSolution") -> bool:
+    def _check_hash(self, sol: GeneticSolution) -> bool:
         """Check whether a solution hash has already been encountered
 
         :param GeneticSolution sol: Solution to be checked
@@ -792,14 +788,14 @@ class GeneticSolution:
 
     def __init__(
         self,
-        echromo: Optional[np.ndarray] = None,
-        vchromo: Optional[np.ndarray] = None,
-        params: Optional[List[Dict[str, Any]]] = None,
+        echromo: np.ndarray | None = None,
+        vchromo: np.ndarray | None = None,
+        params: list[dict[str, Any]] | None = None,
     ) -> None:
 
-        self.echromo: Optional[np.ndarray] = echromo
-        self.vchromo: Optional[np.ndarray] = vchromo
-        self.params: List[Dict[str, Any]] = params
+        self.echromo: np.ndarray | None = echromo
+        self.vchromo: np.ndarray | None = vchromo
+        self.params: list[dict[str, Any]] = params
         self._hash = None
 
         self.cross_with = None
@@ -807,17 +803,17 @@ class GeneticSolution:
         self.randomize_flag: bool = False
         self.reward = None
 
-        self.dominates: List[int] = []
+        self.dominates: list[int] = []
         self.dominatedby: int = 0
         self.crowding_distance: Number = np.inf
 
     def initialize(
         self,
-        events: Union[int, List[Any]] = None,
-        vari: Union[int, List[Union[int, float]]] = None,
-        params: Optional[List[Dict[str, Union[str, int, float]]]] = None,
+        events: int | list[Any] = None,
+        vari: int | list[int | float] = None,
+        params: list[dict[str, str | int | float]] | None = None,
         rng: np.random.Generator = None,
-    ) -> "GeneticSolution":
+    ) -> GeneticSolution:
         """Initialize chromosomes of the solution. The solution can contain only events, only variables or both.
         If variables are used, parameters vari and params must be provided.
 
@@ -900,7 +896,7 @@ class GeneticSolution:
         probability: float,
         rng: np.random.Generator = None,
         flag: bool = False,
-    ) -> "GeneticSolution":
+    ) -> GeneticSolution:
         """Mutate values of the chromosomes. Returns a new solution object and does not modify the current solution.
 
         :param probability: Probability for mutation of each gene
@@ -965,10 +961,10 @@ class GeneticSolution:
 
     def crossover(
         self,
-        generation: Sequence["GeneticSolution"],
+        generation: Sequence[GeneticSolution],
         max_cross_len: float,
         rng: np.random.Generator = None,
-    ) -> "GeneticSolution":
+    ) -> GeneticSolution:
         """Cross the solution with another solution. Returns a new solution object and does not modify the current
         solution.
 

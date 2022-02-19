@@ -1,29 +1,35 @@
+from __future__ import annotations
+
 import pathlib
 from datetime import datetime, timedelta
-from typing import Mapping, Optional, Sequence, SupportsFloat, Union
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 
 from eta_utility import timeseries
-from eta_utility.type_hints import TimeStep
+
+if TYPE_CHECKING:
+    from typing import Mapping, Sequence, SupportsFloat
+
+    from eta_utility.type_hints import TimeStep
 
 
 def scenario_from_csv(
-    paths: Union[pathlib.Path, Sequence[pathlib.Path]],
-    data_prefixes: Optional[Sequence[str]] = None,
+    paths: pathlib.Path | Sequence[pathlib.Path],
+    data_prefixes: Sequence[str] | None = None,
     *,
     start_time: datetime,
-    end_time: Optional[datetime] = None,
-    total_time: Optional[TimeStep] = None,
-    random: Union[np.random.BitGenerator, bool, None] = False,
-    resample_time: Optional[TimeStep] = None,
-    interpolation_method: Union[Sequence[str], str, None] = None,
-    rename_cols: Optional[Mapping[str, str]] = None,
-    prefix_renamed: Optional[bool] = True,
-    infer_datetime_from: Optional[Union[str, Sequence[int]]] = "string",
-    time_conversion_str: Optional[Union[str, Sequence[str]]] = "%Y-%m-%d %H:%M",
-    scaling_factors: Union[Sequence[Mapping[str, SupportsFloat]], SupportsFloat, None] = None,
+    end_time: datetime | None = None,
+    total_time: TimeStep | None = None,
+    random: np.random.BitGenerator | bool | None = False,
+    resample_time: TimeStep | None = None,
+    interpolation_method: Sequence[str] | str | None = None,
+    rename_cols: Mapping[str, str] | None = None,
+    prefix_renamed: bool | None = True,
+    infer_datetime_from: str | Sequence[int] | None = "string",
+    time_conversion_str: str | Sequence[str] | None = "%Y-%m-%d %H:%M",
+    scaling_factors: Sequence[Mapping[str, SupportsFloat]] | SupportsFloat | None = None,
 ) -> pd.DataFrame:
     """Import (possibly multiple) scenario data files from csv files and return them as a single pandas
     data frame. The import function supports column renaming and will slice and resample data as specified.
@@ -182,9 +188,9 @@ def scenario_from_csv(
 
 def _fix_col_name(
     name: str,
-    prefix: Optional[str] = None,
+    prefix: str | None = None,
     prefix_renamed: bool = False,
-    rename_cols: Optional[Mapping[str, str]] = None,
+    rename_cols: Mapping[str, str] | None = None,
 ) -> str:
     """Figure out correct name for the column
 

@@ -1,20 +1,27 @@
 """ Initiate live connections that automate certain tasks associated with the creation of such connections."""
+from __future__ import annotations
+
 import pathlib
 import time
 import types
 from contextlib import AbstractContextManager
 from datetime import timedelta
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Type, Union
+from typing import TYPE_CHECKING, Mapping, Sequence
 from urllib.parse import urlparse, urlunparse
 
 from eta_utility import get_logger, json_import
 from eta_utility.connectors import (
     Node,
     connections_from_nodes,
-    default_schemes,
     name_map_from_node_sequence,
 )
-from eta_utility.type_hints import Connection, Path, TimeStep
+from eta_utility.connectors.node import default_schemes
+
+if TYPE_CHECKING:
+    from typing import Any
+
+    from eta_utility.connectors.base_classes import BaseConnection
+    from eta_utility.type_hints import Path, TimeStep
 
 log = get_logger("live_connect")
 
@@ -120,11 +127,11 @@ class LiveConnect(AbstractContextManager):
         set_values: Mapping[str, Any] = None,
     ) -> None:
         #: Name of the system
-        self.name: Optional[str] = name.strip() if name is not None else None
+        self.name: str | None = name.strip() if name is not None else None
         #: Connection objects to the resources
-        self._connections: Dict[str, Connection] = connections_from_nodes(nodes)
+        self._connections: dict[str, BaseConnection] = connections_from_nodes(nodes)
         #: Mapping of all nodes
-        self._nodes: Dict[str, Node] = name_map_from_node_sequence(nodes)
+        self._nodes: dict[str, Node] = name_map_from_node_sequence(nodes)
         #: Mapping of node names to connections
         self._connection_map = {node.name: node.url_parsed.hostname for node in self._nodes.values()}
         #: Start time of initialisation
@@ -137,7 +144,7 @@ class LiveConnect(AbstractContextManager):
         errors = False
 
         #: Nodes for initializing the system
-        self._init_vals: Optional[Dict[str, Any]]
+        self._init_vals: dict[str, Any] | None
         self._init_vals, e = self._read_value_mapping(
             init, e_msg="Not all nodes required for initialization are configured as nodes."
         )
@@ -145,7 +152,7 @@ class LiveConnect(AbstractContextManager):
             errors = e
 
         #: Nodes for closing the connection
-        self._close_vals: Optional[Dict[str, Any]]
+        self._close_vals: dict[str, Any] | None
         self._close_vals, e = self._read_value_mapping(
             close, e_msg="Not all nodes required for closing the object are configured as nodes."
         )
@@ -153,7 +160,7 @@ class LiveConnect(AbstractContextManager):
             errors = e
 
         #: Nodes for activating the system
-        self._activate_vals: Dict[str, Any] = {}
+        self._activate_vals: dict[str, Any] = {}
         self._activate_vals, e = self._read_value_mapping(
             activate, flatten=False, e_msg="Not all nodes required for system activation are configured as nodes."
         )
@@ -161,7 +168,7 @@ class LiveConnect(AbstractContextManager):
             errors = e
 
         #: Nodes for deactivating the system
-        self._deactivate_vals: Dict[str, Any] = {}
+        self._deactivate_vals: dict[str, Any] = {}
         self._deactivate_vals, e = self._read_value_mapping(
             deactivate, flatten=False, e_msg="Not all nodes required for system deactivation are configured as nodes."
         )
@@ -169,7 +176,7 @@ class LiveConnect(AbstractContextManager):
             errors = e
 
         #: Nodes to observe
-        self._observe_vals: Optional[List[str]] = []
+        self._observe_vals: list[str] | None = []
         if observe is not None:
             for sys_val in observe:
                 if isinstance(sys_val, Sequence) and type(sys_val) is not str:
@@ -183,7 +190,7 @@ class LiveConnect(AbstractContextManager):
             errors = True
 
         #: Configuration for the step set value
-        self._set_values: Dict[str, Any] = {}
+        self._set_values: dict[str, Any] = {}
         if set_values is not None:
             nds = set()
             setval = set_values.values() if isinstance(set_values, Mapping) else set_values
@@ -207,7 +214,7 @@ class LiveConnect(AbstractContextManager):
         #: Indicator to keep track of to know whether the system must be activated or deactivated. If this is not
         #: set, the user must keep track of when the activation and deactivation functions need to be called. This
         #: may not be necessary for all systems.
-        self._activation_indicators: Dict[str, Any] = {}
+        self._activation_indicators: dict[str, Any] = {}
         self._activation_indicators, e = self._read_value_mapping(
             activation_indicators,
             flatten=False,
@@ -222,7 +229,7 @@ class LiveConnect(AbstractContextManager):
 
     def _read_value_mapping(
         self, values: Mapping[str, Any], flatten: bool = True, *, e_msg
-    ) -> Tuple[Optional[Dict[str, Any]], bool]:
+    ) -> tuple[dict[str, Any] | None, bool]:
         """Read a list of values and deserialize it to a mapping
 
         :param values: Values to deserialize
@@ -261,11 +268,11 @@ class LiveConnect(AbstractContextManager):
     @classmethod
     def from_json(
         cls,
-        files: Union[Path, Sequence[Path]],
+        files: Path | Sequence[Path],
         usr: str = None,
         pwd: str = None,
         step_size: TimeStep = 1,
-    ) -> "LiveConnect":
+    ) -> LiveConnect:
         """Initialize the connection directly from json configuration files. The file should contain parameters
         as described above. A list of file names can be supplied to enable the creation of larger, combined systems.
 
@@ -292,7 +299,7 @@ class LiveConnect(AbstractContextManager):
         return cls.from_dict(usr=usr, pwd=pwd, step_size=step_size, **config)
 
     @classmethod
-    def from_dict(cls, usr: str = None, pwd: str = None, step_size: TimeStep = 1, **config) -> "LiveConnect":
+    def from_dict(cls, usr: str = None, pwd: str = None, step_size: TimeStep = 1, **config) -> LiveConnect:
         """Initialize the connection directly from a config dictionary. The dictionary should contain parameters
         as described above.
 
@@ -435,7 +442,7 @@ class LiveConnect(AbstractContextManager):
             activated = True
         return activated
 
-    def step(self, value: Mapping[str, Any]) -> Dict[str, Any]:
+    def step(self, value: Mapping[str, Any]) -> dict[str, Any]:
         """Take the set_value and determine, whether the system must be activated or deactivated. Then set the value
         and finally read and return all values as specified by the 'observe' parameter.
 
@@ -478,7 +485,7 @@ class LiveConnect(AbstractContextManager):
 
         return self.read(*self._observe_vals)
 
-    def write(self, nodes: Union[Mapping[str, Any], Sequence[str]], values: Optional[Sequence[Any]] = None) -> None:
+    def write(self, nodes: Mapping[str, Any] | Sequence[str], values: Sequence[Any] | None = None) -> None:
         """Write any combination of nodes and values.
 
         :param nodes: Mapping of Nodes and values or Sequence of node names to write to
@@ -508,7 +515,7 @@ class LiveConnect(AbstractContextManager):
             if writes[connection]:
                 self._connections[connection].write(writes[connection])
 
-    def read(self, *nodes: str) -> Dict[str, Any]:
+    def read(self, *nodes: str) -> dict[str, Any]:
         """Take a list of nodes and return their names and most recent values
 
         :param nodes: One or more nodes to read
@@ -528,7 +535,7 @@ class LiveConnect(AbstractContextManager):
 
         return result
 
-    def activate(self, system: Optional[str] = None) -> None:
+    def activate(self, system: str | None = None) -> None:
         """Take the list of nodes to activate and set them to the correct values to activate the system
 
         :param system: System for which should be activated (default: self.name)
@@ -538,7 +545,7 @@ class LiveConnect(AbstractContextManager):
         if not self._activated(system) and self._activate_vals[system] is not None:
             self.write(self._activate_vals[system])
 
-    def deactivate(self, system: Optional[str] = None) -> None:
+    def deactivate(self, system: str | None = None) -> None:
         """Take the list of nodes to deactivate and set them to the correct values to deactivate the system
 
         :param system: System for which should be activated (default: self.name)
@@ -553,11 +560,11 @@ class LiveConnect(AbstractContextManager):
         if self._close_vals is not None:
             self.write(self._close_vals)
 
-    def __enter__(self) -> "LiveConnect":
+    def __enter__(self) -> LiveConnect:
         return self
 
     def __exit__(
-        self, exc_type: Optional[Type[Exception]], exc_val: Optional[Exception], exc_tb: Optional[types.TracebackType]
+        self, exc_type: type[Exception] | None, exc_val: Exception | None, exc_tb: types.TracebackType | None
     ) -> bool:
         self.close()
         return False

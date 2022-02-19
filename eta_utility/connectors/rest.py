@@ -1,12 +1,19 @@
+from __future__ import annotations
+
 from datetime import timedelta
-from typing import Any, Dict, Optional, Union
+from typing import TYPE_CHECKING
 
 import requests
 
 from eta_utility import get_logger
+from eta_utility.connectors.base_classes import BaseConnection
 
-from ..type_hints import Node, Nodes
-from .base_classes import BaseConnection, SubscriptionHandler
+if TYPE_CHECKING:
+    from typing import Any
+
+    from eta_utility.connectors.base_classes import SubscriptionHandler
+    from eta_utility.connectors.node import NodeREST
+    from eta_utility.type_hints import AnyNode, Nodes
 
 log = get_logger("connectors.rest")
 
@@ -24,17 +31,17 @@ class RESTConnection(BaseConnection):
         super().__init__(url, nodes=nodes)
 
     # Signature of method 'RESTConnection.read()' does not match signature of the base method in class 'BaseConnection'
-    def read(self, node: Node) -> Dict[str, Any]:
+    def read(self, node: AnyNode) -> dict[str, Any]:
         request_url = f"{self.url}/{node.rest_endpoint}/GetJson"
         response = requests.get(request_url)
         return response.json()
 
-    def write(self, node: Node, payload: dict) -> requests.Response:
+    def write(self, node: AnyNode, payload: dict) -> requests.Response:
         request_url = f"{self.url}/{node.rest_endpoint}/PutJson"
         response = requests.put(request_url, json=payload)
         return response
 
-    def subscribe(self, handler: SubscriptionHandler, nodes: Nodes = None, interval: Union[int, timedelta] = 1) -> None:
+    def subscribe(self, handler: SubscriptionHandler, nodes: Nodes = None, interval: int | timedelta = 1) -> None:
         """Subscribe to nodes and call handler when new data is available.
 
         :param nodes: identifiers for the nodes to subscribe to
@@ -48,8 +55,8 @@ class RESTConnection(BaseConnection):
         raise NotImplementedError("This function is currently not implemented yet. Issue #67 on gitlab")
 
     @classmethod
-    def from_node(cls, node: Node, **kwargs: Any) -> Optional["RESTConnection"]:
-        if node.protocol == "rest":
+    def from_node(cls, node: AnyNode, **kwargs: Any) -> RESTConnection | None:
+        if node.protocol == "rest" and isinstance(node, NodeREST):
             cls.selected_nodes = {node}
             return cls(node.url)
 
@@ -58,3 +65,12 @@ class RESTConnection(BaseConnection):
                 "Tried to initialize RESTConnection from a node that does not specify rest as its"
                 "protocol: {}.".format(node.name)
             )
+
+    def _validate_nodes(self, nodes: Nodes | None) -> set[NodeREST]:
+        vnodes = super()._validate_nodes(nodes)
+        _nodes = set()
+        for node in vnodes:
+            if isinstance(node, NodeREST):
+                _nodes.add(node)
+
+        return _nodes
