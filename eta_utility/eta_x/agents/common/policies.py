@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import torch as th
 from stable_baselines3.common import policies
+
+if TYPE_CHECKING:
+    from typing import Any
 
 
 class NoPolicy(policies.BasePolicy):
@@ -10,7 +15,7 @@ class NoPolicy(policies.BasePolicy):
     to worry about the implementation details of policies.
     """
 
-    def forward(self, *args, **kwargs):
+    def forward(self, *args: Any, **kwargs: Any) -> None:
         """No Policy allows for the creation of agents which do not use neural networks. It does not implement any of
         the typical policy functions but is a simple interface that can be used and ignored. There is no need
         to worry about the implementation details of policies.

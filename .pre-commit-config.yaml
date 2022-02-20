@@ -57,16 +57,9 @@ repos:
           (?x)^(setup.py|
                 test/.+|
                 eta_utility/connectors/rest.py|
-                eta_utility/eta_x/agents/common/concurrent.py|
-                eta_utility/eta_x/agents/common/vec_env/multi_vec_env.py|
-                eta_utility/eta_x/agents/common/policies.py|
-                eta_utility/eta_x/agents/nsga2/nsga2.py|
-                eta_utility/eta_x/agents/rule_based/base_classes.py|
-                eta_utility/eta_x/agents/mpc_basic/mpc_basic.py|
                 eta_utility/eta_x/envs/base_env_mpc.py|
                 eta_utility/eta_x/envs/base_env.py|
                 eta_utility/eta_x/envs/base_env_sim.py|
-                eta_utility/eta_x/eta_x.py
           )$
         additional_dependencies:
           - tokenize-rt==3.2.0

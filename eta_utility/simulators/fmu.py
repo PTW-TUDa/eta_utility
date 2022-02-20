@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from typing import Any, Sequence
 
     from fmpy.model_description import ModelDescription
-    from nptyping import NDArray
+    from numpy import ndarray
 
     from eta_utility.type_hints import Number, Path, TimeStep
 
@@ -337,7 +337,7 @@ class FMUSimulator:
         stop_time: TimeStep = 1,
         step_size: TimeStep = 1,
         init_values: Mapping[str, float] | None = None,
-    ) -> NDArray:
+    ) -> ndarray:
         """Instantiate a simulator with the specified FMU, perform simulation and return results.
 
         :param fmu_path: Path to the FMU file

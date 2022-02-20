@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import multiprocessing as mp
 from multiprocessing import util  # noqa
-from multiprocessing.pool import (  # noqa
+from multiprocessing.pool import (  # type: ignore
     RUN,
     ExceptionWithTraceback,
     MapResult,
@@ -14,14 +14,14 @@ from multiprocessing.pool import (  # noqa
     _helper_reraises_exception,
 )
 from operator import methodcaller
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Mapping, Sized
 
 import numpy as np
 
 from eta_utility import get_logger
 
 if TYPE_CHECKING:
-    from typing import Any, Callable, Iterable, Mapping, Sequence
+    from typing import Any, Callable, Generator, Iterable, Sequence
 
 log = get_logger("eta_x.agents")
 cpu_count = mp.cpu_count
@@ -31,7 +31,7 @@ def pool_worker(
     inqueue: mp.SimpleQueue,
     outqueue: mp.SimpleQueue,
     initializer: Callable | None = None,
-    initargs: tuple[Any] = (),
+    initargs: Sequence = (),
     maxtasks: int | None = None,
     wrap_exception: bool = False,
 ) -> None:
@@ -52,8 +52,8 @@ def pool_worker(
     put = outqueue.put
     get = inqueue.get
     if hasattr(inqueue, "_writer"):
-        inqueue._writer.close()  # noqa
-        outqueue._reader.close()  # noqa
+        inqueue._writer.close()  # type: ignore
+        outqueue._reader.close()  # type: ignore
 
     if initializer is not None:
         initializer(*initargs)
@@ -71,7 +71,7 @@ def pool_worker(
             break
 
         job, num, func, iterable, method, args, kwargs = task
-        result = (False, ())
+        result: tuple[bool, list[Any] | Exception] | None = (False, [])
         try:
 
             if method in {"return", "return_rng"}:
@@ -125,63 +125,65 @@ class ProcessPool(Pool):
     :param kwargs: Keyword parameters for the multiprocessing.Pool class.
     """
 
-    def __init__(self, *args: Any, seed_sequence: np.random.SeedSequence | None = None, **kwargs) -> None:
+    def __init__(self, *args: Any, seed_sequence: np.random.SeedSequence | None = None, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
-        self._rngs: list[np.random.BitGenerator] = self._setup_rngs(seed_sequence)
+        self._rngs = self._setup_rngs(seed_sequence)
 
     def _repopulate_pool(self) -> None:
         """Bring the number of pool processes up to the specified number,
         for use after reaping workers which have exited.
         """
-        for i in range(self._processes - len(self._pool)):  # noqa
-            w = self.Process(
-                target=pool_worker,  # noqa
+        for i in range(self._processes - len(self._pool)):  # type: ignore
+            w = self.Process(  # type: ignore
+                target=pool_worker,
                 args=(
-                    self._inqueue,
-                    self._outqueue,  # noqa
-                    self._initializer,  # noqa
-                    self._initargs,
-                    self._maxtasksperchild,  # noqa
-                    self._wrap_exception,
-                ),  # noqa
+                    self._inqueue,  # type: ignore
+                    self._outqueue,  # type: ignore
+                    self._initializer,  # type: ignore
+                    self._initargs,  # type: ignore
+                    self._maxtasksperchild,  # type: ignore
+                    self._wrap_exception,  # type: ignore
+                ),
             )
-            self._pool.append(w)  # noqa
+            self._pool.append(w)  # type: ignore
             w.name = w.name.replace("Process", "PoolWorker")
             w.daemon = True
             w.start()
             util.debug("added worker")
 
     def _guarded_task_generation(
-        self, result_job: int, func: Callable, iterable: Iterable, method: str, args: Sequence, kwargs: Mapping
-    ) -> None:
+        self, result_job: int, func: Callable, iterable: Iterable, method: str, args: Sequence, **kwargs: Any
+    ) -> Generator:
         try:
             i = -1
             for i, iter_ in enumerate(iterable):
                 if method in {"modify_rng", "return_rng"}:
-                    kwargs["rng"] = self._rngs[i]
+                    if self._rngs is not None:
+                        kwargs["rng"] = self._rngs[i]
+                    else:
+                        kwargs["rng"] = None
                 yield result_job, i, func, iter_[-1], method, args, kwargs
 
         except Exception as e:
             yield result_job, i + 1, _helper_reraises_exception, (e,), "", (), {}  # noqa
 
-    def map(  # noqa: A003
+    def map(  # type: ignore
         self,
         func: str | Callable,
         iterable: Iterable[Any],
         chunksize: int | None = None,
-        *,  # noqa
-        args: Iterable = (),
-        kwargs: Mapping | None = None,
+        *args: Any,
         method: str = "return",
         callback: Callable | None = None,
         error_callback: Callable | None = None,
+        **kwargs: Any,
     ) -> Sequence:
         """Perform parallel mapping operation with func on iterable. Uses arguments and kwarguments for the
         function call.
 
         :param func: A callable object to apply to all elements of iterable
-        :param iterable: An iterable object
+        :param _iterable: An iterable object
         :param chunksize: Chunksize for spreading workload between processes
         :param args: List or tuple of additional arguments for the function
         :param kwargs: Dictionary or namedtuple of additional keyword arguments for the function
@@ -192,50 +194,44 @@ class ProcessPool(Pool):
         :return: Modified Sequence
         """
         assert method in {"return", "modify", "return_rng", "modify_rng"}
-        if self._state != RUN:  # noqa
+        if self._state != RUN:  # type: ignore
             raise ValueError("Pool not running")
-        if not hasattr(iterable, "__len__"):
-            iterable = list(iterable)
-        if len(iterable) <= 0:
+        if isinstance(iterable, Sized) and len(iterable) <= 0:
             raise ValueError("Iterable has no elements.")
-        if not hasattr(args, "__len__"):
-            raise ValueError("Arguments must be given as an iterable.")
-        if kwargs is None:
-            kwargs = {}
-        elif not hasattr(kwargs, "items"):
-            raise ValueError("Keywords must be given as a dictionary.")
+        else:
+            _iterable = list(iterable)
 
         if chunksize is None:
-            chunksize, extra = divmod(len(iterable), len(self._pool))  # noqa
+            chunksize, extra = divmod(len(_iterable), len(self._pool))  # type: ignore
             if extra:
                 chunksize += 1
-        if len(iterable) == 0:
+        if len(_iterable) == 0:
             chunksize = 0
 
-        task_batches = Pool._get_tasks(func, iterable, chunksize)  # noqa
+        task_batches = Pool._get_tasks(func, _iterable, chunksize)  # type: ignore
         result = MapResult(
-            self._cache,
+            self._cache,  # type: ignore
             chunksize,
-            len(iterable),
+            len(_iterable),
             callback,
             error_callback=error_callback,
         )  # noqa
 
-        self._taskqueue.put(  # noqa
+        self._taskqueue.put(  # type: ignore
             (
-                self._guarded_task_generation(result._job, func, task_batches, method, args, kwargs),  # noqa
+                self._guarded_task_generation(result._job, func, task_batches, method, args, kwargs),  # type: ignore
                 None,
             )
         )
         return_result = result.get()
 
-        if method in {"return_rng", "modify_rng"}:
+        if method in {"return_rng", "modify_rng"} and self._rngs is not None:
             for gen in self._rngs:
-                gen.bit_generator.advance(chunksize * 10000)
+                gen.bit_generator.advance(chunksize * 10000)  # type: ignore
 
         return return_result
 
-    def _setup_rngs(self, seed_sequence: np.random.SeedSequence) -> list[np.random.BitGenerator]:
+    def _setup_rngs(self, seed_sequence: np.random.SeedSequence | None = None) -> list[np.random.Generator] | None:
         """Take a seed sequence from numpy and set up corresponding, non overlapping random number generators
             for each processor
 
@@ -244,7 +240,7 @@ class ProcessPool(Pool):
         """
 
         if seed_sequence is not None:
-            seeds = seed_sequence.spawn(len(self._pool))  # noqa
+            seeds = seed_sequence.spawn(len(self._pool))  # type: ignore
             rngs = []
 
             for seed in seeds:
@@ -255,19 +251,19 @@ class ProcessPool(Pool):
 
         return rngs
 
-    def imap(self, *args, **kwargs) -> None:
+    def imap(self, *args: Any, **kwargs: Any) -> None:  # type: ignore
         """Imap is not implemented in this version of the process pool."""
         raise NotImplementedError("Imap is not implemented in this version of the process pool.")
 
-    def imap_unordered(self, *args, **kwargs) -> None:
+    def imap_unordered(self, *args: Any, **kwargs: Any) -> None:  # type: ignore
         """Unordered imap is not implemented in this version of the process pool."""
 
         raise NotImplementedError("Unordered imap is not implemented in this version of the process pool.")
 
-    def apply_async(self, *args, **kwargs) -> None:
+    def apply_async(self, *args: Any, **kwargs: Any) -> None:  # type: ignore
         """Asynchronous apply is not implemented in this version of the process pool."""
         raise NotImplementedError("Asynchronous apply is not implemented in this version of the process pool.")
 
-    def _map_async(self, *args, **kwargs) -> None:
+    def _map_async(self, *args: Any, **kwargs: Any) -> None:
         """This is not implemented. Since it's the backend of all mapping functions, none of those will work."""
         raise NotImplementedError("Asynchronous map is not implemented in this version of the process pool.")

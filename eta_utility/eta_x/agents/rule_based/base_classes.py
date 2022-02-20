@@ -9,8 +9,9 @@ from stable_baselines3.common.base_class import BaseAlgorithm
 from eta_utility import get_logger
 
 if TYPE_CHECKING:
-    from typing import Callable
+    from typing import Any, Callable
 
+    from stable_baselines3.common.policies import BasePolicy
     from stable_baselines3.common.vec_env import VecEnv
 
     from ..common.policies import NoPolicy
@@ -29,7 +30,7 @@ class RuleBased(BaseAlgorithm, abc.ABC):
     :param kwargs: Additional arguments as specified in stable_baselins3.commom.base_class
     """
 
-    def __init__(self, policy: NoPolicy, env: VecEnv, verbose: int = 4, **kwargs) -> None:
+    def __init__(self, policy: type(BasePolicy), env: VecEnv, verbose: int = 4, **kwargs: Any) -> None:
         # Ensure that arguments required by super class are always present
         if "policy_base" not in kwargs:
             kwargs["policy_base"] = None
@@ -37,7 +38,7 @@ class RuleBased(BaseAlgorithm, abc.ABC):
         super().__init__(policy=policy, env=env, verbose=verbose, learning_rate=0, **kwargs)
 
         #: Last / initial State of the agent.
-        self.state: np.ndarray = np.zeros(self.action_space.shape)
+        self.state: np.ndarray | None = np.zeros(self.action_space.shape) if self.action_space is not None else None
 
     @abc.abstractmethod
     def control_rules(self, observation: np.ndarray) -> np.ndarray:
@@ -51,8 +52,8 @@ class RuleBased(BaseAlgorithm, abc.ABC):
     def predict(
         self,
         observation: np.ndarray,
-        state: np.ndarray = None,
-        mask: np.ndarray = None,
+        state: np.ndarray | None = None,
+        mask: np.ndarray | None = None,
         deterministic: bool = True,
     ) -> tuple[np.ndarray, None]:
         """Perform controller operations and return actions. It will take care of vectorization of environments.

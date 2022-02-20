@@ -92,7 +92,7 @@ class CsvSubHandler(SubscriptionHandler):
         super().__init__(write_interval=write_interval)
 
         # Create the csv file handler object which writes data to disc
-        self._csv_file = _CSVFileDB(output_file, write_interval, size_limit, dialect)
+        self._csv_file = _CSVFileDB(output_file, self._write_interval, size_limit, dialect)
 
         # Enable propagation of exceptions
         self.exc: BaseException | None = None
@@ -400,14 +400,15 @@ class _CSVFileDB(AbstractContextManager):
         # Write any rows in the buffer which exceed the size of buffer_target to the file.
         while len(self._buffer) >= buffer_target and len(self._buffer) > 0:
             row = self._buffer.popleft()
-            row[self._header[0]] = self._timebuffer.popleft().strftime("%Y-%m-%d %H:%M:%S.%f")
+            row[self._header[0]] = self._timebuffer.popleft().strftime("%Y-%m-%d %H:%M:%S.%f")  # type: ignore
 
-            processed_row = [""] * len(self._header)
+            processed_row: list[str] = [""] * len(self._header)
             for idx, col in enumerate(self._header):
                 if col in row:
-                    processed_row[idx] = self._latest_values[col] = str(row[col])
+                    v = self._latest_values[col] = row[col]  # type: ignore
+                    processed_row[idx] = str(v)
                 else:
-                    processed_row[idx] = self._latest_values.get(col, "")
+                    processed_row[idx] = str(self._latest_values.get(col, ""))
 
             log.debug(f"Writing line with index {processed_row[0]} to CSV file .")
             self._write_file(processed_row)

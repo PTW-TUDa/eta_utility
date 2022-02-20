@@ -12,6 +12,7 @@ from functools import partial
 from typing import TYPE_CHECKING, Mapping
 
 import numpy as np
+from attrs import define
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.vec_env import VecNormalize
 
@@ -24,14 +25,10 @@ if TYPE_CHECKING:
     from stable_baselines3.common.policies import BasePolicy
     from stable_baselines3.common.vec_env import DummyVecEnv
 
-    from eta_utility.type_hints import BaseEnv, DefSettings, Path, ReqSettings
+    from eta_utility.eta_x.envs import BaseEnv
+    from eta_utility.type_hints import DefaultSettings, Path, RequiredSettings
 
 log = get_logger("eta_x", 2)
-
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - #
-#                     CALLBACKS                         #
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 
 
 def callback_environment(environment: BaseEnv) -> None:
@@ -61,9 +58,77 @@ def callback_environment(environment: BaseEnv) -> None:
             environment.render_episodes()
 
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - -#
-#                       CLASS                          #
-# - - - - - - - - - - - - - - - - - - - - - - - - - - -#
+@define(frozen=False)
+class OptConfig:
+    def load_config(self, config_name: str, config_overwrite: Mapping[str, Any] | None = None) -> None:
+        """Load configuration  from file
+
+        :param config_name: name of the configuration file in data/configurations/
+        :param config_overwrite: Config parameters to overwrite
+        """
+
+        def deep_update(source: DefaultSettings, overrides: Mapping[str, Any]) -> DefaultSettings:
+            """Update a nested dictionary or similar mapping."""
+            output = copy.deepcopy(source)
+            for key, value in overrides.items():
+                if isinstance(value, Mapping):
+                    output[key] = deep_update(source.get(key, {}), value)
+                else:
+                    output[key] = value
+            return output
+
+        config_overwrite = {} if config_overwrite is None else config_overwrite
+        try:
+            # Remove comments from the json file (using regular expression), then parse it into a dictionary
+            cleanup = re.compile(r"^\s*(.*?)(?=/{2}|$)", re.MULTILINE)
+            with self.path_config.open("r") as f:
+                file = "".join(cleanup.findall(f.read()))
+            config = json.loads(file)
+            del file
+            log.info(f"Configuration {config_name} loaded successfully.")
+            config = deep_update(self._default_settings, config)
+        except OSError as e:
+            log.error(
+                "Configuration {} couldn't be loaded: {}. \n"
+                "\t Filename: {}".format(config_name, e.strerror, e.filename)
+            )
+            raise
+
+        self.config = deep_update(config, config_overwrite)
+
+    def check_complete(self, req_settings: RequiredSettings) -> bool:
+        """Check whether all required settings are set in the class"""
+        errors = False
+        for sect in req_settings:
+            if sect not in self.config:
+                log.error(f"Required section '{sect}' not found in configuration.")
+                errors = True
+            else:
+                for name in req_settings[sect]:
+                    if name not in self.config[sect]:
+                        log.error(f"Required parameter '{name}' not found in config section '{sect}'")
+                        errors = True
+        if errors:
+            log.error("Not all required config parameters were found.")
+
+        return errors
+
+    def save_file(self, path: Path) -> None:
+        """Save configuration for to file
+
+        :param config_name: name of the configuration file in data/configurations/
+        """
+
+        try:
+            with self.path_config.open("w") as f:
+                json.dump(self.config, f)
+
+            log.info(f"Configuration {config_name} saved successfully.")
+        except OSError as e:
+            log.error(
+                "Configuration {} couldn't be saved: {}. \n"
+                "\t Filename: {}".format(config_name, e.strerror, e.filename)
+            )
 
 
 class ETAx:
@@ -75,15 +140,15 @@ class ETAx:
     :param relpath_config: Relative path to configuration file, starting from root path (default: config/)
     """
 
-    _req_settings: ReqSettings = {
+    _req_settings: RequiredSettings = {
         "setup": {"agent_package", "agent_class", "environment_package", "environment_class"},
-        "settings": {},
+        "settings": set(),
         "paths": {"relpath_results"},
-        "environment_specific": {},
-        "agent_specific": {},
+        "environment_specific": set(),
+        "agent_specific": set(),
     }
 
-    _default_settings: DefSettings = {
+    _default_settings: DefaultSettings = {
         "setup": {
             "tensorboard_log": False,
             "monitor_wrapper": False,
@@ -163,74 +228,6 @@ class ETAx:
         self.config["agent_specific"].setdefault("verbose", self.config["settings"]["verbose"])
 
         self.import_modules()
-
-    def load_config(self, config_name: str, config_overwrite: Mapping[str, Any] | None = None) -> None:
-        """Load configuration  from file
-
-        :param config_name: name of the configuration file in data/configurations/
-        :param config_overwrite: Config parameters to overwrite
-        """
-
-        def deep_update(source: DefSettings, overrides: Mapping[str, Any]) -> DefSettings:
-            """Update a nested dictionary or similar mapping."""
-            output = copy.deepcopy(source)
-            for key, value in overrides.items():
-                if isinstance(value, Mapping):
-                    output[key] = deep_update(source.get(key, {}), value)
-                else:
-                    output[key] = value
-            return output
-
-        config_overwrite = {} if config_overwrite is None else config_overwrite
-        try:
-            # Remove comments from the json file (using regular expression), then parse it into a dictionary
-            cleanup = re.compile(r"^\s*(.*?)(?=/{2}|$)", re.MULTILINE)
-            with self.path_config.open("r") as f:
-                file = "".join(cleanup.findall(f.read()))
-            config = json.loads(file)
-            del file
-            log.info(f"Configuration {config_name} loaded successfully.")
-            config = deep_update(self._default_settings, config)
-        except OSError as e:
-            log.error(
-                "Configuration {} couldn't be loaded: {}. \n"
-                "\t Filename: {}".format(config_name, e.strerror, e.filename)
-            )
-            raise
-
-        self.config = deep_update(config, config_overwrite)
-
-        errors = False
-        for sect in self._req_settings:
-            if sect not in self.config:
-                log.error(f"Required section '{sect}' not found in configuration.")
-                errors = True
-            else:
-                for name in self._req_settings[sect]:
-                    if name not in self.config[sect]:
-                        log.error(f"Required parameter '{name}' not found in config section '{sect}'")
-                        errors = True
-
-        if errors:
-            log.error("Not all required config parameters were found. Exiting.")
-            exit(1)
-
-    def save_config(self, config_name: str) -> None:
-        """Save configuration for to file
-
-        :param config_name: name of the configuration file in data/configurations/
-        """
-
-        try:
-            with self.path_config.open("w") as f:
-                json.dump(self.config, f)
-
-            log.info(f"Configuration {config_name} saved successfully.")
-        except OSError as e:
-            log.error(
-                "Configuration {} couldn't be saved: {}. \n"
-                "\t Filename: {}".format(config_name, e.strerror, e.filename)
-            )
 
     def import_modules(self) -> None:
         """Import all modules of agent, policy, vectorizer, environment"""
