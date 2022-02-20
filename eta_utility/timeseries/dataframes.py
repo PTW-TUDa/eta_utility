@@ -1,19 +1,24 @@
 """ Simple helpers for reading timeseries data from a csv file and getting slices or resampled data. This module
 handles data using pandas dataframe objects.
 """
+from __future__ import annotations
 
 import csv
 import operator as op
 import pathlib
 import re
 from datetime import datetime, timedelta
-from typing import Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 
 from eta_utility import get_logger
-from eta_utility.type_hints import Path, TimeStep
+
+if TYPE_CHECKING:
+    from typing import Sequence
+
+    from eta_utility.type_hints import Path, TimeStep
 
 log = get_logger("timeseries")
 
@@ -22,7 +27,7 @@ def df_from_csv(
     path: Path,
     *,
     delimiter: str = ";",
-    infer_datetime_from: Union[str, Sequence[int], Tuple[int, int]] = "dates",
+    infer_datetime_from: str | Sequence[int] | tuple[int, int] = "dates",
     time_conversion_str: str = "%Y-%m-%d %H:%M",
 ) -> pd.DataFrame:
     """Take data from a csv file, process it and return a Timeseries (pandas Data Frame) object.
@@ -125,11 +130,11 @@ def df_from_csv(
 
 def find_time_slice(
     time_begin: datetime,
-    time_end: Optional[datetime] = None,
-    total_time: Optional[TimeStep] = None,
-    round_to_interval: Optional[TimeStep] = None,
-    random: Union[bool, np.random.Generator] = False,
-) -> Tuple[datetime, datetime]:
+    time_end: datetime | None = None,
+    total_time: TimeStep | None = None,
+    round_to_interval: TimeStep | None = None,
+    random: bool | np.random.Generator = False,
+) -> tuple[datetime, datetime]:
     """Return a (potentially random) slicing interval that can be used to slice a data frame.
 
     :param time_begin: Date and time of the beginning of the interval to slice from
@@ -185,10 +190,10 @@ def find_time_slice(
 def df_time_slice(
     df: pd.DataFrame,
     time_begin: datetime,
-    time_end: Optional[datetime] = None,
-    total_time: Optional[TimeStep] = None,
-    round_to_interval: Optional[TimeStep] = None,
-    random: Union[bool, np.random.Generator] = False,
+    time_end: datetime | None = None,
+    total_time: TimeStep | None = None,
+    round_to_interval: TimeStep | None = None,
+    random: bool | np.random.Generator = False,
 ) -> pd.DataFrame:
     """Return a data frame which has been sliced starting at time_begin and ending at time_end, from df.
 
@@ -209,7 +214,7 @@ def df_time_slice(
 
 
 def df_resample(
-    df: pd.DataFrame, *periods_deltas: Union[TimeStep, Sequence[TimeStep]], missing_data: Optional[str] = None
+    df: pd.DataFrame, *periods_deltas: TimeStep | Sequence[TimeStep], missing_data: str | None = None
 ) -> pd.DataFrame:
     """Resample the time index of a data frame. This method can be used for resampling in multiple different
     periods with multiple different deltas between single time entries.

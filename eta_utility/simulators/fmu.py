@@ -1,21 +1,28 @@
 """ The FMUSimulator class enables easy simulation of FMU files.
 """
+from __future__ import annotations
+
 import itertools as it
 import shutil
 from datetime import timedelta
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Mapping
 
 import numpy as np
 from fmpy import extract, read_model_description
 from fmpy.fmi2 import FMU2Model, FMU2Slave
-from fmpy.model_description import ModelDescription
 from fmpy.simulation import apply_start_values
 from fmpy.sundials import CVodeSolver
 from fmpy.util import compile_platform_binary
-from nptyping import NDArray
 
 from eta_utility import get_logger
-from eta_utility.type_hints import Number, Path, TimeStep
+
+if TYPE_CHECKING:
+    from typing import Any, Sequence
+
+    from fmpy.model_description import ModelDescription
+    from nptyping import NDArray
+
+    from eta_utility.type_hints import Number, Path, TimeStep
 
 log = get_logger("simulators.FMUSimulator")
 
@@ -50,11 +57,11 @@ class FMUSimulator:
         start_time: TimeStep = 0,
         stop_time: TimeStep = 1,
         step_size: TimeStep = 1,
-        names_inputs: Optional[Sequence[str]] = None,
-        names_outputs: Optional[Sequence[str]] = None,
-        init_values: Optional[Mapping[str, float]] = None,
+        names_inputs: Sequence[str] | None = None,
+        names_outputs: Sequence[str] | None = None,
+        init_values: Mapping[str, float] | None = None,
         *,
-        return_type: Optional[str] = None,
+        return_type: str | None = None,
     ) -> None:
         #: Path to the FMU model
         self.fmu_path = fmu_path
@@ -71,7 +78,7 @@ class FMUSimulator:
 
         #: Variable map from model description. The map specifies the value reference and data type of a named
         #: variable in the FMU. The structure is {'name': {'ref': <value reference>, 'type': <variable data type>}}
-        self._model_vars: Dict[str, Dict[str, str]] = {}
+        self._model_vars: dict[str, dict[str, str]] = {}
         self.__type_map = {"Real": "real", "Boolean": "bool", "Integer": "int", "Enumeration": "enum"}
 
         for var in self.model_description.modelVariables:
@@ -88,7 +95,7 @@ class FMUSimulator:
         #:       of input variables (_inputs["refs"], see below) using itertools.compress
         #:     * bool: Mask for boolean variables. This can be used to identify boolean variables from the complete set
         #:       of input variables (_inputs["refs"], see below) using itertools.compress
-        self._input_map: Dict[str, List[bool]] = {"names": [], "real": [], "int": [], "bool": []}
+        self._input_map: dict[str, list[bool]] = {"names": [], "real": [], "int": [], "bool": []}
 
         #: Map of input variable references and their names. The map contains the following lists:
         #:
@@ -98,7 +105,7 @@ class FMUSimulator:
         #:     * real: List of all value references to input variables of type real
         #:     * int: List of all value references to input variables of type integer
         #:     * bool: List of all value references to input variables of type boolean
-        self._inputs: Dict[str, List[str]] = {"names": [], "refs": [], "real": [], "int": [], "bool": []}
+        self._inputs: dict[str, list[str]] = {"names": [], "refs": [], "real": [], "int": [], "bool": []}
         refs = []
         names = []
         iterator = names_inputs if names_inputs is not None else self._model_vars.keys()
@@ -132,7 +139,7 @@ class FMUSimulator:
         #:       of output variables (_outputs['refs'], see below) using itertools.compress
         #:     * bool: Mask for boolean variables. This can be used to identify boolean variables from the complete set
         #:       of output variables (_outputs['refs'], see below) using itertools.compress
-        self._output_map: Dict[str, List[bool]] = {"names": [], "real": [], "int": [], "bool": []}
+        self._output_map: dict[str, list[bool]] = {"names": [], "real": [], "int": [], "bool": []}
 
         #: Map of output variable references and their names. The map contains the following lists:
         #:
@@ -142,7 +149,7 @@ class FMUSimulator:
         #:     * real: List of all value references to output variables of type real
         #:     * int: List of all value references to output variables of type integer
         #:     * bool: List of all value references to output variables of type boolean
-        self._outputs: Dict[str, List[str]] = {"names": [], "refs": [], "real": [], "int": [], "bool": []}
+        self._outputs: dict[str, list[str]] = {"names": [], "refs": [], "real": [], "int": [], "bool": []}
         refs = []
         names = []
         iterator = names_outputs if names_outputs is not None else self._model_vars.keys()
@@ -205,16 +212,16 @@ class FMUSimulator:
             self._return_dict = False if return_type == "list" else True
 
     @property
-    def input_vars(self) -> List[str]:
+    def input_vars(self) -> list[str]:
         """Ordered list of all available input variable names in the FMU."""
         return self._inputs["names"].copy()
 
     @property
-    def output_vars(self) -> List[str]:
+    def output_vars(self) -> list[str]:
         """Ordered list of all available output variable names in the FMU."""
         return self._outputs["names"].copy()
 
-    def read_values(self, names: Optional[Sequence[str]] = None) -> Union[Dict[Union[str, int], Any], List]:
+    def read_values(self, names: Sequence[str] | None = None) -> dict[str | int, Any] | list:
         """Return current values of the simulation without advancing a simulation step or the simulation time.
 
         :param names: Sequence of values to read from the FMU. If this is None (default), all available values will be
@@ -240,7 +247,7 @@ class FMUSimulator:
 
         return output
 
-    def set_values(self, values: Union[Sequence[Union[Number, bool]], Mapping[str, Union[Number, bool]]]) -> None:
+    def set_values(self, values: Sequence[Number | bool] | Mapping[str, Number | bool]) -> None:
         """Set values of simulation variables without advancing a simulation step or the simulation time.
 
         :param values: Values that should be pushed to the FMU. Names of the input_values must correspond
@@ -248,8 +255,8 @@ class FMUSimulator:
                        the order of the input_vars property.
         """
 
-        vals: Dict[str, List[Union[Number, bool]]] = {"real": [], "int": [], "bool": []}
-        refs: Dict[str, List[str]] = {"real": [], "int": [], "bool": []}
+        vals: dict[str, list[Number | bool]] = {"real": [], "int": [], "bool": []}
+        refs: dict[str, list[str]] = {"real": [], "int": [], "bool": []}
         if isinstance(values, Mapping):
             for var, val in values.items():
                 try:
@@ -284,11 +291,11 @@ class FMUSimulator:
 
     def step(
         self,
-        input_values: Union[Sequence[Union[Number, bool]], Mapping[str, Union[Number, bool]], None] = None,
-        output_names: Optional[Sequence[str]] = None,
+        input_values: Sequence[Number | bool] | Mapping[str, Number | bool] | None = None,
+        output_names: Sequence[str] | None = None,
         advance_time: bool = True,
-        nr_substeps: Optional[int] = None,
-    ) -> Union[Dict[Union[str, int], Any], List[Any]]:
+        nr_substeps: int | None = None,
+    ) -> dict[str | int, Any] | list[Any]:
         """Simulate next time step in the FMU with defined input values and output values.
 
         :param input_values: Current values that should be pushed to the FMU. Names of the input_values must correspond
@@ -329,7 +336,7 @@ class FMUSimulator:
         start_time: TimeStep = 0,
         stop_time: TimeStep = 1,
         step_size: TimeStep = 1,
-        init_values: Optional[Mapping[str, float]] = None,
+        init_values: Mapping[str, float] | None = None,
     ) -> NDArray:
         """Instantiate a simulator with the specified FMU, perform simulation and return results.
 
@@ -358,7 +365,7 @@ class FMUSimulator:
 
         return result
 
-    def reset(self, init_values: Optional[Mapping[str, float]] = None) -> None:
+    def reset(self, init_values: Mapping[str, float] | None = None) -> None:
         """Reset FMU to specified initial condition
 
         :param init_values: Values for initialization
@@ -415,9 +422,9 @@ class FMU2MESlave(FMU2Model):
 
     def setupExperiment(  # noqa: N802
         self,
-        tolerance: Optional[float] = None,  # noqa:N803
+        tolerance: float | None = None,  # noqa:N803
         startTime: float = 0.0,  # noqa:N803
-        stopTime: Optional[float] = None,  # noqa:N803
+        stopTime: float | None = None,  # noqa:N803
         **kwargs: Any,
     ) -> int:
         """Experiment setup and storage of required values.
@@ -486,7 +493,7 @@ class FMU2MESlave(FMU2Model):
         self,
         currentCommunicationPoint: float,  # noqa: N803
         communicationStepSize: float,  # noqa: N803
-        noSetFMUStatePriorToCurrentPoint: Optional[int] = None,  # noqa: N803
+        noSetFMUStatePriorToCurrentPoint: int | None = None,  # noqa: N803
     ) -> int:
         """Perform a simulation step. Advance simulation from currentCommunicationPoint by communicationStepSize
 

@@ -9,16 +9,16 @@ from eta_utility.servers import OpcUaServer
 from .config_tests import Config
 
 
-def nodes_from_config(file=Config.LIVE_CONNECT_CONFIG):  # noqa:F405
+def nodes_from_config(file=Config.LIVE_CONNECT_CONFIG):
     config = json_import(file)
 
     # Combine config for nodes with server config
     for n in config["system"][0]["nodes"]:
         server = config["system"][0]["servers"][n["server"]]
         if "usr" in server and "pwd" in server:
-            n["url"] = f"https://{server['usr']}:{server['pwd']}@{server['url']}"
+            n["url"] = f"https://{server['usr']}:{server['pwd']}@{socket.gethostbyname(socket.gethostname())}:4840"
         else:
-            n["url"] = server["url"]
+            n["url"] = f"https://{socket.gethostbyname(socket.gethostname())}:4840"
         n["protocol"] = server["protocol"]
 
     return Node.from_dict(config["system"][0]["nodes"])

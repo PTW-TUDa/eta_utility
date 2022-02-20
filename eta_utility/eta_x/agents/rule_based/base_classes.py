@@ -1,13 +1,19 @@
+from __future__ import annotations
+
 import abc
-from typing import Callable, Tuple
+from typing import TYPE_CHECKING
 
 import numpy as np
 from stable_baselines3.common.base_class import BaseAlgorithm
-from stable_baselines3.common.vec_env import VecEnv
 
 from eta_utility import get_logger
 
-from ..common.policies import NoPolicy
+if TYPE_CHECKING:
+    from typing import Callable
+
+    from stable_baselines3.common.vec_env import VecEnv
+
+    from ..common.policies import NoPolicy
 
 log = get_logger("eta_x.agents.rule_based")
 
@@ -48,7 +54,7 @@ class RuleBased(BaseAlgorithm, abc.ABC):
         state: np.ndarray = None,
         mask: np.ndarray = None,
         deterministic: bool = True,
-    ) -> Tuple[np.ndarray, None]:
+    ) -> tuple[np.ndarray, None]:
         """Perform controller operations and return actions. It will take care of vectorization of environments.
         This will call the control_rules method which should implement the control rules for a single environment.
 
@@ -66,7 +72,7 @@ class RuleBased(BaseAlgorithm, abc.ABC):
         return np.array(action), None
 
     @classmethod
-    def load(cls, load_path: str, env: VecEnv = None, **kwargs) -> "RuleBased":
+    def load(cls, load_path: str, env: VecEnv = None, **kwargs) -> RuleBased:
         """Load model. This is not implemented for the rule based agent.
 
         :param load_path: Path to load from
@@ -100,7 +106,7 @@ class RuleBased(BaseAlgorithm, abc.ABC):
         log_interval: int = 10,
         tb_log_name: str = "run",
         reset_num_timesteps: bool = True,
-    ) -> "RuleBased":
+    ) -> RuleBased:
         """Learning is not implemented for the rule based agent."""
         raise NotImplementedError("The rule based agent cannot learn a model.")
 

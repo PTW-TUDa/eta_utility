@@ -8,7 +8,7 @@ from .config_tests import Config
 class TestNodeInitFail:
     def test_node_wrong_byteorder(self):
         """Node initialization should fail, if wrong value is provided for mb_byteorder"""
-        with pytest.raises(ValueError, match="Byteorder must be either 'big' or 'little' endian"):
+        with pytest.raises(ValueError, match="'mb_byteorder' must be in"):
             Node(
                 "Serv.NodeName",
                 "modbus.tcp://10.0.0.1:502",

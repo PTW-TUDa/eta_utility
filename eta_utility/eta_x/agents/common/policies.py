@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import torch as th
 from stable_baselines3.common import policies
 

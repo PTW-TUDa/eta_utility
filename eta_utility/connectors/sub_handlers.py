@@ -1,6 +1,7 @@
 """ This module implements some commonly used subscription handlers, for example for writing to csv files.
 
 """
+from __future__ import annotations
 
 import csv
 import pathlib
@@ -11,15 +12,18 @@ from collections import deque
 from contextlib import AbstractContextManager
 from datetime import datetime
 from threading import Lock
-from types import TracebackType
-from typing import Any, Deque, Dict, List, Optional, Sequence, TextIO, Type, Union
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 from dateutil import tz
 
 from eta_utility import get_logger
-from eta_utility.type_hints import Node, Number, Path, TimeStep
+
+if TYPE_CHECKING:
+    from typing import Any, Deque, Sequence, TextIO
+    from types import TracebackType
+    from eta_utility.type_hints import AnyNode, Number, Path, TimeStep
 
 from .base_classes import SubscriptionHandler
 
@@ -35,7 +39,7 @@ class MultiSubHandler(SubscriptionHandler):
     def __init__(self) -> None:
         super().__init__()
 
-        self._handlers: List = []
+        self._handlers: list = []
 
     def register(self, sub_handler: SubscriptionHandler) -> None:
         """Register a subscription handler.
@@ -47,7 +51,7 @@ class MultiSubHandler(SubscriptionHandler):
 
         self._handlers.append(sub_handler)
 
-    def push(self, node: Node, value: Any, timestamp: Optional[datetime] = None) -> None:
+    def push(self, node: AnyNode, value: Any, timestamp: datetime | None = None) -> None:
         """Receive data from a subcription. This should contain the node that was requested, a value and a timestemp
         when data was received. Push data to all registered sub-handlers
 
@@ -83,7 +87,7 @@ class CsvSubHandler(SubscriptionHandler):
         output_file: Path,
         write_interval: TimeStep = 1,
         size_limit: int = 1024,
-        dialect: Type[csv.Dialect] = csv.excel,
+        dialect: type[csv.Dialect] = csv.excel,
     ) -> None:
         super().__init__(write_interval=write_interval)
 
@@ -91,14 +95,14 @@ class CsvSubHandler(SubscriptionHandler):
         self._csv_file = _CSVFileDB(output_file, write_interval, size_limit, dialect)
 
         # Enable propagation of exceptions
-        self.exc: Optional[BaseException] = None
+        self.exc: BaseException | None = None
 
         # Create the queue and thread
         self._queue: queue.Queue = queue.Queue()
         self._thread: threading.Thread = threading.Thread(target=self._run)
         self._thread.start()
 
-    def push(self, node: Node, value: Any, timestamp: Optional[datetime] = None) -> None:
+    def push(self, node: AnyNode, value: Any, timestamp: datetime | None = None) -> None:
         """Receive data from a subcription. THis should contain the node that was requested, a value and a timestemp
         when data was received. If the timestamp is not provided, current time will be used.
 
@@ -174,35 +178,35 @@ class _CSVFileDB(AbstractContextManager):
         file: Path,
         write_interval: Number,
         file_size_limit: int = 1024,
-        dialect: Type[csv.Dialect] = csv.excel,
+        dialect: type[csv.Dialect] = csv.excel,
     ):
         #: Path to the file that is being written to
         self.filepath: pathlib.Path = file if isinstance(file, pathlib.Path) else pathlib.Path(file)
         #: File descriptor
-        self._file: Optional[TextIO] = None
+        self._file: TextIO | None = None
 
         #: Interval between values in seconds
         self.write_interval: Number = write_interval
         #: Size limit for written files in bytes
         self.file_size_limit: int = file_size_limit * 1024 * 1024
         #: CSV dialect to be used for reading and writing data
-        self.dialect: Type[csv.Dialect] = dialect
+        self.dialect: type[csv.Dialect] = dialect
 
         #: List of header fields
-        self._header: List[str] = []
+        self._header: list[str] = []
         #: Ending position of the header in the file stream (used for extending the header)
         self._endof_header: int = 0
         #: Write buffer
-        self._buffer: Deque[Dict[str, Union[datetime, Number]]] = deque()
+        self._buffer: Deque[dict[str, datetime | Number]] = deque()
         self._timebuffer: Deque[datetime] = deque()
         #: Latest timestamp in the write buffer
         self._latest_ts: datetime = datetime.fromtimestamp(10000, tz=tz.tzlocal())
         #: Latest known value for each of the names in the header
-        self._latest_values: Dict[str, Number] = {}
+        self._latest_values: dict[str, Number] = {}
         #: Length of the line terminator in bytes (for finding file positions)
         self._len_lineterminator: int = len(bytes(self.dialect.lineterminator, "UTF-8"))
 
-    def __enter__(self) -> "_CSVFileDB":
+    def __enter__(self) -> _CSVFileDB:
         """Enter the context managed file database."""
         self._open_file()
         return self
@@ -275,7 +279,7 @@ class _CSVFileDB(AbstractContextManager):
         # Go to the end to get ready for updating/extending the file.
         self._file.seek(0, 2)
 
-    def _write_file(self, field_list: List[str], insert_pos: Optional[int] = None) -> int:
+    def _write_file(self, field_list: list[str], insert_pos: int | None = None) -> int:
         """Write data to the file.
 
         :param field_list: List of strings to be inserted into the csv file
@@ -328,9 +332,9 @@ class _CSVFileDB(AbstractContextManager):
 
     def write(
         self,
-        timestamp: Optional[datetime] = None,
-        name: Optional[str] = None,
-        value: Optional[Number] = None,
+        timestamp: datetime | None = None,
+        name: str | None = None,
+        value: Number | None = None,
         flush: bool = False,
         _len_buffer: int = 20,
     ) -> None:
@@ -422,9 +426,9 @@ class _CSVFileDB(AbstractContextManager):
 
     def __exit__(
         self,
-        __exc_type: Optional[Type[BaseException]],
-        __exc_value: Optional[BaseException],
-        __traceback: Optional[TracebackType],
+        __exc_type: type[BaseException] | None,
+        __exc_value: BaseException | None,
+        __traceback: TracebackType | None,
     ) -> None:
         """Exit the context manager
 
@@ -454,9 +458,9 @@ class DFSubHandler(SubscriptionHandler):
 
     def push(
         self,
-        node: Node,
-        value: Union[Any, pd.Series, Sequence[Any]],
-        timestamp: Union[datetime, pd.DatetimeIndex, TimeStep, None] = None,
+        node: AnyNode,
+        value: Any | pd.Series | Sequence[Any],
+        timestamp: datetime | pd.DatetimeIndex | TimeStep | None = None,
     ) -> None:
         """Append values to the dataframe
 
@@ -496,7 +500,7 @@ class DFSubHandler(SubscriptionHandler):
         # Housekeeping (Keep internal data short)
         self._housekeeping()
 
-    def get_latest(self) -> Union[pd.DataFrame, None]:
+    def get_latest(self) -> pd.DataFrame | None:
         """Return a copy of the dataframe, this ensures they can be worked on freely. Returns None if data is empty."""
         self._data_lock.acquire()
         if len(self._data.index) == 0:
