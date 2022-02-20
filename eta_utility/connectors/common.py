@@ -13,8 +13,7 @@ from eta_utility.connectors.rest import RESTConnection
 if TYPE_CHECKING:
     from typing import Any
 
-    from eta_utility.connectors.node import Node
-    from eta_utility.type_hints import Nodes
+    from eta_utility.type_hints import AnyNode, Nodes
 
 
 def connections_from_nodes(
@@ -39,7 +38,7 @@ def connections_from_nodes(
 
     for node in nodes:
         # Create connection if it does not exist
-        if node.url_parsed.hostname not in connections:
+        if node.url_parsed.hostname is not None and node.url_parsed.hostname not in connections:
             if node.protocol == "modbus":
                 connections[node.url_parsed.hostname] = ModbusConnection.from_node(node)
             elif node.protocol == "opcua":
@@ -56,14 +55,14 @@ def connections_from_nodes(
                 raise ValueError(
                     f"Node {node.name} does not specify a recognized protocol for initializing a connection."
                 )
-        else:
+        elif node.url_parsed.hostname is not None:
             # Otherwise just mark the node as selected
             connections[node.url_parsed.hostname].selected_nodes.add(node)
 
     return connections
 
 
-def name_map_from_node_sequence(nodes: Nodes) -> dict[str, Node]:
+def name_map_from_node_sequence(nodes: Nodes) -> dict[str, AnyNode]:
     """Convert a Sequence/List of Nodes into a dictionary of nodes, identified by their name.
 
     .. warning ::

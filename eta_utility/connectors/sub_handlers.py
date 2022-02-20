@@ -23,8 +23,7 @@ from eta_utility import get_logger
 if TYPE_CHECKING:
     from typing import Any, Deque, Sequence, TextIO
     from types import TracebackType
-    from eta_utility.connectors import Node
-    from eta_utility.type_hints import Number, Path, TimeStep
+    from eta_utility.type_hints import AnyNode, Number, Path, TimeStep
 
 from .base_classes import SubscriptionHandler
 
@@ -52,7 +51,7 @@ class MultiSubHandler(SubscriptionHandler):
 
         self._handlers.append(sub_handler)
 
-    def push(self, node: Node, value: Any, timestamp: datetime | None = None) -> None:
+    def push(self, node: AnyNode, value: Any, timestamp: datetime | None = None) -> None:
         """Receive data from a subcription. This should contain the node that was requested, a value and a timestemp
         when data was received. Push data to all registered sub-handlers
 
@@ -103,7 +102,7 @@ class CsvSubHandler(SubscriptionHandler):
         self._thread: threading.Thread = threading.Thread(target=self._run)
         self._thread.start()
 
-    def push(self, node: Node, value: Any, timestamp: datetime | None = None) -> None:
+    def push(self, node: AnyNode, value: Any, timestamp: datetime | None = None) -> None:
         """Receive data from a subcription. THis should contain the node that was requested, a value and a timestemp
         when data was received. If the timestamp is not provided, current time will be used.
 
@@ -459,7 +458,7 @@ class DFSubHandler(SubscriptionHandler):
 
     def push(
         self,
-        node: Node,
+        node: AnyNode,
         value: Any | pd.Series | Sequence[Any],
         timestamp: datetime | pd.DatetimeIndex | TimeStep | None = None,
     ) -> None:

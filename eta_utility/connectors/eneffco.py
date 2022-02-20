@@ -43,15 +43,15 @@ class EnEffCoConnection(BaseSeriesConnection):
         self._api_token: str = api_token
         super().__init__(url, usr, pwd, nodes=nodes)
 
-        self._node_ids: str | None = None
-        self._node_ids_raw: str | None = None
+        self._node_ids: pd.DataFrame | None = None
+        self._node_ids_raw: pd.DataFrame | None = None
 
         self._sub: asyncio.Task | None = None
-        self._subscription_nodes = set()
+        self._subscription_nodes: set[NodeEnEffCo] = set()
         self._subscription_open: bool = False
 
     @classmethod
-    def from_node(cls, node: AnyNode, *, usr: str, pwd: str, api_token: str) -> EnEffCoConnection:
+    def from_node(cls, node: AnyNode, **kwargs: Any) -> EnEffCoConnection:
         """Initialize the connection object from an EnEffCo protocol node object
 
         :param node: Node to initialize from
@@ -60,6 +60,18 @@ class EnEffCoConnection(BaseSeriesConnection):
         :param api_token: Token for API authentication
         :return: EnEffCoConnection object
         """
+
+        if "usr" not in kwargs:
+            raise AttributeError("Keyword parameter 'usr' is missing.")
+        usr = kwargs["usr"]
+
+        if "pwd" not in kwargs:
+            raise AttributeError("Keyword parameter 'pwd' is missing.")
+        pwd = kwargs["pwd"]
+
+        if "api_token" not in kwargs:
+            raise AttributeError("Keyword parameter 'api_token' is missing.")
+        api_token = kwargs["api_token"]
 
         if node.protocol == "eneffco" and isinstance(node, NodeEnEffCo):
             return cls(node.url, usr, pwd, api_token=api_token, nodes=[node])
@@ -82,7 +94,7 @@ class EnEffCoConnection(BaseSeriesConnection):
         value = self.read_series(the_time - timedelta(seconds=base_time), the_time, nodes, base_time)
         return value
 
-    def write(self, values: Mapping[NodeEnEffCo, Mapping[datetime, Any]], time_interval: timedelta = None) -> None:
+    def write(self, values: Mapping[AnyNode, Any], time_interval: timedelta | None = None) -> None:
         """Writes some values to the EnEffCo Database
 
         :param values: Dictionary of nodes and data to write. {node: value}
@@ -118,7 +130,7 @@ class EnEffCoConnection(BaseSeriesConnection):
         """
 
         if isinstance(data, Mapping) or isinstance(data, pd.Series):
-            upload_data = {"Values": []}
+            upload_data: dict[str, list[Any]] = {"Values": []}
             for time, val in data.items():
                 # Only write values if they are not nan
                 if not np.isnan(val):
@@ -165,7 +177,7 @@ class EnEffCoConnection(BaseSeriesConnection):
         self.subscribe_series(handler=handler, req_interval=1, nodes=nodes, interval=interval, data_interval=interval)
 
     def read_series(
-        self, from_time: datetime, to_time: datetime, nodes: Nodes | None = None, interval: TimeStep = 1
+        self, from_time: datetime, to_time: datetime, nodes: Nodes | None = None, interval: TimeStep = 1, **kwargs: Any
     ) -> pd.DataFrame:
         """Download timeseries data from the EnEffCo Database
 
@@ -173,6 +185,7 @@ class EnEffCoConnection(BaseSeriesConnection):
         :param from_time: Starting time to begin reading (included in output)
         :param to_time: To to stop reading at (not included in output)
         :param interval: interval between time steps. It is interpreted as seconds if given as integer.
+        :param kwargs: Other parameters (ignored by this connector)
         :return: Pandas DataFrame containing the data read from the connection
 
         **Example - Download some EnEffCo-codes**::
@@ -192,19 +205,19 @@ class EnEffCoConnection(BaseSeriesConnection):
                 from_time, to_time, nodes=nodes, interval=900
             )
         """
-        nodes = self._validate_nodes(nodes)
-        interval = interval if isinstance(interval, timedelta) else timedelta(seconds=interval)
+        _interval = interval if isinstance(interval, timedelta) else timedelta(seconds=interval)
 
-        def read_node(node):
+        nodes = self._validate_nodes(nodes)
+
+        def read_node(node: NodeEnEffCo) -> pd.DataFrame:
             request_url = "datapoint/{}/value?from={}&to={}&timeInterval={}&includeNanValues=True".format(
                 self.id_from_code(node.eneffco_code),
                 self.timestr_from_datetime(from_time),
                 self.timestr_from_datetime(to_time),
-                str(int(interval.total_seconds())),
+                str(int(_interval.total_seconds())),
             )
 
-            response = self._raw_request("GET", request_url)
-            response = response.json()
+            response = self._raw_request("GET", request_url).json()
 
             data = pd.DataFrame(
                 data=(r["Value"] for r in response),
@@ -227,10 +240,11 @@ class EnEffCoConnection(BaseSeriesConnection):
         self,
         handler: SubscriptionHandler,
         req_interval: TimeStep,
-        offset: TimeStep = None,
+        offset: TimeStep | None = None,
         nodes: Nodes | None = None,
         interval: TimeStep = 1,
         data_interval: TimeStep = 1,
+        **kwargs: Any,
     ) -> None:
         """Subscribe to nodes and call handler when new data is available. This will always return a series of values.
         If nodes with different intervals should be subscribed, multiple connection objects are needed.
@@ -243,6 +257,7 @@ class EnEffCoConnection(BaseSeriesConnection):
         :param interval: interval (between requests) for receiving new data.
                          It it interpreted as seconds when given as an integer.
         :param nodes: identifiers for the nodes to subscribe to
+        :param kwargs: other, ignored parameters
         """
 
         # todo umbenennen: req_interval = data_interval, data_interval = resolution; take these attributes from node;
@@ -284,7 +299,7 @@ class EnEffCoConnection(BaseSeriesConnection):
             raise self.exc
 
         try:
-            self._sub.cancel()
+            self._sub.cancel()  # type: ignore
         except Exception:
             pass
 
@@ -305,6 +320,10 @@ class EnEffCoConnection(BaseSeriesConnection):
                        Use negative values to go to past timestamps.
         :param data_interval: Interval between data points
         """
+        interval = interval if isinstance(interval, timedelta) else timedelta(seconds=interval)
+        req_interval = req_interval if isinstance(req_interval, timedelta) else timedelta(seconds=req_interval)
+        data_interval = data_interval if isinstance(data_interval, timedelta) else timedelta(seconds=data_interval)
+        offset = offset if isinstance(offset, timedelta) else timedelta(seconds=offset)
 
         try:
             while self._subscription_open:
@@ -316,7 +335,7 @@ class EnEffCoConnection(BaseSeriesConnection):
                 for node in self._subscription_nodes:
                     handler.push(node, values[node.name])
 
-                await asyncio.sleep(interval)
+                await asyncio.sleep(interval.total_seconds())
         except BaseException as e:
             self.exc = e
 
@@ -382,7 +401,7 @@ class EnEffCoConnection(BaseSeriesConnection):
 
         return response
 
-    def _validate_nodes(self, nodes: Nodes | None) -> set[NodeEnEffCo]:
+    def _validate_nodes(self, nodes: Nodes | None) -> set[NodeEnEffCo]:  # type: ignore
         vnodes = super()._validate_nodes(nodes)
         _nodes = set()
         for node in vnodes:

@@ -299,12 +299,13 @@ class BaseSeriesConnection(BaseConnection, ABC):
 
     @abstractmethod
     def read_series(
-        self, from_time: datetime, to_time: datetime, nodes: Nodes | None = None, **kwargs: Any
+        self, from_time: datetime, to_time: datetime, nodes: Nodes | None = None, interval: TimeStep = 1, **kwargs: Any
     ) -> pd.DataFrame:
         """Read time series data from the connection, within a specified time interval (from_time until to_time).
         :param nodes: List of nodes to read values from
         :param from_time: Starting time to begin reading (included in output)
         :param to_time: To to stop reading at (not included in output)
+        :param interval: interval between time steps. It is interpreted as seconds if given as integer.
         :param kwargs: additional argument list, to be defined by subclasses
         :return: Pandas DataFrame containing the data read from the connection
         """
@@ -313,11 +314,24 @@ class BaseSeriesConnection(BaseConnection, ABC):
     def subscribe_series(
         self,
         handler: SubscriptionHandler,
-        time_interval: datetime,
+        req_interval: TimeStep,
+        offset: TimeStep | None = None,
         nodes: Nodes | None = None,
-        interval: int = 1,
+        interval: TimeStep = 1,
+        data_interval: TimeStep = 1,
+        **kwargs: Any,
     ) -> None:
-        """Continuously read time series data from the connection, starting at current time and going back read
-        interval
+        """Subscribe to nodes and call handler when new data is available. This will always return a series of values.
+        If nodes with different intervals should be subscribed, multiple connection objects are needed.
+
+        :param handler: SubscriptionHandler object with a push method that accepts node, value pairs
+        :param req_interval: Duration covered by requested data (time interval). Interpreted as seconds if given as int
+        :param offset: Offset from datetime.now from which to start requesting data (time interval).
+                       Interpreted as seconds if given as int. Use negative values to go to past timestamps.
+        :param data_interval: Time interval between values in returned data. Interpreted as seconds if given as int.
+        :param interval: interval (between requests) for receiving new data.
+                         It it interpreted as seconds when given as an integer.
+        :param nodes: identifiers for the nodes to subscribe to
+        :param kwargs: Any additional arguments required by subclasses
         """
         pass

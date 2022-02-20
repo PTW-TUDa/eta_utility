@@ -43,11 +43,7 @@ show_column_numbers = true
 # The excludes should be reduced when possible, currently these files do not follow all typing requirements
 exclude = [
     "^test/",
-    "^eta_utility/connectors/eneffco\\.py$",
     "^eta_utility/connectors/rest\\.py$",
-    "^eta_utility/connectors/common\\.py$",
-    "^eta_utility/connectors/live_connect\\.py$",
-    "^eta_utility/timeseries/scenarios\\.py$",
     "^eta_utility/eta_x/agents/common/concurrent\\.py$",
     "^eta_utility/eta_x/agents/common/vec_env/multi_vec_env\\.py$",
     "^eta_utility/eta_x/agents/common/policies\\.py$",
@@ -78,11 +74,7 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 # Overrides must be specified again to satisfy mypy when run with pre-commit
 module = [
-    "eta_utility.connectors.eneffco",
     "eta_utility.connectors.rest",
-    "eta_utility.connectors.common",
-    "eta_utility.connectors.live_connect",
-    "eta_utility.timeseries.scenarios",
     "eta_utility.eta_x.agents.common.concurrent",
     "eta_utility.eta_x.agents.common.vec_env.multi_vec_env",
     "eta_utility.eta_x.agents.common.policies",
