@@ -1,26 +1,20 @@
+from __future__ import annotations
+
 import abc
 import pathlib
 import time
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Mapping,
-    MutableSet,
-    Optional,
-    Sequence,
-    Set,
-    SupportsFloat,
-    Tuple,
-    Union,
-)
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from eta_utility.eta_x.envs import BaseEnv
 from eta_utility.eta_x.envs.base_env import log
 from eta_utility.simulators import FMUSimulator
-from eta_utility.type_hints import Path
+
+if TYPE_CHECKING:
+    from typing import Any, Callable, Mapping, MutableSet, Sequence, SupportsFloat
+
+    from eta_utility.type_hints import Path
 
 
 class BaseEnvSim(BaseEnv, abc.ABC):
@@ -34,14 +28,14 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         self,
         env_id: int,
         run_name: str,
-        general_settings: Dict[str, Any],
-        path_settings: Dict[str, Path],
-        env_settings: Dict[str, Any],
+        general_settings: dict[str, Any],
+        path_settings: dict[str, Path],
+        env_settings: dict[str, Any],
         verbose: int,
-        callback: Optional[Callable] = None,
+        callback: Callable | None = None,
     ) -> None:
 
-        self.req_general_settings: Set[Union[Sequence, MutableSet]] = set(self.req_general_settings)
+        self.req_general_settings: set[Sequence | MutableSet] = set(self.req_general_settings)
         self.req_general_settings.update(("sim_steps_per_sample",))  # noqa
         super().__init__(
             env_id,
@@ -73,14 +67,12 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         self.path_fmu: pathlib.Path = self.path_env / (self.fmu_name + ".fmu")
 
         #: Configuration for the FMU model parameters, that need to be set for initialization of the Model.
-        self.model_parameters: Optional[Mapping[str, Union[int, float]]] = self.env_settings.setdefault(
-            "model_parameters", None
-        )
+        self.model_parameters: Mapping[str, int | float] | None = self.env_settings.setdefault("model_parameters", None)
 
         #: Instance of the FMU. This can be used to directly access the eta_utility.FMUSimulator interface.
         self.simulator: FMUSimulator
 
-    def _init_simulator(self, init_values: Optional[Mapping[str, Union[int, float]]] = None) -> None:
+    def _init_simulator(self, init_values: Mapping[str, int | float] | None = None) -> None:
         """Initialize the simulator object. Make sure to call _names_from_state before this or to otherwise initialize
         the names array.
 
@@ -105,7 +97,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
                 init_values=init_values,
             )
 
-    def simulate(self, state: Mapping[str, float]) -> Tuple[Dict[str, float], bool, float]:
+    def simulate(self, state: Mapping[str, float]) -> tuple[dict[str, float], bool, float]:
         """Perform a simulator step and return data as specified by the is_ext_observation parameter of the
         state_config.
 
@@ -142,9 +134,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
 
         return output, step_success, sim_time_elapsed
 
-    def step(
-        self, action: np.ndarray
-    ) -> Tuple[np.ndarray, Union[np.float, SupportsFloat], bool, Union[str, Sequence[str]]]:
+    def step(self, action: np.ndarray) -> tuple[np.ndarray, np.float | SupportsFloat, bool, str | Sequence[str]]:
         """Perfom one time step and return its results. This is called for every event or for every time step during
         the simulation/optimization run. It should utilize the actions as supplied by the agent to determine
         the new state of the environment. The method must return a four-tuple of observations, rewards, dones, info.

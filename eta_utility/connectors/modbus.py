@@ -1,18 +1,24 @@
 """ Utilities for connecting to modbus servers
 """
+from __future__ import annotations
+
 import asyncio
 import concurrent.futures
 import socket
 import struct
 from contextlib import contextmanager
 from datetime import datetime, timedelta
-from typing import Any, Generator, List, Mapping, Optional, Sequence, Set
+from typing import TYPE_CHECKING
 
 import pandas as pd
 from pyModbusTCP.client import ModbusClient  # noqa: I900
 
 from eta_utility import get_logger
-from eta_utility.type_hints import Node, Nodes, TimeStep
+from eta_utility.connectors.node import NodeModbus
+
+if TYPE_CHECKING:
+    from typing import Any, Generator, Mapping, Sequence
+    from eta_utility.type_hints import AnyNode, Nodes, TimeStep
 
 from .base_classes import BaseConnection, SubscriptionHandler
 
@@ -31,9 +37,7 @@ class ModbusConnection(BaseConnection):
 
     _PROTOCOL = "modbus"
 
-    def __init__(
-        self, url: str, usr: Optional[str] = None, pwd: Optional[str] = None, *, nodes: Optional[Nodes] = None
-    ) -> None:
+    def __init__(self, url: str, usr: str | None = None, pwd: str | None = None, *, nodes: Nodes | None = None) -> None:
         super().__init__(url, usr, pwd, nodes=nodes)
 
         if self._url.scheme != "modbus.tcp":
@@ -42,11 +46,11 @@ class ModbusConnection(BaseConnection):
         self.connection: ModbusClient = ModbusClient(host=self._url.hostname, port=self._url.port, timeout=2)
 
         self._subscription_open: bool = False
-        self._subscription_nodes: Set[Node] = set()
+        self._subscription_nodes: set[NodeModbus] = set()
         self._sub: asyncio.Task
 
     @classmethod
-    def from_node(cls, node: Node, **kwargs: Any) -> "ModbusConnection":
+    def from_node(cls, node: AnyNode, **kwargs: Any) -> ModbusConnection:
         """Initialize the connection object from a modbus protocol node object
 
         :param node: Node to initialize from
@@ -54,7 +58,7 @@ class ModbusConnection(BaseConnection):
         :return: ModbusConnection object
         """
 
-        if node.protocol == "modbus":
+        if node.protocol == "modbus" and isinstance(node, NodeModbus):
             return cls(node.url, nodes=[node])
 
         else:
@@ -63,7 +67,7 @@ class ModbusConnection(BaseConnection):
                 "protocol: {}.".format(node.name)
             )
 
-    def read(self, nodes: Optional[Nodes] = None) -> pd.DataFrame:
+    def read(self, nodes: Nodes | None = None) -> pd.DataFrame:
         """
         Read some manually selected nodes from Modbus server
 
@@ -85,7 +89,7 @@ class ModbusConnection(BaseConnection):
 
         return pd.DataFrame(values, index=[self._assert_tz_awareness(datetime.now())])
 
-    def write(self, values: Mapping[Node, Any]) -> None:
+    def write(self, values: Mapping[AnyNode, Any]) -> None:
         """Write some manually selected values on Modbus capable controller
 
         .. warning::
@@ -95,7 +99,7 @@ class ModbusConnection(BaseConnection):
         """
         raise NotImplementedError
 
-    def subscribe(self, handler: SubscriptionHandler, nodes: Optional[Nodes] = None, interval: TimeStep = 1) -> None:
+    def subscribe(self, handler: SubscriptionHandler, nodes: Nodes | None = None, interval: TimeStep = 1) -> None:
         """Subscribe to nodes and call handler when new data is available.
 
         :param nodes: identifiers for the nodes to subscribe to
@@ -192,7 +196,7 @@ class ModbusConnection(BaseConnection):
         # pymodbus gives a Sequence of 16bit unsigned integers which must be converted into the correct format
         return struct.unpack(unpack, struct.pack(pack, *value))[0]
 
-    def _read_mb_value(self, node: Node) -> List[int]:
+    def _read_mb_value(self, node: NodeModbus) -> list[int]:
         """Read raw value from modbus server. This function should not be used directly. It does not
         establish a connection or handle connection errors.
 
@@ -257,3 +261,12 @@ class ModbusConnection(BaseConnection):
             raise ConnectionError(f"ModbusError {exception} at {self.url}: {self.connection.last_except_txt()}")
         else:
             raise ConnectionError(f"Unknown ModbusError at {self.url}")
+
+    def _validate_nodes(self, nodes: Nodes | None) -> set[NodeModbus]:  # type: ignore
+        vnodes = super()._validate_nodes(nodes)
+        _nodes = set()
+        for node in vnodes:
+            if isinstance(node, NodeModbus):
+                _nodes.add(node)
+
+        return _nodes

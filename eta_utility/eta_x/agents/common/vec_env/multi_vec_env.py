@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from copy import deepcopy
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING
 
 import numpy as np
 from stable_baselines3.common.vec_env import (
@@ -8,7 +10,9 @@ from stable_baselines3.common.vec_env import (
     NotSteppingError,
 )
 
-from eta_utility.type_hints import Number, StepResult
+if TYPE_CHECKING:
+    from typing import Any, Callable, Sequence
+    from eta_utility.type_hints import Number, StepResult
 
 from .. import ProcessPool
 
@@ -34,9 +38,9 @@ class MultiVecEnv(DummyVecEnv):
             env.env_id = key
 
         self._running: bool = False
-        self._processes: Optional[bool] = None
+        self._processes: bool | None = None
 
-        self._buf_results: List[Tuple] = [()] * self.num_envs
+        self._buf_results: list[tuple] = [()] * self.num_envs
 
     def step_async(self, actions: Sequence[Sequence[Any]]) -> None:
         """Perform an asynchronous step using the ProcessPool concurrency mapping interface provided by agents module
@@ -79,9 +83,9 @@ class MultiVecEnv(DummyVecEnv):
             raise NotSteppingError()
 
         # Change size of buffers depending on the number of calculated results
-        self.buf_obs: List[Optional[float]] = [None] * len(self._buf_results)
+        self.buf_obs: list[float | None] = [None] * len(self._buf_results)
         self.buf_dones: np.ndarray = np.zeros((len(self._buf_results),), dtype=np.bool)
-        self.buf_infos: List[Dict] = [{}] * len(self._buf_results)
+        self.buf_infos: list[dict] = [{}] * len(self._buf_results)
         if not hasattr(self._buf_results[0][1], "__len__") or len(self._buf_results[0][1]) <= 1:
             self.buf_rews: np.ndarray = np.zeros(len(self._buf_results), dtype=np.float32)
         else:
@@ -109,7 +113,7 @@ class MultiVecEnv(DummyVecEnv):
             deepcopy(self.buf_infos),
         )
 
-    def reset(self) -> List[Optional[float]]:
+    def reset(self) -> list[float | None]:
         """Reset all environments"""
         self.buf_obs = [None] * self.num_envs
         for env_idx in range(self.num_envs):
@@ -123,7 +127,7 @@ class MultiVecEnv(DummyVecEnv):
         """
         self._processes = process_pool
 
-    def __getstate__(self) -> "MultiVecEnv":
+    def __getstate__(self) -> MultiVecEnv:
         self._processes.close()
         self._processes.join()
         self._processes = None

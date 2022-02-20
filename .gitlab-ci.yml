@@ -36,9 +36,10 @@ default:
 
   before_script:
     - python -V  # Print out python version for debugging
-    - python3 -m venv venv
+    - python3 -m venv venv --clear
     - source venv/bin/activate
     - pip install --upgrade pip
+    - pip install --upgrade setuptools
     - pip install .[develop]
 
 create_cache:
@@ -47,12 +48,13 @@ create_cache:
   before_script:
     - echo ""
   script:
-    - rm -rf venv .venv .cache .pytest_cache .mypy_cache dist doc eta_utility.egg-info build
+    - rm -rf venv .venv .cache .pip_cache .pytest_cache .mypy_cache dist doc eta_utility.egg-info build public
     - ls -la
     - python -V
-    - python3 -m venv venv
+    - python3 -m venv venv --clear
     - source venv/bin/activate
     - pip install --upgrade pip
+    - pip install --upgrade setuptools
     - pip install .[develop]
     - pip install flake8-json
 
@@ -178,6 +180,8 @@ pages:
     <<: *global_cache
     policy: pull
 
+# This can be used in case an FMU file has to be compiled on a linux system for the tests to work.
+# Usually it isn't needed though and therefore excluded with a 'never' rule.
 compile_fmu:
   stage: setup
   before_script:

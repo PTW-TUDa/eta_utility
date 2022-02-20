@@ -1,16 +1,23 @@
+from __future__ import annotations
+
 import sys
-from typing import Any, Callable, List, Optional, Sequence, Tuple, Type
+from typing import TYPE_CHECKING
 
 import gym
 import numpy as np
 import pyomo.environ as pyo
 from pyomo import opt
 from stable_baselines3.common.base_class import BaseAlgorithm
-from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.vec_env import VecNormalize
 
 from eta_utility import get_logger
-from eta_utility.type_hints import Path
+
+if TYPE_CHECKING:
+    from typing import Any, Callable, Sequence
+
+    from stable_baselines3.common.policies import BasePolicy
+
+    from eta_utility.type_hints import Path
 
 log = get_logger("eta_x.agents")
 
@@ -32,7 +39,7 @@ class MPCBasic(BaseAlgorithm):
 
     def __init__(
         self,
-        policy: Type[BasePolicy],
+        policy: type[BasePolicy],
         env: gym.Env,
         verbose: int = 1,
         *,
@@ -96,7 +103,7 @@ class MPCBasic(BaseAlgorithm):
         self.actions_order: Sequence[str]  #: Specification of the order in which action values should be returned.
         self.model, self.actions_order = self._setup_model()
 
-    def _setup_model(self) -> List[Any]:
+    def _setup_model(self) -> list[Any]:
         """Load the MILP model from the environment"""
         return self.env.get_attr("model", 0)[0]
 
@@ -161,10 +168,10 @@ class MPCBasic(BaseAlgorithm):
     def predict(
         self,
         observation: np.ndarray,
-        state: Optional[np.ndarray] = None,
-        mask: Optional[np.ndarray] = None,
+        state: np.ndarray | None = None,
+        mask: np.ndarray | None = None,
         deterministic: bool = False,
-    ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+    ) -> tuple[np.ndarray, np.ndarray] | None:
         """
         Solve the current pyomo model instance with given parameters and observations and return the optimal actions
 
@@ -197,9 +204,9 @@ class MPCBasic(BaseAlgorithm):
     def action_probability(
         self,
         observation: np.ndarray,
-        state: Optional[np.ndarray] = None,
-        mask: Optional[np.ndarray] = None,
-        actions: Optional[np.ndarray] = None,
+        state: np.ndarray | None = None,
+        mask: np.ndarray | None = None,
+        actions: np.ndarray | None = None,
         logp: bool = False,
     ) -> None:
         """The MPC approach cannot predict probabilities of single actions."""
@@ -208,8 +215,8 @@ class MPCBasic(BaseAlgorithm):
     def learn(
         self,
         total_timesteps: int,
-        callback: Optional[Callable] = None,
-        seed: Optional[int] = None,
+        callback: Callable | None = None,
+        seed: int | None = None,
         log_interval: int = 100,
         tb_log_name: str = "MPCSimple",
         **kwargs,
@@ -229,7 +236,7 @@ class MPCBasic(BaseAlgorithm):
         """Loading a model is currently not implemented for the MPC agent."""
         raise NotImplementedError("The MPC approach cannot load a model.")
 
-    def get_parameter_list(self) -> List:
+    def get_parameter_list(self) -> list:
         """
         Get tensorflow Variables of model's parameters
 

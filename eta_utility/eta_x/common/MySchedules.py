@@ -2,6 +2,7 @@
 My own schedules, because I could not find it in SB3
 
 """
+from __future__ import annotations
 
 
 class MyLinearSchedule:

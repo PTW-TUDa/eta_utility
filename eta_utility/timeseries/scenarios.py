@@ -1,29 +1,35 @@
+from __future__ import annotations
+
 import pathlib
 from datetime import datetime, timedelta
-from typing import Mapping, Optional, Sequence, SupportsFloat, Union
+from typing import TYPE_CHECKING, Sized
 
 import numpy as np
 import pandas as pd
 
 from eta_utility import timeseries
-from eta_utility.type_hints import TimeStep
+
+if TYPE_CHECKING:
+    from typing import Mapping, Sequence, SupportsFloat
+
+    from eta_utility.type_hints import Path, TimeStep
 
 
 def scenario_from_csv(
-    paths: Union[pathlib.Path, Sequence[pathlib.Path]],
-    data_prefixes: Optional[Sequence[str]] = None,
+    paths: Path | Sequence[Path],
+    data_prefixes: Sequence[str] | None = None,
     *,
     start_time: datetime,
-    end_time: Optional[datetime] = None,
-    total_time: Optional[TimeStep] = None,
-    random: Union[np.random.BitGenerator, bool, None] = False,
-    resample_time: Optional[TimeStep] = None,
-    interpolation_method: Union[Sequence[str], str, None] = None,
-    rename_cols: Optional[Mapping[str, str]] = None,
-    prefix_renamed: Optional[bool] = True,
-    infer_datetime_from: Optional[Union[str, Sequence[int]]] = "string",
-    time_conversion_str: Optional[Union[str, Sequence[str]]] = "%Y-%m-%d %H:%M",
-    scaling_factors: Union[Sequence[Mapping[str, SupportsFloat]], SupportsFloat, None] = None,
+    end_time: datetime | None = None,
+    total_time: TimeStep | None = None,
+    random: np.random.Generator | bool | None = False,
+    resample_time: TimeStep | None = None,
+    interpolation_method: Sequence[str | None] | str | None = None,
+    rename_cols: Mapping[str, str] | None = None,
+    prefix_renamed: bool = True,
+    infer_datetime_from: str | Sequence[int] = "string",
+    time_conversion_str: str | Sequence[str] = "%Y-%m-%d %H:%M",
+    scaling_factors: Sequence[Mapping[str, SupportsFloat]] | Mapping[str, SupportsFloat] | None = None,
 ) -> pd.DataFrame:
     """Import (possibly multiple) scenario data files from csv files and return them as a single pandas
     data frame. The import function supports column renaming and will slice and resample data as specified.
@@ -78,78 +84,88 @@ def scenario_from_csv(
     :return:
     """
 
-    if not hasattr(paths, "__len__"):
-        paths = (paths,)
+    if not isinstance(paths, Sized):
+        paths = [paths]
+    _paths = []
+    for path in paths:
+        _paths.append(path if isinstance(path, pathlib.Path) else pathlib.Path(path))
 
     # interpolation methods needs to be a list, so in case of None create a list of Nones
-    if not hasattr(interpolation_method, "__len__"):
-        if paths.__len__() > 1:
-            interpolation_method = [interpolation_method] * len(paths)
+    if type(interpolation_method) is str or not isinstance(interpolation_method, Sized):
+        if len(_paths) > 1:
+            _interpolation_method = [interpolation_method] * len(_paths)
         else:
-            interpolation_method = (interpolation_method,)
-    elif interpolation_method.__len__() != paths.__len__():
+            _interpolation_method = [interpolation_method]
+    elif len(interpolation_method) != len(_paths):
         raise ValueError("The number of interpolation methods does not match the number of paths.")
+    else:
+        _interpolation_method = list(interpolation_method)
 
     # scaling needs to be a list, so on case of None create a list of Nones
-    if not hasattr(scaling_factors, "__len__"):
-        if paths.__len__() > 1:
+    if not isinstance(scaling_factors, Sequence):
+        if len(_paths) > 1:
             raise ValueError("The scaling factors need to be defined for each path")
         else:
-            scaling_factors = (scaling_factors,)
-    elif scaling_factors.__len__() != paths.__len__():
+            _scaling_factors = [scaling_factors]
+    elif len(scaling_factors) != len(_paths):
         raise ValueError("The number of scaling factors does not match the number of paths.")
+    else:
+        _scaling_factors = list(scaling_factors)
 
     # time conversion string needs to be a list, so on case of None create a list of Nones
-    if type(time_conversion_str) is str or not hasattr(time_conversion_str, "__len__"):
-        if paths.__len__() > 1:
-            time_conversion_str = [time_conversion_str] * len(paths)
+    if isinstance(time_conversion_str, str):
+        if len(_paths) > 1:
+            _time_conversion_str = [time_conversion_str] * len(_paths)
         else:
-            time_conversion_str = (time_conversion_str,)
-    elif time_conversion_str.__len__() != paths.__len__():
+            _time_conversion_str = [time_conversion_str]
+    elif len(time_conversion_str) != len(_paths):
         raise ValueError("The number of time conversion strings does not match the number of paths.")
+    else:
+        _time_conversion_str = list(time_conversion_str)
 
     # columns to consider as datetime values (infer_datetime_from)
     # needs to be a list, so on case of None create a list of Nones
-    if type(infer_datetime_from) is str or not hasattr(infer_datetime_from, "__len__"):
-        infer_datetime_from = [infer_datetime_from] * len(paths) if paths.__len__() > 1 else (infer_datetime_from,)
-    elif infer_datetime_from.__len__() != paths.__len__():
-        raise ValueError(
-            "The number of columns to consider as datetime values (infer_datetime_from)"
-            " does not match the number of paths."
-        )
+    if len(_paths) > 1:
+        _infer_datetime_from = [infer_datetime_from] * len(_paths)
+    else:
+        _infer_datetime_from = [infer_datetime_from]
 
     # Set defaults and convert values where necessary
-    if total_time:
+    if total_time is not None:
         total_time = total_time if isinstance(total_time, timedelta) else timedelta(seconds=total_time)
-    resample = True if resample_time is not None else False
 
-    if resample:
-        resample_time = resample_time if isinstance(resample_time, timedelta) else timedelta(seconds=resample_time)
+    resample = True if resample_time is not None else False
+    if resample and resample_time is not None:
+        _resample_time = resample_time if isinstance(resample_time, timedelta) else timedelta(seconds=resample_time)
+    else:
+        _resample_time = timedelta(seconds=0)
+
+    _random = False if random is None else random
 
     slice_begin, slice_end = timeseries.find_time_slice(
         start_time,
         end_time,
         total_time=total_time,
-        random=random,
-        round_to_interval=resample_time,
+        random=_random,
+        round_to_interval=_resample_time,
     )
 
     df = pd.DataFrame()
-    for i, path in enumerate(paths):
+    for i, path in enumerate(_paths):
         data = timeseries.df_from_csv(
             path,
-            infer_datetime_from=infer_datetime_from[i],
-            time_conversion_str=time_conversion_str[i],
+            infer_datetime_from=_infer_datetime_from[i],
+            time_conversion_str=_time_conversion_str[i],
         )
         if resample:
             data = timeseries.df_resample(
                 data,
-                resample_time,
-                missing_data=interpolation_method[i],
+                _resample_time,
+                missing_data=_interpolation_method[i],
             )
         else:
-            data = data.fillna(method=interpolation_method[i])
-        data = data[slice_begin:slice_end].copy()
+            data = data.fillna(method=_interpolation_method[i])
+        data = data[slice_begin:slice_end].copy()  # type: ignore
 
         col_names = {}
         for col in data.columns:
@@ -157,8 +173,8 @@ def scenario_from_csv(
             col_names[col] = _fix_col_name(col, prefix, prefix_renamed, rename_cols)
 
             # Scale data values in the column
-            if scaling_factors[i] and col in scaling_factors[i]:
-                data[col] = data[col].multiply(scaling_factors[i][col])
+            if _scaling_factors[i] is not None and col in _scaling_factors[i]:  # type: ignore
+                data[col] = data[col].multiply(_scaling_factors[i][col])  # type: ignore
 
         # rename all columns with the name mapping determined above
         data.rename(columns=col_names, inplace=True)
@@ -166,11 +182,9 @@ def scenario_from_csv(
 
     # Make sure that the resulting file corresponds to the requested time slice
     if (
-        len(df) <= 0 or df.first_valid_index() > slice_begin + resample_time
-        if resample_time is not None
-        else timedelta(seconds=0) or df.last_valid_index() < slice_end - resample_time
-        if resample_time is not None
-        else timedelta(seconds=0)
+        len(df) <= 0
+        or df.first_valid_index() > slice_begin + _resample_time
+        or df.last_valid_index() < slice_end - _resample_time
     ):
         raise ValueError(
             "The loaded scenario file does not contain enough data for the entire selected time slice. Or the set "
@@ -182,9 +196,9 @@ def scenario_from_csv(
 
 def _fix_col_name(
     name: str,
-    prefix: Optional[str] = None,
+    prefix: str | None = None,
     prefix_renamed: bool = False,
-    rename_cols: Optional[Mapping[str, str]] = None,
+    rename_cols: Mapping[str, str] | None = None,
 ) -> str:
     """Figure out correct name for the column
 

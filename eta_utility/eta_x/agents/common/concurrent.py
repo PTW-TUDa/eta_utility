@@ -2,6 +2,7 @@
 passing seeded random generators and to increase the chunk size that is passed between processes.
 
 """
+from __future__ import annotations
 
 import multiprocessing as mp
 from multiprocessing import util  # noqa
@@ -13,21 +14,14 @@ from multiprocessing.pool import (  # noqa
     _helper_reraises_exception,
 )
 from operator import methodcaller
-from typing import (
-    Any,
-    Callable,
-    Iterable,
-    List,
-    Mapping,
-    Optional,
-    Sequence,
-    Tuple,
-    Union,
-)
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from eta_utility import get_logger
+
+if TYPE_CHECKING:
+    from typing import Any, Callable, Iterable, Mapping, Sequence
 
 log = get_logger("eta_x.agents")
 cpu_count = mp.cpu_count
@@ -36,9 +30,9 @@ cpu_count = mp.cpu_count
 def pool_worker(
     inqueue: mp.SimpleQueue,
     outqueue: mp.SimpleQueue,
-    initializer: Optional[Callable] = None,
-    initargs: Tuple[Any] = (),
-    maxtasks: Optional[int] = None,
+    initializer: Callable | None = None,
+    initargs: tuple[Any] = (),
+    maxtasks: int | None = None,
     wrap_exception: bool = False,
 ) -> None:
     """Worker function for process pool members. Runs in a loop and waits until new tasks arrive.
@@ -131,10 +125,10 @@ class ProcessPool(Pool):
     :param kwargs: Keyword parameters for the multiprocessing.Pool class.
     """
 
-    def __init__(self, *args: Any, seed_sequence: Optional[np.random.SeedSequence] = None, **kwargs) -> None:
+    def __init__(self, *args: Any, seed_sequence: np.random.SeedSequence | None = None, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-        self._rngs: List[np.random.BitGenerator] = self._setup_rngs(seed_sequence)
+        self._rngs: list[np.random.BitGenerator] = self._setup_rngs(seed_sequence)
 
     def _repopulate_pool(self) -> None:
         """Bring the number of pool processes up to the specified number,
@@ -173,15 +167,15 @@ class ProcessPool(Pool):
 
     def map(  # noqa: A003
         self,
-        func: Union[str, Callable],
+        func: str | Callable,
         iterable: Iterable[Any],
-        chunksize: Optional[int] = None,
+        chunksize: int | None = None,
         *,  # noqa
         args: Iterable = (),
-        kwargs: Optional[Mapping] = None,
+        kwargs: Mapping | None = None,
         method: str = "return",
-        callback: Optional[Callable] = None,
-        error_callback: Optional[Callable] = None,
+        callback: Callable | None = None,
+        error_callback: Callable | None = None,
     ) -> Sequence:
         """Perform parallel mapping operation with func on iterable. Uses arguments and kwarguments for the
         function call.
@@ -241,7 +235,7 @@ class ProcessPool(Pool):
 
         return return_result
 
-    def _setup_rngs(self, seed_sequence: np.random.SeedSequence) -> List[np.random.BitGenerator]:
+    def _setup_rngs(self, seed_sequence: np.random.SeedSequence) -> list[np.random.BitGenerator]:
         """Take a seed sequence from numpy and set up corresponding, non overlapping random number generators
             for each processor
 

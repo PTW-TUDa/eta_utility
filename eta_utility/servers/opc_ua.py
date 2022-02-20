@@ -1,12 +1,20 @@
-import socket
-from typing import Any, Mapping, Optional, Set, Sized, Union
+from __future__ import annotations
 
-from opcua import Node as OpcNode
+import socket
+from typing import TYPE_CHECKING, Sized
+
 from opcua import Server, ua
 from opcua.ua import uaerrors
 
-from eta_utility import get_logger
-from eta_utility.type_hints import Node, Nodes
+from eta_utility import get_logger, url_parse
+from eta_utility.connectors.node import NodeOpcUa
+
+if TYPE_CHECKING:
+    from typing import Any, Mapping
+
+    from opcua import Node as OpcNode
+
+    from eta_utility.type_hints import AnyNode, Nodes
 
 log = get_logger("servers.opcua")
 
@@ -19,7 +27,7 @@ class OpcUaServer:
     :param port: Port to listen on (default: 4840)
     """
 
-    def __init__(self, namespace: Union[str, int], ip: Optional[str] = None, port: int = 4840) -> None:
+    def __init__(self, namespace: str | int, ip: str | None = None, port: int = 4840) -> None:
         #: URL of the OPC UA Server
         self.url: str
         if ip is None:
@@ -27,6 +35,8 @@ class OpcUaServer:
         else:
             self.url = f"opc.tcp://{ip}:{port}"
         log.info(f"Server Address is {self.url}")
+
+        self._url, _, _ = url_parse(self.url)
 
         self._server: Server = Server()
         self._server.set_endpoint(self.url)
@@ -38,14 +48,14 @@ class OpcUaServer:
         self._server.set_server_name("ETA Utility OPC UA Server")
         self._server.start()
 
-    def write(self, values: Mapping[Node, Any]) -> None:
+    def write(self, values: Mapping[AnyNode, Any]) -> None:
         """
         Writes some values directly to the OPCUA server
 
         :param values: Dictionary of data to write. {node.name: value}
         """
 
-        nodes = self._validate_nodes(values.keys())
+        nodes = self._validate_nodes(set(values.keys()))
 
         for node in nodes:
             var = self._server.get_node(node.opc_id)
@@ -58,7 +68,7 @@ class OpcUaServer:
         :param nodes: List or set of nodes to create
         """
 
-        def create_object(parent: OpcNode, child: Node) -> OpcNode:
+        def create_object(parent: OpcNode, child: NodeOpcUa) -> OpcNode:
             for obj in parent.get_children():
                 ident = obj.nodeid.Identifier if type(obj.nodeid.Identifier) is str else obj.nodeid.Identifier
                 if child.opc_path_str == ident:
@@ -66,9 +76,9 @@ class OpcUaServer:
             else:
                 return parent.add_object(child.opc_id, child.opc_name)
 
-        nodes = self._validate_nodes(nodes)
+        _nodes = self._validate_nodes(nodes)
 
-        for node in nodes:
+        for node in _nodes:
             try:
                 last_obj = create_object(self._server.get_objects_node(), node.opc_path[0])
 
@@ -121,12 +131,29 @@ class OpcUaServer:
         """This should always be called, when the server is not needed anymore. It stops the server."""
         self._server.stop()
 
-    def _validate_nodes(self, nodes: Nodes) -> Set[Node]:
-        if not isinstance(nodes, Sized):
-            nodes = {nodes}
-        else:
-            if len(nodes) == 0:
-                raise ValueError("Some nodes to read from must be specified.")
-            nodes = set(nodes)
+    def _validate_nodes(self, nodes: Nodes | None) -> set[NodeOpcUa]:
+        """Make sure that nodes are a Set of nodes and that all nodes correspond to the protocol and url
+        of the connection.
 
-        return nodes
+        :param nodes: Sequence of Node objects to validate
+        :return: set of valid Node objects for this connection
+        """
+        _nodes = None
+
+        if nodes:
+            if not isinstance(nodes, Sized):
+                nodes = {nodes}
+
+            # If not using preselected nodes from self.selected_nodes, check if nodes correspond to the connection
+            _nodes = {
+                node for node in nodes if isinstance(node, NodeOpcUa) and node.url_parsed.hostname == self._url.hostname
+            }
+
+        # Make sure that some nodes remain after the checks and raise an error if there are none.
+        if not _nodes or len(_nodes) == 0:
+            raise ValueError(
+                f"Some nodes to read from/write to must be specified. If nodes were specified, they do not "
+                f"match the connection {self.url}"
+            )
+
+        return _nodes

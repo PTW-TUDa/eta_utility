@@ -25,8 +25,8 @@ sample_series_nan = pd.Series(
 
 class TestCSVSubHandler:
     async def push_values(self, handler: CsvSubHandler):
-        test_node = Node(name="FirstNode", url="", protocol="local")
-        test_node2 = Node(name="SecondNode", url="", protocol="local")
+        test_node = Node(name="FirstNode", url="", protocol="rest", rest_endpoint="")
+        test_node2 = Node(name="SecondNode", url="", protocol="rest", rest_endpoint="")
 
         try:
             for num in range(6):
@@ -78,17 +78,17 @@ class TestDFSubHandler:
     def test_push_timeseries_to_df(self, value, timestamp):
         """Test pushing a Series all at once"""
         handler = DFSubHandler(write_interval=1)
-        test_node = Node(name="Test-node", url="", protocol="local")
+        test_node = Node(name="FirstNode", url="", protocol="local")
         handler.push(test_node, value, timestamp)
         data = handler.data
 
-        assert (data["Test-node"].values == value).all()
+        assert (data["FirstNode"].values == value).all()
 
     def test_housekeeping(self):
         """Test keeping the internal data of DFSubHandler short"""
         keep_data_rows = 2
         handler = DFSubHandler(write_interval=1, size_limit=keep_data_rows)
-        test_node = Node(name="Test-node", url="", protocol="local")
+        test_node = Node(name="FirstNode", url="", protocol="local")
         handler.push(test_node, sample_series.values, sample_series.index)
         data = handler.data
 
