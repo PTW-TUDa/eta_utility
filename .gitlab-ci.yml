@@ -36,7 +36,7 @@ default:
 
   before_script:
     - python -V  # Print out python version for debugging
-    - python3 -m venv venv
+    - python3 -m venv venv --clear
     - source venv/bin/activate
     - pip install --upgrade pip
     - pip install --upgrade setuptools
