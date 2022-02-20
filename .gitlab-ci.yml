@@ -39,6 +39,7 @@ default:
     - python3 -m venv venv
     - source venv/bin/activate
     - pip install --upgrade pip
+    - pip install --upgrade setuptools
     - pip install .[develop]
 
 create_cache:
@@ -50,9 +51,10 @@ create_cache:
     - rm -rf venv .venv .cache .pip-cache .pytest_cache .mypy_cache dist doc eta_utility.egg-info build public
     - ls -la
     - python -V
-    - python3 -m venv venv
+    - python3 -m venv venv --clear
     - source venv/bin/activate
     - pip install --upgrade pip
+    - pip install --upgrade setuptools
     - pip install .[develop]
     - pip install flake8-json
 
