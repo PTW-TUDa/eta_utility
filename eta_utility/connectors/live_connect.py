@@ -10,12 +10,8 @@ from typing import TYPE_CHECKING, Mapping, Sequence
 from urllib.parse import urlparse, urlunparse
 
 from eta_utility import get_logger, json_import
-from eta_utility.connectors import (
-    Node,
-    connections_from_nodes,
-    name_map_from_node_sequence,
-)
-from eta_utility.connectors.node import default_schemes
+from eta_utility.connectors import connections_from_nodes, name_map_from_node_sequence
+from eta_utility.connectors.node import Node, default_schemes
 
 if TYPE_CHECKING:
     from typing import Any

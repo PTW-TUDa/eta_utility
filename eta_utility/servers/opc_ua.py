@@ -7,13 +7,13 @@ from opcua import Server, ua
 from opcua.ua import uaerrors
 
 from eta_utility import get_logger, url_parse
+from eta_utility.connectors.node import NodeOpcUa
 
 if TYPE_CHECKING:
     from typing import Any, Mapping
 
     from opcua import Node as OpcNode
 
-    from eta_utility.connectors.node import NodeOpcUa
     from eta_utility.type_hints import AnyNode, Nodes
 
 log = get_logger("servers.opcua")

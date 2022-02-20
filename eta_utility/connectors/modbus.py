@@ -14,10 +14,10 @@ import pandas as pd
 from pyModbusTCP.client import ModbusClient  # noqa: I900
 
 from eta_utility import get_logger
+from eta_utility.connectors.node import NodeModbus
 
 if TYPE_CHECKING:
     from typing import Any, Generator, Mapping, Sequence
-    from eta_utility.connectors.node import NodeModbus
     from eta_utility.type_hints import AnyNode, Nodes, TimeStep
 
 from .base_classes import BaseConnection, SubscriptionHandler

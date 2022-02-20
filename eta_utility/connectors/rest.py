@@ -7,12 +7,12 @@ import requests
 
 from eta_utility import get_logger
 from eta_utility.connectors.base_classes import BaseConnection
+from eta_utility.connectors.node import NodeREST
 
 if TYPE_CHECKING:
     from typing import Any
 
     from eta_utility.connectors.base_classes import SubscriptionHandler
-    from eta_utility.connectors.node import NodeREST
     from eta_utility.type_hints import AnyNode, Nodes
 
 log = get_logger("connectors.rest")

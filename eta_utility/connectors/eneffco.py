@@ -12,10 +12,10 @@ import pandas as pd
 import requests
 
 from eta_utility import get_logger
+from eta_utility.connectors.node import NodeEnEffCo
 
 if TYPE_CHECKING:
     from typing import Any
-    from eta_utility.connectors.node import NodeEnEffCo
     from eta_utility.type_hints import AnyNode, Nodes, TimeStep
 
 from .base_classes import BaseSeriesConnection, SubscriptionHandler
