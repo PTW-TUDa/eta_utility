@@ -27,7 +27,7 @@ def scenario_from_csv(
     interpolation_method: Sequence[str | None] | str | None = None,
     rename_cols: Mapping[str, str] | None = None,
     prefix_renamed: bool = True,
-    infer_datetime_from: str | Sequence[int] = "string",
+    infer_datetime_from: str | Sequence[Sequence[int]] | Sequence[str] = "string",
     time_conversion_str: str | Sequence[str] = "%Y-%m-%d %H:%M",
     scaling_factors: Sequence[Mapping[str, SupportsFloat]] | Mapping[str, SupportsFloat] | None = None,
 ) -> pd.DataFrame:
@@ -92,10 +92,7 @@ def scenario_from_csv(
 
     # interpolation methods needs to be a list, so in case of None create a list of Nones
     if type(interpolation_method) is str or not isinstance(interpolation_method, Sized):
-        if len(_paths) > 1:
-            _interpolation_method = [interpolation_method] * len(_paths)
-        else:
-            _interpolation_method = [interpolation_method]
+        _interpolation_method = [interpolation_method] * len(_paths)
     elif len(interpolation_method) != len(_paths):
         raise ValueError("The number of interpolation methods does not match the number of paths.")
     else:
@@ -114,10 +111,7 @@ def scenario_from_csv(
 
     # time conversion string needs to be a list, so on case of None create a list of Nones
     if isinstance(time_conversion_str, str):
-        if len(_paths) > 1:
-            _time_conversion_str = [time_conversion_str] * len(_paths)
-        else:
-            _time_conversion_str = [time_conversion_str]
+        _time_conversion_str = [time_conversion_str] * len(_paths)
     elif len(time_conversion_str) != len(_paths):
         raise ValueError("The number of time conversion strings does not match the number of paths.")
     else:
@@ -125,10 +119,10 @@ def scenario_from_csv(
 
     # columns to consider as datetime values (infer_datetime_from)
     # needs to be a list, so on case of None create a list of Nones
-    if len(_paths) > 1:
-        _infer_datetime_from = [infer_datetime_from] * len(_paths)
+    if isinstance(infer_datetime_from, str):
+        _infer_datetime_from: list[str | Sequence[int]] = [infer_datetime_from] * len(_paths)
     else:
-        _infer_datetime_from = [infer_datetime_from]
+        _infer_datetime_from = list(infer_datetime_from)
 
     # Set defaults and convert values where necessary
     if total_time is not None:
@@ -178,7 +172,7 @@ def scenario_from_csv(
 
         # rename all columns with the name mapping determined above
         data.rename(columns=col_names, inplace=True)
-        df = pd.concat((data, df), 1)
+        df = pd.concat((data, df), axis=1)
 
     # Make sure that the resulting file corresponds to the requested time slice
     if (

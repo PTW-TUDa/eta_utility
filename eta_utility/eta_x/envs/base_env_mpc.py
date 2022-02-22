@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import abc
 from datetime import timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Hashable, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
@@ -13,7 +13,7 @@ from eta_utility.eta_x.envs import BaseEnv
 from eta_utility.eta_x.envs.base_env import log
 
 if TYPE_CHECKING:
-    from typing import Any, Callable, Hashable, Mapping, Sequence, SupportsFloat
+    from typing import Any, Callable, SupportsFloat
 
     from pyomo.opt import SolverResults
 
