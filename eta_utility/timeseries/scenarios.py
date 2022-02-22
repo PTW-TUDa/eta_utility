@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pathlib
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Sized
+from typing import TYPE_CHECKING, Sequence, Sized
 
 import numpy as np
 import pandas as pd
@@ -10,7 +10,7 @@ import pandas as pd
 from eta_utility import timeseries
 
 if TYPE_CHECKING:
-    from typing import Mapping, Sequence, SupportsFloat
+    from typing import Mapping, SupportsFloat
 
     from eta_utility.type_hints import Path, TimeStep
 
