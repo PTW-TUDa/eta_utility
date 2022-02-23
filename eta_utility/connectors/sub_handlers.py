@@ -197,12 +197,12 @@ class _CSVFileDB(AbstractContextManager):
         #: Ending position of the header in the file stream (used for extending the header)
         self._endof_header: int = 0
         #: Write buffer
-        self._buffer: Deque[dict[str, datetime | Number]] = deque()
+        self._buffer: Deque[dict[str, str]] = deque()
         self._timebuffer: Deque[datetime] = deque()
         #: Latest timestamp in the write buffer
         self._latest_ts: datetime = datetime.fromtimestamp(10000, tz=tz.tzlocal())
         #: Latest known value for each of the names in the header
-        self._latest_values: dict[str, Number] = {}
+        self._latest_values: dict[str, str] = {}
         #: Length of the line terminator in bytes (for finding file positions)
         self._len_lineterminator: int = len(bytes(self.dialect.lineterminator, "UTF-8"))
 
@@ -372,14 +372,14 @@ class _CSVFileDB(AbstractContextManager):
             # Find out, where to insert the current timestamp
             if len(self._timebuffer) == 0 or self._timebuffer[-1] < timestamp:
                 # If the new timestamp occurred later than the latest timestamp
-                self._buffer.append({name: value})
+                self._buffer.append({name: str(value)})
                 self._timebuffer.append(timestamp)
             elif self._timebuffer[-1] == timestamp:
                 # If the timestamp is equal to the latest timestamp
-                self._buffer[-1].update({name: value})
+                self._buffer[-1].update({name: str(value)})
             elif self._timebuffer[0] > timestamp:
                 # If the new timestamp occurred before the earliest buffered timestamp
-                self._buffer.appendleft({name: value})
+                self._buffer.appendleft({name: str(value)})
                 self._timebuffer.appendleft(timestamp)
                 log.debug(f"Buffer time for CSV file exceeded, older value received with {timestamp}")
             else:
@@ -388,10 +388,10 @@ class _CSVFileDB(AbstractContextManager):
                 last_ts = self._timebuffer[0]
                 for idx, ts in enumerate(self._timebuffer):
                     if timestamp == ts:
-                        self._buffer[idx].update({name: value})
+                        self._buffer[idx].update({name: str(value)})
                         break
                     elif last_ts < timestamp < ts:
-                        self._buffer.insert(idx, {name: value})
+                        self._buffer.insert(idx, {name: str(value)})
                         self._timebuffer.insert(idx, timestamp)
                         break
                     else:

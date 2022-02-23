@@ -9,6 +9,8 @@ from datetime import timedelta
 from typing import TYPE_CHECKING, Mapping, Sequence
 from urllib.parse import urlparse, urlunparse
 
+import numpy as np
+
 from eta_utility import get_logger, json_import
 from eta_utility.connectors import connections_from_nodes, name_map_from_node_sequence
 from eta_utility.connectors.node import Node, default_schemes
@@ -113,6 +115,7 @@ class LiveConnect(AbstractContextManager):
         nodes: Sequence[AnyNode],
         name: str | None = None,
         step_size: TimeStep = 1,
+        max_error_count: int = 10,
         *,
         init: Mapping[str, Any] | None = None,
         activate: Mapping[str, Any] | None = None,
@@ -141,6 +144,10 @@ class LiveConnect(AbstractContextManager):
         self.step_size = int(step_size) if not isinstance(step_size, timedelta) else int(step_size.total_seconds())
         #: Current step of the live connector (number of completed steps)
         self.steps_counter: int = 0
+        #: Maximum error count when connections in read/write function are aborted
+        self.max_error_count: int = max_error_count
+        #: Counts the number of errors when Live Connector logs errors.
+        self.error_count: list[int] = [0] * len(self._connections)
 
         errors = False
 
@@ -274,6 +281,7 @@ class LiveConnect(AbstractContextManager):
         usr: str | None = None,
         pwd: str | None = None,
         step_size: TimeStep = 1,
+        max_error_count: int = 10,
     ) -> LiveConnect:
         """Initialize the connection directly from json configuration files. The file should contain parameters
         as described above. A list of file names can be supplied to enable the creation of larger, combined systems.
@@ -298,11 +306,16 @@ class LiveConnect(AbstractContextManager):
             else:
                 config["system"].append(result)
 
-        return cls.from_dict(usr=usr, pwd=pwd, step_size=step_size, **config)
+        return cls.from_dict(usr=usr, pwd=pwd, step_size=step_size, max_error_count=max_error_count, **config)
 
     @classmethod
     def from_dict(
-        cls, usr: str | None = None, pwd: str | None = None, step_size: TimeStep = 1, **config: Any
+        cls,
+        usr: str | None = None,
+        pwd: str | None = None,
+        step_size: TimeStep = 1,
+        max_error_count: int = 10,
+        **config: Any,
     ) -> LiveConnect:
         """Initialize the connection directly from a config dictionary. The dictionary should contain parameters
         as described above.
@@ -407,6 +420,7 @@ class LiveConnect(AbstractContextManager):
             nodes,
             name,
             step_size=step_size,
+            max_error_count=max_error_count,
             init=_actions["init"],
             activate=_actions["activate"],
             deactivate=_actions["deactivate"],
@@ -522,9 +536,17 @@ class LiveConnect(AbstractContextManager):
             writes[self._connection_map[n]][self._nodes[n]] = value
 
         # Write to all selected nodes for each connection
-        for connection in self._connections:
-            if writes[connection]:
-                self._connections[connection].write(writes[connection])
+        for idx, connection in enumerate(self._connections):
+            try:
+                if writes[connection]:
+                    self._connections[connection].write(writes[connection])
+                    self.error_count[idx] = 0
+            except ConnectionError as e:
+                if self.error_count[idx] < self.max_error_count:
+                    self.error_count[idx] += 1
+                    log.error(e)
+                else:
+                    raise
 
     def read(self, *nodes: str) -> dict[str, Any]:
         """Take a list of nodes and return their names and most recent values
@@ -540,9 +562,18 @@ class LiveConnect(AbstractContextManager):
 
         # Read from all selected nodes for each connection
         result = {}
-        for connection in self._connections:
-            if reads[connection]:
-                result.update(self._connections[connection].read(reads[connection]).iloc[0].to_dict())
+        for idx, connection in enumerate(self._connections):
+            try:
+                if reads[connection]:
+                    result.update(self._connections[connection].read(reads[connection]).iloc[0].to_dict())
+                    self.error_count[idx] = 0
+            except ConnectionError as e:
+                if self.error_count[idx] < self.max_error_count:
+                    self.error_count[idx] += 1
+                    result = {name.name: np.nan for name in reads[connection]}
+                    log.error(e)
+                else:
+                    raise
 
         return result
 

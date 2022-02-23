@@ -44,9 +44,6 @@ show_column_numbers = true
 exclude = [
     "^test/",
     "^eta_utility/connectors/rest\\.py$",
-    "^eta_utility/eta_x/envs/base_env_mpc\\.py$",
-    "^eta_utility/eta_x/envs/base_env\\.py$",
-    "^eta_utility/eta_x/envs/base_env_sim\\.py$",
 ]
 
 [[tool.mypy.overrides]]
@@ -67,9 +64,6 @@ ignore_missing_imports = true
 # Overrides must be specified again to satisfy mypy when run with pre-commit
 module = [
     "eta_utility.connectors.rest",
-    "eta_utility.eta_x.envs.base_env_mpc",
-    "eta_utility.eta_x.envs.base_env",
-    "eta_utility.eta_x.envs.base_env_sim",
 ]
 strict = false
 follow_imports = "skip"

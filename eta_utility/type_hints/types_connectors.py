@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import AbstractSet, NewType, Sequence, Set, Union
+from typing import AbstractSet, Sequence, Set, Union
 
 from eta_utility.connectors.node import (
     Node,

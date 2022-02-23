@@ -94,7 +94,7 @@ class BaseEnv(Env, abc.ABC):
         path_settings: dict[str, Path],
         env_settings: dict[str, Any],
         verbose: int,
-        callback: Callable = None,
+        callback: Callable | None = None,
     ):
         # Set some additional required settings
         self.req_path_settings: set[Sequence | MutableSet] = set(self.req_path_settings)
@@ -171,7 +171,7 @@ class BaseEnv(Env, abc.ABC):
         self.path_env: pathlib.Path = pathlib.Path(inspect.stack()[2].filename).parent
         # store callback function in object
         #: Callback function for the environment. This should be called after every step.
-        self.callback: Callable = callback
+        self.callback: Callable | None = callback
 
         # Store some important settings
         #: Total number of environments
@@ -193,14 +193,14 @@ class BaseEnv(Env, abc.ABC):
         #: Sampling time (interval between optimization time steps) in seconds
         self.sampling_time: float = float(self.settings["sampling_time"])
         #: Number of time steps (of width sampling_time) in each episode
-        self.n_episode_steps: int = int(self.settings["episode_duration"]) // self.sampling_time
+        self.n_episode_steps: int = int(self.settings["episode_duration"] // self.sampling_time)
         #: Duration of one episode in seconds
         self.episode_duration: int = int(self.n_episode_steps * self.sampling_time)
         #: Duration of the scenario for each episode (for total time imported from csv)
-        self.scenario_duration: int = self.episode_duration + self.sampling_time
+        self.scenario_duration: float = self.episode_duration + self.sampling_time
 
         #: Numpy random generator
-        self.np_random: np.random.BitGenerator
+        self.np_random: np.random.Generator
         #: Value used for seeding the random generator
         self._seed: int
         self.np_random, self._seed = (
@@ -288,7 +288,7 @@ class BaseEnv(Env, abc.ABC):
         #: 'scenario': array([], dtype=object),
         #: 'abort_conditions_min': array(['temp_tank'], dtype=object),
         #: 'abort_conditions_max': array(['temp_tank'], dtype=object)}
-        self.names: dict[np.ndarray]
+        self.names: dict[str, np.ndarray]
         #: Dictionary of scaling values for external input values (for example from simulations).
         #:  The structure of this dictionary is {"name": {"add": value, "multiply": value}}.
         self.ext_scale: dict[str, dict[str, int | float]]
@@ -315,7 +315,7 @@ class BaseEnv(Env, abc.ABC):
         #: Log of specific environment settings / other data, apart from state, over multiple episodes.
         self.data_log_longtime: list[list[dict[str, Any]]]
 
-    def append_state(self, *, name: Any, **kwargs) -> None:
+    def append_state(self, *, name: str, **kwargs: Any) -> None:
         """Append a state variable to the state configuration of the environment
 
         :param name: Name of the state variable
@@ -455,7 +455,7 @@ class BaseEnv(Env, abc.ABC):
                 decimal=",",
             )
 
-    def import_scenario(self, *scenario_paths: dict[str, Any], prefix_renamed: bool | None = True) -> pd.DataFrame:
+    def import_scenario(self, *scenario_paths: dict[str, Any], prefix_renamed: bool = True) -> pd.DataFrame:
         """Load data from csv into self.timeseries_data by using scenario_from_csv
 
         :param scenario_paths: One or more scenario configuration dictionaries (Or a list of dicts), which each contain
@@ -527,7 +527,7 @@ class BaseEnv(Env, abc.ABC):
         """
         action_low = self.state_config.loc[self.state_config.is_agent_action == True].low_value.values  # noqa: E712
         action_high = self.state_config.loc[self.state_config.is_agent_action == True].high_value.values  # noqa: E712
-        self.action_space = spaces.Box(action_low, action_high, dtype=np.float)
+        self.action_space = spaces.Box(action_low, action_high, dtype=float)
 
         return self.action_space
 
@@ -541,8 +541,8 @@ class BaseEnv(Env, abc.ABC):
         state_low = self.state_config.loc[self.state_config.is_agent_observation == True].low_value.values  # noqa: E712
         state_high = self.state_config.loc[
             self.state_config.is_agent_observation == True  # noqa: E712
-        ].high_value.values  # noqa: E712
-        self.observation_space = spaces.Box(state_low, state_high, dtype=np.float)
+        ].high_value.values
+        self.observation_space = spaces.Box(state_low, state_high, dtype=float)
 
         return self.observation_space
 
@@ -577,7 +577,7 @@ class BaseEnv(Env, abc.ABC):
         return scenario_state
 
     @abc.abstractmethod
-    def step(self, action: np.ndarray) -> tuple[np.ndarray, np.float | SupportsFloat, bool, str | Sequence[str]]:
+    def step(self, action: np.ndarray) -> tuple[np.ndarray, np.floating | SupportsFloat, bool, str | Sequence[str]]:
         """Perfom one time step and return its results. This is called for every event or for every time step during
         the simulation/optimization run. It should utilize the actions as supplied by the agent to determine the new
         state of the environment. The method must return a four-tuple of observations, rewards, dones, info.
@@ -621,7 +621,7 @@ class BaseEnv(Env, abc.ABC):
         """
         raise NotImplementedError("Cannot close an abstract Environment.")
 
-    def seed(self, seed: str | int = None) -> tuple[np.random.BitGenerator, int]:
+    def seed(self, seed: str | int | None = None) -> tuple[np.random.Generator, int]:
         """Set random seed for the random generator of the environment
 
         :param seed: Seeding value
@@ -633,15 +633,15 @@ class BaseEnv(Env, abc.ABC):
         if not hasattr(self, "_seed") or not hasattr(self, "np_random") or self.seed is None or self.np_random is None:
             # set seeding for pseudorandom numbers
             if seed == "" or seed is None:
-                seed = None
+                iseed = None
                 log.info("The environment seed is set to None, a random seed will be set.")
             else:
-                seed = int(seed) + self.env_id
+                iseed = int(seed) + self.env_id
 
-            np_random, seed = utils.seeding.np_random(seed)  # noqa
-            log.info(f"The environment seed is set to: {seed}")
+            np_random, _seed = utils.seeding.np_random(iseed)  # noqa
+            log.info(f"The environment seed is set to: {_seed}")
 
-            self._seed = seed
+            self._seed = _seed
             self.np_random = np_random
 
         return self.np_random, self._seed
@@ -654,4 +654,4 @@ class BaseEnv(Env, abc.ABC):
         :param _: This parameter should not be used in new implementations
         :return: version and description
         """
-        return cls.version, cls.description
+        return cls.version, cls.description  # type: ignore

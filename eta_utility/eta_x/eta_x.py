@@ -755,9 +755,10 @@ class ETAx:
 
         while n_episodes < n_episodes_stop:
 
+            action, _states = self.model.predict(observation=observations, deterministic=False)
+
             # Some agents (i.e. MPC) can interact with an additional environment if required.
             if "interact_with_env" in self.config["settings"] and self.config["settings"]["interact_with_env"]:
-                action, _states = self.model.predict(observation=observations, deterministic=False)
                 if "scale_interaction_actions" in self.config["settings"]:
                     action = (
                         np.round(
@@ -775,9 +776,7 @@ class ETAx:
                     )
                 observations, rewards, dones, info = self.interaction_env.step(action)  # environment gets called here
                 observations = np.array(self.environments.env_method("update", observations, indices=0))
-
             else:
-                action, _states = self.model.predict(observation=observations, deterministic=False)
                 observations, rewards, dones, info = self.environments.step(action)
 
             n_episodes += sum(dones)
