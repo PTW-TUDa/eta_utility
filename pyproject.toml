@@ -51,7 +51,6 @@ exclude = [
     "^eta_utility/eta_x/agents/rule_based/base_classes\\.py$",
     "^eta_utility/eta_x/agents/mpc_basic/mpc_basic\\.py$",
     "^eta_utility/eta_x/envs/base_env_mpc\\.py$",
-    "^eta_utility/eta_x/envs/base_env\\.py$",
     "^eta_utility/eta_x/envs/base_env_sim\\.py$",
     "^eta_utility/eta_x/eta_x\\.py$",
 ]
@@ -82,7 +81,6 @@ module = [
     "eta_utility.eta_x.agents.rule_based.base_classes",
     "eta_utility.eta_x.agents.mpc_basic.mpc_basic",
     "eta_utility.eta_x.envs.base_env_mpc",
-    "eta_utility.eta_x.envs.base_env",
     "eta_utility.eta_x.envs.base_env_sim",
     "eta_utility.eta_x.eta_x",
 ]
