@@ -65,6 +65,9 @@ class PendulumEnv(BaseEnv):
         self.action_space = self.continuous_action_space_from_state()
         self.observation_space = self.continuous_obs_space_from_state()
 
+        # //self.config_spaces = ConfigSpaces().set(config_data)
+        # //self.action_space, self.observation_space = self.config_spaces.get_spaces()
+
     def step(self, u: np.ndarray) -> Tuple[np.ndarray, Union[np.float, SupportsFloat], bool, Union[str, Sequence[str]]]:
         """See base_env documentation"""
         # Here, u is a scalar value, but it can also be a numpy array for multiple actions.
