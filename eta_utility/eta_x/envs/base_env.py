@@ -4,13 +4,12 @@ import abc
 import inspect
 import pathlib
 import time
-from collections import OrderedDict
 from datetime import datetime
 from typing import TYPE_CHECKING, Sequence
 
 import numpy as np
 import pandas as pd
-from gym import Env, spaces, utils
+from gym import Env, utils
 
 from eta_utility import get_logger, timeseries
 
@@ -226,8 +225,8 @@ class BaseEnv(Env, abc.ABC):
                 ("ext_scale_mult", 1),
                 ("from_scenario", False),
                 ("scenario_id", None),
-                ("low_value", np.nan),
-                ("high_value", np.nan),
+                ("low_value", None),
+                ("high_value", None),
                 ("abort_condition_min", None),
                 ("abort_condition_max", None),
                 ("index", 0),
@@ -288,16 +287,16 @@ class BaseEnv(Env, abc.ABC):
         #: 'scenario': array([], dtype=object),
         #: 'abort_conditions_min': array(['temp_tank'], dtype=object),
         #: 'abort_conditions_max': array(['temp_tank'], dtype=object)}
-        self.names: dict[str, np.ndarray]
+        self.names: Dict[np.ndarray]
         #: Dictionary of scaling values for external input values (for example from simulations).
         #:  The structure of this dictionary is {"name": {"add": value, "multiply": value}}.
-        self.ext_scale: dict[str, dict[str, int | float]]
+        self.ext_scale: Dict[str, Dict[str, Union[int, float]]]
         #: Mapping of internal environment names to external ids.
-        self.map_ext_ids: dict[str, str]
+        self.map_ext_ids: Dict[str, str]
         #: Mapping of external ids to internal environment names.
-        self.rev_ext_ids: dict[str, str]
+        self.rev_ext_ids: Dict[str, str]
         #: Mapping of internal environment names to scenario ids.
-        self.map_scenario_ids: dict[str, str]
+        self.map_scenario_ids: Dict[str, str]
 
         # Store data logs and log other information
         #: Episode timer
@@ -315,147 +314,7 @@ class BaseEnv(Env, abc.ABC):
         #: Log of specific environment settings / other data, apart from state, over multiple episodes.
         self.data_log_longtime: list[list[dict[str, Any]]]
 
-    def append_state(self, *, name: str, **kwargs: Any) -> None:
-        """Append a state variable to the state configuration of the environment
-
-        :param name: Name of the state variable
-        :param kwargs: Column names and values to be inserted into the respective column. For possible columns, types
-                       and default values see state_config. See also: :func:`state_config`
-        """
-        append = {}
-        for key, item in self.__state_config_cols.items():
-            # Since name is supplied separately, don't append it here
-            if key == "name":
-                continue
-
-            val = kwargs[key] if key in kwargs else item
-            append[key] = val
-
-        append = pd.Series(append, name=name)
-        self.state_config = self.state_config.append(append, sort=True)
-
-    def _init_state_space(self) -> None:
-        """Convert state config and store state information. This is a shorthand for the function calls:
-
-        * **_convert_state_config()**
-
-            (See also: :func:`_convert_state_config`)
-        * **_names_from_state()**
-
-            (See also: :func:`_names_from_state`)
-        * **_store_state_info()**
-
-            (See also: :func:`_store_state_info`)
-
-        """
-        self._convert_state_config()
-        self._names_from_state()
-        self._store_state_info()
-
-    def _names_from_state(self) -> None:
-        """Intialize the names array from state_config, which stores shorthands to some frequently used variable names.
-        Also initialize some useful shorthand mappings that can be used to speed up lookups.
-
-        The names array contains the following (ordered) lists of variables in a dictionary:
-
-            * **actions**: Variables that are agent actions
-            * **observations**: Variables that are agent observations
-            * **ext_inputs**: Variables that should be provided to an external source (such as an FMU)
-            * **ext_output**: variables that can be received from an external source (such as an FMU)
-            * **abort_conditions_min**: Variables that have minimum values for an abort condition
-            * **abort_conditions_max**: Variables that have maximum values for an abort condition
-
-        *self.ext_scale* is a dictionary of scaling values for external input values (for example from simulations).
-
-        *self.map_ext_ids* is a mapping of internal environment names to external ids.
-
-        *self.rev_ext_ids* is a mapping of external ids to internal environment names.
-
-        *self.map_scenario_ids* is a mapping of internal environment names to scenario ids.
-        """
-        self.names = {
-            "actions": self.state_config.loc[self.state_config.is_agent_action == True].index.values,  # noqa: E712
-            "observations": self.state_config.loc[
-                self.state_config.is_agent_observation == True  # noqa: E712
-            ].index.values,
-            "ext_inputs": self.state_config.loc[self.state_config.is_ext_input == True].index.values,  # noqa: E712
-            "ext_outputs": self.state_config.loc[self.state_config.is_ext_output == True].index.values,  # noqa: E712
-            "scenario": self.state_config.loc[self.state_config.from_scenario == True].index.values,  # noqa: E712
-            "abort_conditions_min": self.state_config.loc[self.state_config.abort_condition_min.notnull()].index.values,
-            "abort_conditions_max": self.state_config.loc[self.state_config.abort_condition_max.notnull()].index.values,
-        }
-
-        self.ext_scale = {}
-        for name, values in self.state_config.iterrows():
-            self.ext_scale[name] = {"add": values.ext_scale_add, "multiply": values.ext_scale_mult}
-
-        self.map_ext_ids = {}
-        for name in set(self.names["ext_inputs"]) | set(self.names["ext_outputs"]):
-            self.map_ext_ids[name] = self.state_config.loc[name].ext_id
-
-        self.rev_ext_ids = {}
-        for name in set(self.names["ext_inputs"]) | set(self.names["ext_outputs"]):
-            self.rev_ext_ids[self.state_config.loc[name].ext_id] = name
-
-        self.map_scenario_ids = {}
-        for name in self.names["scenario"]:
-            self.map_scenario_ids[name] = self.state_config.loc[name].scenario_id
-
-    def _convert_state_config(self) -> pd.DataFrame:
-        """This will convert an incomplete state_config DataFrame or a list of dictionaries to the standardized
-        DataFrame format. This will remove any additional columns. If additional columns are required, ensure
-        consistency with the required format otherwise.
-
-        :return: Converted, standardized dataframe
-        """
-        # If state config is a DataFrame already, check whether the columns correspond. If they don't create a new
-        # DataFrame with the correct columns and default values for missing columns
-        if isinstance(self.state_config, pd.DataFrame):
-            new_state = pd.DataFrame(columns=self.__state_config_cols.keys())
-            for col, default in self.__state_config_cols.items():
-                if col in self.state_config.columns:
-                    new_state[col] = self.state_config[col]
-                elif col == "name" and col not in self.state_config.columns:
-                    new_state["name"] = self.state_config.index
-                else:
-                    new_state[col] = np.array([default] * len(self.state_config.index))
-
-            # Fill empty cells (only do this for values, where the default is not None)
-            new_state.fillna(
-                value={key: val for key, val in self.__state_config_cols.items() if val is not None},
-                inplace=True,
-            )
-
-        # If state config is a list of dictionaries iterate the list and create the DataFrame iteratively
-        elif isinstance(self.state_config, Sequence):
-            new_state = []
-            for row in self.state_config:
-                new_row = {}
-                for col, default in self.__state_config_cols.items():
-                    new_row[col] = row[col] if col in row else default
-                new_state.append(new_row)
-            new_state = pd.DataFrame(data=new_state, columns=self.__state_config_cols.keys())
-        else:
-            raise ValueError(
-                "state_config is not in the correct format. It should be a DataFrame or a list "
-                "of dictionaries. It is currently {}".format(type(self.state_config))
-            )
-
-        new_state.set_index("name", inplace=True, verify_integrity=True)
-
-        self.state_config = new_state
-        return self.state_config
-
-    def _store_state_info(self) -> None:
-        """Save state_config to csv for info (only first environment)"""
-        if self.env_id == 1:
-            self.state_config.to_csv(
-                path_or_buf=self.path_results / (self.run_name + "_state_config.csv"),
-                sep=";",
-                decimal=",",
-            )
-
-    def import_scenario(self, *scenario_paths: dict[str, Any], prefix_renamed: bool = True) -> pd.DataFrame:
+    def import_scenario(self, *scenario_paths: Dict[str, Any], prefix_renamed: Optional[bool] = True) -> pd.DataFrame:
         """Load data from csv into self.timeseries_data by using scenario_from_csv
 
         :param scenario_paths: One or more scenario configuration dictionaries (Or a list of dicts), which each contain
@@ -518,53 +377,7 @@ class BaseEnv(Env, abc.ABC):
 
         return self.ts_current
 
-    def continuous_action_space_from_state(self) -> spaces.Space:
-        """Use the state_config to generate the action space according to the format required by the OpenAI
-        specification. This will set the action_space attribute and return the corresponding space object.
-        The generated action space is continous.
-
-        :return: Action space
-        """
-        action_low = self.state_config.loc[self.state_config.is_agent_action == True].low_value.values  # noqa: E712
-        action_high = self.state_config.loc[self.state_config.is_agent_action == True].high_value.values  # noqa: E712
-        self.action_space = spaces.Box(action_low, action_high, dtype=float)
-
-        return self.action_space
-
-    def continuous_obs_space_from_state(self) -> spaces.Box:
-        """Use the state_config to generate the observation space according to the format required by the OpenAI
-        specification. This will set the observation_space attribute and return the corresponding space object.
-        The generated observation space is continous.
-
-        :return: Observation Space
-        """
-        state_low = self.state_config.loc[self.state_config.is_agent_observation == True].low_value.values  # noqa: E712
-        state_high = self.state_config.loc[
-            self.state_config.is_agent_observation == True  # noqa: E712
-        ].high_value.values
-        self.observation_space = spaces.Box(state_low, state_high, dtype=float)
-
-        return self.observation_space
-
-    def within_abort_conditions(self, state: Mapping[str, float]) -> bool:
-        """Check whether the given state is within the abort conditions specified by state_config.
-
-        :param state: The state array to check for conformance
-        :return: Result of the check (False if the state does not conform to the required conditions)
-        """
-        valid = all(
-            state[key] > val
-            for key, val in self.state_config.loc[self.names["abort_conditions_min"]].abort_condition_min.items()
-        )
-        if valid:
-            valid = all(
-                state[key] < val
-                for key, val in self.state_config.loc[self.names["abort_conditions_max"]].abort_condition_max.items()
-            )
-
-        return valid
-
-    def get_scenario_state(self) -> dict[str, Any]:
+    def get_scenario_state(self) -> Dict[str, Any]:
         """Get scenario data for the current time step of the environment, as specified in state_config. This assumes
         that scenario data in self.ts_current is available and scaled correctly.
 
