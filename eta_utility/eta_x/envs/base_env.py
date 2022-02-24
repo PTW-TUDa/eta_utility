@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING, Sequence
 import numpy as np
 import pandas as pd
 from gym import Env, utils
+from gym import Env, utils
+from state_config import StateConfig
 
 from eta_utility import get_logger, timeseries
 
@@ -288,6 +290,10 @@ class BaseEnv(Env, abc.ABC):
         #: 'abort_conditions_min': array(['temp_tank'], dtype=object),
         #: 'abort_conditions_max': array(['temp_tank'], dtype=object)}
         self.names: Dict[np.ndarray]
+        #: state_config as dataframe. see :: state_config.py for more detail.
+        self.state_config: StateConfig = StateConfig()
+        #: Array of shorthands to some frequently used variable names from state_config. .. seealso :: _names_from_state
+        self.names: Dict[str, np.ndarray]
         #: Dictionary of scaling values for external input values (for example from simulations).
         #:  The structure of this dictionary is {"name": {"add": value, "multiply": value}}.
         self.ext_scale: Dict[str, Dict[str, Union[int, float]]]
@@ -376,6 +382,24 @@ class BaseEnv(Env, abc.ABC):
         )
 
         return self.ts_current
+
+    def within_abort_conditions(self, state: Mapping[str, float]) -> bool:
+        """Check whether the given state is within the abort conditions specified by state_config.
+
+        :param state: The state array to check for conformance
+        :return: Result of the check (False if the state does not conform to the required conditions)
+        """
+        valid = all(
+            state[key] > val
+            for key, val in self.state_config.loc[self.names["abort_conditions_min"]].abort_condition_min.items()
+        )
+        if valid:
+            valid = all(
+                state[key] < val
+                for key, val in self.state_config.loc[self.names["abort_conditions_max"]].abort_condition_max.items()
+            )
+
+        return valid
 
     def get_scenario_state(self) -> Dict[str, Any]:
         """Get scenario data for the current time step of the environment, as specified in state_config. This assumes
