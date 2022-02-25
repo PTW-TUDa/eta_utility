@@ -20,10 +20,10 @@ from opcua import ua
 from opcua.ua import uaerrors
 
 from eta_utility import get_logger
-from eta_utility.connectors.node import NodeOpcUa
+from eta_utility.connectors.node import Node, NodeOpcUa
 
 if TYPE_CHECKING:
-    from typing import Any, Generator, Mapping
+    from typing import Any, Generator, Mapping, Sequence
     from eta_utility.type_hints import AnyNode, Nodes, TimeStep
 
 from .base_classes import BaseConnection, SubscriptionHandler
@@ -36,8 +36,8 @@ class OpcUaConnection(BaseConnection):
     it implements a subscription method, which reads continuously in a specified interval.
 
     :param url: Url of the OPC UA Server
-    :param usr: Username in EnEffco for login
-    :param pwd: Password in EnEffco for login
+    :param usr: Username in OPC UA for login
+    :param pwd: Password in OPC UA for login
     :param nodes: List of nodes to use for all operations.
     """
 
@@ -59,21 +59,46 @@ class OpcUaConnection(BaseConnection):
 
     @classmethod
     def from_node(cls, node: AnyNode, **kwargs: Any) -> OpcUaConnection:
-        """Initialize OPC UA connection object from a node which specifies OPC UA as its protocol.
+        """Initialize the connection object from an EnEffCo protocol node object
 
         :param node: Node to initialize from
-        :param kwargs: Other arguments are ignored.
-        :return: OpcUa Connection object
+        :param usr: Username for OPC UA login
+        :param pwd: Password for OPC UA login
+        :param kwargs: Other arguments are ignored
+        :return: OpcUaConnection object
         """
+        usr = None if "usr" not in kwargs else kwargs["usr"]
+        pwd = None if "pwd" not in kwargs else kwargs["pwd"]
 
         if node.protocol == "opcua" and isinstance(node, NodeOpcUa):
-            return cls(node.url, nodes=[node])
+            return cls(node.url, usr=usr, pwd=pwd, nodes=[node])
 
         else:
             raise ValueError(
                 "Tried to initialize OpcUaConnection from a node that does not specify opcua as its"
                 "protocol: {}.".format(node.name)
             )
+
+    @classmethod
+    def from_ids(
+        cls,
+        ids: Sequence[str],
+        url: str,
+        usr: str | None = None,
+        pwd: str | None = None,
+    ) -> OpcUaConnection:
+        """Initialize the connection object from an EnEffCo protocol through the node ids
+
+        :param ids: Identification of the Node
+        :param url: URL for  connection
+        :param names: Names for each Node
+        :param usr: Username in OPC UA for login
+        :param pwd: Password in OPC UA for login
+        :return: OpcUaConnection object
+        """
+
+        nodes = [Node(name=opc_id, url=url, protocol="opcua", opc_id=opc_id) for opc_id in ids]
+        return cls(url=url, usr=usr, pwd=pwd, nodes=nodes)
 
     def read(self, nodes: Nodes | None = None) -> pd.DataFrame:
         """

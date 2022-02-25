@@ -12,10 +12,10 @@ import pandas as pd
 import requests
 
 from eta_utility import get_logger
-from eta_utility.connectors.node import NodeEnEffCo
+from eta_utility.connectors.node import Node, NodeEnEffCo
 
 if TYPE_CHECKING:
-    from typing import Any
+    from typing import Any, Sequence
     from eta_utility.type_hints import AnyNode, Nodes, TimeStep
 
 from .base_classes import BaseSeriesConnection, SubscriptionHandler
@@ -81,6 +81,20 @@ class EnEffCoConnection(BaseSeriesConnection):
                 "Tried to initialize EnEffCoConnection from a node that does not specify eneffco as its"
                 "protocol: {}.".format(node.name)
             )
+
+    @classmethod
+    def from_ids(cls, ids: Sequence[str], url: str, usr: str, pwd: str, api_token: str) -> EnEffCoConnection:
+        """Initialize the connection object from an EnEffCo protocol through the node ids
+
+        :param ids: Identification of the Node
+        :param url: URL for EnEffco connection
+        :param usr: Username for EnEffCo login
+        :param pwd: Password for EnEffCo login
+        :param api_token: Token for API authentication
+        :return: EnEffCoConnection object
+        """
+        nodes = [Node(name=name, url=url, protocol="eneffco", eneffco_code=name) for name in ids]
+        return cls(url=url, usr=usr, pwd=pwd, api_token=api_token, nodes=nodes)
 
     def read(self, nodes: Nodes | None = None) -> pd.DataFrame:
         """Download current value from the EnEffCo Database
