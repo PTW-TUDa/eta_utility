@@ -44,7 +44,7 @@ def local_nodes():
             opc_id="ns=6;s=.Some_Namespace.Node1",
         ),
         Node(
-            "Serv.NodeName",
+            "Serv.NodeName2",
             f"opc.tcp://{socket.gethostbyname(socket.gethostname())}:4840",
             "opcua",
             opc_id="ns=6;s=.Some_Namespace.Node2",
@@ -104,6 +104,26 @@ class TestOpcUABasics:
         # Test reading multiple nodes
         res = connection.read([node, node2])
 
+        check = pd.DataFrame(
+            data={"Serv.NodeName": [2858.00000], "Serv.NodeName2": [2858.00000]},
+            index=[datetime.datetime.now()],
+        )
+
+        assert set(check.columns) == set(res.columns)
+        assert check["Serv.NodeName"].values == res["Serv.NodeName"].values
+        assert isinstance(res.index, pd.DatetimeIndex)
+
+    def test_connection_creation_from_node_ids(self, local_nodes, monkeypatch):
+        # creating connection with node and node2 information
+        connection = OpcUaConnection.from_ids(
+            ids=["ns=6;s=.Some_Namespace.Node1", "ns=6;s=.Test_Namespace.Node2"],
+            url=f"opc.tcp://{socket.gethostbyname(socket.gethostname())}:4840",
+        )
+
+        mock_opcua_client = OpcuaClient(connection.url)
+        monkeypatch.setattr(connection, "connection", mock_opcua_client)
+
+        res = connection.read(local_nodes)
         check = pd.DataFrame(
             data={"Serv.NodeName": [2858.00000], "Serv.NodeName2": [2858.00000]},
             index=[datetime.datetime.now()],

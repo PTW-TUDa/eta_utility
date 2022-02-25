@@ -5,8 +5,7 @@ import pandas as pd
 import pytest
 import requests
 
-from eta_utility.connectors import DFSubHandler, Node
-from eta_utility.connectors.eneffco import EnEffCoConnection
+from eta_utility.connectors import DFSubHandler, EnEffCoConnection, Node
 
 from .config_tests import Config
 from .test_utilities.requests.eneffco_request import request
@@ -118,3 +117,21 @@ def test_eneffco_subscribe_multi(_local_requests):
     finally:
         server.close_sub()
         handler.close()
+
+
+def test_connection_from_node_ids(_local_requests):
+    server = EnEffCoConnection.from_ids(
+        ids=["CH1.Elek_U.L1-N", "Pu3.425.ThHy_Q"],
+        url=Config.ENEFFCO_URL,
+        usr=Config.ENEFFCO_USER,
+        pwd=Config.ENEFFCO_PW,
+        api_token=Config.ENEFFCO_POSTMAN_TOKEN,
+    )
+    res = server.read_series(
+        from_time=datetime.now() - timedelta(seconds=10),
+        to_time=datetime.now(),
+        interval=timedelta(seconds=1),
+    )
+
+    assert isinstance(res, pd.DataFrame)
+    assert set(res.columns) == {"CH1.Elek_U.L1-N", "Pu3.425.ThHy_Q"}
