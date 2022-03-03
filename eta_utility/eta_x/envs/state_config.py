@@ -4,6 +4,180 @@ from typing import Any, Dict, Tuple, Union
 import numpy as np
 import pandas as pd
 
+from typing import Callable, Any, Optional
+from datetime import timedelta
+from pydantic import validator, StrictStr, StrictInt, StrictBool, NonNegativeInt, NegativeInt
+from pydantic.dataclasses import dataclass
+from ..types import ConstantParameter, Numeric, BackendID
+
+
+@dataclass
+class MetaDataEntry:
+    """Parent class with basic attributes and validation for meta data related entries."""
+
+    allowed_names = ()
+
+    name: StrictStr
+    unit: Optional[StrictStr] = None
+    index: Optional[StrictStr] = None
+    default: Optional[ConstantParameter] = None
+    backend_id: Optional[BackendID] = None
+    csv_column: Optional[StrictStr] = None
+
+    # Controls if data for corresponding parameter is loaded during parameter estimation.
+    # If the data is not available but this is True (default), an error is raised.
+    fix_for_model_error_or_paramest: StrictBool = True
+
+    @validator("name")
+    def check_var_name(cls, value):
+        """Validate the given name is allowed. Allowed names are defined as child class attribute."""
+        if cls.allowed_names:
+            if value not in cls.allowed_names:
+                raise ValueError(f"Name needs to be on of: {cls.allowed_names}, was '{value}'")
+
+        return value
+
+    def construct_pyomo_index(self, timesteps: list):
+        """construct the index, under which the pyomo parameter can be called
+        args:
+        """
+        if isinstance(self.index, tuple):
+            raise NotImplementedError("Tuple indexing is not supported!")
+
+        return timesteps if self.index is None else [(self.index, t) for t in timesteps]
+
+
+@dataclass
+class Measurement(MetaDataEntry):
+    """Historical measurement data"""
+
+
+@dataclass
+class Action(MetaDataEntry):
+    """Decision variable, the value of which will be set on the real machine."""
+
+    allowed_names = ("P", "P_set", "ON", "Temp_out", "Pump_spray")
+
+    # Timestep of the decision variable to be written to machine.
+    # Possible use case: Customer wants his machines to be set with a 1 hour delay.
+    timestep: NonNegativeInt = 0
+
+    # Value to be written in case of optimizer failure
+    fall_back: Numeric = None
+
+    def construct_pyomo_index(self):
+        return super().construct_pyomo_index([self.timestep])
+
+
+@dataclass
+class Observation(MetaDataEntry):
+    """An observation is a measurement of the state of one aspect of the energy system
+    (e.g.: operating state (ON/OFF), current thermal power output, ...).
+    An observations corresponds to a parameter in the optimization model.
+    You can also see an observation as a start value.
+    """
+
+    allowed_names = ("P_set_start", "ON_start", "Temp_start", "power_peak_start")
+
+    # How many time steps back should the measurement be, which is taken as observation?:
+    timestep: NegativeInt = -1
+    conversion_rule: Callable = None
+
+    def construct_pyomo_index(self):
+        return super().construct_pyomo_index([self.timestep])
+
+    def to_param(self):
+        if self.default is None:
+            raise ValueError(f"{self.unit}: Observation '{self.name}' needs a default value")
+
+        if self.index:
+            return {(self.index, self.timestep): self.default}
+        return {self.timestep: self.default}
+
+
+@dataclass
+class Forecast(MetaDataEntry):
+    """
+    A forecast is a timeseries representing a prediction of a time indexed parameter
+    (e.g. environmental temperature, heat demand, elecricity price, ...).
+    The forecast corresponds to a parameter in the optimization model.
+    """
+
+    allowed_names = (
+        "el_cost",
+        "cost_fuel",
+        "Temp_env",
+        "Temp_max",
+        "Temp_max_wanted",
+        "Temp_min",
+        "Temp_min_wanted",
+        "demand",
+        "Temp_in",
+        "Temp_out",
+        "massflow",
+        "rel_humidity",
+    )
+
+    default: ConstantParameter = None
+    conversion_rule: Callable[[int], int] = None
+
+    # If shift is None, the series of the forecast is expected to be inside the optimization horizon.
+    # To use the most recent point of the series set shift = pd.Timedelta("0 minutes")
+    # To take a value further in the past, set to a negative value. e.g: shift = - pd.Timedelta("5 minutes")
+    shift: Optional[timedelta] = None
+
+    @validator("shift", pre=True)
+    def check_shift(cls, value):
+        """Validate that shift is a negative timedelta."""
+        if value is None:
+            pass
+        elif not isinstance(value, timedelta):
+            raise TypeError("Use a datetime.timedelta for shift.")
+        elif value > timedelta():
+            raise ValueError("Shift needs to be negative.")
+
+        return value
+
+    def to_param(self, timesteps: list, data=None):
+        """Convert the Forecast to an entry usable in the param dictionary."""
+        if data is not None:
+            values = [data[t] for t in timesteps]
+        elif isinstance(self.default, dict):
+            try:
+                values = [self.default[t] for t in timesteps]
+            except KeyError as err:
+                raise ValueError(
+                    f"Default for forecast '{self.name}' is not specified for all time steps."
+                    "Either pass a dictionary with values for each step in global.T or a scalar value."
+                ) from err
+        else:
+            values = [self.default for t in timesteps]
+
+        return dict(zip(self.construct_pyomo_index(timesteps), values))
+
+
+@dataclass
+class ComponentMetaData:
+    """Collection of data exchange related attributes"""
+
+    observations: list[Observation] = None
+    actions: list[Action] = None
+    forecasts: list[Forecast] = None
+    measurements: list[Measurement] = None
+
+    component_schema: Any = None
+    element_id: StrictInt = None
+
+    def get(self, name, index=None):
+        for entry_type in (self.observations, self.actions, self.forecasts, self.measurements):
+            if entry_type is None:
+                continue
+            for entry in entry_type:
+                if entry.name == name and entry.index == index:
+                    return entry
+
+        raise KeyError(f"No entry found with name={name}, index={index}")
+
 
 class StateConfig(pd.DataFrame):
 
