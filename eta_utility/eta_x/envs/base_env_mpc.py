@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import abc
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Hashable, Mapping, Sequence
 
 import numpy as np
@@ -9,54 +9,71 @@ import pandas as pd
 from pyomo import environ as pyo
 from pyomo.core import base as pyo_base
 
-from eta_utility.eta_x.envs import BaseEnv
-from eta_utility.eta_x.envs.base_env import log
+from eta_utility import get_logger
+from eta_utility.eta_x.envs import BaseEnv, StateConfig, StateVar
 
 if TYPE_CHECKING:
-    from typing import Any, Callable, SupportsFloat
+    from typing import Any, Callable
 
     from pyomo.opt import SolverResults
 
-    from eta_utility.type_hints import Path
+    from eta_utility.eta_x import ConfigOptRun
+    from eta_utility.type_hints import StepResult, TimeStep
+
+
+log = get_logger("eta_x.envs")
 
 
 class BaseEnvMPC(BaseEnv, abc.ABC):
-    """Base class for MPC models"""
+    """Base class for MPC models
+
+    :param env_id: Identification for the environment, usefull when creating multiple environments
+    :param config_run: Configuration of the optimization run
+    :param seed: Random seed to use for generating random numbers in this environment
+        (default: None / create random seed)
+    :param verbose: Verbosity to use for logging (default: 2)
+    :param callback: callback which should be called after each episode
+    :param scenario_time_begin: Beginning time of the scenario
+    :param scneario_time_end: Ending time of the scenario
+    :param episode_duration: Duration of the episode in seconds
+    :param sampling_time: Duration of a single time sample / time step in seconds
+    :param model_parameters: Parameters for the mathematical model
+    :param prediction_scope: Duration of the prediction (usually a subsample of the episode duration)
+    :param kwargs: Other keyword arguments (for subclasses)
+    """
 
     def __init__(
         self,
         env_id: int,
-        run_name: str,
-        general_settings: dict[str, Any],
-        path_settings: dict[str, Path],
-        env_settings: dict[str, Any],
-        verbose: int,
-        callback: Callable = None,
+        config_run: ConfigOptRun,
+        seed: int | None = None,
+        verbose: int = 2,
+        callback: Callable | None = None,
+        *,
+        scenario_time_begin: datetime | str,
+        scenario_time_end: datetime | str,
+        episode_duration: TimeStep | str,
+        sampling_time: TimeStep | str,
+        model_parameters: Mapping[str, Any],
+        prediction_scope: TimeStep | str | None = None,
+        **kwargs: Any,
     ) -> None:
-        self.req_env_settings = set(self.req_env_settings)
-        self.req_env_settings.update(("model_parameters",))  # noqa
-        self.req_env_config.update(
-            {
-                "discretize_state_space": False,
-                "discretize_action_space": False,
-                "normalize_state_space": False,
-                "normalize_reward": False,
-                "reward_shaping": False,
-            }
-        )
+
         super().__init__(
             env_id,
-            run_name,
-            general_settings,
-            path_settings,
-            env_settings,
+            config_run,
+            seed,
             verbose,
             callback,
+            scenario_time_begin=scenario_time_begin,
+            scenario_time_end=scenario_time_end,
+            episode_duration=episode_duration,
+            sampling_time=sampling_time,
         )
 
         # Check configuration for MILP compatibility
         errors = False
-        if self.settings["prediction_scope"] % self.settings["sampling_time"] != 0:
+        if prediction_scope % sampling_time != 0:
             log.error(
                 "The sampling_time must fit evenly into the prediction_scope "
                 "(prediction_scope % sampling_time must equal 0."
@@ -70,19 +87,22 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
 
         # Make some more settings easily accessible
         #: Total duration of one prediction/optimization run when used with the MPC agent.
-        #:   This is automatically set to the value of episode_duration if it is not supplied
-        #:   separately
+        #: This is automatically set to the value of episode_duration if it is not supplied
+        #: separately
         self.prediction_scope: int
-        if "prediction_scope" not in self.settings:
+        if prediction_scope is None:
             log.info("prediction_scope parameter is not present. Setting prediction_scope to episode_duration.")
-        self.prediction_scope = int(self.settings.setdefault("prediction_scope", self.episode_duration))
-        self.n_prediction_steps: int  #: Number of steps in the prediction (prediction_scope/sampling_time)
-        self.n_prediction_steps = self.settings["prediction_scope"] // self.sampling_time
-        #: Duration of the scenario for each episode (for total time imported from csv)
-        self.scenario_duration: int = self.episode_duration + self.prediction_scope
+            self.prediction_scope = self.episode_duration
+        else:
+            self.prediction_scope = int(prediction_scope)
 
-        self.model_parameters: dict  #: Configuration for the MILP model parameters
-        self.model_parameters = self.env_settings["model_parameters"]
+        #: Number of steps in the prediction (prediction_scope/sampling_time)
+        self.n_prediction_steps: int = int(self.prediction_scope // self.sampling_time)
+        #: Duration of the scenario for each episode (for total time imported from csv)
+        self.scenario_duration: float = self.episode_duration + self.prediction_scope
+
+        #: Configuration for the MILP model parameters
+        self.model_parameters = model_parameters
 
         # Set additional attributes with model specific information.
         self._concrete_model: pyo.ConcreteModel | None = None  #: Concrete pyomo model as initialized by _model.
@@ -119,14 +139,15 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         if self._concrete_model is None:
             self._concrete_model = self._model()
 
-        if self.names["actions"] is None:
-            self.names["actions"] = [
-                com.name
-                for com in self._concrete_model.component_objects(pyo.Var)
-                if not isinstance(com, pyo.SimpleVar)
-            ]
+        if self.state_config is None:
+            _vars = []
+            for com in self._concrete_model.component_objects(pyo.Var):
+                if not isinstance(com, pyo.SimpleVar):
+                    _vars.append(StateVar(com.name, is_agent_action=True))
 
-        return self._concrete_model, self.names["actions"]
+            self.state_config = StateConfig(*_vars)
+
+        return self._concrete_model, self.state_config.actions
 
     @model.setter
     def model(self, value: pyo.ConcreteModel) -> None:
@@ -147,7 +168,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         """
         raise NotImplementedError("The abstract MPC environment does not implement a model.")
 
-    def step(self, action: np.ndarray) -> tuple[np.ndarray, np.float | SupportsFloat, bool, str | Sequence[str]]:
+    def step(self, action: np.ndarray) -> StepResult:
         """Perfom one time step and return its results. This is called for every event or for every time step during
         the simulation/optimization run. It should utilize the actions as supplied by the agent to determine
         the new state of the environment. The method must return a four-tuple of observations, rewards, dones, info.
@@ -174,9 +195,9 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
 
         # update and log current state
         self.state = {}
-        for idx, act in enumerate(self.names["actions"]):
+        for idx, act in enumerate(self.state_config.actions):
             self.state[act] = action[idx]
-        for idx, obs in enumerate(self.names["observations"]):
+        for idx, obs in enumerate(self.state_config.observations):
             self.state[obs] = observations[idx]
         self.state_log.append(self.state)
 
@@ -215,9 +236,8 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             )
             ts_current[self.time_var] = list(index)
             log.debug(
-                "Updated time_var ({}) with the set from {} to {} and steps (sampling time) {}.".format(
-                    self.time_var, index[0], index[1], self.sampling_time
-                )
+                f"Updated time_var ({self.time_var}) with the set from {index[0]} to "
+                f"{index[1]} and steps (sampling time) {self.sampling_time}."
             )
         else:
             index = range(0, duration, step)
@@ -246,14 +266,14 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
 
         updated_params = ts_current
         return_obs = []  # Array for all current observations
-        for var_name in self.names["observations"]:
-            settings = self.state_config.loc[var_name]
+        for var_name in self.state_config.observations:
+            settings = self.state_config.vars[var_name]
             value = None
 
             # Read values from external environment (for example simulation)
-            if observations is not None and settings["is_ext_output"] is True:
+            if observations is not None and settings.is_ext_output is True:
                 value = round(
-                    (observations[0][settings["ext_id"]] + settings["ext_scale_add"]) * settings["ext_scale_mult"],
+                    (observations[0][settings.ext_id] + settings.ext_scale_add) * settings.ext_scale_mult,
                     5,
                 )
                 return_obs.append(value)
@@ -262,7 +282,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
                 for component in self._concrete_model.component_objects():
                     if component.name == var_name:
                         # Get value for the component from specified index
-                        value = round(pyo.value(component[list(component.keys())[int(settings["index"])]]), 5)
+                        value = round(pyo.value(component[list(component.keys())[int(settings.index)]]), 5)
                         return_obs.append(value)
                         break
                 else:
@@ -316,7 +336,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         # Initialize state with the initial observation
         self.state = {}
         observations = []
-        for var_name in self.names["observations"]:
+        for var_name in self.state_config.observations:
             for component in self._concrete_model.component_objects():
                 if component.name == var_name:
                     if hasattr(component, "__getitem__") and (
@@ -333,7 +353,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             self.state[var_name] = observations[-1]
 
         # Initialize state with zero actions
-        for act in self.names["actions"]:
+        for act in self.state_config.actions:
             self.state[act] = 0
         self.state_log.append(self.state)
 
@@ -473,7 +493,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         self,
         updated_params: Mapping[str, Any],
         nonindex_param_append_string: str | None = None,
-    ) -> pyo.ConcreteModel:
+    ) -> None:
         """Updates model parameters and indexed parameters of a pyomo instance with values given in a dictionary.
         It assumes that the dictionary supplied in updated_params has the correct pyomo format.
 

@@ -2,6 +2,7 @@ import pathlib
 
 import pytest
 
+from eta_utility import get_logger
 from eta_utility.eta_x import ETAx
 
 from .test_utilities.etax import read_file, remove_data
@@ -9,6 +10,7 @@ from .test_utilities.etax import read_file, remove_data
 
 @pytest.fixture()
 def pendulum_conventional_eta():
+    get_logger()
     root_path = pathlib.Path(__file__).parent
     etax = ETAx(root_path=root_path, config_name="pendulum_conventional", relpath_config="test_resources/etax/config/")
     yield etax

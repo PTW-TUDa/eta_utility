@@ -12,12 +12,31 @@ from eta_utility.eta_x.envs.base_env import log
 from eta_utility.simulators import FMUSimulator
 
 if TYPE_CHECKING:
-    from typing import Any, Callable, Mapping, MutableSet, Sequence, SupportsFloat
+    from datetime import datetime
+    from typing import Any, Callable, Mapping
 
-    from eta_utility.type_hints import Path
+    from eta_utility.eta_x import ConfigOptRun
+    from eta_utility.type_hints import StepResult, TimeStep
 
 
 class BaseEnvSim(BaseEnv, abc.ABC):
+    """Base class for FMU Simulation models environments
+
+    :param env_id: Identification for the environment, usefull when creating multiple environments
+    :param config_run: Configuration of the optimization run
+    :param seed: Random seed to use for generating random numbers in this environment
+        (default: None / create random seed)
+    :param verbose: Verbosity to use for logging (default: 2)
+    :param callback: callback which should be called after each episode
+    :param scenario_time_begin: Beginning time of the scenario
+    :param scneario_time_end: Ending time of the scenario
+    :param episode_duration: Duration of the episode in seconds
+    :param sampling_time: Duration of a single time sample / time step in seconds
+    :param model_parameters: Parameters for the mathematical model (default: None)
+    :param sim_steps_per_sample: Number of simulation steps to perform during every sample (default: 1)
+    :param kwargs: Other keyword arguments (for subclasses)
+    """
+
     @property
     @abc.abstractmethod
     def fmu_name(self) -> str:
@@ -27,29 +46,34 @@ class BaseEnvSim(BaseEnv, abc.ABC):
     def __init__(
         self,
         env_id: int,
-        run_name: str,
-        general_settings: dict[str, Any],
-        path_settings: dict[str, Path],
-        env_settings: dict[str, Any],
-        verbose: int,
+        config_run: ConfigOptRun,
+        seed: int | None = None,
+        verbose: int = 2,
         callback: Callable | None = None,
+        *,
+        scenario_time_begin: datetime | str,
+        scenario_time_end: datetime | str,
+        episode_duration: TimeStep | str,
+        sampling_time: TimeStep | str,
+        model_parameters: Mapping[str, Any] = None,
+        sim_steps_per_sample: int | str = 1,
+        **kwargs: Any,
     ) -> None:
-
-        self.req_general_settings: set[Sequence | MutableSet] = set(self.req_general_settings)
-        self.req_general_settings.update(("sim_steps_per_sample",))  # noqa
         super().__init__(
             env_id,
-            run_name,
-            general_settings,
-            path_settings,
-            env_settings,
+            config_run,
+            seed,
             verbose,
             callback,
+            scenario_time_begin=scenario_time_begin,
+            scenario_time_end=scenario_time_end,
+            episode_duration=episode_duration,
+            sampling_time=sampling_time,
         )
 
         # Check configuration for compatibility
         errors = False
-        if self.settings["sampling_time"] % self.settings["sim_steps_per_sample"] != 0:
+        if sampling_time % sim_steps_per_sample != 0:
             log.error(
                 "'sim_steps_per_sample' must be an even divisor of 'sampling_time' "
                 "(sampling_time % sim_steps_per_sample must equal 0."
@@ -62,12 +86,12 @@ class BaseEnvSim(BaseEnv, abc.ABC):
             )
 
         #: Number of simulation steps to be taken for each sample. This must be a divisor of 'sampling_time'.
-        self.sim_steps_per_sample: int = int(self.settings["sim_steps_per_sample"])
+        self.sim_steps_per_sample: int = int(sim_steps_per_sample)
         #: The FMU is expected to be placed in the same folder as the environment
         self.path_fmu: pathlib.Path = self.path_env / (self.fmu_name + ".fmu")
 
         #: Configuration for the FMU model parameters, that need to be set for initialization of the Model.
-        self.model_parameters: Mapping[str, int | float] | None = self.env_settings.setdefault("model_parameters", None)
+        self.model_parameters: Mapping[str, int | float] | None = model_parameters
 
         #: Instance of the FMU. This can be used to directly access the eta_utility.FMUSimulator interface.
         self.simulator: FMUSimulator
@@ -85,15 +109,15 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         if hasattr(self, "simulator") and isinstance(self.simulator, FMUSimulator):
             self.simulator.reset(init_values)
         else:
-            #: Instance of the FMU. This can be used to directly access the eta_utility.FMUSimulator interface.
+            # Instance of the FMU. This can be used to directly access the eta_utility.FMUSimulator interface.
             self.simulator = FMUSimulator(
                 self.env_id,
                 self.path_fmu,
                 start_time=0.0,
                 stop_time=self.episode_duration,
                 step_size=int(self.sampling_time / self.sim_steps_per_sample),
-                names_inputs=self.state_config.loc[self.names["ext_inputs"]].ext_id,
-                names_outputs=self.state_config.loc[self.names["ext_outputs"]].ext_id,
+                names_inputs=[self.state_config.rev_ext_ids[name] for name in self.state_config.ext_inputs],
+                names_outputs=[self.state_config.rev_ext_ids[name] for name in self.state_config.ext_outputs],
                 init_values=init_values,
             )
 
@@ -107,9 +131,11 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         """
         # generate FMU input from current state
         step_inputs = []
-        for key in self.names["ext_inputs"]:
+        for key in self.state_config.ext_inputs:
             try:
-                step_inputs.append(state[key] / self.ext_scale[key]["multiply"] - self.ext_scale[key]["add"])
+                step_inputs.append(
+                    state[key] / self.state_config.ext_scale[key]["multiply"] - self.state_config.ext_scale[key]["add"]
+                )
             except KeyError as e:
                 raise KeyError(f"{str(e)} is unavailable in environment state.") from e
 
@@ -129,12 +155,14 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         # save step_outputs into data_store
         output = {}
         if step_success:
-            for idx, name in enumerate(self.names["ext_outputs"]):
-                output[name] = (step_output[idx] + self.ext_scale[name]["add"]) * self.ext_scale[name]["multiply"]
+            for idx, name in enumerate(self.state_config.ext_outputs):
+                output[name] = (
+                    step_output[idx] + self.state_config.ext_scale[name]["add"]
+                ) * self.state_config.ext_scale[name]["multiply"]
 
         return output, step_success, sim_time_elapsed
 
-    def step(self, action: np.ndarray) -> tuple[np.ndarray, np.float | SupportsFloat, bool, str | Sequence[str]]:
+    def step(self, action: np.ndarray) -> StepResult:
         """Perfom one time step and return its results. This is called for every event or for every time step during
         the simulation/optimization run. It should utilize the actions as supplied by the agent to determine
         the new state of the environment. The method must return a four-tuple of observations, rewards, dones, info.
@@ -172,7 +200,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
 
         # Store actions
         self.state = {}
-        for idx, act in enumerate(self.names["actions"]):
+        for idx, act in enumerate(self.state_config.actions):
             self.state[act] = action[idx]
 
         # Update scenario data, simulate one time step and store the results.
@@ -185,8 +213,8 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         # Check if the episode is over or not
         done = self.n_steps >= self.n_episode_steps or not step_success
 
-        observations = np.empty(len(self.names["observations"]))
-        for idx, name in enumerate(self.names["observations"]):
+        observations = np.empty(len(self.state_config.observations))
+        for idx, name in enumerate(self.state_config.observations):
             observations[idx] = self.state[name]
 
         return observations, 0, done, {}
@@ -221,16 +249,16 @@ class BaseEnvSim(BaseEnv, abc.ABC):
 
         # Update scenario data, read values from the fmu without time step and store the results
         start_obs = []
-        for obs in self.names["ext_outputs"]:
-            start_obs.append(self.map_ext_ids[obs])
+        for obs in self.state_config.ext_outputs:
+            start_obs.append(self.state_config.map_ext_ids[obs])
 
         result = self.simulator.read_values(start_obs)
-        self.state = {name: result[idx] for idx, name in enumerate(self.names["ext_outputs"])}
+        self.state = {name: result[idx] for idx, name in enumerate(self.state_config.ext_outputs)}
         self.state.update(self.get_scenario_state())
         self.state_log.append(self.state)
 
-        observations = np.empty(len(self.names["observations"]))
-        for idx, name in enumerate(self.names["observations"]):
+        observations = np.empty(len(self.state_config.observations))
+        for idx, name in enumerate(self.state_config.observations):
             observations[idx] = self.state[name]
 
         return observations

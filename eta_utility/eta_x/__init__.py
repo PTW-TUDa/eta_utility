@@ -1,1 +1,1 @@
-from .eta_x import ETAx, callback_environment
+from .eta_x import ConfigOpt, ConfigOptRun, ETAx, callback_environment

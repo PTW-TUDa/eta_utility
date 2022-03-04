@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import csv
 import json
 import logging
@@ -10,7 +11,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlparse, urlunparse
 
 if TYPE_CHECKING:
-    from typing import Any, Collection
+    from typing import Any, Collection, Mapping
     from urllib.parse import ParseResult
 
     from .type_hints import Path
@@ -105,6 +106,71 @@ def url_parse(url: str) -> tuple[ParseResult, str | None, str | None]:
             )
 
     return _url, usr, pwd
+
+
+def dict_get_any(dikt: dict[str, Any], *names: str, fail: bool = True, default: Any = None) -> Any:
+    """Get any of the specified items from dictionary, if any are available. The function will return
+    the first value it finds, even if there are multiple matches.
+
+    :param dikt: Dictionary to get values from
+    :param names: Item names to look for
+    :param fail: Flag to determine, if the function should fail with a KeyError, if none of the items are found.
+                 If this is False, the function will return the value specified by 'default'. (default: True)
+    :param default: Value to return, if none of the items are found and 'fail' is False. (default: None)
+    :return: Value from dictionary
+    :raise: KeyError, if none of the requested items are available and fail is True
+    """
+    for name in names:
+        if name in dikt:
+            # Return first value found in dictionary
+            return dikt[name]
+
+    if fail is True:
+        raise KeyError(f"Did not find one of the required keys in the configuration: {names}")
+    else:
+        return default
+
+
+def dict_pop_any(dikt: dict[str, Any], *names: str, fail: bool = True, default: Any = None) -> Any:
+    """Pop any of the specified items from dictionary, if any are available. The function will return
+    the first value it finds, even if there are multiple matches. This function removes the found values from the
+    dictionary!
+
+    :param dikt: Dictionary to pop values from
+    :param names: Item names to look for
+    :param fail: Flag to determine, if the function should fail with a KeyError, if none of the items are found.
+                 If this is False, the function will return the value specified by 'default'. (default: True)
+    :param default: Value to return, if none of the items are found and 'fail' is False. (default: None)
+    :return: Value from dictionary
+    :raise: KeyError, if none of the requested items are available and fail is True
+    """
+    for name in names:
+        if name in dikt:
+            # Return first value found in dictionary
+            return dikt.pop(name)
+
+    if fail is True:
+        raise KeyError(f"Did not find one of the required keys in the configuration: {names}")
+    else:
+        return default
+
+
+def deep_mapping_update(
+    source: Mapping[str, str | Mapping[str, Any]], overrides: Mapping[str, str | Mapping[str, Any]]
+) -> dict[str, str | Mapping[str, Any]]:
+    """Perform a deep update of a nested dictionary or similar mapping.
+
+    :param source: Original mapping to be updated
+    :param overrides: Mapping with new values to integrate into the new mapping
+    :return: New Mapping with values from the source and overrides combined
+    """
+    output = dict(copy.deepcopy(source))
+    for key, value in overrides.items():
+        if isinstance(value, Mapping):
+            output[key] = deep_mapping_update(dict(source).get(key, {}), value)  # type: ignore
+        else:
+            output[key] = value
+    return output
 
 
 def csv_export_from_list(

@@ -10,7 +10,7 @@ from urllib.parse import ParseResult, urlparse, urlunparse
 import pandas as pd
 from attrs import converters, define, field, validators  # noqa: I900
 
-from eta_utility import get_logger, url_parse
+from eta_utility import dict_get_any, get_logger, url_parse
 
 if TYPE_CHECKING:
     from typing import Any, Callable, Sequence
@@ -196,28 +196,6 @@ class Node(metaclass=NodeMeta):
         """
 
         nodes = []
-
-        def dict_get_any(dikt: dict[str, Any], *names: str, fail: bool = True, default: Any = None) -> Any:
-            """Get any of the specified items from dictionary, if any are available. The function will return
-            the first value it finds, even if there are multiple matches.
-
-            :param dikt: Dictionary to get values from
-            :param names: Item names to look for
-            :param fail: Flag to determine, if the function should fail with a KeyError, if none of the items are found.
-                         If this is False, the function will return the value specified by 'default'. (default: True)
-            :param default: Value to return, if none of the items are found and 'fail' is False. (default: None)
-            :return: Value from dictionary
-            :raise: KeyError, if none of the requested items are available and fail is True
-            """
-            for name in names:
-                if name in dikt:
-                    # Return first value found in dictionary
-                    return dikt[name]
-            else:
-                if fail is True:
-                    raise KeyError(f"Did not find one of the required keys in the configuration: {names}")
-                else:
-                    return default
 
         iter_ = [dikt] if isinstance(dikt, Mapping) else dikt
         for lnode in iter_:

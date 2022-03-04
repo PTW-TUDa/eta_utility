@@ -7,4 +7,4 @@ try:
 except ModuleNotFoundError:
     pass
 else:
-    from .types_eta_x import EnvSettings, StepResult
+    from .types_eta_x import AlgoSettings, EnvSettings, StepResult

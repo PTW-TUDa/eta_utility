@@ -14,7 +14,7 @@ from multiprocessing.pool import (  # type: ignore
     _helper_reraises_exception,
 )
 from operator import methodcaller
-from typing import TYPE_CHECKING, Mapping, Sized
+from typing import TYPE_CHECKING, Sized
 
 import numpy as np
 
@@ -168,7 +168,7 @@ class ProcessPool(Pool):
         except Exception as e:
             yield result_job, i + 1, _helper_reraises_exception, (e,), "", (), {}  # noqa
 
-    def map(  # type: ignore
+    def map(  # type: ignore  # noqa: A003
         self,
         func: str | Callable,
         iterable: Iterable[Any],
@@ -227,7 +227,7 @@ class ProcessPool(Pool):
 
         if method in {"return_rng", "modify_rng"} and self._rngs is not None:
             for gen in self._rngs:
-                gen.bit_generator.advance(chunksize * 10000)  # type: ignore
+                gen.bit_generator.advance(chunksize * 10000)
 
         return return_result
 

@@ -44,7 +44,7 @@ class MPCBasic(BaseAlgorithm):
         verbose: int = 1,
         *,
         solver_name: str = "cplex",
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
 
         # Prepare kwargs to be sent to the super class and to the solver.
@@ -219,7 +219,7 @@ class MPCBasic(BaseAlgorithm):
         seed: int | None = None,
         log_interval: int = 100,
         tb_log_name: str = "MPCSimple",
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """The MPC approach cannot learn a new model. Specify the model attribute as a pyomo Concrete model instead,
         to use the prediction function of this agent.
@@ -228,11 +228,11 @@ class MPCBasic(BaseAlgorithm):
         """
         raise NotImplementedError("The MPC_simple approach does not need to learn a model.")
 
-    def save(self, save_path: Path, **kwargs) -> None:
+    def save(self, save_path: Path, **kwargs: Any) -> None:
         """Saving is currently not implemented for the MPC agent."""
         raise NotImplementedError("The MPC approach creates no savable model.")
 
-    def load(self, load_path: Path, **kwargs) -> None:
+    def load(self, load_path: Path, **kwargs: Any) -> None:
         """Loading a model is currently not implemented for the MPC agent."""
         raise NotImplementedError("The MPC approach cannot load a model.")
 

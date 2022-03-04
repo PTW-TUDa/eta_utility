@@ -4,17 +4,13 @@ from copy import deepcopy
 from typing import TYPE_CHECKING
 
 import numpy as np
-from stable_baselines3.common.vec_env import (
-    AlreadySteppingError,
-    DummyVecEnv,
-    NotSteppingError,
-)
+from stable_baselines3.common.vec_env import DummyVecEnv
 
 if TYPE_CHECKING:
     from typing import Any, Callable, Sequence
     from eta_utility.type_hints import Number, StepResult
 
-from .. import ProcessPool
+from . import ProcessPool
 
 
 class MultiVecEnv(DummyVecEnv):
@@ -50,7 +46,7 @@ class MultiVecEnv(DummyVecEnv):
         """
         # Make sure only one step occurs at a time
         if self._running:
-            raise AlreadySteppingError()
+            raise RuntimeError("Already stepping environment.")
         self._running = True
 
         # Store actions and tell environments which actions to execute if necessary
@@ -80,7 +76,7 @@ class MultiVecEnv(DummyVecEnv):
         :return: Tuple with stepping result sequences (observations, rewards, dones, infos)
         """
         if not self._running:
-            raise NotSteppingError()
+            raise RuntimeError("Tried stepping environment while waiting for another stop to finish.")
 
         # Change size of buffers depending on the number of calculated results
         self.buf_obs: list[float | None] = [None] * len(self._buf_results)

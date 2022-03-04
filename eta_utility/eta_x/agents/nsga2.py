@@ -31,16 +31,15 @@ from stable_baselines3.common.base_class import BaseAlgorithm
 
 from eta_utility import get_logger
 
-from ..common import ProcessPool, cpu_count
+from .common import ProcessPool, cpu_count
 
 if TYPE_CHECKING:
     from typing import Any, Callable, Iterable, MutableSequence, Sequence
 
+    from stable_baselines3.common.policies import BasePolicy
     from stable_baselines3.common.vec_env import VecEnv
 
     from eta_utility.type_hints import Number
-
-    from ..common.policies import NoPolicy
 
 
 log = get_logger("eta_x.agents")
@@ -90,7 +89,7 @@ class NSGA2(BaseAlgorithm):
 
     def __init__(
         self,
-        policy: NoPolicy,
+        policy: BasePolicy,
         env: VecEnv,
         verbose: int = 4,
         *,

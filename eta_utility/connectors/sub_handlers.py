@@ -400,12 +400,12 @@ class _CSVFileDB(AbstractContextManager):
         # Write any rows in the buffer which exceed the size of buffer_target to the file.
         while len(self._buffer) >= buffer_target and len(self._buffer) > 0:
             row = self._buffer.popleft()
-            row[self._header[0]] = self._timebuffer.popleft().strftime("%Y-%m-%d %H:%M:%S.%f")  # type: ignore
+            row[self._header[0]] = self._timebuffer.popleft().strftime("%Y-%m-%d %H:%M:%S.%f")
 
             processed_row: list[str] = [""] * len(self._header)
             for idx, col in enumerate(self._header):
                 if col in row:
-                    v = self._latest_values[col] = row[col]  # type: ignore
+                    v = self._latest_values[col] = row[col]
                     processed_row[idx] = str(v)
                 else:
                     processed_row[idx] = str(self._latest_values.get(col, ""))

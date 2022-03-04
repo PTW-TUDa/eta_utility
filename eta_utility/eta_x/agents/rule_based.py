@@ -14,7 +14,6 @@ if TYPE_CHECKING:
     from stable_baselines3.common.policies import BasePolicy
     from stable_baselines3.common.vec_env import VecEnv
 
-    from ..common.policies import NoPolicy
 
 log = get_logger("eta_x.agents.rule_based")
 
@@ -30,7 +29,7 @@ class RuleBased(BaseAlgorithm, abc.ABC):
     :param kwargs: Additional arguments as specified in stable_baselins3.commom.base_class
     """
 
-    def __init__(self, policy: type(BasePolicy), env: VecEnv, verbose: int = 4, **kwargs: Any) -> None:
+    def __init__(self, policy: type[BasePolicy], env: VecEnv, verbose: int = 4, **kwargs: Any) -> None:
         # Ensure that arguments required by super class are always present
         if "policy_base" not in kwargs:
             kwargs["policy_base"] = None
