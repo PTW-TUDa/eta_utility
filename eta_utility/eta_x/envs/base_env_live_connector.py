@@ -86,7 +86,7 @@ class BaseEnvLiveConnector(BaseEnv, ABC):
                 files=self.files, step_size=self.sampling_time, max_error_count=max_error_count
             )
 
-    def step(self, action: np.ndarray) -> tuple[np.ndarray, np.floating | SupportsFloat, bool, str | Sequence[str]]:
+    def step(self, action: np.ndarray) -> tuple[np.ndarray, np.floating | SupportsFloat, bool, str | dict]:
         """Perfom one time step and return its results. This is called for every event or for every time step during
         the optimization run. It should utilize the actions as supplied by the agent to determine
         the new state of the environment. The method must return a four-tuple of observations, rewards, dones, info.
@@ -146,7 +146,7 @@ class BaseEnvLiveConnector(BaseEnv, ABC):
         for idx, name in enumerate(self.names["observations"]):
             observations[idx] = self.state[name]
 
-        return observations, 0, done, []
+        return observations, 0, done, {}
 
     def reset(self) -> np.ndarray:
         """Return initial observations. This also calls the callback, increments the episode
@@ -207,3 +207,13 @@ class BaseEnvLiveConnector(BaseEnv, ABC):
             observations[idx] = self.state[name]
 
         return observations
+
+    def close(self) -> None:
+        """Close the environment. This should always be called when an entire run is finished. It should be used to
+        close any resources (i.e. simulation models) used by the environment.
+
+        Default behaviour for the Live_Connector environment is to do nothing.
+
+        :return:
+        """
+        pass
