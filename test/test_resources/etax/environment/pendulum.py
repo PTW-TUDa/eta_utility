@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, Sequence, SupportsFloat, Tuple, Union
+from typing import Any, Callable, Dict
 
 import numpy as np
 
@@ -68,7 +68,7 @@ class PendulumEnv(BaseEnv):
         # //self.config_spaces = ConfigSpaces().set(config_data)
         # //self.action_space, self.observation_space = self.config_spaces.get_spaces()
 
-    def step(self, u: np.ndarray) -> Tuple[np.ndarray, Union[np.float, SupportsFloat], bool, Union[str, Sequence[str]]]:
+    def step(self, u: np.ndarray) -> StepResult:
         """See base_env documentation"""
         # Here, u is a scalar value, but it can also be a numpy array for multiple actions.
         # This depends on the action and observation space chosen

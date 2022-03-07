@@ -10,7 +10,8 @@ from pyomo import environ as pyo
 from pyomo.core import base as pyo_base
 
 from eta_utility import get_logger
-from eta_utility.eta_x.envs import BaseEnv, StateConfig, StateVar
+from eta_utility.eta_x.envs import BaseEnv
+from eta_utility.eta_x.envs.state import StateConfig, StateVar
 
 if TYPE_CHECKING:
     from typing import Any, Callable

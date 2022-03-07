@@ -11,8 +11,7 @@ import pandas as pd
 from gym import Env, utils
 
 from eta_utility import get_logger, timeseries
-
-from . import StateConfig
+from eta_utility.eta_x.envs.state import StateConfig
 
 if TYPE_CHECKING:
     import pathlib

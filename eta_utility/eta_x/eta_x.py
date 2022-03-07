@@ -825,6 +825,7 @@ class ETAx:
             series=series_name,
             name=run_name,
             description=run_description,
+            path_root=self.config.path_root,
             path_results=self.config.path_results,
             path_scenarios=self.config.path_scenarios,
         )
