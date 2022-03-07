@@ -147,7 +147,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         """
         raise NotImplementedError("The abstract MPC environment does not implement a model.")
 
-    def step(self, action: np.ndarray) -> tuple[np.ndarray, np.float | SupportsFloat, bool, str | Sequence[str]]:
+    def step(self, action: np.ndarray) -> tuple[np.ndarray, np.floating | SupportsFloat, bool, str | dict]:
         """Perfom one time step and return its results. This is called for every event or for every time step during
         the simulation/optimization run. It should utilize the actions as supplied by the agent to determine
         the new state of the environment. The method must return a four-tuple of observations, rewards, dones, info.
