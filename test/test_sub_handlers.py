@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import pandas as pd
-from pytest import mark
+import pytest
 
 from eta_utility.connectors import CsvSubHandler, DFSubHandler, Node
 
@@ -17,11 +17,16 @@ sample_series2 = pd.Series(
     data=[1, 2, 3], index=pd.DatetimeIndex(["2020-11-05 10:00:0.4", "2020-11-05 10:00:01.2", "2020-11-05 10:00:01.5"])
 )
 
+sample_series_nan = pd.Series(
+    data=[1, np.nan, np.nan],
+    index=pd.DatetimeIndex(["2020-11-05 10:00:0.4", "2020-11-05 10:00:01.2", "2020-11-05 10:00:01.5"]),
+)
+
 
 class TestCSVSubHandler:
     async def push_values(self, handler: CsvSubHandler):
-        test_node = Node(name="FirstNode", url="", protocol="local")
-        test_node2 = Node(name="SecondNode", url="", protocol="local")
+        test_node = Node(name="FirstNode", url="", protocol="rest", rest_endpoint="")
+        test_node2 = Node(name="SecondNode", url="", protocol="rest", rest_endpoint="")
 
         try:
             for num in range(6):
@@ -69,22 +74,44 @@ class TestCSVSubHandler:
 
 
 class TestDFSubHandler:
-    @mark.parametrize("value, timestamp", [(sample_series.values, sample_series.index)])
+    @pytest.mark.parametrize(("value", "timestamp"), [(sample_series.values, sample_series.index)])
     def test_push_timeseries_to_df(self, value, timestamp):
         """Test pushing a Series all at once"""
         handler = DFSubHandler(write_interval=1)
-        test_node = Node(name="Test-node", url="", protocol="local")
+        test_node = Node(name="FirstNode", url="", protocol="local")
         handler.push(test_node, value, timestamp)
         data = handler.data
 
-        assert (data["Test-node"].values == value).all()
+        assert (data["FirstNode"].values == value).all()
 
     def test_housekeeping(self):
         """Test keeping the internal data of DFSubHandler short"""
         keep_data_rows = 2
         handler = DFSubHandler(write_interval=1, size_limit=keep_data_rows)
-        test_node = Node(name="Test-node", url="", protocol="local")
+        test_node = Node(name="FirstNode", url="", protocol="local")
         handler.push(test_node, sample_series.values, sample_series.index)
         data = handler.data
 
         assert len(data) <= keep_data_rows
+
+    def test_get_latest(self):
+        handler = DFSubHandler(write_interval=1)
+        test_node = Node(name="Test-node", url="", protocol="local")
+        handler.push(test_node, sample_series.values, sample_series.index)
+        data = handler.get_latest()
+
+        assert (data.values == sample_series.values[-1]).all()
+
+    def test_auto_fillna(self):
+        # First test default behaviour: nans are filled
+        handler = DFSubHandler(write_interval=1)
+        test_node = Node(name="Test-node", url="", protocol="local")
+        handler.push(test_node, sample_series_nan)
+        data = handler.data
+        assert data.notna().all().all()
+
+        # Next test auto_fillna = False
+        handler = DFSubHandler(write_interval=1, auto_fillna=False)
+        handler.push(test_node, sample_series_nan)
+        data = handler.data
+        assert data.isna().any().any()

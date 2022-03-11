@@ -1,9 +1,9 @@
 import asyncio
 import os
 
+import pytest
 import requests
-from pyModbusTCP import client as mbclient
-from pytest import fixture, mark
+from pyModbusTCP import client as mbclient  # noqa: I900
 
 from eta_utility.connectors import CsvSubHandler, Node, connections_from_nodes
 from eta_utility.servers import OpcUaServer
@@ -33,25 +33,25 @@ async def stop_execution(sleep_time):
     raise KeyboardInterrupt
 
 
-@fixture
+@pytest.fixture()
 def local_server():
     server = OpcUaServer(5, ip=ip, port=port)
     return server
 
 
-@fixture
-def mock_client(monkeypatch):
+@pytest.fixture()
+def _mock_client(monkeypatch):
     monkeypatch.setattr(mbclient, "ModbusClient", MockModbusClient)
     monkeypatch.setattr(requests, "request", request)
 
 
-@mark.parametrize(
-    "excel_file, excel_sheet, eneffco_usr, eneffco_pw",
+@pytest.mark.parametrize(
+    ("excel_file", "excel_sheet", "eneffco_usr", "eneffco_pw"),
     [
         (EXCEL_NODES_FILE, EXCEL_NODES_SHEET, ENEFFCO_USER, ENEFFCO_PW),
     ],
 )
-def test_multi_connect(excel_file, excel_sheet, eneffco_usr, eneffco_pw, mock_client, local_server):
+def test_multi_connect(excel_file, excel_sheet, eneffco_usr, eneffco_pw, _mock_client, local_server):
     try:
         nodes = Node.from_excel(excel_file, excel_sheet)
     except AttributeError:

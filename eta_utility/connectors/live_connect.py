@@ -1,18 +1,25 @@
 """ Initiate live connections that automate certain tasks associated with the creation of such connections."""
+from __future__ import annotations
+
 import pathlib
+import time
 import types
 from contextlib import AbstractContextManager
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Type, Union
+from datetime import timedelta
+from typing import TYPE_CHECKING, Mapping, Sequence
 from urllib.parse import urlparse, urlunparse
 
+import numpy as np
+
 from eta_utility import get_logger, json_import
-from eta_utility.connectors import (
-    Node,
-    connections_from_nodes,
-    default_schemes,
-    name_map_from_node_sequence,
-)
-from eta_utility.type_hints import Connection, Path
+from eta_utility.connectors import connections_from_nodes, name_map_from_node_sequence
+from eta_utility.connectors.node import Node, default_schemes
+
+if TYPE_CHECKING:
+    from typing import Any
+
+    from eta_utility.connectors.base_classes import BaseConnection
+    from eta_utility.type_hints import AnyNode, Path, TimeStep
 
 log = get_logger("live_connect")
 
@@ -91,6 +98,7 @@ class LiveConnect(AbstractContextManager):
 
     :param name: Name to uniquely identify the system. The name is also used as the default system prefix.
     :param nodes: Sequence/List of Nodes, which should be used for the actions and for initializing connections
+    :param step_size: Step size (time) for the live connector in time increments
     :param init: Nodes for initializing the system (see above, default: None)
     :param activate: Nodes for activating the system (see above, default: None)
     :param deactivate: Nodes for deactivating the system (see above, default: None)
@@ -104,57 +112,79 @@ class LiveConnect(AbstractContextManager):
 
     def __init__(
         self,
-        nodes: Sequence[Node],
-        name: str = None,
+        nodes: Sequence[AnyNode],
+        name: str | None = None,
+        step_size: TimeStep = 1,
+        max_error_count: int = 10,
         *,
-        init: Mapping[str, Any] = None,
-        activate: Mapping[str, Any] = None,
-        deactivate: Mapping[str, Any] = None,
-        close: Mapping[str, Any] = None,
-        observe: Sequence[str] = None,
-        activation_indicators: Mapping[str, Any] = None,
-        set_values: Mapping[str, Any] = None,
+        init: Mapping[str, Any] | None = None,
+        activate: Mapping[str, Any] | None = None,
+        deactivate: Mapping[str, Any] | None = None,
+        close: Mapping[str, Any] | None = None,
+        observe: Sequence[str] | None = None,
+        activation_indicators: Mapping[str, Any] | None = None,
+        set_values: Mapping[str, Mapping[str, Any]] | None = None,
     ) -> None:
         #: Name of the system
-        self.name: Optional[str] = name.strip() if name is not None else None
+        self.name: str | None = name.strip() if name is not None else None
         #: Connection objects to the resources
-        self._connections: Dict[str, Connection] = connections_from_nodes(nodes)
+        self._connections: dict[str, BaseConnection] = connections_from_nodes(nodes)
         #: Mapping of all nodes
-        self._nodes: Dict[str, Node] = name_map_from_node_sequence(nodes)
+        self._nodes: dict[str, AnyNode] = name_map_from_node_sequence(nodes)
         #: Mapping of node names to connections
-        self._connection_map = {node.name: node.url_parsed.hostname for node in self._nodes.values()}
+        self._connection_map: dict[str, str] = {}
+        for node in self._nodes.values():
+            if node.url_parsed.hostname is not None:
+                self._connection_map[node.name] = node.url_parsed.hostname
+            else:
+                raise ValueError(f"Node without hostname supplied: {node.name}")
+        #: Start time of initialisation
+        self.start_time = time.time()
+        #: Step size (time) for the live connector in time increments
+        self.step_size = int(step_size) if not isinstance(step_size, timedelta) else int(step_size.total_seconds())
+        #: Current step of the live connector (number of completed steps)
+        self.steps_counter: int = 0
+        #: Maximum error count when connections in read/write function are aborted
+        self.max_error_count: int = max_error_count
+        #: Counts the number of errors when Live Connector logs errors.
+        self.error_count: list[int] = [0] * len(self._connections)
 
         errors = False
+
         #: Nodes for initializing the system
-        self._init_vals: Optional[Dict[str, Any]] = {}
-        if init is not None:
-            for key, sys_val in init.items():
-                if isinstance(sys_val, Mapping):
-                    self._init_vals.update({k: v for k, v in sys_val.items()})
-                elif sys_val is not None:
-                    self._init_vals[key] = sys_val
-        if len(self._init_vals) <= 0:
-            self._init_vals = None
-        elif not self._init_vals.keys() <= self._nodes.keys():
-            log.error("Not all nodes required for initialization are configured as nodes.")
-            errors = True
+        self._init_vals: dict[str, Any] | None
+        self._init_vals, e = self._read_value_mapping(
+            init, e_msg="Not all nodes required for initialization are configured as nodes."
+        )
+        if e:
+            errors = e
 
         #: Nodes for closing the connection
-        self._close_vals: Optional[Dict[str, Any]] = {}
-        if close is not None:
-            for key, sys_val in close.items():
-                if isinstance(sys_val, Mapping):
-                    self._close_vals.update({k: v for k, v in sys_val.items()})
-                elif sys_val is not None:
-                    self._close_vals[key] = sys_val
-        if len(self._close_vals) <= 0:
-            self._close_vals = None
-        elif not self._close_vals.keys() <= self._nodes.keys():
-            log.error("Not all nodes required for closing the object are configured as nodes.")
-            errors = True
+        self._close_vals: dict[str, Any] | None
+        self._close_vals, e = self._read_value_mapping(
+            close, e_msg="Not all nodes required for closing the object are configured as nodes."
+        )
+        if e:
+            errors = e
+
+        #: Nodes for activating the system
+        self._activate_vals: dict[str, Any] | None = {}
+        self._activate_vals, e = self._read_value_mapping(
+            activate, flatten=False, e_msg="Not all nodes required for system activation are configured as nodes."
+        )
+        if e:
+            errors = e
+
+        #: Nodes for deactivating the system
+        self._deactivate_vals: dict[str, Any] | None = {}
+        self._deactivate_vals, e = self._read_value_mapping(
+            deactivate, flatten=False, e_msg="Not all nodes required for system deactivation are configured as nodes."
+        )
+        if e:
+            errors = e
 
         #: Nodes to observe
-        self._observe_vals: Optional[List[str]] = []
+        self._observe_vals: list[str] | None = []
         if observe is not None:
             for sys_val in observe:
                 if isinstance(sys_val, Sequence) and type(sys_val) is not str:
@@ -168,93 +198,106 @@ class LiveConnect(AbstractContextManager):
             errors = True
 
         #: Configuration for the step set value
-        self._set_values: Dict[str, Any] = {}
+        self._set_values: dict[str, Any] | None = {}
         if set_values is not None:
             nds = set()
             setval = set_values.values() if isinstance(set_values, Mapping) else set_values
-            for sys_val in setval:
-                self._set_values[sys_val["name"]] = sys_val
-                nds.add(self._set_values[sys_val["name"]]["node"])
+            for sys_setval in setval:
+                self._set_values[sys_setval["name"]] = sys_setval
+                nds.add(self._set_values[sys_setval["name"]]["node"])
         if len(self._set_values) <= 0:
             self._set_values = None
         elif not nds <= self._nodes.keys():
             log.error("Not all nodes required for setting control values are configured as nodes.")
             errors = True
-
-        for keys, set_value in self._set_values.items():
-            set_value.setdefault("node", set_value["name"])
-            set_value.setdefault("threshold", 0)
-            set_value.setdefault("mult", 1)
-            set_value.setdefault("add", 0)
-            set_value.setdefault("min", None)
-            set_value.setdefault("max", None)
-
-        #: Nodes for activating the system
-        self._activate_vals: Dict[str, Any] = {}
-        if activate is not None:
-            for key, sys_val in activate.items():
-                if sys_val is not None:
-                    self._activate_vals[key] = sys_val
-                    if not sys_val.keys() <= self._nodes.keys():
-                        log.error(
-                            f"Not all nodes required for system activation of system {key} are " f"configured as nodes."
-                        )
-                        errors = True
-                else:
-                    self._activate_vals[key] = None
-
-        #: Nodes for deactivating the system
-        self._deactivate_vals: Dict[str, Any] = {}
-        if deactivate is not None:
-            for key, sys_val in deactivate.items():
-                if sys_val is not None:
-                    self._deactivate_vals[key] = sys_val
-                    if not sys_val.keys() <= self._nodes.keys():
-                        log.error(
-                            f"Not all nodes required for system activation of system {key} are " f"configured as nodes."
-                        )
-                        errors = True
-                else:
-                    self._deactivate_vals[key] = None
+        else:
+            for keys, set_value in self._set_values.items():
+                set_value.setdefault("node", set_value["name"])
+                set_value.setdefault("threshold", 0)
+                set_value.setdefault("mult", 1)
+                set_value.setdefault("add", 0)
+                set_value.setdefault("min", None)
+                set_value.setdefault("max", None)
 
         #: Indicator to keep track of to know whether the system must be activated or deactivated. If this is not
         #: set, the user must keep track of when the activation and deactivation functions need to be called. This
         #: may not be necessary for all systems.
-        self._activation_indicators: Dict[str, Any] = {}
-        if activation_indicators is not None:
-            for key, sys_val in activation_indicators.items():
-                if sys_val is not None:
-                    self._activation_indicators[key] = sys_val
-                    if not sys_val.keys() <= self._nodes.keys():
-                        log.error(
-                            f"Not all nodes required for system activation of system {key} are " f"configured as nodes."
-                        )
-                        errors = True
-                else:
-                    self._activation_indicators[key] = None
+        self._activation_indicators: dict[str, Any] | None = {}
+        self._activation_indicators, e = self._read_value_mapping(
+            activation_indicators,
+            flatten=False,
+            e_msg="Not all nodes required for checking system activation are configured as nodes.",
+        )
 
-        if errors:
+        if e or errors:
             raise KeyError("Not all required nodes are configured.")
 
         if self._init_vals is not None:
             self.write(self._init_vals)
 
+    def _read_value_mapping(
+        self, values: Mapping[str, Any] | None, flatten: bool = True, *, e_msg: str
+    ) -> tuple[dict[str, Any] | None, bool]:
+        """Read a list of values and deserialize it to a mapping
+
+        :param values: Values to deserialize
+        :param flatten: Output into a single layer (not separated by system) (default: True)
+        :param e_msg: Error message to log if function fails
+        :return: Tuple of deserialized values and bool indicating an error if true
+        """
+        errors = False
+        _vals: dict[str, Any] = {}
+
+        if values is not None:
+            for key, sys_val in values.items():
+                if isinstance(sys_val, Mapping) and flatten:
+                    _vals.update({k: v for k, v in sys_val.items()})
+                elif sys_val is not None:
+                    _vals[key] = sys_val
+
+        if len(_vals) <= 0:
+            vals = None
+        else:
+            vals = _vals
+            if flatten:
+                for key, sys_val in vals.items():
+                    if sys_val and key not in self._nodes.keys():
+                        errors = True
+                        break
+                if errors:
+                    log.error(e_msg)
+            else:
+                for key, sys_val in vals.items():
+                    if sys_val and not sys_val.keys() <= self._nodes.keys():
+                        log.error(e_msg)
+                        errors = True
+
+        return vals, errors
+
     @classmethod
-    def from_json(cls, files: Union[Path, Sequence[Path]], usr: str = None, pwd: str = None) -> "LiveConnect":
+    def from_json(
+        cls,
+        files: Path | Sequence[Path],
+        usr: str | None = None,
+        pwd: str | None = None,
+        step_size: TimeStep = 1,
+        max_error_count: int = 10,
+    ) -> LiveConnect:
         """Initialize the connection directly from json configuration files. The file should contain parameters
         as described above. A list of file names can be supplied to enable the creation of larger, combined systems.
 
         Username and password supplied as keyword arguments will take precedence over information given in
         the config file.
 
-        :param file: Configuration file paths. Accepts a single file or a list of files
-        :param usr: Username for authenticaiton with the resource
+        :param files: Configuration file paths. Accepts a single file or a list of files
+        :param usr: Username for authentication with the resource
         :param pwd: Password for authentication with the resource
+        :param step_size: Step size (time) for the live connector in time increments
         :return: LiveConnect instance as specified by the json file.
         """
         files = [files] if not isinstance(files, Sequence) else files
 
-        config = {"system": []}
+        config: dict[str, list[Any]] = {"system": []}
         for file in files:
             file = pathlib.Path(file) if not isinstance(file, pathlib.Path) else file
             result = json_import(file)
@@ -263,18 +306,26 @@ class LiveConnect(AbstractContextManager):
             else:
                 config["system"].append(result)
 
-        return cls.from_dict(usr=usr, pwd=pwd, **config)
+        return cls.from_dict(usr=usr, pwd=pwd, step_size=step_size, max_error_count=max_error_count, **config)
 
     @classmethod
-    def from_dict(cls, usr: str = None, pwd: str = None, **config) -> "LiveConnect":
+    def from_dict(
+        cls,
+        usr: str | None = None,
+        pwd: str | None = None,
+        step_size: TimeStep = 1,
+        max_error_count: int = 10,
+        **config: Any,
+    ) -> LiveConnect:
         """Initialize the connection directly from a config dictionary. The dictionary should contain parameters
         as described above.
 
         Username and password supplied as keyword arguments will take precedence over information given in
         the config file.
 
-        :param usr: Username for authenticaiton with the resource
+        :param usr: Username for authentication with the resource
         :param pwd: Password for authentication with the resource
+        :param step_size: Step size (time) for the live connector in time increments
         :param config: Configuration dictionary
         :return: LiveConnect instance as specified by the json file.
         """
@@ -304,11 +355,11 @@ class LiveConnect(AbstractContextManager):
             exit(1)
 
         # Make sure all of the required sections exist - they are just none if they are not in the file.
-        nodes_conf = []
-        observe = []
-        act_indicators = {}
-        set_values = {}
-        actions = {"activate": {}, "deactivate": {}, "init": {}, "close": {}}
+        _nodes_conf: list[dict[str, str]] = []
+        _set_values: dict[str, dict[str, Any]] = {}
+        _act_indicators: dict[str, dict[str, Any] | None] = {}
+        _observe: list[str] = []
+        _actions: dict[str, dict[str, Any]] = {"activate": {}, "deactivate": {}, "init": {}, "close": {}}
 
         for system in config["system"]:
             # Combine config for nodes with server config and add system name to nodes
@@ -329,52 +380,54 @@ class LiveConnect(AbstractContextManager):
                     n["url"] = f"{scheme}://{url}"
                 n["protocol"] = server["protocol"]
                 n["name"] = f"{system['name']}.{n['name']}"
-                nodes_conf.append(n)
+                _nodes_conf.append(n)
 
             # Rename set_value
-            set_values[system["name"]] = system["set_value"]
-            set_values[system["name"]]["name"] = f"{system['name']}.{system['set_value']['name']}"
-            set_values[system["name"]]["node"] = f"{system['name']}.{system['set_value']['node']}"
+            _set_values[system["name"]] = system["set_value"]
+            _set_values[system["name"]]["name"] = f"{system['name']}.{system['set_value']['name']}"
+            _set_values[system["name"]]["node"] = f"{system['name']}.{system['set_value']['node']}"
 
             # Convert activation_indicators
             if "activation_indicators" in system and system["activation_indicators"] is not None:
                 act_i = {}
                 for name, value in system["activation_indicators"].items():
                     act_i[f"{system['name']}.{name}"] = value
-                act_indicators[system["name"]] = act_i
+                _act_indicators[system["name"]] = act_i
             else:
-                act_indicators[system["name"]] = None
+                _act_indicators[system["name"]] = None
 
             # Convert observations
             if "observe" in system and system["observe"] is not None:
-                observe.extend(f"{system['name']}.{name}" for name in system["observe"])
+                _observe.extend(f"{system['name']}.{name}" for name in system["observe"])
 
             # Convert actions
             for action in {"init", "close", "activate", "deactivate"}:
                 if "actions" not in system:
-                    actions[action][system["name"]] = None
+                    _actions[action][system["name"]] = None
                 elif action not in system["actions"] or system["actions"][action] is None:
-                    actions[action][system["name"]] = None
+                    _actions[action][system["name"]] = None
                 else:
                     act = {}
                     for name, value in system["actions"][action].items():
                         act[f"{system['name']}.{name}"] = value
-                    actions[action][system["name"]] = act
+                    _actions[action][system["name"]] = act
 
         # Initialize the node objects
-        nodes = Node.from_dict(nodes_conf)
+        nodes = Node.from_dict(_nodes_conf)
         name = config["system"][0]["name"] if len(config["system"]) == 1 else None
 
         return cls(
             nodes,
             name,
-            init=actions["init"],
-            activate=actions["activate"],
-            deactivate=actions["deactivate"],
-            close=actions["close"],
-            observe=observe,
-            activation_indicators=act_indicators,
-            set_values=set_values,
+            step_size=step_size,
+            max_error_count=max_error_count,
+            init=_actions["init"],
+            activate=_actions["activate"],
+            deactivate=_actions["deactivate"],
+            close=_actions["close"],
+            observe=_observe,
+            activation_indicators=_act_indicators,
+            set_values=_set_values,
         )
 
     @property
@@ -391,9 +444,9 @@ class LiveConnect(AbstractContextManager):
 
         # If activation_indicators are specified, read them and identify the status, otherwise the system is
         # considered to be always active.
-        if system not in self._activation_indicators:
+        if self._activation_indicators is not None and system not in self._activation_indicators:
             raise KeyError(f"Cannot check status of unknown system {system}")
-        elif self._activation_indicators[system] is not None:
+        elif self._activation_indicators is not None and self._activation_indicators[system] is not None:
             values = self.read(*self._activation_indicators[system].keys())
             results = []
             for name, check in self._activation_indicators[system].items():
@@ -407,17 +460,19 @@ class LiveConnect(AbstractContextManager):
             activated = True
         return activated
 
-    def step(self, value: Mapping[str, Any]) -> Dict[str, Any]:
+    def step(self, value: Mapping[str, Any]) -> dict[str, Any]:
         """Take the set_value and determine, whether the system must be activated or deactivated. Then set the value
         and finally read and return all values as specified by the 'observe' parameter.
 
         :param value: Value to use as the control value/set_value
         :return: Values read from the connection as specified by 'observer' parameter
         """
+        self.steps_counter += 1
+
         write = {}
         for name, val in value.items():
             n = f"{self.name}.{name}" if "." not in name and self.name is not None else name
-            if n in self._set_values:
+            if self._set_values is not None and n in self._set_values:
                 system, node = n.split(".")
 
                 if (self._set_values[n]["min"] is not None and self._set_values[n]["min"] > val) or (
@@ -440,9 +495,18 @@ class LiveConnect(AbstractContextManager):
 
         # Write the scaled control value and return the observed values.
         self.write(write)
-        return self.read(*self._observe_vals)
 
-    def write(self, nodes: Union[Mapping[str, Any], Sequence[str]], values: Optional[Sequence[Any]] = None) -> None:
+        try:
+            time.sleep((self.steps_counter * self.step_size) - time.time() + self.start_time)
+        except Exception:
+            log.error("Step_size between write and read function is too small")
+
+        if self._observe_vals is not None:
+            return self.read(*self._observe_vals)
+        else:
+            return {}
+
+    def write(self, nodes: Mapping[str, Any] | Sequence[str], values: Sequence[Any] | None = None) -> None:
         """Write any combination of nodes and values.
 
         :param nodes: Mapping of Nodes and values or Sequence of node names to write to
@@ -452,76 +516,106 @@ class LiveConnect(AbstractContextManager):
         """
         # Determine, whether nodes and values are given as a mapping in the nodes parameter or separately, using both
         # parameters. In the second case, create the mapping.
-        if not isinstance(nodes, Mapping) and len(nodes) != len(values):
+        if not isinstance(nodes, Mapping) and values is None:
+            raise ValueError("Cannot only give nodes or values, specify both.")
+        elif not isinstance(nodes, Mapping) and values is not None and len(nodes) != len(values):
             raise ValueError(
                 f"Each node must have a corresponding value for writing. "
                 f"Nodes and values must be of equal length. Given lengths are"
                 f"'nodes': {len(nodes)}, 'values': {len(values)}"
             )
-        elif not isinstance(nodes, Mapping):
-            nodes = dict(zip(nodes, values))
+        elif not isinstance(nodes, Mapping) and values is not None:
+            _nodes = dict(zip(nodes, values))
+        elif isinstance(nodes, Mapping):
+            _nodes = dict(nodes)
 
         # Sort nodes to be written by connection
-        writes = {url: {} for url in self._connections.keys()}
-        for name, value in nodes.items():
+        writes: dict[str, dict[AnyNode, Any]] = {url: {} for url in self._connections.keys()}
+        for name, value in _nodes.items():
             n = f"{self.name}.{name}" if "." not in name and self.name is not None else name
             writes[self._connection_map[n]][self._nodes[n]] = value
 
         # Write to all selected nodes for each connection
-        for connection in self._connections:
-            if writes[connection]:
-                self._connections[connection].write(writes[connection])
+        for idx, connection in enumerate(self._connections):
+            try:
+                if writes[connection]:
+                    self._connections[connection].write(writes[connection])
+                    self.error_count[idx] = 0
+            except ConnectionError as e:
+                if self.error_count[idx] < self.max_error_count:
+                    self.error_count[idx] += 1
+                    log.error(e)
+                else:
+                    raise
 
-    def read(self, *nodes: str) -> Dict[str, Any]:
+    def read(self, *nodes: str) -> dict[str, Any]:
         """Take a list of nodes and return their names and most recent values
 
         :param nodes: One or more nodes to read
         :return: Dictionary of the most current node values.
         """
         # Sort nodes to be read by connection
-        reads = {url: [] for url in self._connections.keys()}
+        reads: dict[str, list[AnyNode]] = {url: [] for url in self._connections.keys()}
         for name in nodes:
             n = f"{self.name}.{name}" if "." not in name and self.name is not None else name
             reads[self._connection_map[n]].append(self._nodes[n])
 
         # Read from all selected nodes for each connection
         result = {}
-        for connection in self._connections:
-            if reads[connection]:
-                result.update(self._connections[connection].read(reads[connection]).iloc[0].to_dict())
+        for idx, connection in enumerate(self._connections):
+            try:
+                if reads[connection]:
+                    result.update(self._connections[connection].read(reads[connection]).iloc[0].to_dict())
+                    self.error_count[idx] = 0
+            except ConnectionError as e:
+                if self.error_count[idx] < self.max_error_count:
+                    self.error_count[idx] += 1
+                    result = {name.name: np.nan for name in reads[connection]}
+                    log.error(e)
+                else:
+                    raise
 
         return result
 
-    def activate(self, system: Optional[str] = None) -> None:
+    def activate(self, system: str | None = None) -> None:
         """Take the list of nodes to activate and set them to the correct values to activate the system
 
         :param system: System for which should be activated (default: self.name)
         """
-        system = self.name if system is None and self.name is not None else system
+        _system = self.name if system is None else system
 
-        if not self._activated(system) and self._activate_vals[system] is not None:
-            self.write(self._activate_vals[system])
+        if (
+            _system is not None
+            and not self._activated(_system)
+            and self._activate_vals is not None
+            and self._activate_vals[_system] is not None
+        ):
+            self.write(self._activate_vals[_system])
 
-    def deactivate(self, system: Optional[str] = None) -> None:
+    def deactivate(self, system: str | None = None) -> None:
         """Take the list of nodes to deactivate and set them to the correct values to deactivate the system
 
         :param system: System for which should be activated (default: self.name)
         """
-        system = self.name if system is None and self.name is not None else system
+        _system = self.name if system is None else system
 
-        if self._activated(system) and self._deactivate_vals[system] is not None:
-            self.write(self._deactivate_vals[system])
+        if (
+            _system is not None
+            and self._activated(_system)
+            and self._deactivate_vals is not None
+            and self._deactivate_vals[_system] is not None
+        ):
+            self.write(self._deactivate_vals[_system])
 
     def close(self) -> None:
         """Reset the system and close the connection."""
         if self._close_vals is not None:
             self.write(self._close_vals)
 
-    def __enter__(self) -> "LiveConnect":
+    def __enter__(self) -> LiveConnect:
         return self
 
     def __exit__(
-        self, exc_type: Optional[Type[Exception]], exc_val: Optional[Exception], exc_tb: Optional[types.TracebackType]
-    ) -> bool:
+        self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: types.TracebackType | None
+    ) -> None:
         self.close()
-        return False

@@ -2,11 +2,10 @@ import asyncio
 from datetime import datetime, timedelta
 
 import pandas as pd
+import pytest
 import requests
-from pytest import fail, fixture
 
-from eta_utility.connectors import DFSubHandler, Node
-from eta_utility.connectors.eneffco import EnEffCoConnection
+from eta_utility.connectors import DFSubHandler, EnEffCoConnection, Node
 
 from .config_tests import Config
 from .test_utilities.requests.eneffco_request import request
@@ -33,25 +32,25 @@ async def stop_execution(sleep_time):
     raise KeyboardInterrupt
 
 
-@fixture()
-def local_requests(monkeypatch):
+@pytest.fixture()
+def _local_requests(monkeypatch):
     monkeypatch.setattr(requests, "request", request)
 
 
-def test_check_access(local_requests):
+def test_check_access(_local_requests):
     # Check access to see, whether anything responds"
     try:
         result = requests.request("GET", Config.ENEFFCO_URL)
     except Exception as e:
-        fail(str(e))
+        pytest.fail(str(e))
 
     if result.status_code == 200:
         assert True
     else:
-        assert False
+        pytest.fail("Could not access eneffco server for testing.")
 
 
-def test_eneffco_read(local_requests):
+def test_eneffco_read(_local_requests):
     """Test eneffco read function"""
 
     node = Node(
@@ -81,7 +80,7 @@ def test_eneffco_read(local_requests):
     assert len(res2.index) == 10
 
 
-def test_eneffco_read_info(local_requests):
+def test_eneffco_read_info(_local_requests):
     """Test the read_info() method"""
     server = EnEffCoConnection(node.url, Config.ENEFFCO_USER, Config.ENEFFCO_PW, api_token=Config.ENEFFCO_POSTMAN_TOKEN)
 
@@ -91,7 +90,7 @@ def test_eneffco_read_info(local_requests):
     assert len(res) > 0
 
 
-def test_eneffco_write(local_requests):
+def test_eneffco_write(_local_requests):
     """Test writing a single node"""
     server = EnEffCoConnection(
         node_write.url, Config.ENEFFCO_USER, Config.ENEFFCO_PW, api_token=Config.ENEFFCO_POSTMAN_TOKEN
@@ -100,7 +99,7 @@ def test_eneffco_write(local_requests):
     server.write({node: sample_series})
 
 
-def test_eneffco_subscribe_multi(local_requests):
+def test_eneffco_subscribe_multi(_local_requests):
     """Test eneffco subscribe_series function; this needs network access"""
 
     # Test subscribing nodes with multiple timesteps
@@ -118,3 +117,21 @@ def test_eneffco_subscribe_multi(local_requests):
     finally:
         server.close_sub()
         handler.close()
+
+
+def test_connection_from_node_ids(_local_requests):
+    server = EnEffCoConnection.from_ids(
+        ids=["CH1.Elek_U.L1-N", "Pu3.425.ThHy_Q"],
+        url=Config.ENEFFCO_URL,
+        usr=Config.ENEFFCO_USER,
+        pwd=Config.ENEFFCO_PW,
+        api_token=Config.ENEFFCO_POSTMAN_TOKEN,
+    )
+    res = server.read_series(
+        from_time=datetime.now() - timedelta(seconds=10),
+        to_time=datetime.now(),
+        interval=timedelta(seconds=1),
+    )
+
+    assert isinstance(res, pd.DataFrame)
+    assert set(res.columns) == {"CH1.Elek_U.L1-N", "Pu3.425.ThHy_Q"}

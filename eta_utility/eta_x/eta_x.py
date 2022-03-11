@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import copy
 import importlib
 import inspect
@@ -7,16 +9,22 @@ import pathlib
 import re
 from datetime import datetime
 from functools import partial
-from typing import Any, Mapping, MutableMapping, Optional, Type, Union
+from typing import TYPE_CHECKING, Mapping
 
 import numpy as np
-from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import CheckpointCallback
-from stable_baselines3.common.policies import BasePolicy
-from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
+from stable_baselines3.common.vec_env import VecNormalize
 
 from eta_utility import get_logger
-from eta_utility.type_hints import BaseEnv, DefSettings, Path, ReqSettings
+
+if TYPE_CHECKING:
+    from typing import Any, MutableMapping
+
+    from stable_baselines3.common.base_class import BaseAlgorithm
+    from stable_baselines3.common.policies import BasePolicy
+    from stable_baselines3.common.vec_env import DummyVecEnv
+
+    from eta_utility.type_hints import BaseEnv, DefSettings, Path, ReqSettings
 
 log = get_logger("eta_x", 2)
 
@@ -93,10 +101,10 @@ class ETAx:
 
     def __init__(
         self,
-        root_path: Union[str, os.PathLike],
+        root_path: str | os.PathLike,
         config_name: str,
-        config_overwrite: Optional[Mapping[str, Any]] = None,
-        relpath_config: Union[str, os.PathLike] = "config/",
+        config_overwrite: Mapping[str, Any] | None = None,
+        relpath_config: str | os.PathLike = "config/",
     ) -> None:
         # initial states
         self._modules_imported: bool = False
@@ -107,9 +115,9 @@ class ETAx:
         self.info: MutableMapping[str, str] = {}  #: Information about the run
 
         # default series/run
-        self.series_name: Optional[str] = None  #: Name of the series of runs
-        self.run_name: Optional[str] = None  #: Name of the run
-        self.run_description: Optional[str] = None  #: Description of the run
+        self.series_name: str | None = None  #: Name of the series of runs
+        self.run_name: str | None = None  #: Name of the run
+        self.run_description: str | None = None  #: Description of the run
 
         # default paths
         #: Root path of the application
@@ -120,23 +128,23 @@ class ETAx:
             config_name + ".json"
         )  #: Config file path
 
-        self.path_results: Optional[pathlib.Path] = None  #: General results folder
-        self.path_series_results: Optional[pathlib.Path] = None  #: Results folder for the series
-        self.path_run_model: Optional[pathlib.Path] = None  #: Model file path
-        self.path_run_info: Optional[pathlib.Path] = None  #: Info file path
-        self.path_run_monitor: Optional[pathlib.Path] = None  #: Monitor file path
+        self.path_results: pathlib.Path | None = None  #: General results folder
+        self.path_series_results: pathlib.Path | None = None  #: Results folder for the series
+        self.path_run_model: pathlib.Path | None = None  #: Model file path
+        self.path_run_info: pathlib.Path | None = None  #: Info file path
+        self.path_run_monitor: pathlib.Path | None = None  #: Monitor file path
 
-        self.config: Optional[Mapping[str, Any]] = None  #: Configuration dictionary
+        self.config: Mapping[str, Any] | None = None  #: Configuration dictionary
 
         # Classes and instances
-        self.agent: Optional[Type[BaseAlgorithm]] = None  #: Agent class
-        self.policy: Optional[Type[BasePolicy]] = None  #: Policy class
-        self.vectorizer: Optional[Type[DummyVecEnv]] = None  #: Environment vectorizer class
-        self.environment: Optional[Type[BaseEnv]] = None  #: Environment class
-        self.environments: Optional[DummyVecEnv] = None  #: Vectorized environment object
-        self.model: Optional[BaseAlgorithm] = None  #: Instantiated model
-        self.interaction_env_class: Optional[Type[BaseEnv]] = None  #: Environment class for interactions
-        self.interaction_env: Optional[BaseEnv] = None  #: Environment object for interactions
+        self.agent: type[BaseAlgorithm] | None = None  #: Agent class
+        self.policy: type[BasePolicy] | None = None  #: Policy class
+        self.vectorizer: type[DummyVecEnv] | None = None  #: Environment vectorizer class
+        self.environment: type[BaseEnv] | None = None  #: Environment class
+        self.environments: DummyVecEnv | None = None  #: Vectorized environment object
+        self.model: BaseAlgorithm | None = None  #: Instantiated model
+        self.interaction_env_class: type[BaseEnv] | None = None  #: Environment class for interactions
+        self.interaction_env: BaseEnv | None = None  #: Environment object for interactions
 
         # load and overwrite config
         self.load_config(config_name, config_overwrite)
@@ -156,7 +164,7 @@ class ETAx:
 
         self.import_modules()
 
-    def load_config(self, config_name: str, config_overwrite: Optional[Mapping[str, Any]] = None) -> None:
+    def load_config(self, config_name: str, config_overwrite: Mapping[str, Any] | None = None) -> None:
         """Load configuration  from file
 
         :param config_name: name of the configuration file in data/configurations/
@@ -395,7 +403,7 @@ class ETAx:
 
         if self.config["setup"]["monitor_wrapper"]:
             log.error("Monitoring is not supported for vectorized environments!")
-            log.warn("The monitor_wrapper parameter will be ignored.")
+            log.warning("The monitor_wrapper parameter will be ignored.")
 
         # Automatically normalize the input features
         if self.config["setup"]["norm_wrapper_obs"] or self.config["setup"]["norm_wrapper_reward"]:
@@ -421,15 +429,6 @@ class ETAx:
                     norm_reward=self.config["setup"]["norm_wrapper_reward"],
                     clip_obs=self.config["setup"]["norm_wrapper_clip_obs"],
                 )
-                # TODO: Check if really necessary, does not seem like it is...
-                # if "interact_with_env" in self.config["settings"] and self.config["settings"]["interact_with_env"]:
-                #     self.interaction_env = VecNormalize(
-                #         self.interaction_env,
-                #         training=training,
-                #         norm_obs=self.config["setup"]["norm_wrapper_obs"],
-                #         norm_reward=self.config["setup"]["norm_wrapper_reward"],
-                #         clip_obs=self.config["setup"]["norm_wrapper_clip_obs"],
-                #     )
 
         self._environment_vectorized = True
         log.info("Environment vectorized successfully.")
@@ -574,10 +573,10 @@ class ETAx:
 
     def pretrain(
         self,
-        series_name: Optional[str] = None,
-        run_name: Optional[str] = None,
+        series_name: str | None = None,
+        run_name: str | None = None,
         run_description: str = "",
-        path_expert_dataset: Optional[Path] = None,
+        path_expert_dataset: Path | None = None,
         reset: bool = False,
     ) -> bool:
         """Pretrain the agent with an expert defined trajectory data set or from data generated by
@@ -630,8 +629,8 @@ class ETAx:
 
     def learn(
         self,
-        series_name: Optional[str] = None,
-        run_name: Optional[str] = None,
+        series_name: str | None = None,
+        run_name: str | None = None,
         run_description: str = "",
         pretrain: bool = False,
         reset: bool = False,
@@ -720,9 +719,7 @@ class ETAx:
 
         log.info(f"Learning finished: {series_name} / {run_name}")
 
-    def play(
-        self, series_name: Optional[str] = None, run_name: Optional[str] = None, run_description: str = ""
-    ) -> None:
+    def play(self, series_name: str | None = None, run_name: str | None = None, run_description: str = "") -> None:
         """Play with previously learned agent model in environment.
 
         :param series_name: Name for a series of runs
@@ -761,9 +758,10 @@ class ETAx:
 
         while n_episodes < n_episodes_stop:
 
+            action, _states = self.model.predict(observation=observations, deterministic=False)
+
             # Some agents (i.e. MPC) can interact with an additional environment if required.
             if "interact_with_env" in self.config["settings"] and self.config["settings"]["interact_with_env"]:
-                action, _states = self.model.predict(observation=observations, deterministic=False)
                 if "scale_interaction_actions" in self.config["settings"]:
                     action = (
                         np.round(
@@ -781,9 +779,7 @@ class ETAx:
                     )
                 observations, rewards, dones, info = self.interaction_env.step(action)  # environment gets called here
                 observations = np.array(self.environments.env_method("update", observations, indices=0))
-
             else:
-                action, _states = self.model.predict(observation=observations, deterministic=False)
                 observations, rewards, dones, info = self.environments.step(action)
 
             n_episodes += sum(dones)

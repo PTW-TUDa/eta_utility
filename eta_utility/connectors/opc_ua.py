@@ -1,13 +1,16 @@
 """ The OPC UA module provides utilities for the flexible creation of OPC UA connections.
 
 """
+from __future__ import annotations
+
 import asyncio
+import concurrent.futures
 import socket
 from concurrent.futures._base import CancelledError
 from concurrent.futures._base import TimeoutError as ConTimeoutError
 from contextlib import contextmanager
 from datetime import datetime, timedelta
-from typing import Any, Mapping, Optional, Set
+from typing import TYPE_CHECKING
 
 import opcua
 import pandas as pd
@@ -17,7 +20,11 @@ from opcua import ua
 from opcua.ua import uaerrors
 
 from eta_utility import get_logger
-from eta_utility.type_hints import Node, Nodes, TimeStep
+from eta_utility.connectors.node import Node, NodeOpcUa
+
+if TYPE_CHECKING:
+    from typing import Any, Generator, Mapping, Sequence
+    from eta_utility.type_hints import AnyNode, Nodes, TimeStep
 
 from .base_classes import BaseConnection, SubscriptionHandler
 
@@ -29,16 +36,14 @@ class OpcUaConnection(BaseConnection):
     it implements a subscription method, which reads continuously in a specified interval.
 
     :param url: Url of the OPC UA Server
-    :param usr: Username in EnEffco for login
-    :param pwd: Password in EnEffco for login
+    :param usr: Username in OPC UA for login
+    :param pwd: Password in OPC UA for login
     :param nodes: List of nodes to use for all operations.
     """
 
     _PROTOCOL = "opcua"
 
-    def __init__(
-        self, url: str, usr: Optional[str] = None, pwd: Optional[str] = None, *, nodes: Optional[Nodes] = None
-    ) -> None:
+    def __init__(self, url: str, usr: str | None = None, pwd: str | None = None, *, nodes: Nodes | None = None) -> None:
         super().__init__(url, usr, pwd, nodes=nodes)
 
         if self._url.scheme != "opc.tcp":
@@ -47,22 +52,26 @@ class OpcUaConnection(BaseConnection):
         self.connection: Client = Client(self.url)
         self._connected = False
 
-        self._sub: Optional[opcua.Subscription] = None
-        self._sub_task: Optional[asyncio.Task] = None
+        self._sub: opcua.Subscription
+        self._sub_task: asyncio.Task
         self._subscription_open: bool = False
-        self._subscription_nodes: Set[Node] = set()
+        self._subscription_nodes: set[NodeOpcUa] = set()
 
     @classmethod
-    def from_node(cls, node: Node, **kwargs: Any) -> "OpcUaConnection":
-        """Initialize OPC UA connection object from a node which specifies OPC UA as its protocol.
+    def from_node(cls, node: AnyNode, **kwargs: Any) -> OpcUaConnection:
+        """Initialize the connection object from an EnEffCo protocol node object
 
         :param node: Node to initialize from
-        :param kwargs: Other arguments are ignored.
-        :return: OpcUa Connection object
+        :param usr: Username for OPC UA login
+        :param pwd: Password for OPC UA login
+        :param kwargs: Other arguments are ignored
+        :return: OpcUaConnection object
         """
+        usr = None if "usr" not in kwargs else kwargs["usr"]
+        pwd = None if "pwd" not in kwargs else kwargs["pwd"]
 
-        if node.protocol == "opcua":
-            return cls(node.url, nodes=[node])
+        if node.protocol == "opcua" and isinstance(node, NodeOpcUa):
+            return cls(node.url, usr=usr, pwd=pwd, nodes=[node])
 
         else:
             raise ValueError(
@@ -70,7 +79,28 @@ class OpcUaConnection(BaseConnection):
                 "protocol: {}.".format(node.name)
             )
 
-    def read(self, nodes: Optional[Nodes] = None) -> pd.DataFrame:
+    @classmethod
+    def from_ids(
+        cls,
+        ids: Sequence[str],
+        url: str,
+        usr: str | None = None,
+        pwd: str | None = None,
+    ) -> OpcUaConnection:
+        """Initialize the connection object from an EnEffCo protocol through the node ids
+
+        :param ids: Identification of the Node
+        :param url: URL for  connection
+        :param names: Names for each Node
+        :param usr: Username in OPC UA for login
+        :param pwd: Password in OPC UA for login
+        :return: OpcUaConnection object
+        """
+
+        nodes = [Node(name=opc_id, url=url, protocol="opcua", opc_id=opc_id) for opc_id in ids]
+        return cls(url=url, usr=usr, pwd=pwd, nodes=nodes)
+
+    def read(self, nodes: Nodes | None = None) -> pd.DataFrame:
         """
         Read some manually selected values from OPCUA capable controller
 
@@ -80,21 +110,26 @@ class OpcUaConnection(BaseConnection):
 
         :raises ConnectionError: When an error occurs during reading.
         """
-        nodes = self._validate_nodes(nodes)
+        _nodes = self._validate_nodes(nodes)
 
+        def read_node(node: NodeOpcUa) -> dict[str, list]:
+            try:
+                opcua_variable = self.connection.get_node(node.opc_id)
+                value = opcua_variable.get_value()
+                return {node.name: [value]}
+            except RuntimeError as e:
+                raise ConnectionError(str(e)) from e
+
+        values: dict[str, list] = {}
         with self._connection():
-            values = {}
-            for node in nodes:
-                try:
-                    opcua_variable = self.connection.get_node(node.opc_id)
-                    value = opcua_variable.get_value()
-                    values[node.name] = [value]
-                except RuntimeError as e:
-                    raise ConnectionError(str(e)) from e
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                results = executor.map(read_node, _nodes)
+        for result in results:
+            values.update(result)
 
         return pd.DataFrame(values, index=[self._assert_tz_awareness(datetime.now())])
 
-    def write(self, values: Mapping[Node, Any]) -> None:
+    def write(self, values: Mapping[AnyNode, Any]) -> None:
         """
         Writes some manually selected values on OPCUA capable controller
 
@@ -102,7 +137,7 @@ class OpcUaConnection(BaseConnection):
 
         :raises ConnectionError: When an error occurs during reading.
         """
-        nodes = self._validate_nodes(values.keys())
+        nodes = self._validate_nodes(set(values.keys()))
 
         with self._connection():
             for node in nodes:
@@ -121,7 +156,7 @@ class OpcUaConnection(BaseConnection):
         :raises ConnectionError: When an error occurs during node creation
         """
 
-        def create_object(parent: OpcNode, child: Node) -> OpcNode:
+        def create_object(parent: OpcNode, child: NodeOpcUa) -> OpcNode:
             for obj in parent.get_children():
                 ident = obj.nodeid.Identifier if type(obj.nodeid.Identifier) is str else obj.nodeid.Identifier
                 if child.opc_path_str == ident:
@@ -129,14 +164,16 @@ class OpcUaConnection(BaseConnection):
             else:
                 return parent.add_object(child.opc_id, child.opc_name)
 
-        nodes = self._validate_nodes(nodes)
+        _nodes = self._validate_nodes(nodes)
 
         with self._connection():
-            for node in nodes:
+            for node in _nodes:
                 try:
                     last_obj = create_object(self.connection.get_objects_node(), node.opc_path[0])
 
                     for key in range(1, len(node.opc_path) + 1):
+                        init_val: Any
+
                         if key < len(node.opc_path):
                             last_obj = create_object(last_obj, node.opc_path[key])
                         else:
@@ -177,16 +214,16 @@ class OpcUaConnection(BaseConnection):
                 if depth > 0:
                     delete_node_parents(self.connection.get_node(parent.NodeId), depth=depth - 1)
 
-        nodes = self._validate_nodes(nodes)
+        _nodes = self._validate_nodes(nodes)
 
         with self._connection():
-            for node in nodes:
+            for node in _nodes:
                 try:
                     delete_node_parents(self.connection.get_node(node.opc_id))
                 except RuntimeError as e:
                     raise ConnectionError(str(e)) from e
 
-    def subscribe(self, handler: SubscriptionHandler, nodes: Optional[Nodes] = None, interval: TimeStep = 1) -> None:
+    def subscribe(self, handler: SubscriptionHandler, nodes: Nodes | None = None, interval: TimeStep = 1) -> None:
         """Subscribe to nodes and call handler when new data is available. This function works asnychonously.
         Subscriptions must always be closed using the close_sub function (use try, finally!)
 
@@ -194,10 +231,10 @@ class OpcUaConnection(BaseConnection):
         :param handler: SubscriptionHandler object with a push method that accepts node, value pairs
         :param interval: interval for receiving new data. It it interpreted as seconds when given as an integer.
         """
-        nodes = self._validate_nodes(nodes)
+        _nodes = self._validate_nodes(nodes)
         interval = interval if isinstance(interval, timedelta) else timedelta(seconds=interval)
 
-        self._subscription_nodes.update(nodes)
+        self._subscription_nodes.update(_nodes)
 
         if self._subscription_open:
             # Adding nodes to subscription is enough to include them in the query. Do not start an additional loop
@@ -242,7 +279,7 @@ class OpcUaConnection(BaseConnection):
 
                     for node in self._subscription_nodes:
                         try:
-                            handler.add_node(node.opc_id, node)
+                            handler.add_node(node.opc_id, node)  # type: ignore
                             _ = self._sub.subscribe_data_change(self.connection.get_node(node.opc_id))
                         except RuntimeError as e:
                             log.warning(f"Server {self.url}, Node Id '{node.name}' error: {str(e)}")
@@ -267,7 +304,7 @@ class OpcUaConnection(BaseConnection):
 
         self._disconnect()
 
-    def _connect(self) -> bool:
+    def _connect(self) -> None:
         """Connect to server."""
         try:
             if self.usr is not None:
@@ -299,7 +336,7 @@ class OpcUaConnection(BaseConnection):
             log.error(f"Connection to server {self.url} already closed.")
 
     @contextmanager
-    def _connection(self) -> None:
+    def _connection(self) -> Generator:
         """Connect to the server and return a context manager that automatically disconnects when finished."""
         try:
             self._connect()
@@ -308,6 +345,15 @@ class OpcUaConnection(BaseConnection):
             raise e
         finally:
             self._disconnect()
+
+    def _validate_nodes(self, nodes: Nodes | None) -> set[NodeOpcUa]:  # type: ignore
+        vnodes = super()._validate_nodes(nodes)
+        _nodes = set()
+        for node in vnodes:
+            if isinstance(node, NodeOpcUa):
+                _nodes.add(node)
+
+        return _nodes
 
 
 class _OPCSubHandler:
@@ -319,13 +365,13 @@ class _OPCSubHandler:
 
     def __init__(self, handler: SubscriptionHandler) -> None:
         self.handler = handler
-        self._sub_nodes = {}
+        self._sub_nodes: dict[str | int, NodeOpcUa] = {}
 
-    def add_node(self, opc_id: str, node: Node) -> None:
+    def add_node(self, opc_id: str | int, node: NodeOpcUa) -> None:
         """Add a node to the subscription. This is necessary to translate between formats."""
         self._sub_nodes[opc_id] = node
 
-    def datachange_notification(self, node: Node, val: Any, data: Any) -> None:
+    def datachange_notification(self, node: NodeOpcUa, val: Any, data: Any) -> None:
         """
         datachange_notification is called whenever subscribed input data is recieved via OPC UA. This pushes data
         to the actual eta_utility subscription handler.

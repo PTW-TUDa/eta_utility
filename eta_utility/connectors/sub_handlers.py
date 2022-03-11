@@ -1,9 +1,9 @@
 """ This module implements some commonly used subscription handlers, for example for writing to csv files.
 
 """
+from __future__ import annotations
 
 import csv
-import io
 import pathlib
 import queue
 import re
@@ -11,14 +11,19 @@ import threading
 from collections import deque
 from contextlib import AbstractContextManager
 from datetime import datetime
-from typing import Any, Deque, Dict, List, Optional, Sequence, Union
+from threading import Lock
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 from dateutil import tz
 
 from eta_utility import get_logger
-from eta_utility.type_hints import Node, Number, Path, TimeStep
+
+if TYPE_CHECKING:
+    from typing import Any, Deque, Sequence, TextIO
+    from types import TracebackType
+    from eta_utility.type_hints import AnyNode, Number, Path, TimeStep
 
 from .base_classes import SubscriptionHandler
 
@@ -34,7 +39,7 @@ class MultiSubHandler(SubscriptionHandler):
     def __init__(self) -> None:
         super().__init__()
 
-        self._handlers: List = []
+        self._handlers: list = []
 
     def register(self, sub_handler: SubscriptionHandler) -> None:
         """Register a subscription handler.
@@ -46,7 +51,7 @@ class MultiSubHandler(SubscriptionHandler):
 
         self._handlers.append(sub_handler)
 
-    def push(self, node: Node, value: Any, timestamp: Optional[datetime] = None) -> None:
+    def push(self, node: AnyNode, value: Any, timestamp: datetime | None = None) -> None:
         """Receive data from a subcription. This should contain the node that was requested, a value and a timestemp
         when data was received. Push data to all registered sub-handlers
 
@@ -80,24 +85,24 @@ class CsvSubHandler(SubscriptionHandler):
     def __init__(
         self,
         output_file: Path,
-        write_interval: Union[float, int] = 1,
+        write_interval: TimeStep = 1,
         size_limit: int = 1024,
-        dialect: csv.Dialect = csv.excel,
+        dialect: type[csv.Dialect] = csv.excel,
     ) -> None:
         super().__init__(write_interval=write_interval)
 
         # Create the csv file handler object which writes data to disc
-        self._csv_file = _CSVFileDB(output_file, write_interval, size_limit, dialect)
+        self._csv_file = _CSVFileDB(output_file, self._write_interval, size_limit, dialect)
 
         # Enable propagation of exceptions
-        self.exc = None
+        self.exc: BaseException | None = None
 
         # Create the queue and thread
-        self._queue = queue.Queue()
-        self._thread = threading.Thread(target=self._run)
+        self._queue: queue.Queue = queue.Queue()
+        self._thread: threading.Thread = threading.Thread(target=self._run)
         self._thread.start()
 
-    def push(self, node: Node, value: Any, timestamp: Optional[datetime] = None) -> None:
+    def push(self, node: AnyNode, value: Any, timestamp: datetime | None = None) -> None:
         """Receive data from a subcription. THis should contain the node that was requested, a value and a timestemp
         when data was received. If the timestamp is not provided, current time will be used.
 
@@ -169,40 +174,44 @@ class _CSVFileDB(AbstractContextManager):
     """
 
     def __init__(
-        self, file: Path, write_interval: Number, file_size_limit: int = 1024, dialect: csv.Dialect = csv.excel
+        self,
+        file: Path,
+        write_interval: Number,
+        file_size_limit: int = 1024,
+        dialect: type[csv.Dialect] = csv.excel,
     ):
         #: Path to the file that is being written to
         self.filepath: pathlib.Path = file if isinstance(file, pathlib.Path) else pathlib.Path(file)
         #: File descriptor
-        self._file: Optional[io.TextIOWrapper] = None
+        self._file: TextIO | None = None
 
         #: Interval between values in seconds
         self.write_interval: Number = write_interval
         #: Size limit for written files in bytes
         self.file_size_limit: int = file_size_limit * 1024 * 1024
         #: CSV dialect to be used for reading and writing data
-        self.dialect: csv.Dialect = dialect
+        self.dialect: type[csv.Dialect] = dialect
 
         #: List of header fields
-        self._header: List[str] = []
+        self._header: list[str] = []
         #: Ending position of the header in the file stream (used for extending the header)
         self._endof_header: int = 0
         #: Write buffer
-        self._buffer: Deque[Dict[str, Union[datetime, Number]]] = deque()
+        self._buffer: Deque[dict[str, str]] = deque()
         self._timebuffer: Deque[datetime] = deque()
         #: Latest timestamp in the write buffer
         self._latest_ts: datetime = datetime.fromtimestamp(10000, tz=tz.tzlocal())
         #: Latest known value for each of the names in the header
-        self._latest_values: Dict[str, Number] = {}
+        self._latest_values: dict[str, str] = {}
         #: Length of the line terminator in bytes (for finding file positions)
         self._len_lineterminator: int = len(bytes(self.dialect.lineterminator, "UTF-8"))
 
-    def __enter__(self):
+    def __enter__(self) -> _CSVFileDB:
         """Enter the context managed file database."""
         self._open_file()
         return self
 
-    def _open_file(self, exclusive_creation: bool = False):
+    def _open_file(self, exclusive_creation: bool = False) -> None:
         """Open a new file and check whether it is writable. If the file exists, try to figure out the dialect and
         header of the existing file.
 
@@ -225,7 +234,7 @@ class _CSVFileDB(AbstractContextManager):
                 raise OSError(f"Unable to read or write the requested '.csv' file: {self.filepath}.")
 
         # Check whether the file is accessible in the required ways.
-        if not self._file.readable() or not self._file.seekable() or not self._file.writable():
+        if self._file is None or not self._file.readable() or not self._file.seekable() or not self._file.writable():
             raise ValueError("Output file for writing to '.csv' is not readable or writable.")
         else:
             log.debug("Successfully verified full '.csv' file access")
@@ -270,13 +279,16 @@ class _CSVFileDB(AbstractContextManager):
         # Go to the end to get ready for updating/extending the file.
         self._file.seek(0, 2)
 
-    def _write_file(self, field_list: List[str], insert_pos: Optional[int] = None) -> int:
+    def _write_file(self, field_list: list[str], insert_pos: int | None = None) -> int:
         """Write data to the file.
 
         :param field_list: List of strings to be inserted into the csv file
         :param insert_pos: Position to insert the fields (stream position). If None, insertion will be at end of file.
         :return: ending position of the last insertion (stream position)
         """
+        # Check whether the file is accessible in the required ways.
+        if self._file is None or not self._file.readable() or not self._file.seekable() or not self._file.writable():
+            raise ValueError("Output file for writing to '.csv' is not readable or writable.")
 
         if insert_pos is None:
             string = self.dialect.delimiter.join(field_list) + self.dialect.lineterminator
@@ -320,9 +332,9 @@ class _CSVFileDB(AbstractContextManager):
 
     def write(
         self,
-        timestamp: Optional[datetime] = None,
-        name: Optional[str] = None,
-        value: Optional[Number] = None,
+        timestamp: datetime | None = None,
+        name: str | None = None,
+        value: Number | None = None,
         flush: bool = False,
         _len_buffer: int = 20,
     ) -> None:
@@ -360,14 +372,14 @@ class _CSVFileDB(AbstractContextManager):
             # Find out, where to insert the current timestamp
             if len(self._timebuffer) == 0 or self._timebuffer[-1] < timestamp:
                 # If the new timestamp occurred later than the latest timestamp
-                self._buffer.append({name: value})
+                self._buffer.append({name: str(value)})
                 self._timebuffer.append(timestamp)
             elif self._timebuffer[-1] == timestamp:
                 # If the timestamp is equal to the latest timestamp
-                self._buffer[-1].update({name: value})
+                self._buffer[-1].update({name: str(value)})
             elif self._timebuffer[0] > timestamp:
                 # If the new timestamp occurred before the earliest buffered timestamp
-                self._buffer.appendleft({name: value})
+                self._buffer.appendleft({name: str(value)})
                 self._timebuffer.appendleft(timestamp)
                 log.debug(f"Buffer time for CSV file exceeded, older value received with {timestamp}")
             else:
@@ -376,10 +388,10 @@ class _CSVFileDB(AbstractContextManager):
                 last_ts = self._timebuffer[0]
                 for idx, ts in enumerate(self._timebuffer):
                     if timestamp == ts:
-                        self._buffer[idx].update({name: value})
+                        self._buffer[idx].update({name: str(value)})
                         break
                     elif last_ts < timestamp < ts:
-                        self._buffer.insert(idx, {name: value})
+                        self._buffer.insert(idx, {name: str(value)})
                         self._timebuffer.insert(idx, timestamp)
                         break
                     else:
@@ -390,7 +402,7 @@ class _CSVFileDB(AbstractContextManager):
             row = self._buffer.popleft()
             row[self._header[0]] = self._timebuffer.popleft().strftime("%Y-%m-%d %H:%M:%S.%f")
 
-            processed_row = [""] * len(self._header)
+            processed_row: list[str] = [""] * len(self._header)
             for idx, col in enumerate(self._header):
                 if col in row:
                     processed_row[idx] = self._latest_values[col] = str(row[col])
@@ -402,7 +414,7 @@ class _CSVFileDB(AbstractContextManager):
 
         # Close current file and create a new file with a different name if the size limit was exceeded.
         if size_limit_exceeded and buffer_target <= _len_buffer:
-            log.info(f"CSV File size limit exceeded. Closing current file {self._filepath}.")
+            log.info(f"CSV File size limit exceeded. Closing current file {self.filepath}.")
             self._file.close()
             self._file = None
             self.filepath = self.filepath.with_name(f"{self.filepath.stem}_{datetime.now().strftime('%y%m%d%H%M')}.csv")
@@ -412,13 +424,19 @@ class _CSVFileDB(AbstractContextManager):
             if flush:
                 self.write(flush=True)
 
-    def __exit__(self, *exc_details):
+    def __exit__(
+        self,
+        __exc_type: type[BaseException] | None,
+        __exc_value: BaseException | None,
+        __traceback: TracebackType | None,
+    ) -> None:
         """Exit the context manager
 
         :param exc_details: Execution details
         """
-        self.write(flush=True)
-        self._file.close()
+        if self._file is not None:
+            self.write(flush=True)
+            self._file.close()
 
 
 class DFSubHandler(SubscriptionHandler):
@@ -426,18 +444,23 @@ class DFSubHandler(SubscriptionHandler):
 
     :param write_interval: Interval for writing data
     :param size_limit: Number of rows to keep in internal _data memory. Default 100.
+    :param auto_fillna: If True, missing values in self._data are filled with the pandas-method
+                        df.fillna(method='ffill')
+                        each time self.data is called.
     """
 
-    def __init__(self, write_interval: int = 1, size_limit: int = 100) -> None:
+    def __init__(self, write_interval: TimeStep = 1, size_limit: int = 100, auto_fillna: bool = True) -> None:
         super().__init__(write_interval=write_interval)
         self._data: pd.DataFrame = pd.DataFrame()
+        self._data_lock: threading.Lock = Lock()
         self.keep_data_rows: int = size_limit
+        self.auto_fillna: bool = auto_fillna
 
     def push(
         self,
-        node: Node,
-        value: Union[Any, pd.Series, Sequence[Any]],
-        timestamp: Union[datetime, pd.DatetimeIndex, TimeStep, None] = None,
+        node: AnyNode,
+        value: Any | pd.Series | Sequence[Any],
+        timestamp: datetime | pd.DatetimeIndex | TimeStep | None = None,
     ) -> None:
         """Append values to the dataframe
 
@@ -449,8 +472,10 @@ class DFSubHandler(SubscriptionHandler):
                           pd.Series and has a pd.DatetimeIndex, timestamp is ignored.
         """
         # Check if node.name is in _data.columns
+        self._data_lock.acquire()
         if node.name not in self._data.columns:
             self._data[node.name] = np.nan
+        self._data_lock.release()
 
         # Multiple values
         if not isinstance(value, str) and hasattr(value, "__len__"):
@@ -459,40 +484,54 @@ class DFSubHandler(SubscriptionHandler):
             # Values are rounded to self.write_interval in _convert_series
             for _timestamp, _value in value.items():
                 _timestamp = self._assert_tz_awareness(_timestamp)
+                self._data_lock.acquire()
                 self._data.loc[_timestamp, node.name] = _value
+                self._data_lock.release()
 
         # Single value
         else:
             if not isinstance(timestamp, datetime) and timestamp is not None:
                 raise ValueError("Timestamp must be a datetime object or None.")
             timestamp = self._round_timestamp(timestamp if timestamp is not None else datetime.now())
+            self._data_lock.acquire()
             self._data.loc[timestamp, node.name] = value
+            self._data_lock.release()
 
         # Housekeeping (Keep internal data short)
         self._housekeeping()
 
-    def get_latest(self) -> Union[pd.DataFrame, None]:
+    def get_latest(self) -> pd.DataFrame | None:
         """Return a copy of the dataframe, this ensures they can be worked on freely. Returns None if data is empty."""
+        self._data_lock.acquire()
         if len(self._data.index) == 0:
+            self._data_lock.release()
             return None  # If no data in self._data, return None
         else:
-            self._data.fillna(method="ffill", inplace=True)
-            return self._data.iloc[[-1]].copy()
+            self._data_lock.release()
+            return self.data.iloc[[-1]]
 
     @property
-    def data(self) -> Union[pd.DataFrame, None]:
+    def data(self) -> pd.DataFrame:
         """This contains the interval dataframe and will return a copy of that."""
-        self._data.fillna(method="ffill", inplace=True)
-        return self._data.copy()
+        self._data_lock.acquire()
+        if self.auto_fillna:
+            self._data.fillna(method="ffill", inplace=True)
+        data = self._data.copy()
+        self._data_lock.release()
+        return data
 
     def reset(self) -> None:
         """Reset the internal data and restart collection"""
+        self._data_lock.acquire()
         self._data = pd.DataFrame()
+        self._data_lock.release()
         log.info(f"Subscribed DataFrame {hash(self._data)} was reset successfully.")
 
     def _housekeeping(self) -> None:
         """Keep internal data short by only keeping last rows as specified in self.keep_data_rows"""
+        self._data_lock.acquire()
         self._data.drop(index=self._data.index[: -self.keep_data_rows], inplace=True)
+        self._data_lock.release()
 
     def close(self) -> None:
         """This is just here to satisfy the interface, not needed in this case."""

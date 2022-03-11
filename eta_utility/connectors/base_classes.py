@@ -1,16 +1,23 @@
 """ Base classes for the connectors
 
 """
+from __future__ import annotations
+
 import math
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
-from typing import Any, AnyStr, Mapping, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Iterable
 
 import pandas as pd
 from dateutil import tz
 
 from eta_utility import url_parse
-from eta_utility.type_hints import Node, Nodes, TimeStep
+
+if TYPE_CHECKING:
+    from typing import Any, Mapping, Sequence
+    from urllib.parse import ParseResult
+
+    from eta_utility.type_hints import AnyNode, Nodes, TimeStep
 
 
 class SubscriptionHandler(ABC):
@@ -20,8 +27,10 @@ class SubscriptionHandler(ABC):
     :param write_interval: Interval for writing data to csv file
     """
 
-    def __init__(self, write_interval: Union[float, int] = 1) -> None:
-        self._write_interval: Union[float, int] = write_interval
+    def __init__(self, write_interval: TimeStep = 1) -> None:
+        self._write_interval: float = (
+            write_interval.total_seconds() if isinstance(write_interval, timedelta) else write_interval
+        )
         self._local_tz = tz.tzlocal()
 
     def _assert_tz_awareness(self, timestamp: datetime) -> datetime:
@@ -50,9 +59,7 @@ class SubscriptionHandler(ABC):
         timestamp = timestamp.replace(tzinfo=ts_store.tzinfo).astimezone(self._local_tz)
         return timestamp
 
-    def _convert_series(
-        self, value: Union[pd.Series, Sequence[Any]], timestamp: Union[pd.DatetimeIndex, TimeStep]
-    ) -> pd.Series:
+    def _convert_series(self, value: pd.Series | Sequence[Any], timestamp: pd.DatetimeIndex | TimeStep) -> pd.Series:
         """Helper function to convert a value, timestamp pair in which value is a Series or list to a Series with
         datetime index according to the given timestamp(s).
 
@@ -110,7 +117,7 @@ class SubscriptionHandler(ABC):
         return value
 
     @abstractmethod
-    def push(self, node: Node, value: Any, timestamp: Optional[datetime] = None) -> None:
+    def push(self, node: AnyNode, value: Any, timestamp: datetime | None = None) -> None:
         """Receive data from a subcription. THis should contain the node that was requested, a value and a timestemp
         when data was received. If the timestamp is not provided, current time will be used.
 
@@ -137,15 +144,13 @@ class BaseConnection(ABC):
     #: Protocol of the connection. Value can be used to check if nodes correspond to the connection
     _PROTOCOL = ""
 
-    def __init__(
-        self, url: str, usr: Optional[str] = None, pwd: Optional[str] = None, *, nodes: Optional[Nodes] = None
-    ) -> None:
+    def __init__(self, url: str, usr: str | None = None, pwd: str | None = None, *, nodes: Nodes | None = None) -> None:
         #: URL of the server to connect to
-        self._url: str
+        self._url: ParseResult
         #: Username fot login to server
-        self.usr: str
+        self.usr: str | None
         #: Password for login to server
-        self.pwd: str
+        self.pwd: str | None
         self._url, self.usr, self.pwd = url_parse(url)
 
         if nodes is not None:
@@ -177,11 +182,11 @@ class BaseConnection(ABC):
         #: Store local time zone
         self._local_tz = tz.tzlocal()
 
-        self.exc: Optional[BaseException] = None
+        self.exc: BaseException | None = None
 
     @classmethod
     @abstractmethod
-    def from_node(cls, node: Node, **kwargs: Any) -> "BaseConnection":
+    def from_node(cls, node: AnyNode, **kwargs: Any) -> BaseConnection:
         """Initialize the object from a node with corresponding protocol
 
         :return: Initialized connection object
@@ -189,7 +194,7 @@ class BaseConnection(ABC):
         pass
 
     @abstractmethod
-    def read(self, nodes: Optional[Nodes] = None) -> pd.DataFrame:
+    def read(self, nodes: Nodes | None = None) -> pd.DataFrame:
         """Read data from nodes
 
         :param nodes: List of nodes to read from
@@ -199,7 +204,7 @@ class BaseConnection(ABC):
         pass
 
     @abstractmethod
-    def write(self, values: Mapping[Node, Any]) -> None:
+    def write(self, values: Mapping[AnyNode, Any]) -> None:
         """Write data to a list of nodes
 
         :param values: Dictionary of nodes and data to write. {node: value}
@@ -207,7 +212,7 @@ class BaseConnection(ABC):
         pass
 
     @abstractmethod
-    def subscribe(self, handler: SubscriptionHandler, nodes: Optional[Nodes] = None, interval: TimeStep = 1) -> None:
+    def subscribe(self, handler: SubscriptionHandler, nodes: Nodes | None = None, interval: TimeStep = 1) -> None:
         """Subscribe to nodes and call handler when new data is available.
 
         :param nodes: identifiers for the nodes to subscribe to
@@ -222,10 +227,10 @@ class BaseConnection(ABC):
         pass
 
     @property
-    def url(self) -> AnyStr:
+    def url(self) -> str:
         return self._url.geturl()
 
-    def _validate_nodes(self, nodes: Nodes) -> Nodes:
+    def _validate_nodes(self, nodes: Nodes | None) -> set[AnyNode]:
         """Make sure that nodes are a Set of nodes and that all nodes correspond to the protocol and url
         of the connection.
 
@@ -235,7 +240,7 @@ class BaseConnection(ABC):
         if nodes is None:
             _nodes = self.selected_nodes
         else:
-            if not hasattr(nodes, "__len__"):
+            if not isinstance(nodes, Iterable):
                 nodes = {nodes}
 
             # If not using preselected nodes from self.selected_nodes, check if nodes correspond to the connection
@@ -289,19 +294,18 @@ class BaseSeriesConnection(BaseConnection, ABC):
     :param url: URL of the server to connect to
     """
 
-    def __init__(
-        self, url: str, usr: Optional[str] = None, pwd: Optional[str] = None, *, nodes: Optional[Nodes] = None
-    ) -> None:
+    def __init__(self, url: str, usr: str | None = None, pwd: str | None = None, *, nodes: Nodes | None = None) -> None:
         super().__init__(url, usr, pwd, nodes=nodes)
 
     @abstractmethod
     def read_series(
-        self, from_time: datetime, to_time: datetime, nodes: Optional[Nodes] = None, **kwargs: Any
+        self, from_time: datetime, to_time: datetime, nodes: Nodes | None = None, interval: TimeStep = 1, **kwargs: Any
     ) -> pd.DataFrame:
         """Read time series data from the connection, within a specified time interval (from_time until to_time).
         :param nodes: List of nodes to read values from
         :param from_time: Starting time to begin reading (included in output)
         :param to_time: To to stop reading at (not included in output)
+        :param interval: interval between time steps. It is interpreted as seconds if given as integer.
         :param kwargs: additional argument list, to be defined by subclasses
         :return: Pandas DataFrame containing the data read from the connection
         """
@@ -310,11 +314,24 @@ class BaseSeriesConnection(BaseConnection, ABC):
     def subscribe_series(
         self,
         handler: SubscriptionHandler,
-        time_interval: datetime,
-        nodes: Optional[Nodes] = None,
-        interval: int = 1,
+        req_interval: TimeStep,
+        offset: TimeStep | None = None,
+        nodes: Nodes | None = None,
+        interval: TimeStep = 1,
+        data_interval: TimeStep = 1,
+        **kwargs: Any,
     ) -> None:
-        """Continuously read time series data from the connection, starting at current time and going back read
-        interval
+        """Subscribe to nodes and call handler when new data is available. This will always return a series of values.
+        If nodes with different intervals should be subscribed, multiple connection objects are needed.
+
+        :param handler: SubscriptionHandler object with a push method that accepts node, value pairs
+        :param req_interval: Duration covered by requested data (time interval). Interpreted as seconds if given as int
+        :param offset: Offset from datetime.now from which to start requesting data (time interval).
+                       Interpreted as seconds if given as int. Use negative values to go to past timestamps.
+        :param data_interval: Time interval between values in returned data. Interpreted as seconds if given as int.
+        :param interval: interval (between requests) for receiving new data.
+                         It it interpreted as seconds when given as an integer.
+        :param nodes: identifiers for the nodes to subscribe to
+        :param kwargs: Any additional arguments required by subclasses
         """
         pass

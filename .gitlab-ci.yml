@@ -36,17 +36,31 @@ default:
 
   before_script:
     - python -V  # Print out python version for debugging
-    - python3 -m venv venv
+    - python3 -m venv venv --clear
     - source venv/bin/activate
     - pip install --upgrade pip
-    - pip install .[eta_x]
+    - pip install --upgrade setuptools
+    - pip install .[develop]
 
 create_cache:
   stage: setup
-  script: pip install isort black==21.6b0 flakehell pytest pytest-cov
+  interruptible: true
+  before_script:
+    - echo ""
+  script:
+    - rm -rf venv .venv .cache .pip_cache .pytest_cache .mypy_cache dist doc eta_utility.egg-info build public
+    - ls -la
+    - python -V
+    - python3 -m venv venv --clear
+    - source venv/bin/activate
+    - pip install --upgrade pip
+    - pip install --upgrade setuptools
+    - pip install .[develop]
+    - pip install flake8-json
 
 isort:
   stage: check
+  interruptible: true
   script:
     - pip install isort
     - isort -c -v .
@@ -56,44 +70,50 @@ isort:
 
 black:
   stage: check
+  interruptible: true
   script:
-    - pip install black==21.7b0
+    - pip install black
     - black --check --config pyproject.toml eta_utility/ test/
   cache: []
 
-flakehell:
+flake8:
   stage: check
+  interruptible: true
   script:
-    - pip install flakehell
-    - flakehell lint --format=gitlab --output-file flakehell.json eta_utility/ test/
+    - pip install flake8-json
+    - flake8 --version
+    - flake8 --config=setup.cfg --format=codeclimate --tee --output-file=flake8.json eta_utility test
   artifacts:
     reports:
-      codequality: flakehell.json
+      codequality: flake8.json
   cache:
     <<: *global_cache
     policy: pull
 
-license_scanning_local:
-  extends: license_scanning
-  before_script:
-    - echo ""
+license_scanning:
   stage: check
+  interruptible: true
+  needs: []
+  before_script: []
+  variables:
+    ASDF_PYTHON_VERSION: 3
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH
+    - if: ($CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "development")
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
       when: never
   cache:
     <<: *global_cache
     policy: pull
 
-secret_detection_local:
-  extends: secret_detection
-  before_script:
-    - echo ""
+secret_detection:
   stage: check
+  interruptible: true
+  before_script: []
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH
+    - if: ($CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "development")
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
       when: never
   cache:
     <<: *global_cache
@@ -101,10 +121,20 @@ secret_detection_local:
 
 test:
   stage: test
+  interruptible: true
   script:
-    - pip install .[eta_x,develop]
     - pip install pytest pytest-cov
     - pytest --cov
+  cache:
+    <<: *global_cache
+    policy: pull
+
+typecheck:
+  stage: test
+  interruptible: true
+  script:
+    - mypy -V
+    - mypy --config-file pyproject.toml
   cache:
     <<: *global_cache
     policy: pull
@@ -138,6 +168,7 @@ pages:
     - pip install sphinx sphinx-rtd-theme
     - cd docs
     - make html
+    - rm -rf ../public/html/*
     - mv _build/html ../public
   artifacts:
     name: "eta_utility-docs-$CI_COMMIT_REF_NAME"
@@ -149,6 +180,8 @@ pages:
     <<: *global_cache
     policy: pull
 
+# This can be used in case an FMU file has to be compiled on a linux system for the tests to work.
+# Usually it isn't needed though and therefore excluded with a 'never' rule.
 compile_fmu:
   stage: setup
   before_script:

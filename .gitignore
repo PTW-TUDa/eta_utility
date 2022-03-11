@@ -1,9 +1,10 @@
 *.xls
 *.csv
 *.json
-!*test_resources/*.json
-!*test_resources/*.csv
-!*test_resources/*.xls
+!*/test_resources/*.json
+!*/test_resources/etax/config/*.json
+!*/test_resources/*.csv
+!*/test_resources/*.xls
 !eneffco_sample_data.json
 
 # Development environment

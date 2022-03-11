@@ -1,28 +1,23 @@
+from __future__ import annotations
+
 import abc
 from datetime import timedelta
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Hashable,
-    Mapping,
-    Optional,
-    Sequence,
-    Set,
-    SupportsFloat,
-    Tuple,
-    Union,
-)
+from typing import TYPE_CHECKING, Hashable, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
 from pyomo import environ as pyo
 from pyomo.core import base as pyo_base
-from pyomo.opt import SolverResults
 
 from eta_utility.eta_x.envs import BaseEnv
 from eta_utility.eta_x.envs.base_env import log
-from eta_utility.type_hints import Path
+
+if TYPE_CHECKING:
+    from typing import Any, Callable, SupportsFloat
+
+    from pyomo.opt import SolverResults
+
+    from eta_utility.type_hints import Path
 
 
 class BaseEnvMPC(BaseEnv, abc.ABC):
@@ -32,9 +27,9 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         self,
         env_id: int,
         run_name: str,
-        general_settings: Dict[str, Any],
-        path_settings: Dict[str, Path],
-        env_settings: Dict[str, Any],
+        general_settings: dict[str, Any],
+        path_settings: dict[str, Path],
+        env_settings: dict[str, Any],
         verbose: int,
         callback: Callable = None,
     ) -> None:
@@ -90,12 +85,12 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         self.model_parameters = self.env_settings["model_parameters"]
 
         # Set additional attributes with model specific information.
-        self._concrete_model: Union[pyo.ConcreteModel, None] = None  #: Concrete pyomo model as initialized by _model.
+        self._concrete_model: pyo.ConcreteModel | None = None  #: Concrete pyomo model as initialized by _model.
 
         #: Name of the "time" variable/set in the model (i.e. "T"). This is if the pyomo sets must be re-indexed when
         #:   updating the model between time steps. If this is None, it is assumed that no reindexing of the timeseries
         #:   data is required during updates - this is the default.
-        self.time_var: Optional[str] = None
+        self.time_var: str | None = None
 
         #: Updating indexed model parameters can be achieved either by updating only the first value of the actual
         #:   parameter itself or by having a separate handover parameter that is used for specifying only the first
@@ -103,7 +98,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         #:   parameter is x.ON then the handover parameter could be x.ON_first. To use x.ON_first for updates, set the
         #:   nonindex_update_append_string to "_first". If the attribute is set to None, the first value of the
         #:   actual parameter (x.ON) would be updated instead.
-        self.nonindex_update_append_string: Optional[str] = None
+        self.nonindex_update_append_string: str | None = None
 
         #: Some models may not use the actual time increment (sampling_time). Instead they would translate into model
         #:   time increments (each sampling time increment equals a single model time step). This means that indices
@@ -114,7 +109,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         self._use_model_time_increments: bool = False
 
     @property
-    def model(self) -> Tuple[pyo.ConcreteModel, list]:
+    def model(self) -> tuple[pyo.ConcreteModel, list]:
         """The model property is a tuple of the concrete model and the order of the action space. This is used
         such that the MPC algorithm can re-sort the action output. This sorting cannot be conveyed differently through
         pyomo.
@@ -152,9 +147,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         """
         raise NotImplementedError("The abstract MPC environment does not implement a model.")
 
-    def step(
-        self, action: np.ndarray
-    ) -> Tuple[np.ndarray, Union[np.float, SupportsFloat], bool, Union[str, Sequence[str]]]:
+    def step(self, action: np.ndarray) -> tuple[np.ndarray, np.floating | SupportsFloat, bool, str | dict]:
         """Perfom one time step and return its results. This is called for every event or for every time step during
         the simulation/optimization run. It should utilize the actions as supplied by the agent to determine
         the new state of the environment. The method must return a four-tuple of observations, rewards, dones, info.
@@ -195,7 +188,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             info["terminal_observation"] = observations
         return observations, reward, done, info
 
-    def update(self, observations: Optional[Sequence[Sequence[Union[float, int]]]] = None) -> np.ndarray:
+    def update(self, observations: Sequence[Sequence[float | int]] | None = None) -> np.ndarray:
         """Update the optimization model with observations from another environment.
 
         :param observations: Observations from another environment
@@ -358,10 +351,10 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
 
     def pyo_component_params(
         self,
-        component_name: Union[None, str],
-        ts: Optional[Mapping[Any, Any]] = None,
-        index: Optional[Union[Sequence, pyo.Set]] = None,
-    ) -> Dict[None, Dict[str, Any]]:
+        component_name: None | str,
+        ts: Mapping[Any, Any] | None = None,
+        index: Sequence | pyo.Set | None = None,
+    ) -> dict[None, dict[str, Any]]:
         """Retrieve paramters for the named component and convert the parameters into the pyomo dict-format.
         If required, timeseries can be added to the parameters and timeseries may be reindexed. The
         pyo_convert_timeseries function is used for timeseries handling.
@@ -395,12 +388,12 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
 
     @staticmethod
     def pyo_convert_timeseries(
-        ts: Union[pd.DataFrame, pd.Series, Dict[str, Dict], Sequence],
-        index: Optional[Union[pd.Index, Sequence, pyo.Set]] = None,
-        component_name: Optional[str] = None,
+        ts: pd.DataFrame | pd.Series | dict[str, dict] | Sequence,
+        index: pd.Index | Sequence | pyo.Set | None = None,
+        component_name: str | None = None,
         *,
         _add_wrapping_none: bool = True,
-    ) -> Union[Dict[None, Dict[str, Any]], Dict[str, Any]]:
+    ) -> dict[None, dict[str, Any]] | dict[str, Any]:
         """Convert a time series data into a pyomo format. Data will be reindexed if a new index is provided.
 
         :param ts: Timeseries to convert
@@ -421,7 +414,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             ts.update(ts[None])
             del ts[None]
 
-        def convert_index(_ts: pd.Series, _index: Sequence[int]) -> Dict[int, Any]:
+        def convert_index(_ts: pd.Series, _index: Sequence[int]) -> dict[int, Any]:
             """Take the timeseries and change the index to correspond to _index.
 
             :param _ts: Original timeseries object (with or without index does not matter)
@@ -479,7 +472,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
     def pyo_update_params(
         self,
         updated_params: Mapping[str, Any],
-        nonindex_param_append_string: Optional[str] = None,
+        nonindex_param_append_string: str | None = None,
     ) -> pyo.ConcreteModel:
         """Updates model parameters and indexed parameters of a pyomo instance with values given in a dictionary.
         It assumes that the dictionary supplied in updated_params has the correct pyomo format.
@@ -519,9 +512,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
 
         log.info("Pyomo model parameters updated.")
 
-    def pyo_get_solution(
-        self, names: Optional[Set[str]] = None
-    ) -> Dict[str, Union[float, int, Dict[int, Union[float, int]]]]:
+    def pyo_get_solution(self, names: set[str] | None = None) -> dict[str, float | int | dict[int, float | int]]:
         """Convert the pyomo solution into a more useable format for plotting.
 
         :param names: Names of the model parameters that are returned
