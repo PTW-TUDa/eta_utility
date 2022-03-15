@@ -143,7 +143,7 @@ class EnEffCoConnection(BaseSeriesConnection):
         :return upload_data: String from dictionary in the format for the upload to EnEffCo
         """
 
-        if isinstance(data, Mapping) or isinstance(data, pd.Series):
+        if isinstance(data, dict) or isinstance(data, pd.Series):
             upload_data: dict[str, list[Any]] = {"Values": []}
             for time, val in data.items():
                 # Only write values if they are not nan
