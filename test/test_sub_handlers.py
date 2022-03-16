@@ -24,9 +24,15 @@ sample_series_nan = pd.Series(
 
 
 class TestCSVSubHandler:
+    @pytest.fixture()
+    def output_file(self):
+        file = pathlib.Path(Config.CSV_OUTPUT_FILE)
+        yield file
+        file.unlink()
+
     async def push_values(self, handler: CsvSubHandler):
-        test_node = Node(name="FirstNode", url="", protocol="rest", rest_endpoint="")
-        test_node2 = Node(name="SecondNode", url="", protocol="rest", rest_endpoint="")
+        test_node = Node(name="FirstNode", url="", protocol="local")
+        test_node2 = Node(name="SecondNode", url="", protocol="local")
 
         try:
             for num in range(6):
@@ -41,13 +47,8 @@ class TestCSVSubHandler:
             except AttributeError:
                 pass
 
-    def test_push_timeseries_to_csv(self):
-        try:
-            pathlib.Path(Config.CSV_OUTPUT_FILE).unlink()
-        except FileNotFoundError:
-            pass
-
-        handler = CsvSubHandler(Config.CSV_OUTPUT_FILE, 0.5)
+    def test_push_timeseries_to_csv(self, output_file):
+        handler = CsvSubHandler(output_file, 0.5)
 
         executor = ThreadPoolExecutor(max_workers=3)
         loop = asyncio.get_event_loop()
@@ -55,7 +56,7 @@ class TestCSVSubHandler:
         loop.run_until_complete(self.push_values(handler))
         executor.shutdown()
 
-        with pathlib.Path(Config.CSV_OUTPUT_FILE).open("r") as f:
+        with pathlib.Path(output_file).open("r") as f:
             df = pd.read_csv(f)
             df = df.set_index("Timestamp")
             df_check = pd.DataFrame(

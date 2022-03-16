@@ -1,62 +1,93 @@
 from __future__ import annotations
 
 import abc
-from datetime import timedelta
-from typing import TYPE_CHECKING, Hashable, Mapping, Sequence
+from datetime import datetime, timedelta
+from typing import TYPE_CHECKING, Mapping, MutableMapping, Sequence
 
 import numpy as np
 import pandas as pd
 from pyomo import environ as pyo
 from pyomo.core import base as pyo_base
 
+from eta_utility import get_logger
 from eta_utility.eta_x.envs import BaseEnv
-from eta_utility.eta_x.envs.base_env import log
+from eta_utility.eta_x.envs.state import StateConfig, StateVar
 
 if TYPE_CHECKING:
-    from typing import Any, Callable, SupportsFloat
+    from typing import Any, Callable
 
     from pyomo.opt import SolverResults
 
-    from eta_utility.type_hints import Path
+    from eta_utility.eta_x import ConfigOptRun
+    from eta_utility.type_hints import PyoParams, StepResult, TimeStep
+
+
+log = get_logger("eta_x.envs")
 
 
 class BaseEnvMPC(BaseEnv, abc.ABC):
-    """Base class for MPC models"""
+    """Base class for mathematical MPC models. This class can be used in conjunction with the MPCBasic agent.
+    You need to implement the *_model* method in a subclass and return a *pyomo.AbstractModel* from it.
+
+    :param env_id: Identification for the environment, usefull when creating multiple environments
+    :param config_run: Configuration of the optimization run
+    :param seed: Random seed to use for generating random numbers in this environment
+        (default: None / create random seed)
+    :param verbose: Verbosity to use for logging (default: 2)
+    :param callback: callback which should be called after each episode
+    :param scenario_time_begin: Beginning time of the scenario
+    :param scenario_time_end: Ending time of the scenario
+    :param episode_duration: Duration of the episode in seconds
+    :param sampling_time: Duration of a single time sample / time step in seconds
+    :param model_parameters: Parameters for the mathematical model
+    :param prediction_scope: Duration of the prediction (usually a subsample of the episode duration)
+    :param kwargs: Other keyword arguments (for subclasses)
+    """
 
     def __init__(
         self,
         env_id: int,
-        run_name: str,
-        general_settings: dict[str, Any],
-        path_settings: dict[str, Path],
-        env_settings: dict[str, Any],
-        verbose: int,
-        callback: Callable = None,
+        config_run: ConfigOptRun,
+        seed: int | None = None,
+        verbose: int = 2,
+        callback: Callable | None = None,
+        *,
+        scenario_time_begin: datetime | str,
+        scenario_time_end: datetime | str,
+        episode_duration: TimeStep | str,
+        sampling_time: TimeStep | str,
+        model_parameters: Mapping[str, Any],
+        prediction_scope: TimeStep | str | None = None,
+        **kwargs: Any,
     ) -> None:
-        self.req_env_settings = set(self.req_env_settings)
-        self.req_env_settings.update(("model_parameters",))  # noqa
-        self.req_env_config.update(
-            {
-                "discretize_state_space": False,
-                "discretize_action_space": False,
-                "normalize_state_space": False,
-                "normalize_reward": False,
-                "reward_shaping": False,
-            }
-        )
+
         super().__init__(
             env_id,
-            run_name,
-            general_settings,
-            path_settings,
-            env_settings,
+            config_run,
+            seed,
             verbose,
             callback,
+            scenario_time_begin=scenario_time_begin,
+            scenario_time_end=scenario_time_end,
+            episode_duration=episode_duration,
+            sampling_time=sampling_time,
         )
 
         # Check configuration for MILP compatibility
+        #: Total duration of one prediction/optimization run when used with the MPC agent.
+        #: This is automatically set to the value of episode_duration if it is not supplied
+        #: separately
+        self.prediction_scope: float
+        if prediction_scope is None:
+            log.info("prediction_scope parameter is not present. Setting prediction_scope to episode_duration.")
+            self.prediction_scope = self.episode_duration
+        else:
+            self.prediction_scope = float(
+                prediction_scope if not isinstance(prediction_scope, timedelta) else prediction_scope.total_seconds()
+            )
+
         errors = False
-        if self.settings["prediction_scope"] % self.settings["sampling_time"] != 0:
+        if self.prediction_scope % self.sampling_time != 0:
             log.error(
                 "The sampling_time must fit evenly into the prediction_scope "
                 "(prediction_scope % sampling_time must equal 0."
@@ -69,20 +100,13 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             )
 
         # Make some more settings easily accessible
-        #: Total duration of one prediction/optimization run when used with the MPC agent.
-        #:   This is automatically set to the value of episode_duration if it is not supplied
-        #:   separately
-        self.prediction_scope: int
-        if "prediction_scope" not in self.settings:
-            log.info("prediction_scope parameter is not present. Setting prediction_scope to episode_duration.")
-        self.prediction_scope = int(self.settings.setdefault("prediction_scope", self.episode_duration))
-        self.n_prediction_steps: int  #: Number of steps in the prediction (prediction_scope/sampling_time)
-        self.n_prediction_steps = self.settings["prediction_scope"] // self.sampling_time
+        #: Number of steps in the prediction (prediction_scope/sampling_time)
+        self.n_prediction_steps: int = int(self.prediction_scope // self.sampling_time)
         #: Duration of the scenario for each episode (for total time imported from csv)
-        self.scenario_duration: int = self.episode_duration + self.prediction_scope
+        self.scenario_duration: float = self.episode_duration + self.prediction_scope
 
-        self.model_parameters: dict  #: Configuration for the MILP model parameters
-        self.model_parameters = self.env_settings["model_parameters"]
+        #: Configuration for the MILP model parameters
+        self.model_parameters = model_parameters
 
         # Set additional attributes with model specific information.
         self._concrete_model: pyo.ConcreteModel | None = None  #: Concrete pyomo model as initialized by _model.
@@ -119,14 +143,15 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         if self._concrete_model is None:
             self._concrete_model = self._model()
 
-        if self.names["actions"] is None:
-            self.names["actions"] = [
-                com.name
-                for com in self._concrete_model.component_objects(pyo.Var)
-                if not isinstance(com, pyo.SimpleVar)
-            ]
+        if self.state_config is None:
+            _vars = []
+            for com in self._concrete_model.component_objects(pyo.Var):
+                if not isinstance(com, pyo.SimpleVar):
+                    _vars.append(StateVar(com.name, is_agent_action=True))
 
-        return self._concrete_model, self.names["actions"]
+            self.state_config = StateConfig(*_vars)
+
+        return self._concrete_model, self.state_config.actions
 
     @model.setter
     def model(self, value: pyo.ConcreteModel) -> None:
@@ -147,7 +172,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         """
         raise NotImplementedError("The abstract MPC environment does not implement a model.")
 
-    def step(self, action: np.ndarray) -> tuple[np.ndarray, np.floating | SupportsFloat, bool, str | dict]:
+    def step(self, action: np.ndarray) -> StepResult:
         """Perfom one time step and return its results. This is called for every event or for every time step during
         the simulation/optimization run. It should utilize the actions as supplied by the agent to determine
         the new state of the environment. The method must return a four-tuple of observations, rewards, dones, info.
@@ -170,13 +195,20 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         if not self.action_space.contains(action):
             raise RuntimeError(f"Action {action} ({type(action)}) is invalid. Not in action space.")
 
+        assert self.state_config is not None, "Set state_config before calling step function."
+        assert self._concrete_model is not None, (
+            "Access the 'model' attribute or call reset at least once before "
+            "trying to use the environment. This initializes the model and "
+            "should be done automatically when using the MPCBasic Algorithm."
+        )
+
         observations = self.update()
 
         # update and log current state
         self.state = {}
-        for idx, act in enumerate(self.names["actions"]):
+        for idx, act in enumerate(self.state_config.actions):
             self.state[act] = action[idx]
-        for idx, obs in enumerate(self.names["observations"]):
+        for idx, obs in enumerate(self.state_config.observations):
             self.state[obs] = observations[idx]
         self.state_log.append(self.state)
 
@@ -194,13 +226,20 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         :param observations: Observations from another environment
         :return: Full array of current observations
         """
+        assert self.state_config is not None, "Set state_config before calling update function."
+        assert self._concrete_model is not None, (
+            "Access the 'model' attribute or call reset at least once before "
+            "trying to use the environment. This initializes the model and "
+            "should be done automatically when using the MPCBasic Algorithm."
+        )
+
         # update shift counter for rolling MPC approach
         self.n_steps += 1
 
         # The timeseries data must be updated for the next time step. The index depends on whether time itself is being
         # shifted. If time is being shifted, the respective variable should be set as "time_var".
-        step = 1 if self._use_model_time_increments else self.sampling_time
-        duration = (
+        step = int(1 if self._use_model_time_increments else self.sampling_time)
+        duration = int(
             self.prediction_scope // self.sampling_time + 1
             if self._use_model_time_increments
             else self.prediction_scope
@@ -215,9 +254,8 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             )
             ts_current[self.time_var] = list(index)
             log.debug(
-                "Updated time_var ({}) with the set from {} to {} and steps (sampling time) {}.".format(
-                    self.time_var, index[0], index[1], self.sampling_time
-                )
+                f"Updated time_var ({self.time_var}) with the set from {index[0]} to "
+                f"{index[1]} and steps (sampling time) {self.sampling_time}."
             )
         else:
             index = range(0, duration, step)
@@ -246,14 +284,15 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
 
         updated_params = ts_current
         return_obs = []  # Array for all current observations
-        for var_name in self.names["observations"]:
-            settings = self.state_config.loc[var_name]
+        for var_name in self.state_config.observations:
+            settings = self.state_config.vars[var_name]
+            assert type(settings.ext_id) is int, "The ext_id value for observations must be an integer."
             value = None
 
             # Read values from external environment (for example simulation)
-            if observations is not None and settings["is_ext_output"] is True:
+            if observations is not None and settings.is_ext_output is True:
                 value = round(
-                    (observations[0][settings["ext_id"]] + settings["ext_scale_add"]) * settings["ext_scale_mult"],
+                    (observations[0][settings.ext_id] + settings.ext_scale_add) * settings.ext_scale_mult,
                     5,
                 )
                 return_obs.append(value)
@@ -262,8 +301,8 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
                 for component in self._concrete_model.component_objects():
                     if component.name == var_name:
                         # Get value for the component from specified index
-                        value = round(pyo.value(component[list(component.keys())[int(settings["index"])]]), 5)
-                        return_obs.append(value)
+                        value = round(pyo.value(component[list(component.keys())[int(settings.index)]]), 5)
+                        return_obs.append(value if value is not None else np.nan)
                         break
                 else:
                     log.error(f"Specified observation value {var_name} could not be found")
@@ -299,6 +338,8 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
 
         :return: Initial observation
         """
+        assert self.state_config is not None, "Set state_config before calling update function."
+
         if self.n_steps > 0:
             if self.callback is not None:
                 self.callback(self)
@@ -313,10 +354,12 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             self.state_log = []
             self._concrete_model = self._model()
 
+        assert self._concrete_model is not None, "Mathematical model is not initialized. Call reset another time."
+
         # Initialize state with the initial observation
         self.state = {}
         observations = []
-        for var_name in self.names["observations"]:
+        for var_name in self.state_config.observations:
             for component in self._concrete_model.component_objects():
                 if component.name == var_name:
                     if hasattr(component, "__getitem__") and (
@@ -333,7 +376,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             self.state[var_name] = observations[-1]
 
         # Initialize state with zero actions
-        for act in self.names["actions"]:
+        for act in self.state_config.actions:
             self.state[act] = 0
         self.state_log.append(self.state)
 
@@ -352,9 +395,9 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
     def pyo_component_params(
         self,
         component_name: None | str,
-        ts: Mapping[Any, Any] | None = None,
-        index: Sequence | pyo.Set | None = None,
-    ) -> dict[None, dict[str, Any]]:
+        ts: pd.DataFrame | pd.Series | dict[str, dict] | Sequence | None = None,
+        index: pd.Index | Sequence | pyo.Set | None = None,
+    ) -> PyoParams:
         """Retrieve paramters for the named component and convert the parameters into the pyomo dict-format.
         If required, timeseries can be added to the parameters and timeseries may be reindexed. The
         pyo_convert_timeseries function is used for timeseries handling.
@@ -364,7 +407,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         :param component_name: Name of the component
         :param ts: Timeseries for the component
         :param index: New index for timeseries data. If this is supplied, all timeseries will be copied and
-                              reindexed.
+                      reindexed.
         :return: Pyomo parameter dictionary
         """
         if component_name is None:
@@ -375,8 +418,9 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             params = {}
             log.warning(f"No parameters specified for requested component {component_name}")
 
+        out: PyoParams
         out = {
-            param: {None: float(value) if isinstance(value, Hashable) and value in {"inf", "-inf"} else value}
+            param: {None: float(value) if isinstance(value, str) and value in {"inf", "-inf"} else value}
             for param, value in params.items()
         }
 
@@ -388,12 +432,12 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
 
     @staticmethod
     def pyo_convert_timeseries(
-        ts: pd.DataFrame | pd.Series | dict[str, dict] | Sequence,
+        ts: pd.DataFrame | pd.Series | dict[str | None, dict[str, Any] | Any] | Sequence,
         index: pd.Index | Sequence | pyo.Set | None = None,
         component_name: str | None = None,
         *,
         _add_wrapping_none: bool = True,
-    ) -> dict[None, dict[str, Any]] | dict[str, Any]:
+    ) -> PyoParams:
         """Convert a time series data into a pyomo format. Data will be reindexed if a new index is provided.
 
         :param ts: Timeseries to convert
@@ -404,40 +448,43 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         :param _add_wrapping_none: default is True
         :return: pyomo parameter dictionary
         """
-        output = {}
+        output: PyoParams = {}
         if index is not None:
             index = list(index) if type(index) is not list else index
 
+        _ts: pd.DataFrame | pd.Series | dict[str, Any] | Sequence
         # If part of the timeseries was converted before, make sure that everything is on the same level again.
-        if None in ts and isinstance(ts[None], Mapping):
-            ts = ts.copy()
-            ts.update(ts[None])
-            del ts[None]
+        if isinstance(ts, dict) and None in ts and isinstance(ts[None], Mapping):
+            _ts = {}
+            _ts.update(ts[None])
 
-        def convert_index(_ts: pd.Series, _index: Sequence[int]) -> dict[int, Any]:
+        else:
+            _ts = ts
+
+        def convert_index(cts: pd.Series | Sequence | Mapping, _index: Sequence[int] | None) -> dict[int, Any]:
             """Take the timeseries and change the index to correspond to _index.
 
-            :param _ts: Original timeseries object (with or without index does not matter)
+            :param cts: Original timeseries object (with or without index does not matter)
             :param _index: New index
             :return: New timeseries dictionary with the converted index.
             """
             values = None
-            if isinstance(_ts, pd.Series):
-                values = _ts.values
-            elif isinstance(_ts, Mapping):
-                values = ts.values()  # noqa
-            elif isinstance(_ts, Sequence):
-                values = _ts
+            if isinstance(cts, pd.Series):
+                values = cts.values
+            elif isinstance(cts, Sequence):
+                values = cts
+            elif isinstance(cts, Mapping):
+                values = cts.values()
 
             if _index is not None and values is not None:
-                _ts = dict(zip(_index, values))
+                cts = dict(zip(_index, values))
             elif _index is not None and values is None:
                 raise ValueError("Unsupported timeseries type for index conversion.")
 
-            return _ts
+            return cts
 
-        if isinstance(ts, pd.DataFrame) or isinstance(ts, Mapping):
-            for key, t in ts.items():
+        if isinstance(_ts, pd.DataFrame) or isinstance(_ts, Mapping):
+            for key, t in _ts.items():
                 # Determine whether the timeseries should be returned, based on the timeseries name and the requested
                 #  component name.
                 if component_name is not None and "." in key and component_name in key.split("."):
@@ -451,29 +498,29 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
                 else:
                     output[key] = convert_index(t, index)
 
-        elif isinstance(ts, pd.Series):
+        elif isinstance(_ts, pd.Series):
             # Determine whether the timeseries should be returned, based on the timeseries name and the requested
             #  component name.
             if (
                 component_name is not None
-                and type(ts.name) is str
-                and "." in ts.name
-                and component_name in ts.name.split(".")
+                and type(_ts.name) is str
+                and "." in _ts.name
+                and component_name in _ts.name.split(".")
             ):  # noqa
-                output[ts.name.split(".")[-1]] = convert_index(ts, index)  # noqa
-            elif component_name is None or "." not in ts.name:
-                output[ts.name] = convert_index(ts, index)
+                output[_ts.name.split(".")[-1]] = convert_index(_ts, index)  # noqa
+            elif component_name is None or "." not in _ts.name:
+                output[_ts.name] = convert_index(_ts, index)
 
         else:
-            output[None] = convert_index(ts, index)
+            output[None] = convert_index(_ts, index)
 
         return {None: output} if _add_wrapping_none else output
 
     def pyo_update_params(
         self,
-        updated_params: Mapping[str, Any],
+        updated_params: MutableMapping[str | None, Any],
         nonindex_param_append_string: str | None = None,
-    ) -> pyo.ConcreteModel:
+    ) -> None:
         """Updates model parameters and indexed parameters of a pyomo instance with values given in a dictionary.
         It assumes that the dictionary supplied in updated_params has the correct pyomo format.
 
@@ -483,6 +530,12 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
                                                   not have an index.
         :return: Updated model instance
         """
+        assert self._concrete_model is not None, (
+            "Access the 'model' attribute or call reset at least once before "
+            "trying to use the environment. This initializes the model and "
+            "should be done automatically when using the MPCBasic Algorithm."
+        )
+
         # append string to non indexed values that are used to set indexed parameters.
         if nonindex_param_append_string is not None:
             original_indices = set(updated_params.keys()).copy()
@@ -519,7 +572,11 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         :return: Dictionary of {parameter name: value} pairs. Value may be a dictionary of {time: value} pairs which
                  contains one value for each optimization time step
         """
-
+        assert self._concrete_model is not None, (
+            "Access the 'model' attribute or call reset at least once before "
+            "trying to use the environment. This initializes the model and "
+            "should be done automatically when using the MPCBasic Algorithm."
+        )
         solution = {}
 
         for com in self._concrete_model.component_objects():

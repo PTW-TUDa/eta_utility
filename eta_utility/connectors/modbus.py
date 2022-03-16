@@ -56,9 +56,11 @@ class ModbusConnection(BaseConnection):
         :param kwargs: Other arguments are ignored.
         :return: ModbusConnection object
         """
+        usr = node.usr if node.usr is not None else kwargs.get("usr", None)
+        pwd = node.pwd if node.pwd is not None else kwargs.get("pwd", None)
 
         if node.protocol == "modbus" and isinstance(node, NodeModbus):
-            return cls(node.url, nodes=[node])
+            return cls(node.url, usr, pwd, nodes=[node])
 
         else:
             raise ValueError(

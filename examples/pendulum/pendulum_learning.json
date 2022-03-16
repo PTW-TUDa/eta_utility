@@ -1,0 +1,54 @@
+{
+    "setup": {
+        "environment_package": "examples.pendulum.pendulum",
+        "environment_class": "PendulumEnv",
+        "agent_package": "stable_baselines3.ppo",
+        "agent_class": "PPO",
+        "vectorizer_package": "stable_baselines3.common.vec_env",
+        "vectorizer_class": "SubprocVecEnv",
+        "policy_package": "stable_baselines3.ppo",
+        "policy_class": "MlpPolicy",
+        "tensorboard_log": true,
+        "monitor_wrapper": true,
+        "norm_wrapper_obs": true,
+        "norm_wrapper_reward": true,
+        "norm_wrapper_clip_obs": 10.0
+    },
+    "paths": {
+        "relpath_results": "results/"
+    },
+    "settings": {
+        "sampling_time": 0.05,
+        "episode_duration": 15,
+        "save_model_every_x_episodes": 100,
+        "n_episodes_learn": 1000,
+        "n_episodes_play": 5,
+        "n_environments": 1
+    },
+    "environment_specific": {
+        "scenario_time_begin": "2022-01-04 12:12",
+        "scenario_time_end": "2022-01-04 12:13",
+        "seed": 321,
+        "max_speed": 8,
+        "max_torque": 2.0,
+        "g": 10,
+        "mass": 1,
+        "length": 1
+    },
+    "agent_specific": {
+        "gamma": 0.99,
+        "n_steps": 256,
+        "ent_coef": 0.01,
+        "learning_rate": 0.00020,
+        "vf_coef": 0.5,
+        "max_grad_norm": 0.5,
+        "gae_lambda": 0.95,
+        "batch_size": 4,
+        "n_epochs": 4,
+        "clip_range": 0.2,
+        "policy_kwargs": {
+            "net_arch": [500, 400, 300]
+        }
+    }
+
+}

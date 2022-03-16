@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from eta_utility.connectors.base_classes import BaseConnection
     from eta_utility.type_hints import AnyNode, Path, TimeStep
 
-log = get_logger("live_connect")
+log = get_logger("connectors.live")
 
 
 class LiveConnect(AbstractContextManager):
@@ -91,7 +91,7 @@ class LiveConnect(AbstractContextManager):
     the from_json function.
 
     .. warning ::
-        Always call the close function after your are done using the connection! This is required even if no nodes
+        Always call the close function after you are done using the connection! This is required even if no nodes
         must be written to reset the system since the connection itself must be closed. Therefore, this class should
         only be called within a try-finally clause. Alternatively the class can be used as a context manager in a with
         statement

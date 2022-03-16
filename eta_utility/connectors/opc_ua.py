@@ -67,8 +67,8 @@ class OpcUaConnection(BaseConnection):
         :param kwargs: Other arguments are ignored
         :return: OpcUaConnection object
         """
-        usr = None if "usr" not in kwargs else kwargs["usr"]
-        pwd = None if "pwd" not in kwargs else kwargs["pwd"]
+        usr = node.usr if node.usr is not None else kwargs.get("usr", None)
+        pwd = node.pwd if node.pwd is not None else kwargs.get("pwd", None)
 
         if node.protocol == "opcua" and isinstance(node, NodeOpcUa):
             return cls(node.url, usr=usr, pwd=pwd, nodes=[node])
@@ -96,9 +96,8 @@ class OpcUaConnection(BaseConnection):
         :param pwd: Password in OPC UA for login
         :return: OpcUaConnection object
         """
-
-        nodes = [Node(name=opc_id, url=url, protocol="opcua", opc_id=opc_id) for opc_id in ids]
-        return cls(url=url, usr=usr, pwd=pwd, nodes=nodes)
+        nodes = [Node(name=opc_id, usr=usr, pwd=pwd, url=url, protocol="opcua", opc_id=opc_id) for opc_id in ids]
+        return cls.from_node(nodes[0])
 
     def read(self, nodes: Nodes | None = None) -> pd.DataFrame:
         """

@@ -1,16 +1,19 @@
 from __future__ import annotations
 
+import copy
 import csv
 import json
 import logging
 import pathlib
 import re
 import sys
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Mapping, Sequence
 from urllib.parse import urlparse, urlunparse
 
+import pandas as pd
+
 if TYPE_CHECKING:
-    from typing import Any, Collection
+    from typing import Any
     from urllib.parse import ParseResult
 
     from .type_hints import Path
@@ -59,7 +62,7 @@ def get_logger(
     return log
 
 
-log = get_logger("util", 2)
+log = get_logger("util")
 
 
 def json_import(path: Path) -> dict[str, Any]:
@@ -107,53 +110,122 @@ def url_parse(url: str) -> tuple[ParseResult, str | None, str | None]:
     return _url, usr, pwd
 
 
-def csv_export_from_list(
-    path: str | pathlib.Path,
-    name: str,
-    data: list[Any],
-    fields: Collection[str],
+def dict_get_any(dikt: dict[str, Any], *names: str, fail: bool = True, default: Any = None) -> Any:
+    """Get any of the specified items from dictionary, if any are available. The function will return
+    the first value it finds, even if there are multiple matches.
+
+    :param dikt: Dictionary to get values from
+    :param names: Item names to look for
+    :param fail: Flag to determine, if the function should fail with a KeyError, if none of the items are found.
+                 If this is False, the function will return the value specified by 'default'. (default: True)
+    :param default: Value to return, if none of the items are found and 'fail' is False. (default: None)
+    :return: Value from dictionary
+    :raise: KeyError, if none of the requested items are available and fail is True
+    """
+    for name in names:
+        if name in dikt:
+            # Return first value found in dictionary
+            return dikt[name]
+
+    if fail is True:
+        raise KeyError(f"Did not find one of the required keys in the configuration: {names}")
+    else:
+        return default
+
+
+def dict_pop_any(dikt: dict[str, Any], *names: str, fail: bool = True, default: Any = None) -> Any:
+    """Pop any of the specified items from dictionary, if any are available. The function will return
+    the first value it finds, even if there are multiple matches. This function removes the found values from the
+    dictionary!
+
+    :param dikt: Dictionary to pop values from
+    :param names: Item names to look for
+    :param fail: Flag to determine, if the function should fail with a KeyError, if none of the items are found.
+                 If this is False, the function will return the value specified by 'default'. (default: True)
+    :param default: Value to return, if none of the items are found and 'fail' is False. (default: None)
+    :return: Value from dictionary
+    :raise: KeyError, if none of the requested items are available and fail is True
+    """
+    for name in names:
+        if name in dikt:
+            # Return first value found in dictionary
+            return dikt.pop(name)
+
+    if fail is True:
+        raise KeyError(f"Did not find one of the required keys in the configuration: {names}")
+    else:
+        return default
+
+
+def deep_mapping_update(
+    source: Mapping[str, str | Mapping[str, Any]], overrides: Mapping[str, str | Mapping[str, Any]]
+) -> dict[str, str | Mapping[str, Any]]:
+    """Perform a deep update of a nested dictionary or similar mapping.
+
+    :param source: Original mapping to be updated
+    :param overrides: Mapping with new values to integrate into the new mapping
+    :return: New Mapping with values from the source and overrides combined
+    """
+    output = dict(copy.deepcopy(source))
+    for key, value in overrides.items():
+        if isinstance(value, Mapping):
+            output[key] = deep_mapping_update(dict(source).get(key, {}), value)  # type: ignore
+        else:
+            output[key] = value
+    return output
+
+
+def csv_export(
+    path: Path,
+    data: Mapping[str, Any] | Sequence[Mapping[str, Any] | Any] | pd.DataFrame,
+    names: Sequence[str] | None = None,
+    *,
+    sep: str = ";",
+    decimal: str = ".",
 ) -> None:
+    """Export data to CSV file.
+
+    :param path: Directory path to export data
+    :param data: Data to be saved
+    :param names: Field names used when data is a Matrix without column names
+    :param sep: Separator to use between the fields
+    :param decimal: Sign to use for decimal points
     """
-    Export csv data from list.
+    _path = path if isinstance(path, pathlib.Path) else pathlib.Path(path)
+    if _path.suffix != ".csv":
+        _path.with_suffix(".csv")
 
-    :param path: directory path to export data
-    :param name: name of the file (with or without preffix)
-    :param data: data to be saved
-    :param fields: names of the data columns
+    if isinstance(data, Mapping):
+        exists = True if _path.exists() else False
+
+        with _path.open("a") as f:
+            writer = csv.DictWriter(f, fieldnames=data.keys(), delimiter=sep)
+            if not exists:
+                writer.writeheader()
+
+            writer.writerow({key: replace_decimal_str(val, decimal) for key, val in data.items()})
+
+    elif isinstance(data, pd.DataFrame):
+        data.to_csv(path_or_buf=str(_path), sep=sep, decimal=decimal)
+
+    elif isinstance(data, Sequence):
+        if names is not None:
+            cols = names
+        elif isinstance(data[0], Mapping):
+            cols = list(data[0].keys())
+        else:
+            raise ValueError("Column names for csv export not specified.")
+
+        _data = pd.DataFrame(data=data, columns=cols)
+        _data.to_csv(path_or_buf=str(_path), sep=sep, decimal=decimal)
+
+    log.info(f"Exported CSV data to {_path}.")
+
+
+def replace_decimal_str(value: str | float, decimal: str = ".") -> str:
+    """Replace the decimal sign in a string
+
+    :param value: The value to replace in
+    :param decimal: New decimal sign
     """
-    path = path if isinstance(path, pathlib.Path) else pathlib.Path(path)
-
-    if len(name.split(".")) <= 1:
-        name = name + ".csv"
-
-    full_path = path / name
-
-    with open(full_path, "a") as csv_file:
-        writer = csv.writer(csv_file)
-        writer.writerow(data)
-
-
-def csv_export_from_dict(path: str | pathlib.Path, name: str, data: dict[str, Any]) -> None:
-    """
-    Export csv data from list.
-
-    :param path: directory path to export data
-    :param name: name of the file (with or without preffix)
-    :param data: data to be saved
-    :param fields: names of the data columns
-    """
-
-    path = path if isinstance(path, pathlib.Path) else pathlib.Path(path)
-    fields = list(data.keys())
-
-    if len(name.split(".")) <= 1:
-        name = name + ".csv"
-
-    full_path = path / name
-    full_path_is_file = full_path.is_file()
-
-    with open(full_path, "a") as csv_file:
-        writer = csv.DictWriter(csv_file, fieldnames=fields)
-        if not full_path_is_file:
-            writer.writeheader()
-        writer.writerow(data)
+    return str(value).replace(".", decimal)

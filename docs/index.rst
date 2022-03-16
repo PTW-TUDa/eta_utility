@@ -1,21 +1,15 @@
-.. utility-functions
+.. _eta_utility:
 
-Documentation of the ETA Utility-Functions
-=============================================
-The utility functions are part of the "ETA Industrial Energy Lab" framework. The utilities provide
-some easy to use applications for different use cases.
 
-.. note::
-  Information for Students:
+.. include:: ../README.rst
 
-  Student work stations do not have direct access to machine controllers. If this is needed, please
-  discuss options with the research assistants. For example, there are servers accessible via remote
-  desktop that do provide access.
+Please read the development guide before starting development on *eta_utility*: :ref:`development`.
 
-If you want to have logging output from eta utility, call::
+ .. note::
+    Information for students at ETA-Factory: Student work stations do not have direct access
+    to the factory network. If you need access for your experiments please discuss options with
+    the research assistants.
 
-    from eta_utility import get_logger
-    get_logger()
 
 .. toctree::
     :maxdepth: 1
@@ -25,47 +19,36 @@ If you want to have logging output from eta utility, call::
     /guide/install
     /guide/faq
     /guide/development
-
-Connectors:
------------
-Connectors can be used for connections to servers using different protocols such as OPC UA and Modbus
-as well as EnEffCo. Connectors also provide functionality for writing data and for subscription handling.
-
-OPC UA and Modbus TCP/IP connectors for reading out:
-   - OPC UA & Modbus nodes from different data sources
-   - OPC UA nodes from single datapoint
-
-
-For recording OPC UA and Modbus data from different PLCs in parallel use subscriptions with a
-single handler.
+    /guide/python_install
+    /examples/examples
 
 .. toctree::
-   :maxdepth: 1
-   :hidden:
-   :caption: Connectors
+    :maxdepth: 1
+    :hidden:
+    :caption: ETA-X Optimization
 
-   /connectors/connectors
-   /connectors/live_connect
-   /connectors/modbus
-   /connectors/opcua
-   /connectors/eneffco
-   /connectors/rest
-
-Servers:
------------
-Server classes can be used to easily create servers. For example the OPC UA Server class enables
-the creation of an OPC UA server with simple variable access.
+    /eta_x/introduction
+    /eta_x/control_algorithms
+    /eta_x/envs
+    /eta_x/common_functions
+    /eta_x/sb3_extensions
 
 .. toctree::
-   :maxdepth: 1
-   :hidden:
-   :caption: Servers
+    :maxdepth: 1
+    :hidden:
+    :caption: Connectors
 
-   /servers/opcua
+    /connectors/introduction
+    /connectors/connectors
+    /connectors/live_connect
+    /connectors/sub_handlers
 
-Simulators:
---------------
-Simulators are used to provide utilities for the simulation of functional mockup units.
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+    :caption: Servers
+
+    /servers/opcua
 
 .. toctree::
     :maxdepth: 1
@@ -74,10 +57,6 @@ Simulators are used to provide utilities for the simulation of functional mockup
 
     /simulators/fmu
 
-Timeseries:
---------------
-Functions to load and easily manipulate timeseries and scenario data.
-
 .. toctree::
     :maxdepth: 1
     :hidden:
@@ -85,25 +64,6 @@ Functions to load and easily manipulate timeseries and scenario data.
 
     /timeseries/timeseries
 
-ETA-X:
----------------
-ETA-X provides an optimization framework, based on the OpenAI gym model.
-
-.. toctree::
-    :maxdepth: 1
-    :hidden:
-    :caption: ETA-X
-
-    /eta_x/eta_x
-    /eta_x/envs
-    /eta_x/agents
-    /eta_x/mpc_basic
-    /eta_x/nsga2
-    /eta_x/rule_based
-
-More Utilities
------------------------------
-Some additional utilities are provided by the util module.
 
 .. toctree::
     :maxdepth: 1
@@ -112,29 +72,16 @@ Some additional utilities are provided by the util module.
 
     /util/util
 
-Citing ETA utility-functions
-----------------------------
-To cite this project in publications:
+.. toctree::
+    :maxdepth: 2
+    :hidden:
+    :caption: API Documentation
 
-.. code-block:: bibtex
-
-    @misc{misc,
-      author = {ETA-Fabrik},
-      title = {ETA Utility functions},
-      year = {2020},
-      publisher = {GitLab},
-      howpublished = {\url{www.gitlab.com}},
-    }
-
-Contributing
-------------
-If you are interested to contribute any improvements or new functions, please contact
-the repositories maintainers. See README.md for further instructions!
+    /_stubs/api
 
 
 Indices and tables
 ==================
 
-* :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
