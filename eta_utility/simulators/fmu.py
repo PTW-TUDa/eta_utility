@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
     from eta_utility.type_hints import Number, Path, TimeStep
 
-log = get_logger("simulators.FMUSimulator")
+log = get_logger("simulators.fmu")
 
 
 class FMUSimulator:

@@ -10,7 +10,7 @@ from urllib.parse import ParseResult, urlparse, urlunparse
 import pandas as pd
 from attrs import converters, define, field, validators  # noqa: I900
 
-from eta_utility import get_logger, url_parse
+from eta_utility import dict_get_any, get_logger, url_parse
 
 if TYPE_CHECKING:
     from typing import Any, Callable, Sequence
@@ -84,38 +84,7 @@ class NodeMeta(type):
 
 
 class Node(metaclass=NodeMeta):
-    """The node objects represents a single variable. Valid keyword arguments depend on the protocol
-
-    The url may contain the username and password (schema://username:password@hostname:port/path). This is handled
-    automatically by the connectors.
-
-    :param name: Any name can be used to identify the node. It is used to identify the node, therefore it should
-                     be unique.
-    :param url: Valid url string according to the standard format. E.g.: opc.tcp://127.0.0.1:4840. The scheme must
-        be included (e.g.: https://).
-    :param protocol: Protocol to be used for connection (either opcua, eneffco or modbus)
-
-    :param mb_slave: (Required for Modbus) Modbus slave ID
-    :param mb_register: (Required for Modbus) Modbus register name
-    :param mb_channel: (Required for Modbus) Modbus Channel
-    :param mb_byteorder: (Required for Modbus) Byteorder eg. "little" or "big" endian.
-
-    :param opc_id: (Required for OPC UA) Full OPC node ID, i.e.:
-                        ns=6;s=.Heizung_Lueftung_Klima.System_Fussbodentemperierung_425.Pumpe_425.Zustand.Volumenstrom
-                        (This must be used without other OPC related parameters)
-    :param opc_path: (Alternative to opc_id for OPC UA) OPC UA node path as string or list (this correspondes to the
-                     s=... part in the opc_id).
-                     (This must be used in conjunction with the opc_ns parameter)
-    :param opc_ns: (Alternative to opc_id for OPC UA) OPC UA namespace identifier number
-                       (This must be used in conjunction with the opc_path parameter)
-
-    :param eneffco_code: (Required for EnEffCo) EnEffCo Code
-
-    :param rest_endpoint: (Required for REST) Endpoint of the node, e.g. '/Node1'
-
-    :param type dtype: Data type of the node. This may be needed in some specific cases, for example for the creation
-                       of nodes.
-    """
+    """The node objects represents a single variable. Valid keyword arguments depend on the protocol."""
 
     #: Name for the node
     name: str = field(converter=_strip_str, eq=True)
@@ -196,28 +165,6 @@ class Node(metaclass=NodeMeta):
         """
 
         nodes = []
-
-        def dict_get_any(dikt: dict[str, Any], *names: str, fail: bool = True, default: Any = None) -> Any:
-            """Get any of the specified items from dictionary, if any are available. The function will return
-            the first value it finds, even if there are multiple matches.
-
-            :param dikt: Dictionary to get values from
-            :param names: Item names to look for
-            :param fail: Flag to determine, if the function should fail with a KeyError, if none of the items are found.
-                         If this is False, the function will return the value specified by 'default'. (default: True)
-            :param default: Value to return, if none of the items are found and 'fail' is False. (default: None)
-            :return: Value from dictionary
-            :raise: KeyError, if none of the requested items are available and fail is True
-            """
-            for name in names:
-                if name in dikt:
-                    # Return first value found in dictionary
-                    return dikt[name]
-            else:
-                if fail is True:
-                    raise KeyError(f"Did not find one of the required keys in the configuration: {names}")
-                else:
-                    return default
 
         iter_ = [dikt] if isinstance(dikt, Mapping) else dikt
         for lnode in iter_:
@@ -326,6 +273,9 @@ class Node(metaclass=NodeMeta):
         """
         Utility function to retrieve Node objects from a list of EnEffCo Codes (Identifiers).
 
+        .. deprecated:: v2.0.0
+            Use the *from_ids* function of the EnEffCoConnection Class instead.
+
         :param code_list: List of EnEffCo identifiers to create nodes from
         :param eneffco_url: URL to the eneffco system
         :return: List of EnEffCo-nodes
@@ -337,6 +287,8 @@ class Node(metaclass=NodeMeta):
 
 
 class NodeLocal(Node, protocol="local"):
+    """Local Node (no specific protocol, useful for example to manually provide data to subscription handlers."""
+
     def __attrs_post_init__(self) -> None:
         """Ensure username and password are processed correctly."""
         super().__attrs_post_init__()
@@ -358,6 +310,8 @@ def _mb_byteorder_converter(value: str) -> str:
 
 
 class NodeModbus(Node, protocol="modbus"):
+    """Node for the Modbus protocol"""
+
     #: Modbus Slave ID
     mb_slave: int = field(kw_only=True)
     #: Modbus Register name (i.e. "Holding")
@@ -383,6 +337,8 @@ class NodeModbus(Node, protocol="modbus"):
 
 
 class NodeOpcUa(Node, protocol="opcua"):
+    """Node for the OPC UA protocol"""
+
     #: Node ID of the OPC UA Node
     opc_id: str | None = field(default=None, kw_only=True, converter=converters.optional(_strip_str))
     #: Path to the OPC UA node
@@ -455,6 +411,8 @@ class NodeOpcUa(Node, protocol="opcua"):
 
 
 class NodeEnEffCo(Node, protocol="eneffco"):
+    """Node for the EnEffCo API"""
+
     #: EnEffCo datapoint code / id
     eneffco_code: str = field(kw_only=True)
 
@@ -463,16 +421,10 @@ class NodeEnEffCo(Node, protocol="eneffco"):
         super().__attrs_post_init__()
 
 
-class NodeREST(Node, protocol="rest"):
-    #: REST endpoint
-    rest_endpoint: str = field(kw_only=True)
-
-    def __attrs_post_init__(self) -> None:
-        """Ensure username and password are processed correctly."""
-        super().__attrs_post_init__()
-
-
 class NodeEntsoE(Node, protocol="entsoe"):
+    """Node for the EntsoE API (see `ENTSO-E Transparency Platform API
+    <https://transparency.entsoe.eu/content/static_content/Static%20content/web%20api/Guide.html>`_)"""
+
     #: REST endpoint
     endpoint: str = field(kw_only=True)
     #: Bidding zone

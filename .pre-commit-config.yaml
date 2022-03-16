@@ -30,7 +30,7 @@ repos:
       - id: end-of-file-fixer
       - id: check-yaml
       - id: check-added-large-files
-        args: [ "--maxkb=1000" ]
+        args: [ "--maxkb=512" ]
   - repo: https://github.com/pycqa/flake8
     rev: 4.0.1
     hooks:
@@ -56,18 +56,10 @@ repos:
         exclude: |
           (?x)^(setup.py|
                 test/.+|
-                eta_utility/connectors/rest.py|
-                eta_utility/eta_x/agents/common/concurrent.py|
-                eta_utility/eta_x/agents/common/vec_env/multi_vec_env.py|
-                eta_utility/eta_x/agents/common/policies.py|
-                eta_utility/eta_x/agents/nsga2/nsga2.py|
-                eta_utility/eta_x/agents/rule_based/base_classes.py|
-                eta_utility/eta_x/agents/mpc_basic/mpc_basic.py|
-                eta_utility/eta_x/envs/base_env_mpc.py|
-                eta_utility/eta_x/envs/base_env_sim.py|
-                eta_utility/eta_x/eta_x.py
           )$
         additional_dependencies:
           - tokenize-rt==3.2.0
           - types-python-dateutil
           - types-requests
+          - attrs
+          - stable_baselines3
