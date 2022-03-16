@@ -23,7 +23,7 @@ project = "ETA Utility Functions"
 copyright = "ETA-Fabrik"
 
 # The full version, including alpha/beta/rc tags
-release = "01.09.2020"
+release = "v1.4b0"
 
 
 # -- General configuration ---------------------------------------------------

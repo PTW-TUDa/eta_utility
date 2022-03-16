@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import concurrent.futures
 import socket
 import struct
 from contextlib import contextmanager
@@ -80,11 +79,10 @@ class ModbusConnection(BaseConnection):
         values = {}
 
         with self._connection():
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                results = {node: executor.submit(self._read_mb_value, node) for node in _nodes}
+            results = {node: self._read_mb_value(node) for node in _nodes}
 
         for node, result in results.items():
-            value = self._decode(result.result(), node.mb_byteorder)
+            value = self._decode(result, node.mb_byteorder)
             values[node.name] = value
 
         return pd.DataFrame(values, index=[self._assert_tz_awareness(datetime.now())])
