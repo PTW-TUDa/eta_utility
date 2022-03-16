@@ -421,6 +421,15 @@ class NodeEnEffCo(Node, protocol="eneffco"):
         super().__attrs_post_init__()
 
 
+class NodeREST(Node, protocol="rest"):
+    #: REST endpoint
+    rest_endpoint: str = field(kw_only=True)
+
+    def __attrs_post_init__(self) -> None:
+        """Ensure username and password are processed correctly."""
+        super().__attrs_post_init__()
+
+
 class NodeEntsoE(Node, protocol="entsoe"):
     """Node for the EntsoE API (see `ENTSO-E Transparency Platform API
     <https://transparency.entsoe.eu/content/static_content/Static%20content/web%20api/Guide.html>`_)"""
