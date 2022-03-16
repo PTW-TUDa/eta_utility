@@ -1,5 +1,5 @@
 import asyncio
-import os
+import pathlib
 
 import pytest
 import requests
@@ -36,7 +36,8 @@ async def stop_execution(sleep_time):
 @pytest.fixture()
 def local_server():
     server = OpcUaServer(5, ip=ip, port=port)
-    return server
+    yield server
+    server.stop()
 
 
 @pytest.fixture()
@@ -45,28 +46,25 @@ def _mock_client(monkeypatch):
     monkeypatch.setattr(requests, "request", request)
 
 
+@pytest.fixture()
+def output_file():
+    file = pathlib.Path(Config.CSV_OUTPUT_FILE)
+    yield file
+    file.unlink()
+
+
 @pytest.mark.parametrize(
     ("excel_file", "excel_sheet", "eneffco_usr", "eneffco_pw"),
     [
         (EXCEL_NODES_FILE, EXCEL_NODES_SHEET, ENEFFCO_USER, ENEFFCO_PW),
     ],
 )
-def test_multi_connect(excel_file, excel_sheet, eneffco_usr, eneffco_pw, _mock_client, local_server):
-    try:
-        nodes = Node.from_excel(excel_file, excel_sheet)
-    except AttributeError:
-        raise ValueError("Missing Datatype information")
+def test_multi_connect(excel_file, excel_sheet, eneffco_usr, eneffco_pw, output_file, _mock_client, local_server):
+    nodes = Node.from_excel(excel_file, excel_sheet)
 
-    connections = connections_from_nodes(
-        nodes, eneffco_usr=eneffco_usr, eneffco_pw=eneffco_pw, eneffco_api_token=ENEFFCO_POSTMAN_TOKEN
-    )
+    connections = connections_from_nodes(nodes, eneffco_usr, eneffco_pw, eneffco_api_token=ENEFFCO_POSTMAN_TOKEN)
 
-    try:
-        os.remove(Config.CSV_OUTPUT_FILE)
-    except FileNotFoundError:
-        pass
-
-    subscription_handler = CsvSubHandler(Config.CSV_OUTPUT_FILE)
+    subscription_handler = CsvSubHandler(output_file)
     loop = asyncio.get_event_loop()
 
     try:
@@ -85,5 +83,3 @@ def test_multi_connect(excel_file, excel_sheet, eneffco_usr, eneffco_pw, _mock_c
             subscription_handler.close()
         except Exception:
             pass
-
-        local_server.stop()

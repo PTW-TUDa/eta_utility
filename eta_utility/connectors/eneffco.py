@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Mapping
 
 import numpy as np
@@ -55,27 +55,25 @@ class EnEffCoConnection(BaseSeriesConnection):
         """Initialize the connection object from an EnEffCo protocol node object
 
         :param node: Node to initialize from
-        :param usr: Username for EnEffCo login
+        :param usr: Username for EnEffCo login (default: None, uses usr from
         :param pwd: Password for EnEffCo login
         :param api_token: Token for API authentication
         :return: EnEffCoConnection object
         """
-
-        if "usr" not in kwargs:
-            raise AttributeError("Keyword parameter 'usr' is missing.")
-        usr = kwargs["usr"]
-
-        if "pwd" not in kwargs:
-            raise AttributeError("Keyword parameter 'pwd' is missing.")
-        pwd = kwargs["pwd"]
-
         if "api_token" not in kwargs:
             raise AttributeError("Keyword parameter 'api_token' is missing.")
         api_token = kwargs["api_token"]
 
+        usr = node.usr if node.usr is not None else kwargs.get("usr", None)
+        pwd = node.pwd if node.pwd is not None else kwargs.get("pwd", None)
+        if usr is None or pwd is None:
+            raise ValueError(
+                "The node used for instantiation does not contain a username or password. "
+                "Please provide 'usr' and 'pwd' keyword arguments."
+            )
+
         if node.protocol == "eneffco" and isinstance(node, NodeEnEffCo):
             return cls(node.url, usr, pwd, api_token=api_token, nodes=[node])
-
         else:
             raise ValueError(
                 "Tried to initialize EnEffCoConnection from a node that does not specify eneffco as its"
@@ -108,7 +106,9 @@ class EnEffCoConnection(BaseSeriesConnection):
         value = self.read_series(the_time - timedelta(seconds=base_time), the_time, nodes, base_time)
         return value
 
-    def write(self, values: Mapping[AnyNode, Any], time_interval: timedelta | None = None) -> None:
+    def write(
+        self, values: Mapping[AnyNode, Any] | pd.Series[datetime, Any], time_interval: timedelta | None = None
+    ) -> None:
         """Writes some values to the EnEffCo Database
 
         :param values: Dictionary of nodes and data to write. {node: value}
@@ -134,7 +134,9 @@ class EnEffCoConnection(BaseSeriesConnection):
             )
             log.info(response.text)
 
-    def _prepare_raw_data(self, data: Mapping[datetime, Any], time_interval: timedelta) -> str:
+    def _prepare_raw_data(
+        self, data: Mapping[datetime, Any] | pd.Series[datetime, Any], time_interval: timedelta
+    ) -> str:
         """Change the input format into a compatible format with EnEffCo and filter NaN values
 
         :param data: Data to write to node {time: value}. Could be a dictionary or a pandas Series.
@@ -148,8 +150,7 @@ class EnEffCoConnection(BaseSeriesConnection):
             for time, val in data.items():
                 # Only write values if they are not nan
                 if not np.isnan(val):
-                    time = self._assert_tz_awareness(time)
-                    time = pd.Timestamp(time).tz_convert("UTC")
+                    time = self._assert_tz_awareness(time).astimezone(timezone.utc)
                     upload_data["Values"].append(
                         {
                             "Value": float(val),
@@ -201,23 +202,6 @@ class EnEffCoConnection(BaseSeriesConnection):
         :param interval: interval between time steps. It is interpreted as seconds if given as integer.
         :param kwargs: Other parameters (ignored by this connector)
         :return: Pandas DataFrame containing the data read from the connection
-
-        **Example - Download some EnEffCo-codes**::
-
-            from eta_utility.connectors import Node, EnEffCoConnection
-            from datetime import datetime
-
-            nodes = Node.get_eneffco_nodes_from_codes(
-                ["Namespace1.Code1", "Namespace2.Code2"]
-            )
-            connection = EnEffCoConnection.from_node(
-                nodes[0], usr="username", pwd="pw", api_token="token"
-            )
-            from_time = datetime.fromisoformat("2019-01-01 00:00:00")
-            to_time = datetime.fromisoformat("2019-01-02 00:00:00")
-            data = connection.read_series(
-                from_time, to_time, nodes=nodes, interval=900
-            )
         """
         _interval = interval if isinstance(interval, timedelta) else timedelta(seconds=interval)
 

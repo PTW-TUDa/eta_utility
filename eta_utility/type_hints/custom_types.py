@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import datetime
 from os import PathLike
 from typing import Union

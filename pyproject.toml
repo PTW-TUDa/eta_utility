@@ -1,6 +1,8 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=45", "wheel", "setuptools_scm>=6.2"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
 
 [tool.black]
 include = "\\.pyi?$|^eta_utility/|^test/"
@@ -40,19 +42,8 @@ warn_unused_ignores = true
 warn_unreachable = true
 show_column_numbers = true
 
-# The excludes should be reduced when possible, currently these files do not follow all typing requirements
 exclude = [
     "^test/",
-    "^eta_utility/connectors/rest\\.py$",
-    "^eta_utility/eta_x/agents/common/concurrent\\.py$",
-    "^eta_utility/eta_x/agents/common/vec_env/multi_vec_env\\.py$",
-    "^eta_utility/eta_x/agents/common/policies\\.py$",
-    "^eta_utility/eta_x/agents/nsga2/nsga2\\.py$",
-    "^eta_utility/eta_x/agents/rule_based/base_classes\\.py$",
-    "^eta_utility/eta_x/agents/mpc_basic/mpc_basic\\.py$",
-    "^eta_utility/eta_x/envs/base_env_mpc\\.py$",
-    "^eta_utility/eta_x/envs/base_env_sim\\.py$",
-    "^eta_utility/eta_x/eta_x\\.py$",
 ]
 
 [[tool.mypy.overrides]]
@@ -65,31 +56,13 @@ module = [
     "pyModbusTCP.*",
     "fmpy.*",
     "numpy.*",
-    "nptyping.*",
     "mmh3.*",
+    "torch.*",
+    "stable_baselines3.*",
+    "pytest.*",
+    "importlib.*",
+    "importlib_metadata.*",
+    "pygame.*",
+    "keyboard.*",
 ]
 ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-# Overrides must be specified again to satisfy mypy when run with pre-commit
-module = [
-    "eta_utility.connectors.rest",
-    "eta_utility.eta_x.agents.common.concurrent",
-    "eta_utility.eta_x.agents.common.vec_env.multi_vec_env",
-    "eta_utility.eta_x.agents.common.policies",
-    "eta_utility.eta_x.agents.nsga2.nsga2",
-    "eta_utility.eta_x.agents.rule_based.base_classes",
-    "eta_utility.eta_x.agents.mpc_basic.mpc_basic",
-    "eta_utility.eta_x.envs.base_env_mpc",
-    "eta_utility.eta_x.envs.base_env_sim",
-    "eta_utility.eta_x.eta_x",
-]
-strict = false
-follow_imports = "skip"
-ignore_missing_imports = true
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
-disallow_untyped_calls = false
-disallow_untyped_globals = false
-no_implicit_optional = false
-warn_unreachable = false

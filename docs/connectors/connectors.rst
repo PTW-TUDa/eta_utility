@@ -1,22 +1,26 @@
-.. connectors:
+.. _connectors:
 
-Connector Functions
+Connections
 ====================================================
+Multiple protocols and APIs are supported by *eta_utility*. Most functionality is common to all
+connectors, some of the connectors also offer specific functionality, which only applies to the protocol or
+API they implement.
 
-Utility functions for connections to different servers and clients.
+A simple example using the EnEffCo connection:
 
-.. automodule:: eta_utility.connectors.common
-  :members:
+.. literalinclude:: ../../examples/connectors/read_series_eneffco.py
+    :start-after: --main--
+    :end-before: --main--
+    :dedent:
 
-Subscription Handlers
-----------------------
+.. autoclass:: eta_utility.connectors::OpcUaConnection
+    :members:
+    :noindex:
 
-.. automodule:: eta_utility.connectors.sub_handlers
-  :members:
+.. autoclass:: eta_utility.connectors::ModbusConnection
+    :members:
+    :noindex:
 
-Base Classes
------------------
-
-.. automodule:: eta_utility.connectors.base_classes
-  :members:
-  :private-members:
+.. autoclass:: eta_utility.connectors::EnEffCoConnection
+    :members:
+    :noindex:

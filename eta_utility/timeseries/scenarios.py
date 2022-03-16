@@ -38,7 +38,7 @@ def scenario_from_csv(
 
     .. note::
         The ValueError will only be raised when this is true for all files. If only one file is outside of
-        the range, and empty series will be returned for that file. TODO - Implement additional checks.
+        the range, and empty series will be returned for that file.
 
     :param paths: Path(s) to one or more CSV data files. The paths should be fully qualified.
     :param data_prefixes: If more than file is imported, a list of data_prefixes must be supplied such that

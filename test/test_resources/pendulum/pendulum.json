@@ -1,0 +1,29 @@
+{
+    "setup": {
+        "environment_package": "test.test_resources.pendulum.pendulum",
+        "environment_class": "PendulumEnv",
+        "agent_package": "examples.pendulum.controller",
+        "agent_class": "PendulumControl"
+    },
+    "paths": {
+        "relpath_scenarios": "data/scenarios/",
+        "relpath_results": "data/results/"
+    },
+    "settings": {
+        "sampling_time": 0.05,
+        "episode_duration": 15,
+        "n_episodes_learn": 1000,
+        "n_episodes_play": 5,
+        "n_environments": 1
+    },
+    "environment_specific": {
+        "scenario_time_begin": "2022-01-04 12:12",
+        "scenario_time_end": "2022-01-04 12:13",
+        "seed": 321,
+        "max_speed": 8,
+        "max_torque": 2.0,
+        "g": 10,
+        "m": 1,
+        "l": 1
+    }
+}

@@ -405,9 +405,10 @@ class _CSVFileDB(AbstractContextManager):
             processed_row: list[str] = [""] * len(self._header)
             for idx, col in enumerate(self._header):
                 if col in row:
-                    processed_row[idx] = self._latest_values[col] = str(row[col])
+                    v = self._latest_values[col] = row[col]
+                    processed_row[idx] = str(v)
                 else:
-                    processed_row[idx] = self._latest_values.get(col, "")
+                    processed_row[idx] = str(self._latest_values.get(col, ""))
 
             log.debug(f"Writing line with index {processed_row[0]} to CSV file .")
             self._write_file(processed_row)

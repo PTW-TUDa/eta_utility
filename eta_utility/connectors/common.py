@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Sized
 from eta_utility.connectors.eneffco import EnEffCoConnection
 from eta_utility.connectors.modbus import ModbusConnection
 from eta_utility.connectors.opc_ua import OpcUaConnection
-from eta_utility.connectors.rest import RESTConnection
 
 if TYPE_CHECKING:
     from typing import Any
@@ -18,15 +17,18 @@ if TYPE_CHECKING:
 
 def connections_from_nodes(
     nodes: Nodes,
-    eneffco_usr: str | None = None,
-    eneffco_pw: str | None = None,
+    usr: str | None = None,
+    pwd: str | None = None,
     eneffco_api_token: str | None = None,
 ) -> dict[str, Any]:
     """Take a list of nodes and return a list of connections
 
+    .. versionchanged:: v2.0.0
+        Removed eneffco_usr and eneffco_pwd - specify the parameters in the node instead.
+
     :param nodes: List of nodes defining servers to connect to
-    :param eneffco_usr: Optional username for eneffco login
-    :param eneffco_pw: Optional password for eneffco login
+    :param usr: Username to use in case a Node does not specify any
+    :param pwd: Password to use in case a Node does not specify any
     :param eneffco_api_token: Token for EnEffCo API authorization
     :return: Dictionary of connection objects {hostname: connection}
     """
@@ -40,17 +42,15 @@ def connections_from_nodes(
         # Create connection if it does not exist
         if node.url_parsed.hostname is not None and node.url_parsed.hostname not in connections:
             if node.protocol == "modbus":
-                connections[node.url_parsed.hostname] = ModbusConnection.from_node(node)
+                connections[node.url_parsed.hostname] = ModbusConnection.from_node(node, usr=usr, pwd=pwd)
             elif node.protocol == "opcua":
-                connections[node.url_parsed.hostname] = OpcUaConnection.from_node(node)
+                connections[node.url_parsed.hostname] = OpcUaConnection.from_node(node, usr=usr, pwd=pwd)
             elif node.protocol == "eneffco":
-                if eneffco_usr is None or eneffco_pw is None or eneffco_api_token is None:
-                    raise ValueError("Specify username, password and API token for EnEffco access.")
+                if eneffco_api_token is None:
+                    raise ValueError("Specify API token for EnEffco access.")
                 connections[node.url_parsed.hostname] = EnEffCoConnection.from_node(
-                    node, usr=eneffco_usr, pwd=eneffco_pw, api_token=eneffco_api_token
+                    node, usr=usr, pwd=pwd, api_token=eneffco_api_token
                 )
-            elif node.protocol == "rest":
-                connections[node.url_parsed.hostname] = RESTConnection.from_node(node)
             else:
                 raise ValueError(
                     f"Node {node.name} does not specify a recognized protocol for initializing a connection."
