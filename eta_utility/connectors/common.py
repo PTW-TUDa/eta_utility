@@ -5,9 +5,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Sized
 
-from eta_utility.connectors.eneffco import EnEffCoConnection
-from eta_utility.connectors.modbus import ModbusConnection
-from eta_utility.connectors.opc_ua import OpcUaConnection
+from eta_utility.connectors import (
+    EnEffCoConnection,
+    ModbusConnection,
+    OpcUaConnection,
+    RESTConnection,
+)
 
 if TYPE_CHECKING:
     from typing import Any
