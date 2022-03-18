@@ -27,41 +27,41 @@ log = get_logger("connectors.live")
 class LiveConnect(AbstractContextManager):
     """Connect to a system/resource and enable system activation, deactivation and configuring controller setpoints.
 
-    The class can be initialized directly by supplying all required arguments or from a json configuration file.
+    The class can be initialized directly by supplying all required arguments or from a JSON configuration file.
 
-    If initializing with the from_json classmethod, the class takes a json config file which defines all of the
-    required nodes. The json file should have the following format:
+    If initializing with the from_json classmethod, the class takes a JSON config file which defines all
+    required nodes. The JSON file should have the following format:
 
         * **system**: Define the system to be controlled. This is the top level block - it may have multiple dictionary
-          members which should each specify all of the following information. If there are multiple systems, all of
-          the node names will be prefixed with the system name. For example, if the system name is 'chp' and the node
+          members which should each specify all the following information. If there are multiple systems, all
+          node names will be prefixed with the system name. For example, if the system name is 'chp' and the node
           name is 'op_request', the full node name will be 'chp.op_request'.
-        * **name**: A name to uniquely identify the system
+        * **name**: A name to uniquely identify the system.
         * **servers**: Servers which are responsible for manageing the system. This section should contain a dictionary
           of servers, identified by a unique name. Each server has the following values:
 
-            * **url**: URL of the server (format: netloc:port, without the scheme)
-            * **protocol**: Protocol for the connection, for example opcua
-            * **usr**: Username to identify with the server (default: None)
-            * **pwd**: Password to login to the server (default: None)
+            * **url**: URL of the server (format: netloc:port, without the scheme).
+            * **protocol**: Protocol for the connection, for example 'opcua'.
+            * **usr**: Username to identify with the server (default: None).
+            * **pwd**: Password to log in to the server (default: None).
         * **nodes**: The nodes section contains a list of nodes. Each node is specific to one of the servers specified
           above and has a unique name, by which it can be identified. In detail, each node has the following values:
 
             * **name**: A name to uniquely identify the node.
-            * **server**: Identifier of one of the servers defined above
-            * **dtype**: Data type of the Node on the server (default: float)
+            * **server**: Identifier of one of the servers defined above.
+            * **dtype**: Data type of the Node on the server (default: float).
             * Other values must be defined depending on the protocol, for example this could be an **opc_id** or
-              corresponding values to identify modbus nodes. More detail about this can be found in connectors.Nodes
+              corresponding values to identify modbus nodes. More detail about this can be found in connectors.Nodes.
         * **set_value**: The set_value is the main value, which should be manipulated. It must have some additional
           information to be processed correctly. This includes:
 
-            * **name**: Name of the node, which is manipulated as the set_value
-            * **min**: Minimum value to be allowed
-            * **max**: Maximum value to be allowed
+            * **name**: Name of the node, which is manipulated as the set_value.
+            * **min**: Minimum value to be allowed.
+            * **max**: Maximum value to be allowed.
             * **threshold**: Activation/Deactivation threshold. The activate action will be executed for values above
-              the threshold and the deactivation action will be executed for values below the threshold. (see below)
-            * **add**: Scale the set_value by adding a set amount
-            * **mult**: Scale the set_value by multiplying by this factor
+              the threshold and the deactivation action will be executed for values below the threshold (see below).
+            * **add**: Scale the set_value by adding a set amount.
+            * **mult**: Scale the set_value by multiplying by this factor.
         * **activation_indicators**: The values specified in this section are used to determine, whether the system is
           currently active. This is a dictionary of nodes and values, these nodes should be compared against. Each node
           is identified by the name specified above. Each node must have the following values:
@@ -79,8 +79,8 @@ class LiveConnect(AbstractContextManager):
               values from the connector.
             * **activate**: Activate the system. This is used to set the system to an active state, for example by
               requesting the system to start its operation and choosing and operating mode. This can be used to set
-              the system up to receive more detailed control values
-            * **deactivate**: Execute any actions to deactivate the system
+              the system up to receive more detailed control values.
+            * **deactivate**: Execute any actions to deactivate the system.
             * **close**: Reset the system. This is used when the connector is closed, to make sure the system is left
               in a safe and clean state.
 
@@ -94,18 +94,18 @@ class LiveConnect(AbstractContextManager):
         Always call the close function after you are done using the connection! This is required even if no nodes
         must be written to reset the system since the connection itself must be closed. Therefore, this class should
         only be called within a try-finally clause. Alternatively the class can be used as a context manager in a with
-        statement
+        statement.
 
     :param name: Name to uniquely identify the system. The name is also used as the default system prefix.
-    :param nodes: Sequence/List of Nodes, which should be used for the actions and for initializing connections
-    :param step_size: Step size (time) for the live connector in time increments
-    :param init: Nodes for initializing the system (see above, default: None)
-    :param activate: Nodes for activating the system (see above, default: None)
-    :param deactivate: Nodes for deactivating the system (see above, default: None)
-    :param close: Nodes to close the connection and reset the system (see above, default: None)
-    :param observe: Nodes to read from and return after each 'set' operation (see above, default: None)
+    :param nodes: Sequence/List of Nodes, which should be used for the actions and for initializing connections.
+    :param step_size: Step size (time) for the live connector in time increments.
+    :param init: Nodes for initializing the system (see above).
+    :param activate: Nodes for activating the system (see above).
+    :param deactivate: Nodes for deactivating the system (see above).
+    :param close: Nodes to close the connection and reset the system (see above).
+    :param observe: Nodes to read from and return after each 'set' operation (see above).
     :param activation_indicators: Nodes that determine, whether the system must be deactivated or activated. This
-                                  is used internally in conjunction with the set_value threshold to determin whether
+                                  is used internally in conjunction with the set_value threshold to determine whether
                                   the activate/deactivate methods must be called before setting values.
     :param set_values: Specification of the node which is used for setting the main control value.
     """
@@ -125,33 +125,33 @@ class LiveConnect(AbstractContextManager):
         activation_indicators: Mapping[str, Any] | None = None,
         set_values: Mapping[str, Mapping[str, Any]] | None = None,
     ) -> None:
-        #: Name of the system
+        #: Name of the system.
         self.name: str | None = name.strip() if name is not None else None
-        #: Connection objects to the resources
+        #: Connection objects to the resources.
         self._connections: dict[str, BaseConnection] = connections_from_nodes(nodes)
-        #: Mapping of all nodes
+        #: Mapping of all nodes.
         self._nodes: dict[str, AnyNode] = name_map_from_node_sequence(nodes)
-        #: Mapping of node names to connections
+        #: Mapping of node names to connections.
         self._connection_map: dict[str, str] = {}
         for node in self._nodes.values():
             if node.url_parsed.hostname is not None:
                 self._connection_map[node.name] = node.url_parsed.hostname
             else:
                 raise ValueError(f"Node without hostname supplied: {node.name}")
-        #: Start time of initialisation
+        #: Start time of initialisation.
         self.start_time = time.time()
-        #: Step size (time) for the live connector in time increments
+        #: Step size (time) for the live connector in time increments.
         self.step_size = int(step_size) if not isinstance(step_size, timedelta) else int(step_size.total_seconds())
-        #: Current step of the live connector (number of completed steps)
+        #: Current step of the live connector (number of completed steps).
         self.steps_counter: int = 0
-        #: Maximum error count when connections in read/write function are aborted
+        #: Maximum error count when connections in read/write function are aborted.
         self.max_error_count: int = max_error_count
         #: Counts the number of errors when Live Connector logs errors.
         self.error_count: list[int] = [0] * len(self._connections)
 
         errors = False
 
-        #: Nodes for initializing the system
+        #: Nodes for initializing the system.
         self._init_vals: dict[str, Any] | None
         self._init_vals, e = self._read_value_mapping(
             init, e_msg="Not all nodes required for initialization are configured as nodes."
@@ -159,7 +159,7 @@ class LiveConnect(AbstractContextManager):
         if e:
             errors = e
 
-        #: Nodes for closing the connection
+        #: Nodes for closing the connection.
         self._close_vals: dict[str, Any] | None
         self._close_vals, e = self._read_value_mapping(
             close, e_msg="Not all nodes required for closing the object are configured as nodes."
@@ -167,7 +167,7 @@ class LiveConnect(AbstractContextManager):
         if e:
             errors = e
 
-        #: Nodes for activating the system
+        #: Nodes for activating the system.
         self._activate_vals: dict[str, Any] | None = {}
         self._activate_vals, e = self._read_value_mapping(
             activate, flatten=False, e_msg="Not all nodes required for system activation are configured as nodes."
@@ -175,7 +175,7 @@ class LiveConnect(AbstractContextManager):
         if e:
             errors = e
 
-        #: Nodes for deactivating the system
+        #: Nodes for deactivating the system.
         self._deactivate_vals: dict[str, Any] | None = {}
         self._deactivate_vals, e = self._read_value_mapping(
             deactivate, flatten=False, e_msg="Not all nodes required for system deactivation are configured as nodes."
@@ -183,7 +183,7 @@ class LiveConnect(AbstractContextManager):
         if e:
             errors = e
 
-        #: Nodes to observe
+        #: Nodes to observe.
         self._observe_vals: list[str] | None = []
         if observe is not None:
             for sys_val in observe:
@@ -197,7 +197,7 @@ class LiveConnect(AbstractContextManager):
             log.error("Not all observation nodes of the object are configured as nodes.")
             errors = True
 
-        #: Configuration for the step set value
+        #: Configuration for the step set value.
         self._set_values: dict[str, Any] | None = {}
         if set_values is not None:
             nds = set()
@@ -238,12 +238,12 @@ class LiveConnect(AbstractContextManager):
     def _read_value_mapping(
         self, values: Mapping[str, Any] | None, flatten: bool = True, *, e_msg: str
     ) -> tuple[dict[str, Any] | None, bool]:
-        """Read a list of values and deserialize it to a mapping
+        """Read a list of values and deserialize it to a mapping.
 
-        :param values: Values to deserialize
-        :param flatten: Output into a single layer (not separated by system) (default: True)
-        :param e_msg: Error message to log if function fails
-        :return: Tuple of deserialized values and bool indicating an error if true
+        :param values: Values to deserialize.
+        :param flatten: Output into a single layer (not separated by system).
+        :param e_msg: Error message to log if function fails.
+        :return: Tuple of deserialized values and bool indicating an error if true.
         """
         errors = False
         _vals: dict[str, Any] = {}
@@ -283,17 +283,17 @@ class LiveConnect(AbstractContextManager):
         step_size: TimeStep = 1,
         max_error_count: int = 10,
     ) -> LiveConnect:
-        """Initialize the connection directly from json configuration files. The file should contain parameters
+        """Initialize the connection directly from JSON configuration files. The file should contain parameters
         as described above. A list of file names can be supplied to enable the creation of larger, combined systems.
 
         Username and password supplied as keyword arguments will take precedence over information given in
         the config file.
 
-        :param files: Configuration file paths. Accepts a single file or a list of files
-        :param usr: Username for authentication with the resource
-        :param pwd: Password for authentication with the resource
-        :param step_size: Step size (time) for the live connector in time increments
-        :return: LiveConnect instance as specified by the json file.
+        :param files: Configuration file paths. Accepts a single file or a list of files.
+        :param usr: Username for authentication with the resource.
+        :param pwd: Password for authentication with the resource.
+        :param step_size: Step size (time) for the live connector in time increments.
+        :return: LiveConnect instance as specified by the JSON file.
         """
         files = [files] if not isinstance(files, Sequence) else files
 
@@ -323,11 +323,11 @@ class LiveConnect(AbstractContextManager):
         Username and password supplied as keyword arguments will take precedence over information given in
         the config file.
 
-        :param usr: Username for authentication with the resource
-        :param pwd: Password for authentication with the resource
-        :param step_size: Step size (time) for the live connector in time increments
-        :param config: Configuration dictionary
-        :return: LiveConnect instance as specified by the json file.
+        :param usr: Username for authentication with the resource.
+        :param pwd: Password for authentication with the resource.
+        :param step_size: Step size (time) for the live connector in time increments.
+        :param config: Configuration dictionary.
+        :return: LiveConnect instance as specified by the JSON file.
         """
 
         _req_settings = {"name": {}, "servers": {"url", "protocol"}, "nodes": {"name", "server"}}
@@ -354,7 +354,7 @@ class LiveConnect(AbstractContextManager):
             log.error("Not all required config parameters were found. Exiting.")
             exit(1)
 
-        # Make sure all of the required sections exist - they are just none if they are not in the file.
+        # Make sure all the required sections exist - they are just none if they are not in the file.
         _nodes_conf: list[dict[str, str]] = []
         _set_values: dict[str, dict[str, Any]] = {}
         _act_indicators: dict[str, dict[str, Any] | None] = {}
@@ -432,13 +432,13 @@ class LiveConnect(AbstractContextManager):
 
     @property
     def nodes(self) -> Mapping[str, Node]:
-        """Mapping of all node objects of the connection"""
+        """Mapping of all node objects of the connection."""
         return self._nodes.copy()
 
     def _activated(self, system: str) -> bool:
-        """Current activation status of the system, as determined by the activation_indicator
+        """Current activation status of the system, as determined by the activation_indicator.
 
-        :param system: System for which activation status should be checked
+        :param system: System for which activation status should be checked.
         """
         check_map = {"==": "__eq__", ">": "__gt__", "<": "__lt__", ">=": "__gte__", "<=": "__lte__"}
 
@@ -464,8 +464,8 @@ class LiveConnect(AbstractContextManager):
         """Take the set_value and determine, whether the system must be activated or deactivated. Then set the value
         and finally read and return all values as specified by the 'observe' parameter.
 
-        :param value: Value to use as the control value/set_value
-        :return: Values read from the connection as specified by 'observer' parameter
+        :param value: Value to use as the control value/set_value.
+        :return: Values read from the connection as specified by 'observe' parameter.
         """
         self.steps_counter += 1
 
@@ -509,10 +509,9 @@ class LiveConnect(AbstractContextManager):
     def write(self, nodes: Mapping[str, Any] | Sequence[str], values: Sequence[Any] | None = None) -> None:
         """Write any combination of nodes and values.
 
-        :param nodes: Mapping of Nodes and values or Sequence of node names to write to
+        :param nodes: Mapping of Nodes and values or Sequence of node names to write to.
         :param values: If nodes are given as a Sequence, this second parameter determined the values to be written.
                        If nodes are given as a Mapping, this parameter is not required. It defaults to None.
-        :return: None
         """
         # Determine, whether nodes and values are given as a mapping in the nodes parameter or separately, using both
         # parameters. In the second case, create the mapping.
@@ -549,9 +548,9 @@ class LiveConnect(AbstractContextManager):
                     raise
 
     def read(self, *nodes: str) -> dict[str, Any]:
-        """Take a list of nodes and return their names and most recent values
+        """Take a list of nodes and return their names and most recent values.
 
-        :param nodes: One or more nodes to read
+        :param nodes: One or more nodes to read.
         :return: Dictionary of the most current node values.
         """
         # Sort nodes to be read by connection
@@ -578,9 +577,9 @@ class LiveConnect(AbstractContextManager):
         return result
 
     def activate(self, system: str | None = None) -> None:
-        """Take the list of nodes to activate and set them to the correct values to activate the system
+        """Take the list of nodes to activate and set them to the correct values to activate the system.
 
-        :param system: System for which should be activated (default: self.name)
+        :param system: System for which should be activated (default: self.name).
         """
         _system = self.name if system is None else system
 
@@ -593,9 +592,9 @@ class LiveConnect(AbstractContextManager):
             self.write(self._activate_vals[_system])
 
     def deactivate(self, system: str | None = None) -> None:
-        """Take the list of nodes to deactivate and set them to the correct values to deactivate the system
+        """Take the list of nodes to deactivate and set them to the correct values to deactivate the system.
 
-        :param system: System for which should be activated (default: self.name)
+        :param system: System for which should be activated (default: self.name).
         """
         _system = self.name if system is None else system
 

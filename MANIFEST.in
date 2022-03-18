@@ -1,0 +1,2 @@
+include README.rst
+include eta_utility/py.typed

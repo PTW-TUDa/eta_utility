@@ -8,17 +8,17 @@ devices in the factory.
 
 Therefore, we developed the *eta_utility* framework, which provides a standardized interface for the development
 of digital twins of factories or machines in a factory. The framework is based on the OpenAI gym environment
-and follows a rolling horizons optimization approach. It provides standardized connectors for multiple
-communication protocols including OPC UA and Modbus TCP. These facilities can be utilized to easily implement
-rolling horizons optimizations for factory systems and to directly control devices in the factory with the
+and follows a rolling horizon optimization approach. It provides standardized connectors for multiple
+communication protocols, including OPC UA and Modbus TCP. These facilities can be utilized to easily implement
+rolling horizon optimizations for factory systems and to directly control devices in the factory with the
 optimization results.
 
 Full Documentation can be found on the
 `Documentation Page <https://eta-fabrik.pages.rwth-aachen.de/industrialenergylab/utility-functions/>`_.
 
-The package *eta_utility* consists of five main modules and some addtional functionality:
+The package *eta_utility* consists of five main modules and some additional functionality:
 
-- *eta_x* is the rolling horizons optimization module which combines the functionality of the
+- *eta_x* is the rolling horizon optimization module which combines the functionality of the
   other modules. It is based on the OpenAI *gym* framework and utilizes algorithms and functions
   from the *stable_baselines3* package. *eta_x* also contains extended base classes for
   environments and additional agents (or algorithms).
@@ -65,16 +65,16 @@ Please cite this project using our publication:
 We would like to thank the many contributors who developed functionality for the package, helped with
 documentation or provided insights which helped to create the framework architecture.
 
-- *Niklas Panten* for the first implementation of the rolling horizons optimization now available in
-  eta_x,
+- *Niklas Panten* for the first implementation of the rolling horizon optimization now available in
+  *eta_x*,
 - *Nina Strobel* for the first implementation of the connectors,
-- *Thomas Weber* for contributions to the rolling horizons optimization with MPC algorithms,
+- *Thomas Weber* for contributions to the rolling horizon optimization with MPC algorithms,
 - *Guilherme Fernandes*, *Tobias Koch*, *Tobias Lademann*, *Saahil Nayyer*, *Magdalena Patyna*, *Jerome Stock*,
 - and all others who made small and large contributions.
 
 Contributions
 --------------------
 
-If you would like to contribute, please create an issue in the repository to discuss suggested
-once the general idea has been agreed upon, you can create a merge request from the issue and
+If you would like to contribute, please create an issue in the repository to discuss you suggestions.
+Once the general idea has been agreed upon, you can create a merge request from the issue and
 implement your changes there.

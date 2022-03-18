@@ -21,16 +21,16 @@ def connections_from_nodes(
     pwd: str | None = None,
     eneffco_api_token: str | None = None,
 ) -> dict[str, Any]:
-    """Take a list of nodes and return a list of connections
+    """Take a list of nodes and return a list of connections.
 
     .. versionchanged:: v2.0.0
         Removed eneffco_usr and eneffco_pwd - specify the parameters in the node instead.
 
-    :param nodes: List of nodes defining servers to connect to
-    :param usr: Username to use in case a Node does not specify any
-    :param pwd: Password to use in case a Node does not specify any
-    :param eneffco_api_token: Token for EnEffCo API authorization
-    :return: Dictionary of connection objects {hostname: connection}
+    :param nodes: List of nodes defining servers to connect to.
+    :param usr: Username to use in case a Node does not specify any.
+    :param pwd: Password to use in case a Node does not specify any.
+    :param eneffco_api_token: Token for EnEffCo API authorization.
+    :return: Dictionary of connection objects {hostname: connection}.
     """
 
     connections: dict[str, Any] = {}
@@ -56,7 +56,7 @@ def connections_from_nodes(
                     f"Node {node.name} does not specify a recognized protocol for initializing a connection."
                 )
         elif node.url_parsed.hostname is not None:
-            # Otherwise just mark the node as selected
+            # Otherwise, just mark the node as selected
             connections[node.url_parsed.hostname].selected_nodes.add(node)
 
     return connections
@@ -69,8 +69,8 @@ def name_map_from_node_sequence(nodes: Nodes) -> dict[str, AnyNode]:
 
         Make sure that each node in nodes has a unique Name, otherwise this function will fail.
 
-    :param nodes: Sequence of Node objects
-    :return: Dictionary of Node objects (format: {node.name: Node})
+    :param nodes: Sequence of Node objects.
+    :return: Dictionary of Node objects (format: {node.name: Node}).
     """
     if not isinstance(nodes, Sized):
         nodes = {nodes}

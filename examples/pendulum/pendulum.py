@@ -33,7 +33,7 @@ class PendulumEnv(BaseEnv, GymPendulum):
     `pendulum example <https://gym.openai.com/envs/Pendulum-v0/>`_ in the OpenAI gym:
     :py:class:`gym.envs.classic_control.PendulumEnv`:
 
-    :param env_id: Identification for the environment, usefull when creating multiple environments
+    :param env_id: Identification for the environment, useful when creating multiple environments
     :param config_run: Configuration of the optimization run
     :param seed: Random seed to use for generating random numbers in this environment
         (default: None / create random seed)
@@ -153,7 +153,7 @@ class PendulumEnv(BaseEnv, GymPendulum):
         for idx, name in enumerate(self.state_config.observations):
             observations[idx] = self.state[name]
 
-        # Check if the episode if completed
+        # Check if the episode is completed
         done = self.n_steps >= self.n_episode_steps
 
         return observations, -costs, done, {}

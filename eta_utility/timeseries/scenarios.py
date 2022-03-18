@@ -34,54 +34,53 @@ def scenario_from_csv(
     """Import (possibly multiple) scenario data files from csv files and return them as a single pandas
     data frame. The import function supports column renaming and will slice and resample data as specified.
 
-    :raises ValueError: If start and/or end times are outside of the scope of the imported scenario files.
+    :raises ValueError: If start and/or end times are outside the scope of the imported scenario files.
 
     .. note::
-        The ValueError will only be raised when this is true for all files. If only one file is outside of
-        the range, and empty series will be returned for that file.
+        The ValueError will only be raised when this is true for all files. If only one file is outside
+        the range, an empty series will be returned for that file.
 
     :param paths: Path(s) to one or more CSV data files. The paths should be fully qualified.
-    :param data_prefixes: If more than file is imported, a list of data_prefixes must be supplied such that
-                          ambiquity of column names between the files can be avoided. There must be one prefix
+    :param data_prefixes: If more than one file is imported, a list of data_prefixes must be supplied such that
+                          ambiguity of column names between the files can be avoided. There must be one prefix
                           for every imported file, such that a distinct prefix can be prepended to all columns
                           of a file.
-    :param start_time: (Keyword only) Starting time for the scenario import. Default value is scenario_time_begin.
-    :param end_time: (Keyword only) Latest ending time for the scenario import. Default value is scenario_time_end.
-    :param total_time: (Keyword only) Total duration of the imported scenario. If given as int this will be
-                       interpreted as seconds. The default is episode_duration.
-    :param random: (Keyword only) Set to true if a random starting point (within the interval determined by
-                   start_time and end_time should be chosen. This will use the environments random generator.
-                   The default is false.
-    :param resample_time: (Keyword only) Resample the scenario data to the specified interval. If this is specified
-                          one of 'upsample_fill' or downsample_method' must be supplied as well to determin how
-                          the new data points should be determined. If given as an in, this will be interpreted as
-                          seconds. The default is no resampling.
-    :param interpolation_method: (Keyword only) Method for interpolating missing data values. Pandas missing data
+    :param start_time: Starting time for the scenario import.
+    :param end_time: Latest ending time for the scenario import (default: inferred from start_time and total_time).
+    :param total_time: Total duration of the imported scenario. If given as int this will be
+                       interpreted as seconds (default: inferred from start_time and end_time).
+    :param random: Set to true if a random starting point (within the interval determined by
+                   start_time and end_time) should be chosen. This will use the environments' random generator.
+    :param resample_time: Resample the scenario data to the specified interval. If this is specified
+                          one of 'upsample_fill' or downsample_method' must be supplied as well to determine how
+                          the new data points should be determined. If given as an int, this will be interpreted as
+                          seconds (default: no resampling).
+    :param interpolation_method: Method for interpolating missing data values. Pandas missing data
                                  handling methods are supported. If a list with one value per file is given, the
-                                 specified method will be selected according the order of paths.
-    :param rename_cols: (Keyword only) Rename columns of the imported data. Maps the colunms as they appear in the
+                                 specified method will be selected according to the order of paths.
+    :param rename_cols: Rename columns of the imported data. Maps the columns as they appear in the
                         data files to new names. Format: {old_name: new_name}.
 
                         .. note::
                             The column names are normalized to lowercase and underscores are added in place of spaces.
-                            Additionally everything after the first symbol is removed. For example
+                            Additionally, everything after the first symbol is removed. For example
                             "Water Temperature #2" becomes "water_temperature". So if you want to rename the column,
-                            you need to specify for example: {"water_temperature": "T_W"}
+                            you need to specify for example: {"water_temperature": "T_W"}.
 
 
-    :param prefix_renamed: (Keyword only) Should prefixes be applied to renamed columns as well? Default: True.
+    :param prefix_renamed: Should prefixes be applied to renamed columns as well?
                            When setting this to false make sure that all columns in all loaded scenario files
-                           have different names. Otherwise there is a risk of overwriting data.
-    :param infer_datetime_from: (Keyword only) Specify how datetime values should be converted. 'dates' will use
+                           have different names. Otherwise, there is a risk of overwriting data.
+    :param infer_datetime_from: Specify how datetime values should be converted. 'dates' will use
                                 pandas to automatically determine the format. 'string' uses the conversion string
                                 specified in the 'time_conversion_str' parameter. If a two-tuple of the format
                                 (row, col) is given, data from the specified field in the data files will be used
-                                to determine the date format. The default is 'string'
-    :param time_conversion_str: (Keyword only) Time conversion string. This must be specified if the
+                                to determine the date format.
+    :param time_conversion_str: Time conversion string. This must be specified if the
                                 infer_datetime_from parameter is set to 'string'. The string should specify the
-                                datetime format in the python strptime format. The default is: '%Y-%m-%d %H:%M'.
-    :param scaling_factors:
-    :return:
+                                datetime format in the python strptime format.
+    :param scaling_factors: Scaling factors for each imported column.
+    :return: Imported and processed data as pandas.DataFrame.
     """
 
     if not isinstance(paths, Sized):
@@ -194,12 +193,12 @@ def _fix_col_name(
     prefix_renamed: bool = False,
     rename_cols: Mapping[str, str] | None = None,
 ) -> str:
-    """Figure out correct name for the column
+    """Figure out correct name for the column.
 
-    :param name: Name to rename
-    :param prefix: Prefix to preprend to the name
+    :param name: Name to rename.
+    :param prefix: Prefix to preprend to the name.
     :param prefix_renamed: Prepend prefix if name is renamed?
-    :param rename_cols: Mapping of old names to new names
+    :param rename_cols: Mapping of old names to new names.
     """
     if not prefix_renamed and rename_cols is not None and name in rename_cols:
         pre = ""

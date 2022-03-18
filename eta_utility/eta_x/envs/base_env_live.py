@@ -23,18 +23,18 @@ class BaseEnvLive(BaseEnv, ABC):
     """Base class for Live Connector environments. The class will prepare the initialization of the LiveConnect class
     and provide facilities to automatically read step results and reset the connection.
 
-    :param env_id: Identification for the environment, usefull when creating multiple environments
-    :param config_run: Configuration of the optimization run
-    :param seed: Random seed to use for generating random numbers in this environment
-        (default: None / create random seed)
-    :param verbose: Verbosity to use for logging (default: 2)
-    :param callback: callback which should be called after each episode
-    :param scenario_time_begin: Beginning time of the scenario
-    :param scneario_time_end: Ending time of the scenario
-    :param episode_duration: Duration of the episode in seconds
-    :param sampling_time: Duration of a single time sample / time step in seconds
-    :param max_errors: Maximum number of connection errors before interrupting the optimization process
-    :param kwargs: Other keyword arguments (for subclasses)
+    :param env_id: Identification for the environment, useful when creating multiple environments.
+    :param config_run: Configuration of the optimization run.
+    :param seed: Random seed to use for generating random numbers in this environment.
+        (default: None / create random seed).
+    :param verbose: Verbosity to use for logging.
+    :param callback: callback which should be called after each episode.
+    :param scenario_time_begin: Beginning time of the scenario.
+    :param scneario_time_end: Ending time of the scenario.
+    :param episode_duration: Duration of the episode in seconds.
+    :param sampling_time: Duration of a single time sample / time step in seconds.
+    :param max_errors: Maximum number of connection errors before interrupting the optimization process.
+    :param kwargs: Other keyword arguments (for subclasses).
     """
 
     def __init__(
@@ -65,16 +65,16 @@ class BaseEnvLive(BaseEnv, ABC):
         )
         #: Instance of the Live Connector.
         self.live_connector: LiveConnect
-        #: Path or Dict for initialize the live connector.
+        #: Path or Dict to initialize the live connector.
         self.live_connect_config: Path | Sequence[Path] | dict[str, Any] | None = None
-        #: Maximum error count when connections in live connector are aborted
+        #: Maximum error count when connections in live connector are aborted.
         self.max_error_count: int = max_errors
 
     def _init_live_connector(self, files: Path | Sequence[Path] | dict[str, Any] | None = None) -> None:
         """Initialize the live connector object. Make sure to call _names_from_state before this or to otherwise
         initialize the names array.
 
-        :param files: Path or Dict for initialize the connection directly from json configuration files or a config
+        :param files: Path or Dict to initialize the connection directly from JSON configuration files or a config
             dictionary.
         """
         _files = self.live_connect_config if files is None else files
@@ -96,7 +96,7 @@ class BaseEnvLive(BaseEnv, ABC):
             )
 
     def step(self, action: np.ndarray) -> StepResult:
-        """Perfom one time step and return its results. This is called for every event or for every time step during
+        """Perform one time step and return its results. This is called for every event or for every time step during
         the optimization run. It should utilize the actions as supplied by the agent to determine
         the new state of the environment. The method must return a four-tuple of observations, rewards, dones, info.
 
@@ -155,10 +155,10 @@ class BaseEnvLive(BaseEnv, ABC):
         counter, resets the episode steps and appends the state_log to the longtime storage.
 
         If you want to extend this function, write your own code and call super().reset() afterwards to return
-        fresh observations. This allows you to ajust timeseries for example. If you need to manipulate the state
+        fresh observations. This allows you to adjust timeseries for example. If you need to manipulate the state
         before initializing or if you want to adjust the initialization itself, overwrite the function entirely.
 
-        :return: Initial observation
+        :return: Initial observation.
         """
         assert self.state_config is not None, "Set state_config before calling reset function."
 
@@ -199,8 +199,6 @@ class BaseEnvLive(BaseEnv, ABC):
         """Close the environment. This should always be called when an entire run is finished. It should be used to
         close any resources (i.e. simulation models) used by the environment.
 
-        Default behaviour for the Live_Connector environment is to do nothing.
-
-        :return:
+        Default behavior for the Live_Connector environment is to do nothing.
         """
         pass

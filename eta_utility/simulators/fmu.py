@@ -27,26 +27,26 @@ log = get_logger("simulators.fmu")
 
 
 class FMUSimulator:
-    """FMU simulator object
+    """FMU simulator object.
 
-    :param _id: FMU instance id
-    :param fmu_path: Path to the FMU file
-    :param start_time: Simulation start time in seconds (default: 0)
-    :param float stop_time: Simulation stop time in seconds (default: 1)
-    :param step_size: simulation step size in seconds (default: 1)
+    :param _id: FMU instance ID.
+    :param fmu_path: Path to the FMU file.
+    :param start_time: Simulation start time in seconds.
+    :param float stop_time: Simulation stop time in seconds.
+    :param step_size: Simulation step size in seconds.
     :param names_inputs: List of input names that correspond to names used in the FMU file (e.g. ['u', 'p']).
                          If the step function is going to be used with lists as input values, this list will be used
-                         to translate between the list position and the variable name in the FMU. (default: None)
+                         to translate between the list position and the variable name in the FMU.
     :param names_outputs: List of output names that correspond to names used in the FMU file
                           (e.g. ['y', 'th', 'thdot']). If the step function should return only specific values instead
                           of all results as a dictionary, this parameter can be specified to determine, which parameters
                           should be returned.
     :param init_values: Starting values for parameters that should be pushed to the FMU with names corresponding to
-                        variables in the FMU
-    :param str return_type: "dict" or "list". Alter the standard behaviour, which is to return lists from the step and
+                        variables in the FMU.
+    :param str return_type: "dict" or "list". Alter the standard behavior, which is to return lists from the step and
                             get_values functions only if both, "names_inputs" and "names_outputs" are specified.
                             This parameter will force the step and get_values functions to always return either
-                            dictionaries or lists. (default: None)
+                            dictionaries or lists.
     """
 
     def __init__(
@@ -62,21 +62,21 @@ class FMUSimulator:
         *,
         return_type: str | None = None,
     ) -> None:
-        #: Path to the FMU model
+        #: Path to the FMU model.
         self.fmu_path = fmu_path
 
-        #: Start time for the simulation in time increments
+        #: Start time for the simulation in time increments.
         self.start_time = start_time.total_seconds() if isinstance(start_time, timedelta) else start_time
-        #: Stopping time for the simulation in time increments (only relevant if run in simulation loop)
+        #: Stopping time for the simulation in time increments (only relevant if run in simulation loop).
         self.stop_time = stop_time.total_seconds() if isinstance(stop_time, timedelta) else stop_time
-        #: Step size (time) for the simulation in time increments
+        #: Step size (time) for the simulation in time increments.
         self.step_size = step_size.total_seconds() if isinstance(step_size, timedelta) else step_size
 
-        #: Model description from the FMU (contains variable names, types, references and more)
+        #: Model description from the FMU (contains variable names, types, references and more).
         self.model_description: ModelDescription = read_model_description(fmu_path)
 
-        #: Variable map from model description. The map specifies the value reference and data type of a named
-        #: variable in the FMU. The structure is {'name': {'ref': <value reference>, 'type': <variable data type>}}
+        #: Variable map from model description. The map specifies the value reference and datatype of a named
+        #: variable in the FMU. The structure is {'name': {'ref': <value reference>, 'type': <variable data type>}}.
         self._model_vars: dict[str, dict[str, str]] = {}
         self.__type_map = {"Real": "real", "Boolean": "bool", "Integer": "int", "Enumeration": "enum"}
 
@@ -89,21 +89,21 @@ class FMUSimulator:
         #: The map contains the following lists:
         #:
         #:     * real: Mask for real variables. This can be used to identify real variables from the complete set of
-        #:       input variables (_inputs["refs"], see below) using itertools.compress
+        #:       input variables (_inputs["refs"], see below) using `itertools.compress`.
         #:     * int: Mask for integer variables. This can be used to identify integer variables from the complete set
-        #:       of input variables (_inputs["refs"], see below) using itertools.compress
+        #:       of input variables (_inputs["refs"], see below) using `itertools.compress`.
         #:     * bool: Mask for boolean variables. This can be used to identify boolean variables from the complete set
-        #:       of input variables (_inputs["refs"], see below) using itertools.compress
+        #:       of input variables (_inputs["refs"], see below) using `itertools.compress`.
         self._input_map: dict[str, list[bool]] = {"names": [], "real": [], "int": [], "bool": []}
 
         #: Map of input variable references and their names. The map contains the following lists:
         #:
-        #:     * names: List of the named input variables that are accessible in the model
+        #:     * names: List of the named input variables that are accessible in the model.
         #:     * refs: List of all value references to input variables of all types. This is the complete list, which
-        #:       can be filtered using itertools.compress (see above)
-        #:     * real: List of all value references to input variables of type real
-        #:     * int: List of all value references to input variables of type integer
-        #:     * bool: List of all value references to input variables of type boolean
+        #:       can be filtered using itertools.compress (see above).
+        #:     * real: List of all value references to input variables of type real.
+        #:     * int: List of all value references to input variables of type integer.
+        #:     * bool: List of all value references to input variables of type boolean.
         self._inputs: dict[str, list[str]] = {"names": [], "refs": [], "real": [], "int": [], "bool": []}
         refs = []
         names = []
@@ -133,21 +133,21 @@ class FMUSimulator:
         #: The map contains the following lists:
         #:
         #:     * real: Mask for real variables. This can be used to identify real variables from the complete set of
-        #:       output variables (_outputs['refs'], see below) using itertools.compress
+        #:       output variables (_outputs['refs'], see below) using `itertools.compress`.
         #:     * int: Mask for integer variables. This can be used to identify integer variables from the complete set
-        #:       of output variables (_outputs['refs'], see below) using itertools.compress
+        #:       of output variables (_outputs['refs'], see below) using `itertools.compress`.
         #:     * bool: Mask for boolean variables. This can be used to identify boolean variables from the complete set
-        #:       of output variables (_outputs['refs'], see below) using itertools.compress
+        #:       of output variables (_outputs['refs'], see below) using `itertools.compress`.
         self._output_map: dict[str, list[bool]] = {"names": [], "real": [], "int": [], "bool": []}
 
         #: Map of output variable references and their names. The map contains the following lists:
         #:
-        #:     * names: List of the named output variables that are accessible in the model
+        #:     * names: List of the named output variables that are accessible in the model.
         #:     * refs: List of all value references to output variables of all types. This is the complete list, which
-        #:       can be filtered using itertools.compress (see above)
-        #:     * real: List of all value references to output variables of type real
-        #:     * int: List of all value references to output variables of type integer
-        #:     * bool: List of all value references to output variables of type boolean
+        #:       can be filtered using itertools.compress (see above).
+        #:     * real: List of all value references to output variables of type real.
+        #:     * int: List of all value references to output variables of type integer.
+        #:     * bool: List of all value references to output variables of type boolean.
         self._outputs: dict[str, list[str]] = {"names": [], "refs": [], "real": [], "int": [], "bool": []}
         refs = []
         names = []
@@ -170,11 +170,11 @@ class FMUSimulator:
         self._outputs["int"] = list(it.compress(refs, self._output_map["int"]))
         self._outputs["bool"] = list(it.compress(refs, self._output_map["bool"]))
 
-        #: Directory, where the FMU will be extracted
+        #: Directory where the FMU will be extracted.
         self._unzipdir: Path = extract(fmu_path)
 
         try:
-            #: Instance of the FMU Slave object
+            #: Instance of the FMU Slave object.
             self.fmu: FMU2Slave = FMU2Slave(
                 guid=self.model_description.guid,
                 unzipDirectory=self._unzipdir,
@@ -199,11 +199,11 @@ class FMUSimulator:
         apply_start_values(self.fmu, self.model_description, start_values=init_values)
 
         self.fmu.exitInitializationMode()
-        #: Current simulation time
+        #: Current simulation time.
         self.time = self.start_time
 
         # Initialize some other parameters used to switch functionality of class methods.
-        #: Return dictionaries from the step and get_values functions instead of lists
+        #: Return dictionaries from the step and get_values functions instead of lists.
         self._return_dict: bool = False
         if return_type is None:
             self._return_dict = False if names_inputs is not None and names_outputs is not None else True
@@ -224,7 +224,7 @@ class FMUSimulator:
         """Return current values of the simulation without advancing a simulation step or the simulation time.
 
         :param names: Sequence of values to read from the FMU. If this is None (default), all available values will be
-                      read
+                      read.
         """
         # Find value references and names for the variables that should be read from the FMU
         if names is None:
@@ -302,16 +302,16 @@ class FMUSimulator:
                              the order of the input_vars property.
         :param advance_time: Decide if the FMUsimulator should add one timestep to the simulation time or not.
                                   This can be deactivated, if you just want to look at the result of a simulation step
-                                  beforehand, whithout actually advancing simulation time.
+                                  beforehand, without actually advancing simulation time.
         :param nr_substeps: if simulation steps are divided into substeps, this value will let the simulator know
                                 that no time violation warning is necessary.
         :return: Resulting input and output values from the FMU with the keys named corresponding to the variables
-                 in the FMU
+                 in the FMU.
         """
         if input_values is not None:
             self.set_values(input_values)
 
-        # put out warning for time limit violation, if self.time + self.step_size > selt.stop_time + full step size
+        # put out warning for time limit violation, if self.time + self.step_size > self.stop_time + full step size
         if self.time + self.step_size > self.stop_time + (int(nr_substeps) if nr_substeps else 1) * self.step_size:
             log.warning(
                 f"Simulation time {self.time + self.step_size} s exceeds specified stop time of "
@@ -339,12 +339,12 @@ class FMUSimulator:
     ) -> np.ndarray:
         """Instantiate a simulator with the specified FMU, perform simulation and return results.
 
-        :param fmu_path: Path to the FMU file
-        :param start_time: Simulation start time in seconds (default: 0)
-        :param float stop_time: Simulation stop time in seconds (default: 1)
-        :param step_size: simulation step size in seconds (default: 1)
+        :param fmu_path: Path to the FMU file.
+        :param start_time: Simulation start time in seconds.
+        :param float stop_time: Simulation stop time in seconds.
+        :param step_size: simulation step size in seconds.
         :param init_values: Starting values for parameters that should be pushed to the FMU with names corresponding to
-                            variables in the FMU
+                            variables in the FMU.
         """
 
         simulator = cls(0, fmu_path, start_time, stop_time, step_size, init_values=init_values)
@@ -365,9 +365,9 @@ class FMUSimulator:
         return result
 
     def reset(self, init_values: Mapping[str, float] | None = None) -> None:
-        """Reset FMU to specified initial condition
+        """Reset FMU to specified initial condition.
 
-        :param init_values: Values for initialization
+        :param init_values: Values for initialization.
         """
         self.time = self.start_time
         self.fmu.reset()
@@ -379,7 +379,7 @@ class FMUSimulator:
         self.fmu.exitInitializationMode()
 
     def close(self) -> None:
-        """Close the FMU and tidy up the unzipped files"""
+        """Close the FMU and tidy up the unzipped files."""
         self.fmu.terminate()
         self.fmu.freeInstance()
         shutil.rmtree(self._unzipdir)  # clean up unzipped files
@@ -405,11 +405,9 @@ class FMU2MESlave(FMU2Model):
     fmi2Pending: int = 5  # noqa: N815
 
     def __init__(self, **kwargs: Any) -> None:
-        r"""Initialize the FMU2Slave object
+        r"""Initialize the FMU2Slave object. See also the fmyp documentation :py:class:`fmpy.fmi2.FMU2Model`.
 
-        ..see also:: fmpy.fmi2.FMU2Model
         :param Any \**kwargs: Accepts any parameters that fmpy.FMU2Model accepts.
-
         """
 
         super().__init__(**kwargs)
@@ -431,11 +429,11 @@ class FMU2MESlave(FMU2Model):
         .. see also::
             fmpy.fmi2.FMU2Model.setupExperiment
 
-        :param tolerance: Solver tolerance, default value is 1e-5
-        :param startTime: Starting time for the experiment
-        :param stopTime: Ending time for the experiment
+        :param tolerance: Solver tolerance, default value is 1e-5.
+        :param startTime: Starting time for the experiment.
+        :param stopTime: Ending time for the experiment.
         :param kwargs: Other keyword arguments that might be required for FMU2Model.setupExperiment in the future.
-        :return: FMI2 return value
+        :return: FMI2 return value.
         """
 
         self._tolerance = 1e-5 if tolerance is None else tolerance
@@ -449,13 +447,12 @@ class FMU2MESlave(FMU2Model):
         return super().setupExperiment(**kwargs)
 
     def exitInitializationMode(self, **kwargs: Any) -> int:  # noqa: N802
-        """Exit the initialization mode and setup the cvode solver.
+        """Exit the initialization mode and set up the cvode solver.
 
-        .. see also::
-            fmpy.fmi2.FMU2Model.exitInitializationMode
+        See also: :py:class:`fmpy.fmi2.FMU2Model.exitInitializationMode`
 
-        :param kwargs: Keyword arguments accepted by FMU2Model.exitInitializationMode
-        :return: FMI2 return value
+        :param kwargs: Keyword arguments accepted by FMU2Model.exitInitializationMode.
+        :return: FMI2 return value.
         """
 
         ret = super().exitInitializationMode(**kwargs)
@@ -494,16 +491,15 @@ class FMU2MESlave(FMU2Model):
         communicationStepSize: float,  # noqa: N803
         noSetFMUStatePriorToCurrentPoint: int | None = None,  # noqa: N803
     ) -> int:
-        """Perform a simulation step. Advance simulation from currentCommunicationPoint by communicationStepSize
+        """Perform a simulation step. Advance simulation from *currentCommunicationPoint* by *communicationStepSize*.
 
-        .. seealso:
-            FMI2 Standard documentation
+        Also refer to the FMI2 Standard documentation.
 
-        :param currentCommunicationPoint: current time stamp (starting point for simulation step)
-        :param communicationStepSize: time step size
-        :param noSetFMUStatePriorToCurrentPoint: Determine whether a reset before the currentCommunicationPoint is
-                                                     possible. Must be either fmi2True or fmi2False
-        :return: FMU2 return value
+        :param currentCommunicationPoint: Current time stamp (starting point for simulation step).
+        :param communicationStepSize: Time step size.
+        :param noSetFMUStatePriorToCurrentPoint: Determine whether a reset before *currentCommunicationPoint* is
+            possible. Must be either fmi2True or fmi2False.
+        :return: FMU2 return value.
         """
         time = currentCommunicationPoint
         step_size = communicationStepSize
@@ -511,7 +507,7 @@ class FMU2MESlave(FMU2Model):
         # Perform a solver step and reset the FMU Model time.
         _, time = self._solver.step(time, time + step_size)
         self.setTime(time)
-        # Check for events that might have occured during the step
+        # Check for events that might have occurred during the step
         step_event, _ = self.completedIntegratorStep()
 
         return self.fmi2ok

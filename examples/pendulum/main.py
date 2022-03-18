@@ -22,8 +22,8 @@ def conventional(root_path: pathlib.Path, overwrite: dict[str, Any] | None = Non
     """Perform a conventionally controlled experiment with the pendulum environment.
     This uses the pendulum_conventional config file.
 
-    :param root_path: Root path of the experiment
-    :param overwrite: Additional config values to overwrite values from JSON
+    :param root_path: Root path of the experiment.
+    :param overwrite: Additional config values to overwrite values from JSON.
     """
     experiment = ETAx(root_path, "pendulum_conventional", overwrite, relpath_config=".")
     experiment.play("conventional_series", "run1")
@@ -33,8 +33,8 @@ def machine_learning(root_path: pathlib.Path, overwrite: dict[str, Any] | None =
     """Perform machine learning experiment with the pendulum environment.
     This uses the pendulum_learning config file.
 
-    :param root_path: Root path of the experiment
-    :param overwrite: Additional config values to overwrite values from JSON
+    :param root_path: Root path of the experiment.
+    :param overwrite: Additional config values to overwrite values from JSON.
     """
     # --main--
     get_logger()

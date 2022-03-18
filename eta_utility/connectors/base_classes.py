@@ -24,7 +24,7 @@ class SubscriptionHandler(ABC):
     """Subscription handlers do stuff to subscribed data points after they are received. Every handler must have a
     push method which can be called when data is received.
 
-    :param write_interval: Interval for writing data to csv file
+    :param write_interval: Interval for writing data to csv file.
     """
 
     def __init__(self, write_interval: TimeStep = 1) -> None:
@@ -36,8 +36,9 @@ class SubscriptionHandler(ABC):
     def _assert_tz_awareness(self, timestamp: datetime) -> datetime:
         """Helper function to check if timestamp has timezone and if not assign local time zone.
 
-        :param datetime timestamp: Datetime object to be rounded
-        :return: Rounded datetime object with timezone information"""
+        :param datetime timestamp: Datetime object to be rounded.
+        :return: Rounded datetime object with timezone information.
+        """
         if timestamp.tzinfo is None:
             timestamp = timestamp.replace(tzinfo=self._local_tz)
         return timestamp
@@ -46,8 +47,8 @@ class SubscriptionHandler(ABC):
         """Helper method for rounding date time objects to the specified write interval.
         The method will also add local timezone information if not already present.
 
-        :param datetime timestamp: Datetime object to be rounded
-        :return: Rounded datetime object with timezone information
+        :param datetime timestamp: Datetime object to be rounded.
+        :return: Rounded datetime object with timezone information.
         """
         ts_store = self._assert_tz_awareness(timestamp)  # store previous information, include timezone information
 
@@ -68,7 +69,7 @@ class SubscriptionHandler(ABC):
                           determine the interval between data points. Use negative numbers to describe past data.
                           Integers are interpreted as seconds. If value is a pd.Series and has a pd.DatetimeIndex,
                           timestamp can be None.
-        :return: pd.Series with corresponding DatetimeIndex
+        :return: pandas.Series with corresponding DatetimeIndex.
         """
 
         # Check timestamp first
@@ -107,7 +108,7 @@ class SubscriptionHandler(ABC):
             value.index = timestamp
         else:
             value = pd.Series(data=value, index=timestamp)
-            # If value is multi-dimensional, an Exception will be raised by pandas.
+            # If value is multidimensional, an Exception will be raised by pandas.
 
         # Round index to self._write_interval
         # todo resample instead of rounding the index, but this could not work if intervals between data points are of
@@ -121,9 +122,9 @@ class SubscriptionHandler(ABC):
         """Receive data from a subcription. THis should contain the node that was requested, a value and a timestemp
         when data was received. If the timestamp is not provided, current time will be used.
 
-        :param node: Node object the data belongs to
-        :param value: Value of the data
-        :param timestamp: Timestamp of receiving the data
+        :param node: Node object the data belongs to.
+        :param value: Value of the data.
+        :param timestamp: Timestamp of receiving the data.
         """
         pass
 
@@ -131,14 +132,14 @@ class SubscriptionHandler(ABC):
 class BaseConnection(ABC):
     """Base class with a common interface for all connection objects
 
-    The url may contain the username and password (schema://username:password@hostname:port/path). In this case, the
+    The URL may contain the username and password (schema://username:password@hostname:port/path). In this case, the
     parameters usr and pwd are not required. The keyword parameters of the function will take precedence over username
     and password configured in the url.
 
     :param url: URL of the server to connect to.
-    :param usr: Username for login to server
-    :param pwd: Password for login to server
-    :param nodes: List of nodes to select as a standard case
+    :param usr: Username for login to server.
+    :param pwd: Password for login to server.
+    :param nodes: List of nodes to select as a standard case.
     """
 
     #: Protocol of the connection. Value can be used to check if nodes correspond to the connection
@@ -159,7 +160,7 @@ class BaseConnection(ABC):
         else:
             self.selected_nodes = set()
 
-        # Get username and password either from the arguments, from the parsed url string or from a Node object
+        # Get username and password either from the arguments, from the parsed URL string or from a Node object
         node = next(iter(self.selected_nodes)) if len(self.selected_nodes) > 0 else None
         if type(usr) is not str and usr is not None:
             raise TypeError("Username should be a string value.")
@@ -189,7 +190,7 @@ class BaseConnection(ABC):
     def from_node(cls, node: AnyNode, **kwargs: Any) -> BaseConnection:
         """Initialize the object from a node with corresponding protocol
 
-        :return: Initialized connection object
+        :return: Initialized connection object.
         """
         pass
 
@@ -197,8 +198,8 @@ class BaseConnection(ABC):
     def read(self, nodes: Nodes | None = None) -> pd.DataFrame:
         """Read data from nodes
 
-        :param nodes: List of nodes to read from
-        :return: Pandas DataFrame with resulting values
+        :param nodes: List of nodes to read from.
+        :return: Pandas DataFrame with resulting values.
         """
 
         pass
@@ -207,7 +208,7 @@ class BaseConnection(ABC):
     def write(self, values: Mapping[AnyNode, Any]) -> None:
         """Write data to a list of nodes
 
-        :param values: Dictionary of nodes and data to write. {node: value}
+        :param values: Dictionary of nodes and data to write {node: value}.
         """
         pass
 
@@ -215,9 +216,9 @@ class BaseConnection(ABC):
     def subscribe(self, handler: SubscriptionHandler, nodes: Nodes | None = None, interval: TimeStep = 1) -> None:
         """Subscribe to nodes and call handler when new data is available.
 
-        :param nodes: identifiers for the nodes to subscribe to
-        :param handler: function to be called upon receiving new values, must accept attributes: node, val
-        :param interval: interval for receiving new data. Interpreted as seconds when given as integer.
+        :param nodes: Identifiers for the nodes to subscribe to.
+        :param handler: Function to be called upon receiving new values, must accept attributes: node, val.
+        :param interval: Interval for receiving new data. Interpreted as seconds when given as integer.
         """
         pass
 
@@ -234,8 +235,8 @@ class BaseConnection(ABC):
         """Make sure that nodes are a Set of nodes and that all nodes correspond to the protocol and url
         of the connection.
 
-        :param nodes: Sequence of Node objects to validate
-        :return: set of valid Node objects for this connection
+        :param nodes: Sequence of Node objects to validate.
+        :return: Set of valid Node objects for this connection.
         """
         if nodes is None:
             _nodes = self.selected_nodes
@@ -262,8 +263,9 @@ class BaseConnection(ABC):
     def _assert_tz_awareness(self, timestamp: datetime) -> datetime:
         """Helper function to check if timestamp has timezone and if not assign local time zone.
 
-        :param datetime timestamp: Datetime object to be rounded
-        :return: datetime object with timezone information"""
+        :param datetime timestamp: Datetime object to be rounded.
+        :return: datetime object with timezone information.
+        """
         if timestamp.tzinfo is None:
             timestamp = timestamp.replace(tzinfo=self._local_tz)
         return timestamp
@@ -272,13 +274,12 @@ class BaseConnection(ABC):
         """Helper method for rounding date time objects to specified interval in seconds.
         The method will also add local timezone information if not already present.
 
-        :param datetime timestamp: Datetime object to be rounded
-        :param interval: Interval in seconds to be rounded to
-        :return: Rounded datetime object with timezone information
+        :param datetime timestamp: Datetime object to be rounded.
+        :param interval: Interval in seconds to be rounded to.
+        :return: Rounded datetime object with timezone information.
         """
         ts_store = self._assert_tz_awareness(timestamp)  # store previous information, include timezone information
 
-        # Round timestamp
         # Round timestamp
         intervals = math.ceil(ts_store.timestamp() / interval) * interval
         timestamp = datetime.fromtimestamp(intervals)
@@ -291,7 +292,7 @@ class BaseConnection(ABC):
 class BaseSeriesConnection(BaseConnection, ABC):
     """Connection object for protocols with the ability to provide access to timeseries data.
 
-    :param url: URL of the server to connect to
+    :param url: URL of the server to connect to.
     """
 
     def __init__(self, url: str, usr: str | None = None, pwd: str | None = None, *, nodes: Nodes | None = None) -> None:
@@ -302,12 +303,13 @@ class BaseSeriesConnection(BaseConnection, ABC):
         self, from_time: datetime, to_time: datetime, nodes: Nodes | None = None, interval: TimeStep = 1, **kwargs: Any
     ) -> pd.DataFrame:
         """Read time series data from the connection, within a specified time interval (from_time until to_time).
-        :param nodes: List of nodes to read values from
-        :param from_time: Starting time to begin reading (included in output)
-        :param to_time: To to stop reading at (not included in output)
+
+        :param nodes: List of nodes to read values from.
+        :param from_time: Starting time to begin reading (included in output).
+        :param to_time: Time to stop reading at (not included in output).
         :param interval: interval between time steps. It is interpreted as seconds if given as integer.
-        :param kwargs: additional argument list, to be defined by subclasses
-        :return: Pandas DataFrame containing the data read from the connection
+        :param kwargs: additional argument list, to be defined by subclasses.
+        :return: pandas.DataFrame containing the data read from the connection.
         """
         pass
 
@@ -324,14 +326,14 @@ class BaseSeriesConnection(BaseConnection, ABC):
         """Subscribe to nodes and call handler when new data is available. This will always return a series of values.
         If nodes with different intervals should be subscribed, multiple connection objects are needed.
 
-        :param handler: SubscriptionHandler object with a push method that accepts node, value pairs
+        :param handler: SubscriptionHandler object with a push method that accepts node, value pairs.
         :param req_interval: Duration covered by requested data (time interval). Interpreted as seconds if given as int
         :param offset: Offset from datetime.now from which to start requesting data (time interval).
-                       Interpreted as seconds if given as int. Use negative values to go to past timestamps.
+            Interpreted as seconds if given as int. Use negative values to go to past timestamps.
         :param data_interval: Time interval between values in returned data. Interpreted as seconds if given as int.
-        :param interval: interval (between requests) for receiving new data.
-                         It it interpreted as seconds when given as an integer.
-        :param nodes: identifiers for the nodes to subscribe to
-        :param kwargs: Any additional arguments required by subclasses
+        :param interval: interval (between requests) for receiving new data. It is interpreted as seconds
+            when given as an integer.
+        :param nodes: Identifiers for the nodes to subscribe to.
+        :param kwargs: Any additional arguments required by subclasses.
         """
         pass

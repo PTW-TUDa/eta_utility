@@ -29,8 +29,8 @@ log = get_logger("connectors")
 def _strip_str(value: str) -> str:
     """Convenience function to convert a string to its stripped version.
 
-    :param value: string to convert
-    :return: stripped string
+    :param value: String to convert.
+    :return: Stripped string.
     """
     return value.strip()
 
@@ -38,8 +38,8 @@ def _strip_str(value: str) -> str:
 def _lower_str(value: str) -> str:
     """Convenience function to convert a string to its stripped and lowercase version.
 
-    :param value: string to convert
-    :return: stripped and lowercase string
+    :param value: String to convert.
+    :return: Stripped and lowercase string.
     """
     return value.strip().lower()
 
@@ -47,8 +47,8 @@ def _lower_str(value: str) -> str:
 def _dtype_converter(value: str) -> Callable | None:
     """Specify data type conversion functions (i.e. to convert modbus types to python).
 
-    :param value: data type string to convert to callacle datatype converter
-    :return: python datatype (callable)
+    :param value: Data type string to convert to callacle datatype converter.
+    :return: Python datatype (callable).
     """
     _dtypes = {
         "boolean": bool,
@@ -86,19 +86,19 @@ class NodeMeta(type):
 class Node(metaclass=NodeMeta):
     """The node objects represents a single variable. Valid keyword arguments depend on the protocol."""
 
-    #: Name for the node
+    #: Name for the node.
     name: str = field(converter=_strip_str, eq=True)
-    #: Url of the connection
+    #: URL of the connection.
     url: str = field(eq=True, order=True)
-    #: Parse result object of the url (in case more post-processing is required)
+    #: Parse result object of the URL (in case more post-processing is required).
     url_parsed: ParseResult = field(init=False, repr=False, eq=False, order=False)
-    #: Protocol of the connection
+    #: Protocol of the connection.
     protocol: str = field(repr=False, eq=False, order=False)
-    #: Username for login to the connection (default: None)
+    #: Username for login to the connection (default: None).
     usr: str | None = field(default=None, kw_only=True, repr=False, eq=False, order=False)
-    #: Password for login to the connection (default: None)
+    #: Password for login to the connection (default: None).
     pwd: str | None = field(default=None, kw_only=True, repr=False, eq=False, order=False)
-    #: Data type of the node (for value conversion)
+    #: Data type of the node (for value conversion).
     dtype: Callable | None = field(
         default=None, converter=converters.optional(_dtype_converter), kw_only=True, repr=False, eq=False, order=False
     )
@@ -142,26 +142,28 @@ class Node(metaclass=NodeMeta):
         """Create nodes from a dictionary of node configurations. The configuration must specify the following
         fields for each node:
 
-            * Code (or name), URL, Protocol (modbus or opcua or eneffco).
+            * Code (or name), URL, Protocol (i.e. modbus or opcua or eneffco).
               The URL should be a complete network location identifier. Alternatively it is possible to specify the
               location in two fields: IP and Port. These should only contain the respective parts (as in only an IP
-              address and only the port number.
-              The IP-Address should always be given without scheme (https://)
+              address and only the port number).
+              The IP-Address should always be given without scheme (https://).
+
+        For local nodes no additional fields are required.
 
         For Modbus nodes the following additional fiels are required:
 
-            * ModbusRegisterType (or mb_register), ModbusSlave (or mb_slave), ModbusChannel (or mb_channel)
+            * ModbusRegisterType (or mb_register), ModbusSlave (or mb_slave), ModbusChannel (or mb_channel).
 
         For OPC UA nodes the following additional fields are required:
 
-            * Identifier
+            * Identifier.
 
-        For EnEffCo nodes the Code field must be present
+        For EnEffCo nodes the code field must be present.
 
-        For REST nodes the REST_Endpoint field must be present
+        For EntsoE nodes the endpoint field must be present.
 
-        :param dikt: Configuration dictionary
-        :return: List of Node objects
+        :param dikt: Configuration dictionary.
+        :return: List of Node objects.
         """
 
         nodes = []
@@ -170,7 +172,7 @@ class Node(metaclass=NodeMeta):
         for lnode in iter_:
             node = {k.strip().lower(): v for k, v in lnode.items()}
 
-            # Find url or ip and port
+            # Find URL or IP and port
             if "url" in node:
                 loc = urlparse(node["url"].strip())
                 scheme = None if loc.scheme == "" else loc.scheme
@@ -241,26 +243,25 @@ class Node(metaclass=NodeMeta):
     @classmethod
     def from_excel(cls, path: Path, sheet_name: str) -> list[Node]:
         """
-        Method to read out nodes from an excel document. The document must specify the following fields:
+        Method to read out nodes from an Excel document. The document must specify the following fields:
 
             * Code, IP, Port, Protocol (modbus or opcua or eneffco).
 
         For Modbus nodes the following additional fiels are required:
 
-            * ModbusRegisterType, ModbusByte, ModbusChannel
+            * ModbusRegisterType, ModbusByte, ModbusChannel.
 
         For OPC UA nodes the following additional fields are required:
 
-            * Identifier
+            * Identifier.
 
-        For EnEffCo nodes the Code field must be present
+        For EnEffCo nodes the Code field must be present.
 
-        The IP-Address should always be given without scheme (https://)
+        The IP-Address should always be given without scheme (https://).
 
-        :param path: Path to excel document
-        :param sheet_name: name of Excel sheet, which will be read out
-
-        :return: List of Node objects
+        :param path: Path to Excel document.
+        :param sheet_name: name of Excel sheet, which will be read out.
+        :return: List of Node objects.
         """
 
         file = path if isinstance(path, pathlib.Path) else pathlib.Path(path)
@@ -276,9 +277,9 @@ class Node(metaclass=NodeMeta):
         .. deprecated:: v2.0.0
             Use the *from_ids* function of the EnEffCoConnection Class instead.
 
-        :param code_list: List of EnEffCo identifiers to create nodes from
-        :param eneffco_url: URL to the eneffco system
-        :return: List of EnEffCo-nodes
+        :param code_list: List of EnEffCo identifiers to create nodes from.
+        :param eneffco_url: URL to the EnEffCo system.
+        :return: List of EnEffCo nodes.
         """
         nodes = []
         for code in code_list:
@@ -287,7 +288,7 @@ class Node(metaclass=NodeMeta):
 
 
 class NodeLocal(Node, protocol="local"):
-    """Local Node (no specific protocol, useful for example to manually provide data to subscription handlers."""
+    """Local Node (no specific protocol), useful for example to manually provide data to subscription handlers."""
 
     def __attrs_post_init__(self) -> None:
         """Ensure username and password are processed correctly."""
@@ -295,9 +296,10 @@ class NodeLocal(Node, protocol="local"):
 
 
 def _mb_byteorder_converter(value: str) -> str:
-    """Convert some values for mb_byteorder
-    :param value: value to be converted to mb_byteorder
-    :return: mb_byteorder corresponding to correct scheme
+    """Convert some values for mb_byteorder.
+
+    :param value: Value to be converted to mb_byteorder
+    :return: mb_byteorder corresponding to correct scheme.
     """
     value = _lower_str(value)
     if value in {"little", "littleendian"}:
@@ -310,7 +312,7 @@ def _mb_byteorder_converter(value: str) -> str:
 
 
 class NodeModbus(Node, protocol="modbus"):
-    """Node for the Modbus protocol"""
+    """Node for the Modbus protocol."""
 
     #: Modbus Slave ID
     mb_slave: int = field(kw_only=True)
@@ -326,7 +328,7 @@ class NodeModbus(Node, protocol="modbus"):
     )
 
     def __attrs_post_init__(self) -> None:
-        """Add default port to the url and convert mb_byteorder values."""
+        """Add default port to the URL and convert mb_byteorder values."""
         super().__attrs_post_init__()
 
         # Set port to default 502 if it was not explicitly specified
@@ -337,28 +339,28 @@ class NodeModbus(Node, protocol="modbus"):
 
 
 class NodeOpcUa(Node, protocol="opcua"):
-    """Node for the OPC UA protocol"""
+    """Node for the OPC UA protocol."""
 
-    #: Node ID of the OPC UA Node
+    #: Node ID of the OPC UA Node.
     opc_id: str | None = field(default=None, kw_only=True, converter=converters.optional(_strip_str))
-    #: Path to the OPC UA node
+    #: Path to the OPC UA node.
     opc_path_str: str | None = field(
         default=None, kw_only=True, converter=converters.optional(_strip_str), repr=False, eq=False, order=False
     )
-    #: Namespace of the OPC UA Node
+    #: Namespace of the OPC UA Node.
     opc_ns: int | None = field(default=None, kw_only=True, converter=converters.optional(_lower_str))
 
     # Additional fields which will be determined automatically
-    #: Type of the OPC UA Node ID Specification
+    #: Type of the OPC UA Node ID Specification.
     opc_id_type: str = field(init=False, validator=validators.in_({"i", "s"}), repr=False, eq=False, order=False)
-    #: Name of the OPC UA Node
+    #: Name of the OPC UA Node.
     opc_name: str = field(init=False, repr=False, eq=False, order=False)
     #: Path to the OPC UA node in list representation. Nodes in this list can be used to access any
-    #: parent objects
+    #: parent objects.
     opc_path: list[NodeOpcUa] = field(init=False, repr=False, eq=False, order=False)
 
     def __attrs_post_init__(self) -> None:
-        """Add default port to the url and convert mb_byteorder values."""
+        """Add default port to the URL and convert mb_byteorder values."""
         super().__attrs_post_init__()
 
         # Set port to default 4840 if it was not explicitly specified
@@ -411,9 +413,9 @@ class NodeOpcUa(Node, protocol="opcua"):
 
 
 class NodeEnEffCo(Node, protocol="eneffco"):
-    """Node for the EnEffCo API"""
+    """Node for the EnEffCo API."""
 
-    #: EnEffCo datapoint code / id
+    #: EnEffCo datapoint code / ID.
     eneffco_code: str = field(kw_only=True)
 
     def __attrs_post_init__(self) -> None:
@@ -423,11 +425,11 @@ class NodeEnEffCo(Node, protocol="eneffco"):
 
 class NodeEntsoE(Node, protocol="entsoe"):
     """Node for the EntsoE API (see `ENTSO-E Transparency Platform API
-    <https://transparency.entsoe.eu/content/static_content/Static%20content/web%20api/Guide.html>`_)"""
+    <https://transparency.entsoe.eu/content/static_content/Static%20content/web%20api/Guide.html>`_)."""
 
-    #: REST endpoint
+    #: REST endpoint.
     endpoint: str = field(kw_only=True)
-    #: Bidding zone
+    #: Bidding zone.
     bidding_zone: str = field(kw_only=True)
 
     def __attrs_post_init__(self) -> None:

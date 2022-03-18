@@ -21,8 +21,8 @@ def experiment(root_path: pathlib.Path, overwrite: dict[str, Any] | None = None)
     """Perform a conventionally controlled experiment with the pendulum environment.
     This uses the pendulum_conventional config file.
 
-    :param root_path: Root path of the experiment
-    :param overwrite: Additional config values to overwrite values from JSON
+    :param root_path: Root path of the experiment.
+    :param overwrite: Additional config values to overwrite values from JSON.
     """
     # --main--
     experiment = ETAx(root_path, "damped_oscillator", overwrite, relpath_config=".")

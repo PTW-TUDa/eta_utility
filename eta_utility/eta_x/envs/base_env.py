@@ -36,10 +36,10 @@ class BaseEnv(Env, abc.ABC):
     is required to create concrete environments.
     The required attributes are:
 
-        - **version**: Version number of the environment
-        - **description**: Short description string of the environment
-        - **action_space**: The action space of the environment (see also gym.spaces for options)
-        - **observation_space**: The observation space of the environment (see also gym.spaces for options)
+        - **version**: Version number of the environment.
+        - **description**: Short description string of the environment.
+        - **action_space**: The action space of the environment (see also gym.spaces for options).
+        - **observation_space**: The observation space of the environment (see also gym.spaces for options).
 
     The gym interface requires the following methods for the environment to work correctly within the framework.
     Consult the documentation of each method for more detail.
@@ -48,17 +48,17 @@ class BaseEnv(Env, abc.ABC):
         - **reset()**
         - **close()**
 
-    :param env_id: Identification for the environment, usefull when creating multiple environments
-    :param config_run: Configuration of the optimization run
+    :param env_id: Identification for the environment, useful when creating multiple environments.
+    :param config_run: Configuration of the optimization run.
     :param seed: Random seed to use for generating random numbers in this environment
-        (default: None / create random seed)
-    :param verbose: Verbosity to use for logging (default: 2)
-    :param callback: callback which should be called after each episode
-    :param scenario_time_begin: Beginning time of the scenario
-    :param scenario_time_end: Ending time of the scenario
-    :param episode_duration: Duration of the episode in seconds
-    :param sampling_time: Duration of a single time sample / time step in seconds
-    :param kwargs: Other keyword arguments (for subclasses)
+        (default: None / create random seed).
+    :param verbose: Verbosity to use for logging.
+    :param callback: callback which should be called after each episode.
+    :param scenario_time_begin: Beginning time of the scenario.
+    :param scenario_time_end: Ending time of the scenario.
+    :param episode_duration: Duration of the episode in seconds.
+    :param sampling_time: Duration of a single time sample / time step in seconds.
+    :param kwargs: Other keyword arguments (for subclasses).
     """
 
     @property
@@ -89,19 +89,19 @@ class BaseEnv(Env, abc.ABC):
     ) -> None:
         super().__init__()
 
-        #: Verbosity level used for logging
+        #: Verbosity level used for logging.
         self.verbose: int = verbose
         log.setLevel(int(verbose * 10))
 
         # Set some standard path settings
         #: Information about the optimization run and information about the paths.
-        #: For example it defines path_results and path_scenarios.
+        #: For example, it defines path_results and path_scenarios.
         self.config_run: ConfigOptRun = config_run
-        #: Path for storing results
+        #: Path for storing results.
         self.path_results: pathlib.Path = self.config_run.path_series_results
-        #: Path for the scenario data
+        #: Path for the scenario data.
         self.path_scenarios: pathlib.Path | None = self.config_run.path_scenarios
-        #: Path of the environment file
+        #: Path of the environment file.
         self.path_env: pathlib.Path
         for f in inspect.stack():
             if "__class__" in f.frame.f_locals and f.frame.f_locals["__class__"] is self.__class__:
@@ -110,38 +110,38 @@ class BaseEnv(Env, abc.ABC):
         self.callback: Callable | None = callback
 
         # Store some important settings
-        #: Id of the environment (useful for vectorized environments)
+        #: ID of the environment (useful for vectorized environments).
         self.env_id: int = int(env_id)
-        #: Name of the current optimization run
+        #: Name of the current optimization run.
         self.run_name: str = self.config_run.name
-        #: Number of completed episodes
+        #: Number of completed episodes.
         self.n_episodes: int = 0
-        #: Current step of the model (number of completed steps) in the current episode
+        #: Current step of the model (number of completed steps) in the current episode.
         self.n_steps: int = 0
-        #: Current step of the model (total over all episodes)
+        #: Current step of the model (total over all episodes).
         self.n_steps_longtime: int = 0
 
         # Set some standard environment settings
-        #: Duration of one episode in seconds
+        #: Duration of one episode in seconds.
         self.episode_duration: float = float(
             episode_duration if not isinstance(episode_duration, timedelta) else episode_duration.total_seconds()
         )
-        #: Sampling time (interval between optimization time steps) in seconds
+        #: Sampling time (interval between optimization time steps) in seconds.
         self.sampling_time: float = float(
             sampling_time if not isinstance(sampling_time, timedelta) else sampling_time.total_seconds()
         )
-        #: Number of time steps (of width sampling_time) in each episode
+        #: Number of time steps (of width sampling_time) in each episode.
         self.n_episode_steps: int = int(self.episode_duration // self.sampling_time)
-        #: Duration of the scenario for each episode (for total time imported from csv)
+        #: Duration of the scenario for each episode (for total time imported from csv).
         self.scenario_duration: float = self.episode_duration + self.sampling_time
 
-        #: Beginning time of the scenario
+        #: Beginning time of the scenario.
         self.scenario_time_begin: datetime
         if isinstance(scenario_time_begin, datetime):
             self.scenario_time_begin = scenario_time_begin
         else:
             self.scenario_time_begin = datetime.strptime(scenario_time_begin, "%Y-%m-%d %H:%M")
-        #: Ending time of the scenario (should be in the format %Y-%m-%d %H:%M)
+        #: Ending time of the scenario (should be in the format %Y-%m-%d %H:%M).
         self.scenario_time_end: datetime
         if isinstance(scenario_time_end, datetime):
             self.scenario_time_end = scenario_time_end
@@ -151,9 +151,9 @@ class BaseEnv(Env, abc.ABC):
         if self.scenario_time_begin > self.scenario_time_end:
             raise ValueError("Start time of the scenario should be smaller than or equal to end time.")
 
-        #: Numpy random generator
+        #: Numpy random generator.
         self.np_random: np.random.Generator
-        #: Value used for seeding the random generator
+        #: Value used for seeding the random generator.
         self._seed: int
         self.np_random, self._seed = self.seed(seed)
 
@@ -163,21 +163,21 @@ class BaseEnv(Env, abc.ABC):
         #: Data frame containing the currently valid range of time series data.
         self.ts_current: pd.DataFrame = pd.DataFrame()
 
-        #: Configuration to describe what the environment state looks like
+        #: Configuration to describe what the environment state looks like.
         self.state_config: StateConfig | None = None
 
         # Store data logs and log other information
-        #: Episode timer (stores the start time of the episode)
+        #: Episode timer (stores the start time of the episode).
         self.episode_timer: float = time.time()
-        #: Current state of the environment
+        #: Current state of the environment.
         self.state: dict[str, float]
-        #: Log of the environment state
+        #: Log of the environment state.
         self.state_log: list[dict[str, float]] = []
-        #: Log of the environment state over multiple episodes
+        #: Log of the environment state over multiple episodes.
         self.state_log_longtime: list[list[dict[str, float]]] = []
-        #: Some specific current environment settings / other data, apart from state
+        #: Some specific current environment settings / other data, apart from state.
         self.data: dict[str, Any]
-        #: Log of specific environment settings / other data, apart from state for the episode
+        #: Log of specific environment settings / other data, apart from state for the episode.
         self.data_log: list[dict[str, Any]] = []
         #: Log of specific environment settings / other data, apart from state, over multiple episodes.
         self.data_log_longtime: list[list[dict[str, Any]]]
@@ -197,14 +197,14 @@ class BaseEnv(Env, abc.ABC):
         .. deprecated:: 2.0.0
             Use the new style initializer instead and clearly specify all required parameters as arguments to init.
 
-        :param env_id: Identification for the environment, usefull when creating multiple environments
-        :param run_name: Identification name for the optimization run
-        :param general_settings: Dictionary of general settings
-        :param path_settings: Dictionary of path settings
-        :param env_settings: Dictionary of environment specific settings
-        :param verbose: Verbosity setting for logging
-        :param callback: callback method will be called after each episode with all data within the
-                         environment class
+        :param env_id: Identification for the environment, useful when creating multiple environments.
+        :param run_name: Identification name for the optimization run.
+        :param general_settings: Dictionary of general settings.
+        :param path_settings: Dictionary of path settings.
+        :param env_settings: Dictionary of environment specific settings.
+        :param verbose: Verbosity setting for logging.
+        :param callback: Callback method will be called after each episode with all data within the
+                         environment class.
         """
         from eta_utility.eta_x import ConfigOptRun
 
@@ -263,27 +263,27 @@ class BaseEnv(Env, abc.ABC):
 
     def _init_state_space(self) -> StateConfig:
         """Initialize the StateConfig object from a dataframe stored in self.state_config. Also provide a deprecated
-        structure of variables which includes the self.names mapping and multiple other maps.
+        structure of variables, which includes the self.names mapping and multiple other maps.
 
         .. deprecated:: 2.0.0
             Initialize the StateConfig object directly instead and use the mappings and functions it provides.
 
         The names array contains the following (ordered) lists of variables in a dictionary:
 
-            * **actions**: Variables that are agent actions
-            * **observations**: Variables that are agent observations
-            * **ext_inputs**: Variables that should be provided to an external source (such as an FMU)
-            * **ext_output**: variables that can be received from an external source (such as an FMU)
-            * **abort_conditions_min**: Variables that have minimum values for an abort condition
-            * **abort_conditions_max**: Variables that have maximum values for an abort condition
+            * **actions**: Variables that are agent actions.
+            * **observations**: Variables that are agent observations.
+            * **ext_inputs**: Variables that should be provided to an external source (such as an FMU).
+            * **ext_output**: variables that can be received from an external source (such as an FMU).
+            * **abort_conditions_min**: Variables that have minimum values for an abort condition.
+            * **abort_conditions_max**: Variables that have maximum values for an abort condition.
 
         *self.ext_scale* is a dictionary of scaling values for external input values (for example from simulations).
 
-        *self.map_ext_ids* is a mapping of internal environment names to external ids.
+        *self.map_ext_ids* is a mapping of internal environment names to external IDs.
 
-        *self.rev_ext_ids* is a mapping of external ids to internal environment names.
+        *self.rev_ext_ids* is a mapping of external IDs to internal environment names.
 
-        *self.map_scenario_ids* is a mapping of internal environment names to scenario ids.
+        *self.map_scenario_ids* is a mapping of internal environment names to scenario IDs.
         """
         self.state_config = StateConfig.from_dict(self.state_config)
 
@@ -310,30 +310,30 @@ class BaseEnv(Env, abc.ABC):
     def import_scenario(self, *scenario_paths: dict[str, Any], prefix_renamed: bool = True) -> pd.DataFrame:
         """Load data from csv into self.timeseries_data by using scenario_from_csv
 
-        :param scenario_paths: One or more scenario configuration dictionaries (Or a list of dicts), which each contain
+        :param scenario_paths: One or more scenario configuration dictionaries (or a list of dicts), which each contain
             a path for loading data from a scenario file. The dictionary should have the following structure, with <X>
             denoting the variable value:
 
             .. note ::
                 [{*path*: <X>, *prefix*: <X>, *interpolation_method*: <X>, *resample_method*: <X>,
                 *scale_factors*: {col_name: <X>}, *rename_cols*: {col_name: <X>}, *infer_datetime_cols*: <X>,
-                *time_conversion_str*: <X>]
+                *time_conversion_str*: <X>}]
 
-            * **path**: Path to the scenario file (relative to scenario_path)
+            * **path**: Path to the scenario file (relative to scenario_path).
             * **prefix**: Prefix for all columns in the file, useful if multiple imported files
-              have the same column names
+              have the same column names.
             * **interpolation_method**: A pandas interpolation method, required if the frequency of
-              values must be increased in comparison to the files data. (e.g.: 'linear' or 'pad')
+              values must be increased in comparison to the files' data. (e.g.: 'linear' or 'pad').
             * **scale_factors**: Scaling factors for specific columns. This can be useful for
-              example if a column contains data in kilowatt and should be imported in watts.
-              In this case the scaling factor for the column would be 1000.
+              example, if a column contains data in kilowatt and should be imported in watts.
+              In this case, the scaling factor for the column would be 1000.
             * **rename_cols**: Mapping of column names from the file to new names for the imported
               data.
             * **infer_datetime_cols**: Number of the column which contains datetime data. If this
               value is not present, the time_conversion_str variable will be used to determine
               the datetime format.
             * **time_conversion_str**: Time conversion string, determining the datetime format
-              used in the imported file (default: %Y-%m-%d %H:%M)
+              used in the imported file (default: %Y-%m-%d %H:%M).
         :param prefix_renamed: Determine whether the prefix is also applied to renamed columns.
         """
         paths = []
@@ -374,7 +374,7 @@ class BaseEnv(Env, abc.ABC):
         """Get scenario data for the current time step of the environment, as specified in state_config. This assumes
         that scenario data in self.ts_current is available and scaled correctly.
 
-        :return: Scenario data for current time step
+        :return: Scenario data for current time step.
         """
         assert self.state_config is not None, "StateConfig must be specified in the environment."
 
@@ -386,14 +386,14 @@ class BaseEnv(Env, abc.ABC):
 
     @abc.abstractmethod
     def step(self, action: np.ndarray) -> StepResult:
-        """Perfom one time step and return its results. This is called for every event or for every time step during
+        """Perform one time step and return its results. This is called for every event or for every time step during
         the simulation/optimization run. It should utilize the actions as supplied by the agent to determine the new
         state of the environment. The method must return a four-tuple of observations, rewards, dones, info.
 
         .. note ::
             Do not forget to increment n_steps and n_steps_longtime.
 
-        :param action:
+        :param action: Actions taken by the agent.
         :return: The return value represents the state of the environment after the step was performed.
 
             * observations: A numpy array with new observation values as defined by the observation space.
@@ -402,7 +402,7 @@ class BaseEnv(Env, abc.ABC):
             * done: Boolean value specifying whether an episode has been completed. If this is set to true, the reset
               function will automatically be called by the agent or by eta_i.
             * info: Provide some additional info about the state of the environment. The contents of this may be used
-              for logging purposes in the future but typically do not currently server a purpose.
+              for logging purposes in the future but typically do not currently serve a purpose.
 
         """
         raise NotImplementedError("Cannot step an abstract Environment.")
@@ -413,10 +413,10 @@ class BaseEnv(Env, abc.ABC):
         state of the environment such that simulation of a new episode can begin.
 
         .. note ::
-            Don't forget to store and reset the episode_timer
+            Don't forget to store and reset the episode_timer.
 
         :return: The return value represents the observations (state) of the environment before the first
-                 step is performed
+                 step is performed.
         """
         raise NotImplementedError("Cannot reset an abstract Environment.")
 
@@ -424,16 +424,31 @@ class BaseEnv(Env, abc.ABC):
     def close(self) -> None:
         """Close the environment. This should always be called when an entire run is finished. It should be used to
         close any resources (i.e. simulation models) used by the environment.
-
-        :return:
         """
         raise NotImplementedError("Cannot close an abstract Environment.")
+
+    @abc.abstractmethod
+    def render(self, mode: str = "human") -> None:
+        """Render the environment
+
+        The set of supported modes varies per environment. Some environments do not support rendering at
+        all. By convention in OpenAI *gym*, if mode is:
+
+            * human: render to the current display or terminal and return nothing. Usually for human consumption.
+            * rgb_array: Return a numpy.ndarray with shape (x, y, 3), representing RGB values for an x-by-y pixel image,
+              suitable for turning into a video.
+            * ansi: Return a string (str) or StringIO.StringIO containing a terminal-style text representation.
+              The text can include newlines and ANSI escape sequences (e.g. for colors).
+
+        :param mode: Rendering mode.
+        """
+        raise NotImplementedError("Cannot render an abstract Environment.")
 
     def seed(self, seed: int | None = None) -> tuple[np.random.Generator, int]:
         """Set random seed for the random generator of the environment
 
-        :param seed: Seeding value
-        :return: Tuple of the numpy random generator and the set seed value
+        :param seed: Seeding value.
+        :return: Tuple of the numpy random generator and the set seed value.
         """
         if seed is None:
             iseed = None
@@ -451,9 +466,8 @@ class BaseEnv(Env, abc.ABC):
 
     @classmethod
     def get_info(cls) -> tuple[str, str]:
-        """
-        Get info about environment
+        """Get info about environment.
 
-        :return: Tuple of version and description
+        :return: Tuple of version and description.
         """
         return cls.version, cls.description  # type: ignore

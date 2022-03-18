@@ -34,10 +34,10 @@ log = get_logger("eta_x")
 class ETAx:
     """Initialize an optimization model and provide interfaces for optimization, learning and execution (play).
 
-    :param root_path: Root path of the eta_x application (the configuration will be interpreted relative to this)
-    :param config_name: Name of configuration .ini file in configuration directory (should be json format)
-    :param config_overwrite: Dictionary to overwrite selected configurations
-    :param relpath_config: Relative path to configuration file, starting from root path (default: config/)
+    :param root_path: Root path of the eta_x application (the configuration will be interpreted relative to this).
+    :param config_name: Name of configuration .ini file in configuration directory (should be JSON format).
+    :param config_overwrite: Dictionary to overwrite selected configurations.
+    :param relpath_config: Relative path to configuration file, starting from root path.
     """
 
     def __init__(
@@ -47,19 +47,21 @@ class ETAx:
         config_overwrite: Mapping[str, Any] | None = None,
         relpath_config: str | os.PathLike = "config/",
     ) -> None:
-        #: Load configuration for the optimization
+        # Load configuration for the optimization
         _root_path = root_path if isinstance(root_path, pathlib.Path) else pathlib.Path(root_path)
         _relpath_config = relpath_config if isinstance(relpath_config, pathlib.Path) else pathlib.Path(relpath_config)
+        #: Path to the configuration file.
         self.path_config = _root_path / _relpath_config / f"{config_name}.json"
+        #: ConfigOpt object for the optimization run.
         self.config: ConfigOpt = ConfigOpt.from_json(self.path_config, root_path, config_overwrite)
         log.setLevel(int(self.config.settings.verbose * 10))
 
-        #: Configuration for an optimization run
+        #: Configuration for an optimization run.
         self.config_run: ConfigOptRun | None = None
 
-        #: The vectorized environments
+        #: The vectorized environments.
         self.environments: VecEnv | VecNormalize | None = None
-        #: Vectorized interaction environments
+        #: Vectorized interaction environments.
         self.interaction_env: VecEnv | None = None
         #: The model or algorithm.
         self.model: BaseAlgorithm | None = None
@@ -67,14 +69,14 @@ class ETAx:
     def prepare_run(
         self, series_name: str, run_name: str, run_description: str = "", reset: bool = False, training: bool = True
     ) -> None:
-        """Prepare the learn and play methods
+        """Prepare the learn and play methods.
 
-        :param series_name: Name for a series of runs
-        :param run_name: Name for a specific run
-        :param run_description: Description for a specific run
-        :param reset: Should an exisiting model be backed up and overwritten (otherwise load it)? (default: False)
-        :param training: Should preparation be done for training (alternative: playing)? (default: True)
-        :return: Boolean value indicating successful preparation (
+        :param series_name: Name for a series of runs.
+        :param run_name: Name for a specific run.
+        :param run_description: Description for a specific run.
+        :param reset: Should an existing model be backed up and overwritten (otherwise load it)?
+        :param training: Should preparation be done for training (alternative: playing)?
+        :return: Boolean value indicating successful preparation.
         """
         self.config_run = ConfigOptRun(
             series=series_name,
@@ -92,9 +94,9 @@ class ETAx:
         log.info("Run prepared successfully.")
 
     def _prepare_model(self, reset: bool = False) -> None:
-        """Check for existing model and load it or back it up and create a new model
+        """Check for existing model and load it or back it up and create a new model.
 
-        :param reset: Flag to determine whether an existing model should be reset (default: False)
+        :param reset: Flag to determine whether an existing model should be reset.
         """
         assert self.config_run is not None, (
             "Set the config_run attribute before trying to initialize the model "
@@ -138,7 +140,7 @@ class ETAx:
     def _prepare_environments(self, training: bool = True) -> None:
         """Vectorize and prepare the environments and potentially the interaction environments.
 
-        :param training: Should preparation be done for training (alternative: playing)? (default: True)
+        :param training: Should preparation be done for training (alternative: playing)?
         """
         assert self.config_run is not None, (
             "Set the config_run attribute before trying to initialize the environments "
@@ -228,10 +230,9 @@ class ETAx:
             Use the new style environment initialization instead, by explicitly specifying environment parameters in
             the init function of the environment.
 
-        :param typ: Requested type of environment (normal: 'env' or interaction environment: 'interaction')
-                    (default: "env")
+        :param typ: Requested type of environment (normal: 'env' or interaction environment: 'interaction').
         :param training: Flag to identify whether the environment should be initialized for training or playing.
-                         It true, it will be initialized for training. (default: False)
+                         It true, it will be initialized for training.
         """
         assert self.config_run is not None, (
             "Set the config_run attribute before trying to initialize the environments "
@@ -325,9 +326,9 @@ class ETAx:
     ) -> None:
         """Start the learning job for an agent with the specified environment.
 
-        :param series_name: Name for a series of runs
-        :param run_name: Name for a specific run
-        :param run_description: Description for a specific run
+        :param series_name: Name for a series of runs.
+        :param run_name: Name for a specific run.
+        :param run_description: Description for a specific run.
         :param reset: Indication whether possibly existing models should be reset. Learning will be continued if
                            model exists and reset is false.
         """
@@ -408,9 +409,9 @@ class ETAx:
     def play(self, series_name: str | None = None, run_name: str | None = None, run_description: str = "") -> None:
         """Play with previously learned agent model in environment.
 
-        :param series_name: Name for a series of runs
-        :param run_name: Name for a specific run
-        :param run_description: Description for a specific run
+        :param series_name: Name for a series of runs.
+        :param run_name: Name for a specific run.
+        :param run_description: Description for a specific run.
         """
         if is_env_closed(self.environments) or self.model is None:
             _series_name = series_name if series_name is not None else ""

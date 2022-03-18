@@ -29,19 +29,19 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
     """Base class for mathematical MPC models. This class can be used in conjunction with the MPCBasic agent.
     You need to implement the *_model* method in a subclass and return a *pyomo.AbstractModel* from it.
 
-    :param env_id: Identification for the environment, usefull when creating multiple environments
-    :param config_run: Configuration of the optimization run
+    :param env_id: Identification for the environment, useful when creating multiple environments.
+    :param config_run: Configuration of the optimization run.
     :param seed: Random seed to use for generating random numbers in this environment
-        (default: None / create random seed)
-    :param verbose: Verbosity to use for logging (default: 2)
-    :param callback: callback which should be called after each episode
-    :param scenario_time_begin: Beginning time of the scenario
-    :param scenario_time_end: Ending time of the scenario
-    :param episode_duration: Duration of the episode in seconds
-    :param sampling_time: Duration of a single time sample / time step in seconds
-    :param model_parameters: Parameters for the mathematical model
-    :param prediction_scope: Duration of the prediction (usually a subsample of the episode duration)
-    :param kwargs: Other keyword arguments (for subclasses)
+        (default: None / create random seed).
+    :param verbose: Verbosity to use for logging.
+    :param callback: callback which should be called after each episode.
+    :param scenario_time_begin: Beginning time of the scenario.
+    :param scenario_time_end: Ending time of the scenario.
+    :param episode_duration: Duration of the episode in seconds.
+    :param sampling_time: Duration of a single time sample / time step in seconds.
+    :param model_parameters: Parameters for the mathematical model.
+    :param prediction_scope: Duration of the prediction (usually a subsample of the episode duration).
+    :param kwargs: Other keyword arguments (for subclasses).
     """
 
     def __init__(
@@ -76,7 +76,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         # Check configuration for MILP compatibility
         #: Total duration of one prediction/optimization run when used with the MPC agent.
         #: This is automatically set to the value of episode_duration if it is not supplied
-        #: separately
+        #: separately.
         self.prediction_scope: float
         if prediction_scope is None:
             log.info("prediction_scope parameter is not present. Setting prediction_scope to episode_duration.")
@@ -90,7 +90,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         if self.prediction_scope % self.sampling_time != 0:
             log.error(
                 "The sampling_time must fit evenly into the prediction_scope "
-                "(prediction_scope % sampling_time must equal 0."
+                "(prediction_scope % sampling_time must equal 0)."
             )
             errors = True
 
@@ -100,12 +100,12 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             )
 
         # Make some more settings easily accessible
-        #: Number of steps in the prediction (prediction_scope/sampling_time)
+        #: Number of steps in the prediction (prediction_scope/sampling_time).
         self.n_prediction_steps: int = int(self.prediction_scope // self.sampling_time)
-        #: Duration of the scenario for each episode (for total time imported from csv)
+        #: Duration of the scenario for each episode (for total time imported from csv).
         self.scenario_duration: float = self.episode_duration + self.prediction_scope
 
-        #: Configuration for the MILP model parameters
+        #: Configuration for the MILP model parameters.
         self.model_parameters = model_parameters
 
         # Set additional attributes with model specific information.
@@ -124,10 +124,10 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         #:   actual parameter (x.ON) would be updated instead.
         self.nonindex_update_append_string: str | None = None
 
-        #: Some models may not use the actual time increment (sampling_time). Instead they would translate into model
+        #: Some models may not use the actual time increment (sampling_time). Instead, they would translate into model
         #:   time increments (each sampling time increment equals a single model time step). This means that indices
         #:   of the model components simply count 1,2,3,... instead of 0, sampling_time, 2*sampling_time, ...
-        #:   Set this to true, if model time increments (1, 2, 3, ...) are used. Otherwise sampling_time will be used
+        #:   Set this to true, if model time increments (1, 2, 3, ...) are used. Otherwise, sampling_time will be used
         #:   as the time increment. Note: This is only relevant for the first model time increment, later increments
         #:   may differ.
         self._use_model_time_increments: bool = False
@@ -138,7 +138,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         such that the MPC algorithm can re-sort the action output. This sorting cannot be conveyed differently through
         pyomo.
 
-        :return: tuple of the concrete model and the order of the action space
+        :return: Tuple of the concrete model and the order of the action space.
         """
         if self._concrete_model is None:
             self._concrete_model = self._model()
@@ -157,8 +157,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
     def model(self, value: pyo.ConcreteModel) -> None:
         """The model attribute setter should be used for returning the solved model.
 
-        :param value:
-        :return:
+        :param value: The pyomo.ConcreteModel object which should be used as the model.
         """
         if not isinstance(value, pyo.ConcreteModel):
             raise TypeError("The model attribute can only be set with a pyomo concrete model.")
@@ -168,18 +167,16 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
     def _model(self) -> pyo.AbstractModel:
         """Create the abstract pyomo model. This is where the pyomo model description should be placed.
 
-        :return: Abstract pyomo model
+        :return: Abstract pyomo model.
         """
         raise NotImplementedError("The abstract MPC environment does not implement a model.")
 
     def step(self, action: np.ndarray) -> StepResult:
-        """Perfom one time step and return its results. This is called for every event or for every time step during
+        """Perform one time step and return its results. This is called for every event or for every time step during
         the simulation/optimization run. It should utilize the actions as supplied by the agent to determine
         the new state of the environment. The method must return a four-tuple of observations, rewards, dones, info.
 
         This also updates self.state and self.state_log to store current state information.
-
-        TODO: Add something to handle actions, currently they are just ignored (MPC agent does not need to use actions)
 
         :param np.ndarray action: Actions to perform in the environment.
         :return: The return value represents the state of the environment after the step was performed.
@@ -223,8 +220,8 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
     def update(self, observations: Sequence[Sequence[float | int]] | None = None) -> np.ndarray:
         """Update the optimization model with observations from another environment.
 
-        :param observations: Observations from another environment
-        :return: Full array of current observations
+        :param observations: Observations from another environment.
+        :return: Full array of current observations.
         """
         assert self.state_config is not None, "Set state_config before calling update function."
         assert self._concrete_model is not None, (
@@ -317,9 +314,8 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         """This method will try to render the result in case the model could not be solved. It should automatically
         be called by the agent.
 
-        :param model: Current model
-        :param result: Result of the last solution attempt
-        :return:
+        :param model: Current model.
+        :param result: Result of the last solution attempt.
         """
         self.model = model
         try:
@@ -336,7 +332,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         fresh observations. This allows you to adjust timeseries for example. If you need to manipulate the state
         before initializing or if you want to adjust the initialization itself, overwrite the function entirely.
 
-        :return: Initial observation
+        :return: Initial observation.
         """
         assert self.state_config is not None, "Set state_config before calling update function."
 
@@ -386,9 +382,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         """Close the environment. This should always be called when an entire run is finished. It should be used to
         close any resources (i.e. simulation models) used by the environment.
 
-        Default behaviour for the MPC environment is to do nothing.
-
-        :return:
+        Default behavior for the MPC environment is to do nothing.
         """
         pass
 
@@ -398,17 +392,15 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         ts: pd.DataFrame | pd.Series | dict[str, dict] | Sequence | None = None,
         index: pd.Index | Sequence | pyo.Set | None = None,
     ) -> PyoParams:
-        """Retrieve paramters for the named component and convert the parameters into the pyomo dict-format.
+        """Retrieve parameters for the named component and convert the parameters into the pyomo dict-format.
         If required, timeseries can be added to the parameters and timeseries may be reindexed. The
-        pyo_convert_timeseries function is used for timeseries handling.
+        pyo_convert_timeseries function is used for timeseries handling. See also :ref:`pyo_convert_timeseries`
 
-        .. see also:: pyo_convert_timeseries
-
-        :param component_name: Name of the component
-        :param ts: Timeseries for the component
+        :param component_name: Name of the component.
+        :param ts: Timeseries for the component.
         :param index: New index for timeseries data. If this is supplied, all timeseries will be copied and
                       reindexed.
-        :return: Pyomo parameter dictionary
+        :return: Pyomo parameter dictionary.
         """
         if component_name is None:
             params = self.model_parameters
@@ -440,13 +432,13 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
     ) -> PyoParams:
         """Convert a time series data into a pyomo format. Data will be reindexed if a new index is provided.
 
-        :param ts: Timeseries to convert
+        :param ts: Timeseries to convert.
         :param index: New index for timeseries data. If this is supplied, all timeseries will be copied and
-                              reindexed.
+                      reindexed.
         :param component_name: Name of a specific component that the timeseries is used for. This limits which
-                                   timeseries are returned.
-        :param _add_wrapping_none: default is True
-        :return: pyomo parameter dictionary
+                               timeseries are returned.
+        :param _add_wrapping_none: Add a "None" indexed dictionary as the top level.
+        :return: Pyomo parameter dictionary.
         """
         output: PyoParams = {}
         if index is not None:
@@ -464,8 +456,8 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         def convert_index(cts: pd.Series | Sequence | Mapping, _index: Sequence[int] | None) -> dict[int, Any]:
             """Take the timeseries and change the index to correspond to _index.
 
-            :param cts: Original timeseries object (with or without index does not matter)
-            :param _index: New index
+            :param cts: Original timeseries object (with or without index does not matter).
+            :param _index: New index.
             :return: New timeseries dictionary with the converted index.
             """
             values = None
@@ -524,11 +516,10 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         """Updates model parameters and indexed parameters of a pyomo instance with values given in a dictionary.
         It assumes that the dictionary supplied in updated_params has the correct pyomo format.
 
-        :param updated_params: Dictionary with the updated values
-        :param nonindex_param_append_string: String to be appended to values that are not indexed. This can
-                                                  be used if indexed parameters need to be set with values that do
-                                                  not have an index.
-        :return: Updated model instance
+        :param updated_params: Dictionary with the updated values.
+        :param nonindex_param_append_string: String to be appended to values which are not indexed. This can
+            be used if indexed parameters need to be set with values that do not have an index.
+        :return: Updated model instance.
         """
         assert self._concrete_model is not None, (
             "Access the 'model' attribute or call reset at least once before "
@@ -568,9 +559,9 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
     def pyo_get_solution(self, names: set[str] | None = None) -> dict[str, float | int | dict[int, float | int]]:
         """Convert the pyomo solution into a more useable format for plotting.
 
-        :param names: Names of the model parameters that are returned
+        :param names: Names of the model parameters that are returned.
         :return: Dictionary of {parameter name: value} pairs. Value may be a dictionary of {time: value} pairs which
-                 contains one value for each optimization time step
+                 contains one value for each optimization time step.
         """
         assert self._concrete_model is not None, (
             "Access the 'model' attribute or call reset at least once before "
@@ -583,7 +574,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             if com.ctype not in {pyo.Var, pyo.Param, pyo.Objective}:
                 continue
             if names is not None and com.name not in names:
-                continue  # Only include names that were asked for
+                continue  # Only include names that where asked for
 
             # For simple variables we need just the values, for everything else we want time indexed dictionaries
             if (

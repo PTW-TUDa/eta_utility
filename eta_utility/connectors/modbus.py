@@ -25,12 +25,12 @@ log = get_logger("connectors.modbus")
 
 
 class ModbusConnection(BaseConnection):
-    """The Modbus Connection class allows reading and writing from and to Modbus servers and clients. Additionally
+    """The Modbus Connection class allows reading and writing from and to Modbus servers and clients. Additionally,
     it implements a subscription server, which reads continuously in a specified interval.
 
-    :param url: Url of the Modbus Server
-    :param usr: Username in EnEffco for login
-    :param pwd: Password in EnEffco for login
+    :param url: URL of the Modbus Server.
+    :param usr: Username in EnEffco for login.
+    :param pwd: Password in EnEffco for login.
     :param nodes: List of nodes to use for all operations.
     """
 
@@ -50,11 +50,11 @@ class ModbusConnection(BaseConnection):
 
     @classmethod
     def from_node(cls, node: AnyNode, **kwargs: Any) -> ModbusConnection:
-        """Initialize the connection object from a modbus protocol node object
+        """Initialize the connection object from a modbus protocol node object.
 
-        :param node: Node to initialize from
+        :param node: Node to initialize from.
         :param kwargs: Other arguments are ignored.
-        :return: ModbusConnection object
+        :return: ModbusConnection object.
         """
         usr = node.usr if node.usr is not None else kwargs.get("usr", None)
         pwd = node.pwd if node.pwd is not None else kwargs.get("pwd", None)
@@ -69,12 +69,10 @@ class ModbusConnection(BaseConnection):
             )
 
     def read(self, nodes: Nodes | None = None) -> pd.DataFrame:
-        """
-        Read some manually selected nodes from Modbus server
+        """Read some manually selected nodes from Modbus server.
 
-        :param nodes: List of nodes to read from
-
-        :return: dictionary containing current values of the Modbus-variables
+        :param nodes: List of nodes to read from.
+        :return: Dictionary containing current values of the Modbus variables.
         """
         _nodes = self._validate_nodes(nodes)
 
@@ -90,21 +88,21 @@ class ModbusConnection(BaseConnection):
         return pd.DataFrame(values, index=[self._assert_tz_awareness(datetime.now())])
 
     def write(self, values: Mapping[AnyNode, Any]) -> None:
-        """Write some manually selected values on Modbus capable controller
+        """Write some manually selected values on Modbus capable controller.
 
         .. warning::
-            This is not implemented
+            This is not implemented.
 
-        :param values: Dictionary of nodes and data to write. {node: value}
+        :param values: Dictionary of nodes and data to write {node: value}.
         """
         raise NotImplementedError
 
     def subscribe(self, handler: SubscriptionHandler, nodes: Nodes | None = None, interval: TimeStep = 1) -> None:
         """Subscribe to nodes and call handler when new data is available.
 
-        :param nodes: identifiers for the nodes to subscribe to
-        :param handler: SubscriptionHandler object with a push method that accepts node, value pairs
-        :param interval: interval for receiving new data. It it interpreted as seconds when given as an integer.
+        :param nodes: Identifiers for the nodes to subscribe to.
+        :param handler: SubscriptionHandler object with a push method that accepts node, value pairs.
+        :param interval: Interval for receiving new data. It is interpreted as seconds when given as an integer.
         """
         _nodes = self._validate_nodes(nodes)
 
@@ -123,7 +121,7 @@ class ModbusConnection(BaseConnection):
         self._sub = loop.create_task(self._subscription_loop(handler, float(interval.total_seconds())))
 
     def close_sub(self) -> None:
-        """Close the subsription"""
+        """Close the subsription."""
         self._subscription_open = False
         if self.exc:
             raise self.exc
@@ -139,10 +137,10 @@ class ModbusConnection(BaseConnection):
             pass
 
     async def _subscription_loop(self, handler: SubscriptionHandler, interval: float) -> None:
-        """The subscription loop handles requesting data from the server in the specified interval
+        """The subscription loop handles requesting data from the server in the specified interval.
 
-        :param handler: Handler object with a push function to receive data
-        :param interval: Interval for requesting data in seconds
+        :param handler: Handler object with a push function to receive data.
+        :param interval: Interval for requesting data in seconds.
         """
 
         try:
@@ -169,15 +167,14 @@ class ModbusConnection(BaseConnection):
 
     @staticmethod
     def _decode(value: Sequence[int], byteorder: str, type_: str = "f") -> Any:
-        r"""
-        Method to decode incoming modbus values
+        r"""Method to decode incoming modbus values.
 
-        :param value: current value to be decoded into float
-        :param byteorder: byteorder for decoding i.e. 'little' or 'big' endian
-        :param type\_: type of the output value. See `Python struct format character documentation
+        :param value: Current value to be decoded into float.
+        :param byteorder: Byteorder for decoding i.e. 'little' or 'big' endian.
+        :param type\_: Type of the output value. See `Python struct format character documentation
                       <https://docs.python.org/3/library/struct.html#format-characters>` for all possible
-                      format strings. (default: f)
-        :return: decoded value as a python type
+                      format strings (default: f).
+        :return: Decoded value as a python type.
         """
         if byteorder == "little":
             bo = "<"
@@ -199,7 +196,6 @@ class ModbusConnection(BaseConnection):
     def _read_mb_value(self, node: NodeModbus) -> list[int]:
         """Read raw value from modbus server. This function should not be used directly. It does not
         establish a connection or handle connection errors.
-
         """
         if not self.connection.is_open():
             raise ConnectionError(f"Could not establish connection to host {self.url}")
@@ -231,7 +227,7 @@ class ModbusConnection(BaseConnection):
             raise ConnectionError(f"Connection Error: {self.url}, Error: {str(e)}") from e
 
     def _disconnect(self) -> None:
-        """Disconnect from server"""
+        """Disconnect from server."""
         try:
             self.connection.close()
         except (OSError, RuntimeError) as e:

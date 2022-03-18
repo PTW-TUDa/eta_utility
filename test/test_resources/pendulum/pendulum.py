@@ -21,14 +21,14 @@ log = get_logger("test_etax", 2)
 class PendulumEnv(BaseEnv):
     """Pendulum environment from BaseEnv (abstract class), adapted environment from gym.Env.
 
-    :param env_id: Identification for the environment, usefull when creating multiple environments
-    :param run_name: Identification name for the optimization run
-    :param general_settings: Dictionary of general settings
-    :param path_settings: Dictionary of path settings
-    :param env_settings: Dictionary of environment specific settings
-    :param verbose: Verbosity setting for logging
-    :param callback: callback method will be called after each episode with all data within the
-        environment class
+    :param env_id: Identification for the environment, useful when creating multiple environments.
+    :param run_name: Identification name for the optimization run.
+    :param general_settings: Dictionary of general settings.
+    :param path_settings: Dictionary of path settings.
+    :param env_settings: Dictionary of environment specific settings.
+    :param verbose: Verbosity setting for logging.
+    :param callback: Callback method will be called after each episode with all data within the
+        environment class.
     """
 
     version = "v1.0"
@@ -47,7 +47,7 @@ class PendulumEnv(BaseEnv):
     ):
         super()._init_legacy(env_id, run_name, general_settings, path_settings, env_settings, verbose, callback)
 
-        # load environment dynamics specific settings from .json
+        # load environment dynamics specific settings from JSON
         self.max_speed = env_settings["max_speed"]
         self.max_torque = env_settings["max_torque"]
         self.g = env_settings["g"]

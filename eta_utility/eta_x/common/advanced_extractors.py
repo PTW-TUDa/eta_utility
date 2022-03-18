@@ -49,14 +49,14 @@ def _mlp_layers_converter(layers: Sequence[int | Sequence[int | str]]) -> Sequen
 
 @define(frozen=True, kw_only=True)
 class MLPCNNNetArch:
-    #: CNN layers, where the inputs are a part of all observations - all observations can be used as well
+    #: CNN layers, where the inputs are a part of all observations - all observations can be used as well.
     cnn_layers: Sequence[Sequence[str | int]] = field(converter=_cnn_layers_converter)
-    #: Number of inputs for the CNN layer
+    #: Number of inputs for the CNN layer.
     cnn_inputs: int = field(converter=int)
-    #: Number of CNN input channels
+    #: Number of CNN input channels.
     cnn_input_channels: int = field(converter=int)
 
-    #: MLP layers, where the inputs are the remaining observations
+    #: MLP layers, where the inputs are the remaining observations.
     mlp_layers: Sequence[int] = field(converter=_mlp_layers_converter)
 
     @classmethod
@@ -64,13 +64,13 @@ class MLPCNNNetArch:
         """To construct a network a nested dictionary must be specified, with the required entry 'cnn' and the
         optional entry 'mlp'.
 
-        * Each cnn-layer is specified by: [kernel size, output channels, stride, padding]
+        * Each cnn-layer is specified by: [kernel size, output channels, stride, padding].
         * The cnn dict must start with an entry for overall settings:
-          [number of observations to use for the cnn part, number of time-series]
-        * Each pooling layer is specified by: [pooling type, pooling size, stride]
+          [number of observations to use for the cnn part, number of time-series].
+        * Each pooling layer is specified by: [pooling type, pooling size, stride].
 
         An exemplary network with 288 values for the cnn part, which consists of 6 independent time-series is defined
-        as follows: [dict(cnn=[[288, 6],[8, 8, 1, 'valid'],['max_pooling', 4, 2]], mlp=[100])]
+        as follows: [dict(cnn=[[288, 6],[8, 8, 1, 'valid'],['max_pooling', 4, 2]], mlp=[100])].
 
         See the documentation for a more detailed example.
         """
@@ -142,14 +142,14 @@ class MLPCNNNetArch:
 
 class MLPCNNExtractor(BaseFeaturesExtractor):
     """
-    Advanced Feature Extractor that combines a MLP with an CNN Network. Pass this class to the agent as a
+    Advanced Feature Extractor that combines an MLP with an CNN Network. Pass this class to the agent as a
     ``features_extractor_class`` in ``policy_kwargs``.
 
-    :param observation_space: gym space
+    :param observation_space: gym space.
     :param extractor_arch: The architecture of the Advanced Feature Extractor. See explanation above for syntax.
-    :param activation_fn_mlp: Activation function for the mlp part of the network
-    :param activation_fn_cnn: Activation function for the cnn part of the network
-    :param device: Device for training
+    :param activation_fn_mlp: Activation function for the mlp part of the network.
+    :param activation_fn_cnn: Activation function for the cnn part of the network.
+    :param device: Device for training.
     """
 
     def __init__(
@@ -162,7 +162,7 @@ class MLPCNNExtractor(BaseFeaturesExtractor):
     ):
         device = get_device(device)
 
-        #: Definition of the combined MLP and CNN network
+        #: Definition of the combined MLP and CNN network.
         self.net_def: MLPCNNNetArch
         if not isinstance(extractor_arch, MLPCNNNetArch):
             self.net_def = MLPCNNNetArch.from_serialized(extractor_arch)
@@ -171,23 +171,23 @@ class MLPCNNExtractor(BaseFeaturesExtractor):
 
         last_mlp_layer_dim = self._init_cnn_config(observation_space)
 
-        #: Torch sequential CNN network
+        #: Torch sequential CNN network.
         self.cnn_net: th.nn.Sequential
         self._init_cnn(activation_fn_cnn)
         self.cnn_net.to(device)
 
-        #: Torch sequential MLP network
+        #: Torch sequential MLP network.
         self.mlp_net: th.nn.Sequential | None
         self._init_mlp(activation_fn_mlp, last_mlp_layer_dim)
         if self.mlp_net is not None:
             self.mlp_net.to(device)
 
         # Check dimension of extractor output
-        #: Output dimension of the CNN network
+        #: Output dimension of the CNN network.
         self.cnn_output_dim: int
-        #: Output dimension of the MLP network
+        #: Output dimension of the MLP network.
         self.mlp_output_dim: int
-        #: Combined output dimension
+        #: Combined output dimension.
         self.combined_output: int
 
         with th.no_grad():
@@ -213,10 +213,10 @@ class MLPCNNExtractor(BaseFeaturesExtractor):
         super().__init__(observation_space, self.combined_output)
 
     def _init_cnn_config(self, observation_space: gym.Space) -> int:
-        """Initialize the configuration for the CNN network
+        """Initialize the configuration for the CNN network.
 
-        :param observation_space: Observation space of the agent
-        :return: Number of nodes in the first CNN layer
+        :param observation_space: Observation space of the agent.
+        :return: Number of nodes in the first CNN layer.
         """
         # Check whether the input configuration for the CNN works in combination with the observation space.
         if self.net_def.cnn_inputs > int(observation_space.shape[0]):
@@ -246,7 +246,7 @@ class MLPCNNExtractor(BaseFeaturesExtractor):
     def _init_cnn(self, activation_fn_cnn: type[th.nn.Module]) -> None:
         """Initialize the CNN part of the network.
 
-        :param activation_fn_cnn: Activation function for the CNN layers
+        :param activation_fn_cnn: Activation function for the CNN layers.
         """
         cnn_net: list[th.nn.Module] = []
         for layer in self.net_def.cnn_layers:
@@ -292,8 +292,8 @@ class MLPCNNExtractor(BaseFeaturesExtractor):
     def _init_mlp(self, activation_fn_mlp: type[th.nn.Module], last_mlp_layer_dim: int) -> None:
         """Initialize the MLP part of the network.
 
-        :param activation_fn_mlp: Activation function for the MLP layers
-        :param last_mlp_layer_dim: Dimension of the last MLP layer
+        :param activation_fn_mlp: Activation function for the MLP layers.
+        :param last_mlp_layer_dim: Dimension of the last MLP layer.
         """
         # iterate through mlp_layers - mlp_layer only specified if mlp_only_layers != []
         mlp_net: list[th.nn.Module] = []
@@ -308,11 +308,10 @@ class MLPCNNExtractor(BaseFeaturesExtractor):
             self.mlp_net = None
 
     def forward(self, observations: th.Tensor) -> th.Tensor:
-        """
-        Makes a forward pass.
+        """Perform a forward pass through the network.
 
-        :param observations: observations to pass through network
-        :return: Output of network
+        :param observations: Observations to pass through network.
+        :return: Output of network.
         """
         if self.mlp_net is not None:
             obs_mlp, obs_cnn = th.split(
