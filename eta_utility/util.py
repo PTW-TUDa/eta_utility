@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 def get_logger(
     name: str | None = None, level: int | None = None, format: str | None = None  # noqa: A002
 ) -> logging.Logger:
-    """Get eta_utility specific logger
+    """Get eta_utility specific logger.
 
     Call this without specifying a name to initiate logging. Set the "level" and "format" parameters to determine
     log output.
@@ -32,10 +32,10 @@ def get_logger(
         logging info to external loggers. Also note that this can only be called once without specifying a name!
         Subsequent calls will have no effect.
 
-    :param name: Name of the logger
-    :param level: Logging level (higher is more verbose)
-    :param format: Format of the log output. One of: simple, logname. (default: simple)
-    :return: logger
+    :param name: Name of the logger.
+    :param level: Logging level (higher is more verbose between 0 - no output and 4 - debug).
+    :param format: Format of the log output. One of: simple, logname. (default: simple).
+    :return: The *eta_utility* logger.
     """
     prefix = "eta_utility"
 
@@ -66,15 +66,15 @@ log = get_logger("util")
 
 
 def json_import(path: Path) -> dict[str, Any]:
-    """Extend standard json import to allow comments in json files
+    """Extend standard JSON import to allow '//' comments in JSON files.
 
-    :param path: path to json file
-    :return: Parsed dictionary
+    :param path: Path to JSON file.
+    :return: Parsed dictionary.
     """
     path = pathlib.Path(path) if not isinstance(path, pathlib.Path) else path
 
     try:
-        # Remove comments from the json file (using regular expression), then parse it into a dictionary
+        # Remove comments from the JSON file (using regular expression), then parse it into a dictionary
         cleanup = re.compile(r"^\s*(.*?)(?=/{2}|$)", re.MULTILINE)
         with path.open("r") as f:
             file = "".join(cleanup.findall(f.read()))
@@ -88,14 +88,14 @@ def json_import(path: Path) -> dict[str, Any]:
 
 
 def url_parse(url: str) -> tuple[ParseResult, str | None, str | None]:
-    """Extend parsing of url strings to find passwords and remove them from the original URL
+    """Extend parsing of URL strings to find passwords and remove them from the original URL.
 
-    :param url: URL string to be parsed
-    :return: Tuple of ParseResult object and two strings for username and password
+    :param url: URL string to be parsed.
+    :return: Tuple of ParseResult object and two strings for username and password.
     """
     _url = urlparse(url)
 
-    # Get username and password either from the arguments or from the parsed url string
+    # Get username and password either from the arguments or from the parsed URL string
     usr = _url.username if _url.username is not None else None
     pwd = _url.password if _url.password is not None else None
 
@@ -114,13 +114,13 @@ def dict_get_any(dikt: dict[str, Any], *names: str, fail: bool = True, default: 
     """Get any of the specified items from dictionary, if any are available. The function will return
     the first value it finds, even if there are multiple matches.
 
-    :param dikt: Dictionary to get values from
-    :param names: Item names to look for
+    :param dikt: Dictionary to get values from.
+    :param names: Item names to look for.
     :param fail: Flag to determine, if the function should fail with a KeyError, if none of the items are found.
-                 If this is False, the function will return the value specified by 'default'. (default: True)
-    :param default: Value to return, if none of the items are found and 'fail' is False. (default: None)
-    :return: Value from dictionary
-    :raise: KeyError, if none of the requested items are available and fail is True
+                 If this is False, the function will return the value specified by 'default'.
+    :param default: Value to return, if none of the items are found and 'fail' is False.
+    :return: Value from dictionary.
+    :raise: KeyError, if none of the requested items are available and fail is True.
     """
     for name in names:
         if name in dikt:
@@ -138,13 +138,13 @@ def dict_pop_any(dikt: dict[str, Any], *names: str, fail: bool = True, default: 
     the first value it finds, even if there are multiple matches. This function removes the found values from the
     dictionary!
 
-    :param dikt: Dictionary to pop values from
-    :param names: Item names to look for
+    :param dikt: Dictionary to pop values from.
+    :param names: Item names to look for.
     :param fail: Flag to determine, if the function should fail with a KeyError, if none of the items are found.
-                 If this is False, the function will return the value specified by 'default'. (default: True)
-    :param default: Value to return, if none of the items are found and 'fail' is False. (default: None)
-    :return: Value from dictionary
-    :raise: KeyError, if none of the requested items are available and fail is True
+                 If this is False, the function will return the value specified by 'default'.
+    :param default: Value to return, if none of the items are found and 'fail' is False.
+    :return: Value from dictionary.
+    :raise: KeyError, if none of the requested items are available and fail is True.
     """
     for name in names:
         if name in dikt:
@@ -162,9 +162,9 @@ def deep_mapping_update(
 ) -> dict[str, str | Mapping[str, Any]]:
     """Perform a deep update of a nested dictionary or similar mapping.
 
-    :param source: Original mapping to be updated
-    :param overrides: Mapping with new values to integrate into the new mapping
-    :return: New Mapping with values from the source and overrides combined
+    :param source: Original mapping to be updated.
+    :param overrides: Mapping with new values to integrate into the new mapping.
+    :return: New Mapping with values from the source and overrides combined.
     """
     output = dict(copy.deepcopy(source))
     for key, value in overrides.items():
@@ -185,11 +185,11 @@ def csv_export(
 ) -> None:
     """Export data to CSV file.
 
-    :param path: Directory path to export data
-    :param data: Data to be saved
-    :param names: Field names used when data is a Matrix without column names
-    :param sep: Separator to use between the fields
-    :param decimal: Sign to use for decimal points
+    :param path: Directory path to export data.
+    :param data: Data to be saved.
+    :param names: Field names used when data is a Matrix without column names.
+    :param sep: Separator to use between the fields.
+    :param decimal: Sign to use for decimal points.
     """
     _path = path if isinstance(path, pathlib.Path) else pathlib.Path(path)
     if _path.suffix != ".csv":
@@ -223,9 +223,9 @@ def csv_export(
 
 
 def replace_decimal_str(value: str | float, decimal: str = ".") -> str:
-    """Replace the decimal sign in a string
+    """Replace the decimal sign in a string.
 
-    :param value: The value to replace in
-    :param decimal: New decimal sign
+    :param value: The value to replace in.
+    :param decimal: New decimal sign.
     """
     return str(value).replace(".", decimal)

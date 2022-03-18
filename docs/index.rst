@@ -7,7 +7,7 @@ Please read the development guide before starting development on *eta_utility*: 
 
  .. note::
     Information for students at ETA-Factory: Student work stations do not have direct access
-    to the factory network. If you need access for your experiments please discuss options with
+    to the factory network. If you need access for your experiments, please discuss options with
     the research assistants.
 
 

@@ -63,10 +63,9 @@ def parse_args() -> argparse.Namespace:
 
 
 async def logger(interval: int) -> None:
-    """Print info message every interval seconds to show that the program continues to work
+    """Print info message every interval seconds to show that the program continues to work.
 
-    :param interval: Interval for printing the message in seconds
-    :return:
+    :param interval: Interval for printing the message in seconds.
     """
     step = 0
     while True:
@@ -85,10 +84,9 @@ async def stop_execution(sleep_time: TimeStep) -> None:
 
 
 async def stop_keyboard(key: str = "q") -> None:
-    """Stop execution if a key is pressed
+    """Stop execution if a key is pressed.
 
-    :param key: Key to be pressed (default: "q")
-    :return:
+    :param key: Key to be pressed (default: "q").
     """
     while True:
         if keyboard.is_pressed(key):
@@ -108,18 +106,18 @@ def execution_loop(
     eneffco_api_token: str | None = None,
     verbosity: int = 2,
 ) -> None:
-    """Execute the subscription and publishing loop
+    """Execute the subscription and publishing loop.
 
-    :param nodes_file: Path to excel sheet with node specification
-    :param nodes_sheet: excel sheet name
+    :param nodes_file: Path to Excel sheet with node specification.
+    :param nodes_sheet: Excel sheet name.
     :param output_file: Path to the CSV output file (optional) - One of output_file or publish_opcua is required.
     :param stop_after: Stop recording data automatically after X seconds
     :param sub_interval: Interval for subscription data.
     :param write_interval: Interval for writing to CSV file
-    :param eneffco_usr: EnEffCo user name
-    :param eneffco_pw: EnEffCo password
-    :param eneffco_api_token: API token for the EnEffCo connector
-    :param verbosity: Verbosity level (between 0 - no output and 4 - debug)
+    :param eneffco_usr: EnEffCo username.
+    :param eneffco_pw: EnEffCo password.
+    :param eneffco_api_token: API token for the EnEffCo connector.
+    :param verbosity: Verbosity level (between 0 - no output and 4 - debug).
     """
     log.setLevel(verbosity * 10)
 

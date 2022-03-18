@@ -4,13 +4,13 @@ Environments
 ===============
 The environments implemented in *eta_x* are subclasses `OpenAI gym environments
 <https://gym.openai.com/docs/#environments>`_. The *eta_x* environments are provided as abstract classes which
-must be subclassed to create useful implementations. For the specific use cases they are intended for these
+must be subclassed to create useful implementations. For the specific use cases they are intended for, these
 base classes make the creation of new environments much easier.
 
 The most important concept to understand when working with the *eta_x* environments is the handling and configuration
 of the environment state. The state is represented by StateVar objects which each correspond to one variable of the
 environment. All StateVar objects of an environment are combined into the StateConfig object. From the StateConfig
-object we can determine most other aspects of the environment such as for example the observation space and action
+object we can determine most other aspects of the environment, such as for example the observation space and action
 space. The OpenAI documentation provides more information about `Spaces <https://gym.openai.com/docs/#spaces>`_.
 
 When using the *ETAx* class for your optimization runs, the parameters required for environment instantiation must
@@ -23,10 +23,10 @@ concept of an interaction between multiple environments as shown in the figure.
 
     Example of an interaction between a real and a simulation environment.
 
-The figure illustrates the entire process which is consists of a step in the live/real environment and an update of
+The figure illustrates the entire process which consists of a step in the live/real environment and an update of
 the simulation environment before the agent receives the output of the simulation environment as its observations.
 For interaction between environments, additional parameters can be set in the configuration file. To configure the
-interaction environment use the section *interaction_env_specific*. If this section is not present, the parameters
+interaction environment, use the section *interaction_env_specific*. If this section is not present, the parameters
 from the *environment_specific* section will be used.
 
 Environment State Configuration
@@ -41,19 +41,19 @@ Each state variable is represented by a *StateVar* object
     :noindex:
     :exclude-members: from_dict
 
-    For example the variable "tank_temperature" might be part of the environments state. Let's assume it
+    For example, the variable "tank_temperature" might be part of the environment's state. Let's assume it
     represents the temperature inside the tank of a cleaning machine. This variable could be read from an
-    external source. In this case it must have have ``is_ext_output = True`` and the name of the external variable
+    external source. In this case it must have ``is_ext_output = True`` and the name of the external variable
     to read from must be specified: ``ext_id = "T_Tank"``. If this value should also be passed to the agent as an
-    observation, set ``is_agent_observation = True``. For observations and actions you also need to set the
+    observation, set ``is_agent_observation = True``. For observations and actions, you also need to set the
     low and high values, which determine the size of the observation and action spaces in this case something like
     ``low_value = 20`` and ``high_value = 80`` (if we are talking about water temperature measured in Celsius)
     might make sense.
 
-    If you want the environment to safely abort the optimization when certain values are exceeded set the abort
+    If you want the environment to safely abort the optimization when certain values are exceeded, set the abort
     conditions to sensible values such as ``abort_condition_min = 0`` and ``abort_condition_max = 100``. This
     can be especially useful for example if you have simulation models which do not support certain values
-    (for example in this case they might not be able to handle water temperatures higher than 100 °C)::
+    (for example, in this case they might not be able to handle water temperatures higher than 100 °C)::
 
         v1 = StateVar(
             "tank_temperature",
@@ -67,8 +67,8 @@ Each state variable is represented by a *StateVar* object
         )
 
 
-    As another example you could set up an agent action named ``name = "set_heater"`` which the environment uses
-    to determine the state of the tank heater. In this case the state variable should be configured
+    As another example, you could set up an agent action named ``name = "set_heater"`` which the environment uses
+    to determine the state of the tank heater. In this case, the state variable should be configured
     with ``is_agent_action = True`` and you might want to pass this on to a simulation model or an actual machine by
     setting ``is_ext_input = True``::
 
@@ -79,7 +79,7 @@ Each state variable is represented by a *StateVar* object
             is_agent_action = True,
         )
 
-    Finally let's create a third variable which is read from a scenario file and converted from kilo watts to watts
+    Finally, let's create a third variable which is read from a scenario file and converted from kilowatts to watts
     (multiplied by 1000). Additionally, this variable needs to be offset by a value of -10 due to measurement errors::
 
         v3 = StateVar(
@@ -99,7 +99,7 @@ All state variables are combined into the *StateConfig* object:
     :noindex:
     :exclude-members: loc, from_dict,
 
-    Using the examples above we could create the *StateConfig* object by passing our three state variables to
+    Using the examples above, we could create the *StateConfig* object by passing our three state variables to
     the constructor::
 
         state_config = StateConfig(v1, v2, v3)
@@ -116,6 +116,10 @@ Base Environment
 
 .. autoclass:: eta_utility.eta_x.envs::BaseEnv
     :members:
+    :private-members:
+    :inherited-members: abc.ABC
+    :show-inheritance:
+    :exclude-members: reward_range, metadata, spec, _seed, _abc_impl
     :noindex:
 
 Model Predictive Control (MPC) Environment
@@ -125,8 +129,9 @@ The BaseEnvMPC is a class for the optimization of mathematical MPC models.
 .. autoclass:: eta_utility.eta_x.envs::BaseEnvMPC
     :members:
     :private-members:
-    :inherited-members: gym.Env
+    :inherited-members: abc.ABC
     :show-inheritance:
+    :exclude-members: reward_range, metadata, spec, _seed, _init_legacy, _init_state_space, _abc_impl
     :noindex:
 
 Simulation (FMU) Environment
@@ -137,8 +142,9 @@ subclassing this environment. The FMU file will be loaded from the same director
 .. autoclass:: eta_utility.eta_x.envs::BaseEnvSim
     :members:
     :private-members:
-    :inherited-members: gym.Env
+    :inherited-members: abc.ABC
     :show-inheritance:
+    :exclude-members: reward_range, metadata, spec, _seed, _init_legacy, _init_state_space, _abc_impl
     :noindex:
 
 Live Connection Environment
@@ -150,6 +156,7 @@ because LiveConnect needs additional configuration.
 .. autoclass:: eta_utility.eta_x.envs::BaseEnvLive
     :members:
     :private-members:
-    :inherited-members: gym.Env
+    :inherited-members: abc.ABC
     :show-inheritance:
+    :exclude-members: reward_range, metadata, spec, _seed, _init_legacy, _init_state_space, _abc_impl
     :noindex:

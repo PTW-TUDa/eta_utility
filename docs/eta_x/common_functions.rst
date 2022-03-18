@@ -2,7 +2,7 @@
 
 Common Functions
 ==================
-In addition to the *ETAx* class, which completely automates the rolling horizons optimization process and the learning
+In addition to the *ETAx* class, which completely automates the rolling horizon optimization process and the learning
 process for reinforcement learning algorithms, the *eta_x* module also provides functions which simplify the creation
 of optimization runs and the required environments and algorithms. These functions also provide the interfaces for
 reading *eta_x* configuration files and for the logging capabilities of *eta_x*.

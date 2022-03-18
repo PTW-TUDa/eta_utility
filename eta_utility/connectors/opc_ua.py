@@ -32,12 +32,12 @@ log = get_logger("connectors.opcua")
 
 
 class OpcUaConnection(BaseConnection):
-    """The OPC UA Connection class allows reading and writing from and to OPC UA servers. Additionally
+    """The OPC UA Connection class allows reading and writing from and to OPC UA servers. Additionally,
     it implements a subscription method, which reads continuously in a specified interval.
 
-    :param url: Url of the OPC UA Server
-    :param usr: Username in OPC UA for login
-    :param pwd: Password in OPC UA for login
+    :param url: URL of the OPC UA Server.
+    :param usr: Username in OPC UA for login.
+    :param pwd: Password in OPC UA for login.
     :param nodes: List of nodes to use for all operations.
     """
 
@@ -59,13 +59,13 @@ class OpcUaConnection(BaseConnection):
 
     @classmethod
     def from_node(cls, node: AnyNode, **kwargs: Any) -> OpcUaConnection:
-        """Initialize the connection object from an EnEffCo protocol node object
+        """Initialize the connection object from an EnEffCo protocol Node object.
 
-        :param node: Node to initialize from
-        :param usr: Username for OPC UA login
-        :param pwd: Password for OPC UA login
-        :param kwargs: Other arguments are ignored
-        :return: OpcUaConnection object
+        :param node: Node to initialize from.
+        :param usr: Username for OPC UA login.
+        :param pwd: Password for OPC UA login.
+        :param kwargs: Other arguments are ignored.
+        :return: OpcUaConnection object.
         """
         usr = node.usr if node.usr is not None else kwargs.get("usr", None)
         pwd = node.pwd if node.pwd is not None else kwargs.get("pwd", None)
@@ -87,26 +87,24 @@ class OpcUaConnection(BaseConnection):
         usr: str | None = None,
         pwd: str | None = None,
     ) -> OpcUaConnection:
-        """Initialize the connection object from an EnEffCo protocol through the node ids
+        """Initialize the connection object from an OPC UA protocol through the node IDs.
 
-        :param ids: Identification of the Node
-        :param url: URL for  connection
-        :param names: Names for each Node
-        :param usr: Username in OPC UA for login
-        :param pwd: Password in OPC UA for login
-        :return: OpcUaConnection object
+        :param ids: Identification of the Node.
+        :param url: URL for  connection.
+        :param names: Names for each Node.
+        :param usr: Username in OPC UA for login.
+        :param pwd: Password in OPC UA for login.
+        :return: OpcUaConnection object.
         """
         nodes = [Node(name=opc_id, usr=usr, pwd=pwd, url=url, protocol="opcua", opc_id=opc_id) for opc_id in ids]
         return cls.from_node(nodes[0])
 
     def read(self, nodes: Nodes | None = None) -> pd.DataFrame:
         """
-        Read some manually selected values from OPCUA capable controller
+        Read some manually selected values from OPC UA capable controller.
 
-        :param nodes: List of nodes to read from
-
-        :return: DataFrame containing current values of the OPCUA-variables
-
+        :param nodes: List of nodes to read from.
+        :return: pandas.DataFrame containing current values of the OPC UA-variables.
         :raises ConnectionError: When an error occurs during reading.
         """
         _nodes = self._validate_nodes(nodes)
@@ -130,10 +128,9 @@ class OpcUaConnection(BaseConnection):
 
     def write(self, values: Mapping[AnyNode, Any]) -> None:
         """
-        Writes some manually selected values on OPCUA capable controller
+        Writes some manually selected values on OPC UA capable controller.
 
-        :param values: Dictionary of nodes and data to write. {node: value}
-
+        :param values: Dictionary of nodes and data to write {node: value}.
         :raises ConnectionError: When an error occurs during reading.
         """
         nodes = self._validate_nodes(set(values.keys()))
@@ -150,9 +147,8 @@ class OpcUaConnection(BaseConnection):
     def create_nodes(self, nodes: Nodes) -> None:
         """Create nodes on the server from a list of nodes. This will try to create the entire node path.
 
-        :param nodes: List or set of nodes to create
-
-        :raises ConnectionError: When an error occurs during node creation
+        :param nodes: List or set of nodes to create.
+        :raises ConnectionError: When an error occurs during node creation.
         """
 
         def create_object(parent: OpcNode, child: NodeOpcUa) -> OpcNode:
@@ -197,8 +193,7 @@ class OpcUaConnection(BaseConnection):
     def delete_nodes(self, nodes: Nodes) -> None:
         """Delete the given nodes and their parents (if the parents do not have other children).
 
-        :param nodes: List or set of nodes to be deleted
-
+        :param nodes: List or set of nodes to be deleted.
         :raises ConnectionError: If deletion of nodes fails.
         """
 
@@ -224,11 +219,11 @@ class OpcUaConnection(BaseConnection):
 
     def subscribe(self, handler: SubscriptionHandler, nodes: Nodes | None = None, interval: TimeStep = 1) -> None:
         """Subscribe to nodes and call handler when new data is available. This function works asnychonously.
-        Subscriptions must always be closed using the close_sub function (use try, finally!)
+        Subscriptions must always be closed using the close_sub function (use try, finally!).
 
-        :param nodes: identifiers for the nodes to subscribe to
-        :param handler: SubscriptionHandler object with a push method that accepts node, value pairs
-        :param interval: interval for receiving new data. It it interpreted as seconds when given as an integer.
+        :param nodes: Identifiers for the nodes to subscribe to.
+        :param handler: SubscriptionHandler object with a push method that accepts node, value pairs.
+        :param interval: Interval for receiving new data. It is interpreted as seconds when given as an integer.
         """
         _nodes = self._validate_nodes(nodes)
         interval = interval if isinstance(interval, timedelta) else timedelta(seconds=interval)
@@ -250,8 +245,8 @@ class OpcUaConnection(BaseConnection):
     async def _subscription_loop(self, handler: "_OPCSubHandler", interval: float) -> None:
         """The subscription loop makes sure that the subscription is reset in case the server generates an error.
 
-        :param handler: Handler object with a push function to receive data
-        :param interval: Interval for requesting data in seconds
+        :param handler: Handler object with a push function to receive data.
+        :param interval: Interval for requesting data in seconds.
         """
         retry_wait = 0
         subscribed = False
@@ -324,7 +319,7 @@ class OpcUaConnection(BaseConnection):
             raise ConnectionError(f"OPC Connection Error: {self.url}, Error: {str(e)}") from e
 
     def _disconnect(self) -> None:
-        """Disconnect from server"""
+        """Disconnect from server."""
         try:
             self.connection.disconnect()
             self._connected = False
@@ -359,7 +354,7 @@ class _OPCSubHandler:
     """Wrapper for the OPC UA subscription. Enables the subscription to use the standardized eta_utility subscription
     format.
 
-    :param handler: ETA-Utility style subscription handler
+    :param handler: *eta_utility* style subscription handler.
     """
 
     def __init__(self, handler: SubscriptionHandler) -> None:
@@ -375,9 +370,9 @@ class _OPCSubHandler:
         datachange_notification is called whenever subscribed input data is recieved via OPC UA. This pushes data
         to the actual eta_utility subscription handler.
 
-        :param node: Node Object, which was subscribed to and which has sent an updated value
-        :param val: new value of OPC UA node
-        :param data: raw data of OPC UA (not used)
+        :param node: Node Object, which was subscribed to and which has sent an updated value.
+        :param val: New value of OPC UA node.
+        :param data: Raw data of OPC UA (not used).
         """
 
         self.handler.push(self._sub_nodes[str(node)], val, self.handler._assert_tz_awareness(datetime.now()))

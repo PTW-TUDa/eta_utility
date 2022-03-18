@@ -86,7 +86,7 @@ class TestOpcUABasics:
         return connection
 
     def test_opcua_read(self, connection):
-        """Test opcua read function without network access"""
+        """Test OPC UA read function without network access"""
 
         res = connection.read(node)
 
@@ -222,7 +222,7 @@ class TestOpcUAServer:
         server = server_with_nodes
         connection = OpcUaConnection(local_nodes[0].url)
 
-        # Finally delete all those nodes using the server
+        # Finally, delete all those nodes using the server
         server.delete_nodes(local_nodes)
         with pytest.raises(ConnectionError):
             connection.read(local_nodes[0])

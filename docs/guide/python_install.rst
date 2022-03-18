@@ -7,10 +7,10 @@ Installation of Python
 ------------------------
 
 If you do not already have it, install Python (64 Bit) on your device. We recommend a version between
-3.7 and 3.8.10. Depending on the used modules newer versions will also work, the version is
-currently  limited by what is supported by *pytorch* which is only required in the *eta_x* module.
+3.7 and 3.8.10. Depending on the used modules newer versions will also work. If you are using the
+*eta_x* module, the version is limited by what is supported by *pytorch*.
 
-The installation is below illustrated choosing Python 3.7, 64 Bit. You can install Python for
+Below, the installation is illustrated using Python 3.7, 64 Bit. You can install Python for
 Windows from `python.org <https://www.python.org/downloads/windows/>`_
 
 .. figure:: figures/1_DownloadFiles.png
@@ -19,8 +19,8 @@ Windows from `python.org <https://www.python.org/downloads/windows/>`_
 
    Selection of download files from python.org.
 
-When installing select "Add Python to PATH" option and also make sure that "pip" is installed.
-In addition to this it typically makes sense to "Add Python to environment variables" which allows
+When installing, select the "Add Python to PATH" option and also make sure that "pip" is installed.
+In addition to this, it typically makes sense to "Add Python to environment variables" which allows
 other programs to find it. The setup process and selected options are shown in the following
 figures.
 

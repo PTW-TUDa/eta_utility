@@ -17,12 +17,13 @@ if TYPE_CHECKING:
 class PendulumControl(RuleBased):
     def __init__(self, policy: type[BasePolicy], env: VecEnv, verbose: int = 1, **kwargs: Any) -> None:
         """
-        Simple controller to test environments
+        Simple controller to test environments.
 
-        :param policy: The policy model to use (not relevant here)
-        :param env: The environment to learn from
-        :param verbose: Logging verbosity
-        :param kwargs: Additional arguments as specified in stable_baselins3.commom.base_class
+        :param policy: The policy model to use (not relevant here).
+        :param env: The environment to learn from.
+        :param verbose: Logging verbosity.
+        :param kwargs: Additional arguments as specified in
+            :py:class:`stable_baselins3.commom.base_class.BaseAlgorithm`.
         """
         if "policy_base" not in kwargs:
             kwargs["policy_base"] = None
@@ -37,7 +38,7 @@ class PendulumControl(RuleBased):
         the received observations.
 
         :param observation: Observations as provided by a single, non vectorized environment.
-        :return: Action values, as determined by the control rules
+        :return: Action values, as determined by the control rules.
         """
         # Handle vectorized environments
         # correct type ensured by is_vectorized_env

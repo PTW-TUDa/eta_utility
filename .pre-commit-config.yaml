@@ -63,3 +63,4 @@ repos:
           - types-requests
           - attrs
           - stable_baselines3
+          - pygame

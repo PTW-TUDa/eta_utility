@@ -19,7 +19,7 @@ class DampedOscillatorEnv(BaseEnvSim):
     Damped oscillator environment class from BaseEnvSim.
     Model settings come from fmu file.
 
-    :param env_id: Identification for the environment, usefull when creating multiple environments
+    :param env_id: Identification for the environment, useful when creating multiple environments
     :param config_run: Configuration of the optimization run
     :param seed: Random seed to use for generating random numbers in this environment
         (default: None / create random seed)
