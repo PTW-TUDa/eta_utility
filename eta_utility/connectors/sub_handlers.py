@@ -1,6 +1,3 @@
-""" This module implements some commonly used subscription handlers, for example for writing to csv files.
-
-"""
 from __future__ import annotations
 
 import csv
@@ -33,7 +30,6 @@ log = get_logger("connectors")
 class MultiSubHandler(SubscriptionHandler):
     """The MultiSubHandler can be used to distribute subcribed values to multiple different subscription handlers.
     The handlers can be registered using the register method.
-
     """
 
     def __init__(self) -> None:
@@ -53,11 +49,11 @@ class MultiSubHandler(SubscriptionHandler):
 
     def push(self, node: AnyNode, value: Any, timestamp: datetime | None = None) -> None:
         """Receive data from a subcription. This should contain the node that was requested, a value and a timestemp
-        when data was received. Push data to all registered sub-handlers
+        when data was received. Push data to all registered sub-handlers.
 
-        :param node: Node object the data belongs to
-        :param value: Value of the data
-        :param timestamp: Timestamp of receiving the data
+        :param node: Node object the data belongs to.
+        :param value: Value of the data.
+        :param timestamp: Timestamp of receiving the data.
         """
         for handler in self._handlers:
             handler.push(node, value, timestamp)
@@ -74,8 +70,8 @@ class MultiSubHandler(SubscriptionHandler):
 class CsvSubHandler(SubscriptionHandler):
     """Handle data for a subscription and save it as a CSV file.
 
-    :param output_file: CSV file to write data to
-    :param write_interval: Interval for writing data to csv file
+    :param output_file: CSV file to write data to.
+    :param write_interval: Interval for writing data to csv file.
     :param size_limit: Size limit for the csv file. A new file with a unique name will be created when the size
         is exceeded.
     :param dialect: Dialect of the csv file. This takes objects, which correspond to the csv.Dialect interface from the
@@ -106,9 +102,9 @@ class CsvSubHandler(SubscriptionHandler):
         """Receive data from a subcription. THis should contain the node that was requested, a value and a timestemp
         when data was received. If the timestamp is not provided, current time will be used.
 
-        :param node: Node object the data belongs to
-        :param value: Value of the data
-        :param timestamp: Timestamp of receiving the data
+        :param node: Node object the data belongs to.
+        :param value: Value of the data.
+        :param timestamp: Timestamp of receiving the data.
         """
         timestamp = timestamp if timestamp is not None else datetime.now()
         self._queue.put_nowait((node, value, timestamp))
@@ -164,9 +160,9 @@ class CsvSubHandler(SubscriptionHandler):
 
 
 class _CSVFileDB(AbstractContextManager):
-    """Handle CSV file content
+    """Handle CSV file content.
 
-    :param file: Path to the csv file
+    :param file: Path to the csv file.
     :param write_interval: interval in seconds between values (rows in csv file).
     :param file_size_limit: Size limit for the file in MB. A new file will be created, once the limit is exceeded.
     :param dialect: Dialect of the csv file. This takes objects, which correspond to the csv.Dialect interface from the
@@ -180,30 +176,30 @@ class _CSVFileDB(AbstractContextManager):
         file_size_limit: int = 1024,
         dialect: type[csv.Dialect] = csv.excel,
     ):
-        #: Path to the file that is being written to
+        #: Path to the file that is being written to.
         self.filepath: pathlib.Path = file if isinstance(file, pathlib.Path) else pathlib.Path(file)
-        #: File descriptor
+        #: File descriptor.
         self._file: TextIO | None = None
 
-        #: Interval between values in seconds
+        #: Interval between values in seconds.
         self.write_interval: Number = write_interval
-        #: Size limit for written files in bytes
+        #: Size limit for written files in bytes.
         self.file_size_limit: int = file_size_limit * 1024 * 1024
-        #: CSV dialect to be used for reading and writing data
+        #: CSV dialect to be used for reading and writing data.
         self.dialect: type[csv.Dialect] = dialect
 
-        #: List of header fields
+        #: List of header fields.
         self._header: list[str] = []
-        #: Ending position of the header in the file stream (used for extending the header)
+        #: Ending position of the header in the file stream (used for extending the header).
         self._endof_header: int = 0
-        #: Write buffer
+        #: Write buffer.
         self._buffer: Deque[dict[str, str]] = deque()
         self._timebuffer: Deque[datetime] = deque()
-        #: Latest timestamp in the write buffer
+        #: Latest timestamp in the write-buffer.
         self._latest_ts: datetime = datetime.fromtimestamp(10000, tz=tz.tzlocal())
-        #: Latest known value for each of the names in the header
+        #: Latest known value for each of the names in the header.
         self._latest_values: dict[str, str] = {}
-        #: Length of the line terminator in bytes (for finding file positions)
+        #: Length of the line terminator in bytes (for finding file positions).
         self._len_lineterminator: int = len(bytes(self.dialect.lineterminator, "UTF-8"))
 
     def __enter__(self) -> _CSVFileDB:
@@ -217,7 +213,6 @@ class _CSVFileDB(AbstractContextManager):
 
         :param exclusive_creation: Set to True, to request exclusive creation of a new file. If set to False, an
             existing file may be updated.
-        :return:
         """
         # Try opening or creating the specified file.
         try:
@@ -282,9 +277,9 @@ class _CSVFileDB(AbstractContextManager):
     def _write_file(self, field_list: list[str], insert_pos: int | None = None) -> int:
         """Write data to the file.
 
-        :param field_list: List of strings to be inserted into the csv file
+        :param field_list: List of strings to be inserted into the csv file.
         :param insert_pos: Position to insert the fields (stream position). If None, insertion will be at end of file.
-        :return: ending position of the last insertion (stream position)
+        :return: Ending position of the last insertion (stream position).
         """
         # Check whether the file is accessible in the required ways.
         if self._file is None or not self._file.readable() or not self._file.seekable() or not self._file.writable():
@@ -340,11 +335,11 @@ class _CSVFileDB(AbstractContextManager):
     ) -> None:
         """Write value to the file and manage the data buffer.
 
-        :param timestamp: Timestamp of the value to be written (can be empty if only flushing the buffer is intended)
-        :param name: Name/Header for the value to be written (can be empty if only flushing the buffer is intended)
-        :param value: Value to be written to the file (can be empty if only flushing the buffer is intended)
-        :param flush: Flush the entire buffer to file if set to True (default: False)
-        :param _len_buffer: Length of the buffer in lines (default: 20). Does not usually need to be changed.
+        :param timestamp: Timestamp of the value to be written (can be empty if only flushing the buffer is intended).
+        :param name: Name/Header for the value to be written (can be empty if only flushing the buffer is intended).
+        :param value: Value to be written to the file (can be empty if only flushing the buffer is intended).
+        :param flush: Flush the entire buffer to file if set to True.
+        :param _len_buffer: Length of the buffer in lines. Does not usually need to be changed.
         """
         if self._file is None:
             raise RuntimeError("Enter context manager before trying to write to CSVFileDB.")
@@ -383,7 +378,7 @@ class _CSVFileDB(AbstractContextManager):
                 self._timebuffer.appendleft(timestamp)
                 log.debug(f"Buffer time for CSV file exceeded, older value received with {timestamp}")
             else:
-                # If none of the special cases above apply, search through the timebuffer to figure out, where to
+                # If none of the special cases above apply, search through the time buffer to figure out, where to
                 # insert the value
                 last_ts = self._timebuffer[0]
                 for idx, ts in enumerate(self._timebuffer):
@@ -441,13 +436,12 @@ class _CSVFileDB(AbstractContextManager):
 
 
 class DFSubHandler(SubscriptionHandler):
-    """Subscription handler for returning pandas data frames when requested
+    """Subscription handler for returning pandas.DataFrames when requested.
 
-    :param write_interval: Interval for writing data
-    :param size_limit: Number of rows to keep in internal _data memory. Default 100.
+    :param write_interval: Interval for writing data.
+    :param size_limit: Number of rows to keep in memory.
     :param auto_fillna: If True, missing values in self._data are filled with the pandas-method
-                        df.fillna(method='ffill')
-                        each time self.data is called.
+                        df.fillna(method='ffill') each time self.data is called.
     """
 
     def __init__(self, write_interval: TimeStep = 1, size_limit: int = 100, auto_fillna: bool = True) -> None:
@@ -463,9 +457,9 @@ class DFSubHandler(SubscriptionHandler):
         value: Any | pd.Series | Sequence[Any],
         timestamp: datetime | pd.DatetimeIndex | TimeStep | None = None,
     ) -> None:
-        """Append values to the dataframe
+        """Append values to the dataframe.
 
-        :param node: Node object the data belongs to
+        :param node: Node object the data belongs to.
         :param value: Value of the data or Series of values. There must be corresponding timestamps for each value.
         :param timestamp: Timestamp of receiving the data or DatetimeIndex if pushing multiple values. Alternatively
                           an integer/timedelta can be provided to determine the interval between data points. Use
@@ -522,14 +516,14 @@ class DFSubHandler(SubscriptionHandler):
         return data
 
     def reset(self) -> None:
-        """Reset the internal data and restart collection"""
+        """Reset the internal data and restart collection."""
         self._data_lock.acquire()
         self._data = pd.DataFrame()
         self._data_lock.release()
         log.info(f"Subscribed DataFrame {hash(self._data)} was reset successfully.")
 
     def _housekeeping(self) -> None:
-        """Keep internal data short by only keeping last rows as specified in self.keep_data_rows"""
+        """Keep internal data short by only keeping last rows as specified in self.keep_data_rows."""
         self._data_lock.acquire()
         self._data.drop(index=self._data.index[: -self.keep_data_rows], inplace=True)
         self._data_lock.release()

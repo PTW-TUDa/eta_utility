@@ -25,13 +25,13 @@ log = get_logger("eta_x.agents")
 
 class RuleBased(BaseAlgorithm, abc.ABC):
     """The rule based agent base class provides the facilities to easily build a complete rule based agent. To achieve
-    this, only the control_rules function must be implemented. It should take an observation from the environment
+    this, only the *control_rules* function must be implemented. It should take an observation from the environment
     as input and provide actions as an output.
 
     :param policy: Agent policy. Parameter is not used in this agent and can be set to NoPolicy.
-    :param env: Environment to be controlled
-    :param verbose: Logging verbosity
-    :param kwargs: Additional arguments as specified in stable_baselins3.commom.base_class
+    :param env: Environment to be controlled.
+    :param verbose: Logging verbosity.
+    :param kwargs: Additional arguments as specified in stable_baselins3.commom.base_class.
     """
 
     def __init__(self, policy: type[BasePolicy], env: VecEnv, verbose: int = 4, **kwargs: Any) -> None:
@@ -50,7 +50,7 @@ class RuleBased(BaseAlgorithm, abc.ABC):
         the received observations.
 
         :param observation: Observations as provided by a single, non vectorized environment.
-        :return: Action values, as determined by the control rules
+        :return: Action values, as determined by the control rules.
         """
 
     def predict(
@@ -63,12 +63,12 @@ class RuleBased(BaseAlgorithm, abc.ABC):
         """Perform controller operations and return actions. It will take care of vectorization of environments.
         This will call the control_rules method which should implement the control rules for a single environment.
 
-        :param observation: the input observation
-        :param state: The last states (not used here)
-        :param episode_start: The last masks (not used here)
-        :param deterministic: Whether or not to return deterministic actions. This agent always returns
-                              deterministic actions
-        :return: Tuple of the model's action and the next state (state is typically None in this agent)
+        :param observation: the input observation.
+        :param state: The last states (not used here).
+        :param episode_start: The last masks (not used here).
+        :param deterministic: Whether to return deterministic actions. This agent always returns
+                              deterministic actions.
+        :return: Tuple of the model's action and the next state (state is typically None in this agent).
         """
         action = []
         for obs in observation:
@@ -90,10 +90,10 @@ class RuleBased(BaseAlgorithm, abc.ABC):
         """Load model. This is not implemented for the rule based agent.
 
         :param path: path to the file (or a file-like) where to
-            load the agent from
+            load the agent from.
         :param env: the new environment to run the loaded model on
-            (can be None if you only need prediction from a trained model) has priority over any saved environment
-        :param device: Device on which the code should run.
+            (can be None if you only need prediction from a trained model) has priority over any saved environment.
+        :param device: Device on which the code should run..
         :param custom_objects: Dictionary of objects to replace
             upon loading. If a variable is present in this dictionary as a
             key, it will not be deserialized and the corresponding item
@@ -102,10 +102,10 @@ class RuleBased(BaseAlgorithm, abc.ABC):
             file that can not be deserialized.
         :param print_system_info: Whether to print system info from the saved model
             and the current system info (useful to debug loading issues)
-        :param force_reset: Force call to ``reset()`` before training
+        :param force_reset: Force a call to ``reset()`` before training
             to avoid unexpected behavior.
             See https://github.com/DLR-RM/stable-baselines3/issues/597
-        :param kwargs: extra arguments to change the model when loading
+        :param kwargs: extra arguments to change the model when loading.
         """
         log.info("Rule based agents cannot load data. Loading will be ignored - using standard initialization.")
         if env is None:
@@ -121,18 +121,18 @@ class RuleBased(BaseAlgorithm, abc.ABC):
     ) -> None:
         """Save model after training. Not implemented for the rule based agent.
 
-        :param path: path to the file where the rl agent should be saved
-        :param exclude: name of parameters that should be excluded in addition to the default ones
-        :param include: name of parameters that might be excluded but should be included anyway
+        :param path: Path to the file where the rl agent should be saved.
+        :param exclude: Name of parameters that should be excluded in addition to the default ones.
+        :param include: Name of parameters that might be excluded but should be included anyway.
         """
         log.info("Rule based agents cannot save data. Saving will be ignored.")
 
     def _get_pretrain_placeholders(self) -> None:
-        """Getting tensorflow pretrain placeholders is not implemented for the rule based agent"""
+        """Getting tensorflow pretrain placeholders is not implemented for the rule based agent."""
         raise NotImplementedError("The rule based agent cannot provide tensorflow pretrain placeholders.")
 
     def get_parameter_list(self) -> None:
-        """Getting tensorflow parameters is not implemented for the rule based agent"""
+        """Getting tensorflow parameters is not implemented for the rule based agent."""
         raise NotImplementedError("The rule pased agent cannot provide a tensorflow parameter list.")
 
     def learn(
@@ -149,16 +149,16 @@ class RuleBased(BaseAlgorithm, abc.ABC):
     ) -> RuleBased:
         """Return a trained model. Learning is not implemented for the rule based agent.
 
-        :param total_timesteps: The total number of samples (env steps) to train on
-        :param callback: callback(s) called at every step with state of the algorithm.
+        :param total_timesteps: The total number of samples (env steps) to train on.
+        :param callback: Callback(s) called at every step with state of the algorithm.
         :param log_interval: The number of timesteps before logging.
-        :param tb_log_name: the name of the run for TensorBoard logging
-        :param eval_env: Environment that will be used to evaluate the agent
-        :param eval_freq: Evaluate the agent every ``eval_freq`` timesteps (this may vary a little)
-        :param n_eval_episodes: Number of episode to evaluate the agent
-        :param eval_log_path: Path to a folder where the evaluations will be saved
-        :param reset_num_timesteps: whether or not to reset the current timestep number (used in logging)
-        :return: the trained model
+        :param tb_log_name: The name of the run for TensorBoard logging.
+        :param eval_env: Environment that will be used to evaluate the agent.
+        :param eval_freq: Evaluate the agent every ``eval_freq`` timesteps (this may vary a little).
+        :param n_eval_episodes: Number of episode to evaluate the agent.
+        :param eval_log_path: Path to a folder where the evaluations will be saved.
+        :param reset_num_timesteps: Wether or not to reset the current timestep number (used in logging).
+        :return: The trained model.
         """
         raise NotImplementedError("The rule based agent cannot learn a model.")
 

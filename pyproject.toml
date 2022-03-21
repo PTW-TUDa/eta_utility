@@ -48,21 +48,12 @@ exclude = [
 
 [[tool.mypy.overrides]]
 module = [
-    "attrs.*",
-    "pyomo.*",
+    "fmpy.*",
+    "pandas.*",
     "gym.*",
     "opcua.*",
-    "pandas.*",
     "pyModbusTCP.*",
-    "fmpy.*",
-    "numpy.*",
-    "mmh3.*",
-    "torch.*",
-    "stable_baselines3.*",
-    "pytest.*",
-    "importlib.*",
-    "importlib_metadata.*",
-    "pygame.*",
-    "keyboard.*",
+    "pyomo.*",
+    "keyboard.*"
 ]
 ignore_missing_imports = true

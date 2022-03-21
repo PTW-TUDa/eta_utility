@@ -25,12 +25,12 @@ log = get_logger("eta_x")
 
 
 def _path_converter(path: Path) -> pathlib.Path:
-    """Convert value to a class"""
+    """Convert value to a class."""
     return pathlib.Path(path) if not isinstance(path, pathlib.Path) else path
 
 
 def _get_class(instance: ConfigOptSetup, attrib: Attribute, new_value: str | None) -> str | None:
-    """ "Find module and class name and import the specified class"""
+    """Find module and class name and import the specified class."""
     if new_value is not None:
         module, cls_name = new_value.rsplit(".", 1)
         try:
@@ -48,27 +48,27 @@ def _get_class(instance: ConfigOptSetup, attrib: Attribute, new_value: str | Non
 
 @define(frozen=False, kw_only=True)
 class ConfigOpt:
-    """Configuration for the optimization, which can be loaded from a json file."""
+    """Configuration for the optimization, which can be loaded from a JSON file."""
 
-    #: Name of the configuration used for the series of run
+    #: Name of the configuration used for the series of run.
     config_name: str = field(validator=validators.instance_of(str))
 
-    #: Root path for the optimization run (scenarios and results are relative to this)
+    #: Root path for the optimization run (scenarios and results are relative to this).
     path_root: pathlib.Path = field(converter=_path_converter)
-    #: Relative path to the results folder
+    #: Relative path to the results folder.
     relpath_results: str = field(validator=validators.instance_of(str))
-    #: relative path to the scenarios folder (default: None)
+    #: relative path to the scenarios folder (default: None).
     relpath_scenarios: str | None = field(validator=validators.optional(validators.instance_of(str)), default=None)
-    #: Path to the results folder
+    #: Path to the results folder.
     path_results: pathlib.Path = field(init=False, converter=_path_converter)
-    #: Path to the scenarios folder (default: None)
+    #: Path to the scenarios folder (default: None).
     path_scenarios: pathlib.Path | None = field(
         init=False, converter=converters.optional(_path_converter), default=None
     )
 
-    #: Optimization run setup
+    #: Optimization run setup.
     setup: ConfigOptSetup = field()
-    #: Optimization run settings
+    #: Optimization run settings.
     settings: ConfigOptSettings = field()
 
     def __attrs_post_init__(self) -> None:
@@ -81,7 +81,7 @@ class ConfigOpt:
     def from_json(cls, file: Path, path_root: Path, overwrite: Mapping[str, Any] | None = None) -> ConfigOpt:
         """Load configuration from JSON file, which consists of the following sections:
 
-        - **paths**: In this section the (relative) file paths for results and scenarios are specified. The paths
+        - **paths**: In this section, the (relative) file paths for results and scenarios are specified. The paths
           are deserialized directly into the :class:`ConfigOpt` object.
         - **setup**: This section specifies which classes and utilities should be used for optimization. The setup
           configuration is deserialized into the :class:`ConfigOptSetup` object.
@@ -95,7 +95,7 @@ class ConfigOpt:
           different depending on the agent and not fully documented here.
 
         :param file: Path to the configuration file.
-        :param overwrite: Config parameters to overwrite
+        :param overwrite: Config parameters to overwrite.
         :return: ConfigOpt object.
         """
         _file = file if isinstance(file, pathlib.Path) else pathlib.Path(file)
@@ -103,7 +103,7 @@ class ConfigOpt:
         _overwrite = {} if overwrite is None else overwrite
 
         try:
-            # Remove comments from the json file (using regular expression), then parse it into a dictionary
+            # Remove comments from the JSON file (using regular expression), then parse it into a dictionary
             cleanup = re.compile(r"^\s*(.*?)(?=/{2}|$)", re.MULTILINE)
             with _file.open("r") as f:
                 _data = "".join(cleanup.findall(f.read()))
@@ -142,7 +142,7 @@ class ConfigOpt:
 
         relpath_scenarios = paths.pop("relpath_scenarios", None)
 
-        # Load values from all other sections
+        # Load values from all other sections.
         try:
             setup = ConfigOptSetup.from_dict(config.pop("setup"))
         except ValueError as e:
@@ -197,21 +197,21 @@ class ConfigOpt:
 class ConfigOptSetup:
     """Configuration options as specified in the "setup" section of the configuration file."""
 
-    #: Import description string for the agent class
+    #: Import description string for the agent class.
     agent_import: str = field(on_setattr=_get_class)
-    #: Agent class (automatically determined from agent_import)
+    #: Agent class (automatically determined from agent_import).
     agent_class: type[BaseAlgorithm] = field(init=False)
-    #: Import description string for the environment class
+    #: Import description string for the environment class.
     environment_import: str = field(on_setattr=_get_class)
-    #: Imported Environment class (automatically determined from environment_import)
+    #: Imported Environment class (automatically determined from environment_import).
     environment_class: type[BaseEnv] = field(init=False)
-    #: Import description string for the interaction environment (default: None)
+    #: Import description string for the interaction environment (default: None).
     interaction_env_import: str | None = field(default=None, on_setattr=_get_class)
-    #: Interaction environment class (default: None) (automatically determined from interaction_env_import)
+    #: Interaction environment class (default: None) (automatically determined from interaction_env_import).
     interaction_env_class: type[BaseEnv] | None = field(init=False, default=None)
 
     #: Import description string for the environment vectorizer
-    #: (default: stable_baselines3.common.vec_env.dummy_vec_env.DummyVecEnv)
+    #: (default: stable_baselines3.common.vec_env.dummy_vec_env.DummyVecEnv).
     vectorizer_import: str = field(
         default="stable_baselines3.common.vec_env.dummy_vec_env.DummyVecEnv",
         on_setattr=_get_class,
@@ -219,26 +219,26 @@ class ConfigOptSetup:
             "stable_baselines3.common.vec_env.dummy_vec_env.DummyVecEnv"
         ),
     )  # mypy currently does not recognize converters.default_if_none
-    #: Environment vectorizer class  (automatically determined from vectorizer_import)
+    #: Environment vectorizer class  (automatically determined from vectorizer_import).
     vectorizer_class: type[DummyVecEnv] = field(init=False)
-    #: Import description string for the policy class (default: eta_utility.eta_x.agents.common.NoPolicy)
+    #: Import description string for the policy class (default: eta_utility.eta_x.agents.common.NoPolicy).
     policy_import: str = field(
         default="eta_utility.eta_x.common.NoPolicy",
         on_setattr=_get_class,
         converter=converters.default_if_none("eta_utility.eta_x.common.NoPolicy"),  # type: ignore
     )  # mypy currently does not recognize converters.default_if_none
-    #: Policy class (automatically determined from policy_import)
+    #: Policy class (automatically determined from policy_import).
     policy_class: type[BasePolicy] = field(init=False)
 
-    #: Flag which is true if the environment should be wrapped for monitoring (default: False)
+    #: Flag which is true if the environment should be wrapped for monitoring (default: False).
     monitor_wrapper: bool = field(default=False, converter=bool)
-    #: Flag which is true if the observations should be normalized (default: False)
+    #: Flag which is true if the observations should be normalized (default: False).
     norm_wrapper_obs: bool = field(default=False, converter=bool)
-    #: Flag which is true if the observations should be normalized and clipped (default: False)
+    #: Flag which is true if the observations should be normalized and clipped (default: False).
     norm_wrapper_clip_obs: bool = field(default=False, converter=bool)
-    #: Flag which is true if the rewards should be normalized (default: False)
+    #: Flag which is true if the rewards should be normalized (default: False).
     norm_wrapper_reward: bool = field(default=False, converter=bool)
-    #: Flag to enable tensorboard logging (default: False)
+    #: Flag to enable tensorboard logging (default: False).
     tensorboard_log: bool = field(default=False, converter=bool)
 
     def __attrs_post_init__(self) -> None:
@@ -361,7 +361,7 @@ class ConfigOptSetup:
 
 
 def _env_defaults(instance: ConfigOptSettings, attrib: Attribute, new_value: dict[str, Any] | None) -> dict[str, Any]:
-    """Set default values for the environment settings"""
+    """Set default values for the environment settings."""
     _new_value = {} if new_value is None else new_value
 
     _new_value.setdefault("seed", instance.seed)
@@ -376,7 +376,7 @@ def _env_defaults(instance: ConfigOptSettings, attrib: Attribute, new_value: dic
 
 
 def _agent_defaults(instance: ConfigOptSettings, attrib: Attribute, new_value: dict[str, Any] | None) -> dict[str, Any]:
-    """Set default values for the environment settings"""
+    """Set default values for the environment settings."""
     _new_value = {} if new_value is None else new_value
 
     _new_value.setdefault("seed", instance.seed)
@@ -387,57 +387,57 @@ def _agent_defaults(instance: ConfigOptSettings, attrib: Attribute, new_value: d
 
 @define(frozen=False, kw_only=True)
 class ConfigOptSettings:
-    #: Seed for random sampling (default: None)
+    #: Seed for random sampling (default: None).
     seed: int | None = field(default=None, converter=converters.optional(int))
-    #: Logging verbosity of the framework (default: 2)
+    #: Logging verbosity of the framework (default: 2).
     verbose: int = field(
         default=2, converter=converters.pipe(converters.default_if_none(2), int)  # type: ignore
     )  # mypy currently does not recognize converters.default_if_none
-    #: Number of vectorized environments to instantiate (if not using DummyVecEnv) (default: 1)
+    #: Number of vectorized environments to instantiate (if not using DummyVecEnv) (default: 1).
     n_environments: int = field(
         default=1, converter=converters.pipe(converters.default_if_none(1), int)  # type: ignore
     )  # mypy currently does not recognize converters.default_if_none
 
-    #: Number of episodes to execute when the agent is playing (default: None)
+    #: Number of episodes to execute when the agent is playing (default: None).
     n_episodes_play: int | None = field(default=None, converter=converters.optional(int))
-    #: Number of episodes to execute when the agent is learning (default: None)
+    #: Number of episodes to execute when the agent is learning (default: None).
     n_episodes_learn: int | None = field(default=None, converter=converters.optional(int))
-    #: Flag to determine whether the interaction env is used or not (default: False)
+    #: Flag to determine whether the interaction env is used or not (default: False).
     interact_with_env: bool = field(
         default=False, converter=converters.pipe(converters.default_if_none(False), bool)  # type: ignore
     )  # mypy currently does not recognize converters.default_if_none
-    #: How often to save the model during training (default: 1 - after every episode)
+    #: How often to save the model during training (default: 1 - after every episode).
     save_model_every_x_episodes: int = field(
         default=1, converter=converters.pipe(converters.default_if_none(1), int)  # type: ignore
     )  # mypy currently does not recognize converters.default_if_none
-    #: How many episodes to pass between each render call (default: 1 - after every episode)
+    #: How many episodes to pass between each render call (default: 1 - after every episode).
     plot_interval: int = field(
         default=1, converter=converters.pipe(converters.default_if_none(1), int)  # type: ignore
     )  # mypy currently does not recognize converters.default_if_none
 
-    #: Duration of an episode in seconds (can be a float value)
+    #: Duration of an episode in seconds (can be a float value).
     episode_duration: float = field(converter=float)
-    #: Duration between time samples in seconds (can be a float value)
+    #: Duration between time samples in seconds (can be a float value).
     sampling_time: float = field(converter=float)
-    #: Simulation steps for every sample
+    #: Simulation steps for every sample.
     sim_steps_per_sample: int | None = field(default=None, converter=converters.optional(int))
 
     #: Multiplier for scaling the agent actions before passing them to the environment
-    #: (especially useful with interaciton environments) (default: None)
+    #: (especially useful with interaction environments) (default: None).
     scale_actions: float | None = field(default=None, converter=converters.optional(float))
     #: Number of digits to round actions to before passing them to the environment
-    #: (especially useful with interaction environments) (default: None)
+    #: (especially useful with interaction environments) (default: None).
     round_actions: int | None = field(default=None, converter=converters.optional(int))
 
-    #: Settings dictionary for the environment
+    #: Settings dictionary for the environment.
     environment: dict[str, Any] = field(
         default=Factory(dict),
         converter=converters.default_if_none(Factory(dict)),  # type: ignore
         on_setattr=_env_defaults,
     )  # mypy currently does not recognize converters.default_if_none
-    #: Settings dictionary for the interaction environment (default: None)
+    #: Settings dictionary for the interaction environment (default: None).
     interaction_env: dict[str, Any] | None = field(default=None, on_setattr=_env_defaults)
-    #: Settings dictionary for the agent
+    #: Settings dictionary for the agent.
     agent: dict[str, Any] = field(
         default=Factory(dict),
         converter=converters.default_if_none(Factory(dict)),  # type: ignore
@@ -564,55 +564,55 @@ class ConfigOptRun:
     for the run.
     """
 
-    #: Name of the series of optimization runs
+    #: Name of the series of optimization runs.
     series: str = field(validator=validators.instance_of(str))
-    #: Name of an optimization run
+    #: Name of an optimization run.
     name: str = field(validator=validators.instance_of(str))
-    #: Description of an optimization run
+    #: Description of an optimization run.
     description: str = field(
         converter=lambda s: "" if s is None else s,  # type: ignore # mypy does not support unnamed functions
         validator=validators.instance_of(str),
     )
-    #: Root path of the framework run
+    #: Root path of the framework run.
     path_root: pathlib.Path = field(converter=_path_converter)
-    #: Path to results of the optimization run
+    #: Path to results of the optimization run.
     path_results: pathlib.Path = field(converter=_path_converter)
-    #: Path to scenarios used for the optimization run
+    #: Path to scenarios used for the optimization run.
     path_scenarios: pathlib.Path | None = field(default=None, converter=converters.optional(_path_converter))
-    #: Path for the results of the series of optimization runs
+    #: Path for the results of the series of optimization runs.
     path_series_results: pathlib.Path = field(init=False, converter=_path_converter)
-    #: Path to the model of the optimization run
+    #: Path to the model of the optimization run.
     path_run_model: pathlib.Path = field(init=False, converter=_path_converter)
-    #: Path to information about the optimization run
+    #: Path to information about the optimization run.
     path_run_info: pathlib.Path = field(init=False, converter=_path_converter)
-    #: Path to the monitoring information about the optimization run
+    #: Path to the monitoring information about the optimization run.
     path_run_monitor: pathlib.Path = field(init=False, converter=_path_converter)
-    #: Path to the normalization wrapper information
+    #: Path to the normalization wrapper information.
     path_vec_normalize: pathlib.Path = field(init=False, converter=_path_converter)
-    #: Path to the neural network architecture file
+    #: Path to the neural network architecture file.
     path_net_arch: pathlib.Path = field(init=False, converter=_path_converter)
 
     # Information about the environments
-    #: Version of the main environment
+    #: Version of the main environment.
     env_version: str | None = field(
         init=False, default=None, validator=validators.optional(validators.instance_of(str))
     )
-    #: Description of the main environment
+    #: Description of the main environment.
     env_description: str | None = field(
         init=False, default=None, validator=validators.optional(validators.instance_of(str))
     )
 
-    #: Version of the secondary environment (interaction_env)
+    #: Version of the secondary environment (interaction_env).
     interaction_env_version: str | None = field(
         init=False, default=None, validator=validators.optional(validators.instance_of(str))
     )
-    #: Description of the secondary environment (interaction_env)
+    #: Description of the secondary environment (interaction_env).
     interaction_env_description: str | None = field(
         init=False, default=None, validator=validators.optional(validators.instance_of(str))
     )
 
     def __attrs_post_init__(self) -> None:
-        """Add default values to the derived paths"""
+        """Add default values to the derived paths."""
         object.__setattr__(self, "path_series_results", self.path_results / self.series)
         object.__setattr__(self, "path_run_model", self.path_series_results / f"{self.name}_model.zip")
         object.__setattr__(self, "path_run_info", self.path_series_results / f"{self.name}_info.json")
@@ -621,6 +621,7 @@ class ConfigOptRun:
         object.__setattr__(self, "path_net_arch", self.path_series_results / "net_arch.txt")
 
     def create_results_folders(self) -> None:
+        """Create the results folders for an optimization run (or check if they already exist)."""
         if not self.path_results.is_dir():
             for p in reversed(self.path_results.parents):
                 if not p.is_dir():
@@ -635,17 +636,29 @@ class ConfigOptRun:
             log.info(f"Directory created successfully: \n\t {self.path_series_results}")
 
     def set_env_info(self, env: type[BaseEnv]) -> None:
+        """Set the environment information of the optimization run to represent the given environment.
+        The information will default to None if this is never called.
+
+        :param env: The environment whose description should be used.
+        """
         version, description = env.get_info()
         object.__setattr__(self, "env_version", version)
         object.__setattr__(self, "env_description", description)
 
     def set_interaction_env_info(self, env: type[BaseEnv]) -> None:
+        """Set the interaction environment information of the optimization run to represent the given environment.
+        The information will default to None if this is never called.
+
+        :param env: The environment whose description should be used.
+        """
         version, description = env.get_info()
         object.__setattr__(self, "interaction_env_version", version)
         object.__setattr__(self, "interaction_env_description", description)
 
     @property
     def paths(self) -> dict[str, pathlib.Path]:
+        """Dictionary of all paths for the optimization run. This is for easier access and contains all
+        paths as mentioned above."""
         paths = {
             "path_root": self.path_root,
             "path_results": self.path_results,

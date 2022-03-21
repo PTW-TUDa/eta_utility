@@ -28,11 +28,11 @@ class EnEffCoConnection(BaseSeriesConnection):
     EnEffCoConnection is a class to download and upload multiple features from and to the EnEffCo database as
     timeseries.
 
-    :param url: Url of the server with scheme (https://)
-    :param usr: Username in EnEffco for login
-    :param pwd: Password in EnEffco for login
-    :param api_token: Token for API authentication
-    :param nodes: Nodes to select in connection
+    :param url: URL of the server with scheme (https://).
+    :param usr: Username in EnEffco for login.
+    :param pwd: Password in EnEffco for login.
+    :param api_token: Token for API authentication.
+    :param nodes: Nodes to select in connection.
     """
 
     _PROTOCOL = "eneffco"
@@ -54,11 +54,11 @@ class EnEffCoConnection(BaseSeriesConnection):
     def from_node(cls, node: AnyNode, **kwargs: Any) -> EnEffCoConnection:
         """Initialize the connection object from an EnEffCo protocol node object
 
-        :param node: Node to initialize from
-        :param usr: Username for EnEffCo login (default: None, uses usr from
-        :param pwd: Password for EnEffCo login
-        :param api_token: Token for API authentication
-        :return: EnEffCoConnection object
+        :param node: Node to initialize from.
+        :param usr: Username for EnEffCo login (default: None, uses usr from Node).
+        :param pwd: Password for EnEffCo login.
+        :param api_token: Token for API authentication.
+        :return: EnEffCoConnection object.
         """
         if "api_token" not in kwargs:
             raise AttributeError("Keyword parameter 'api_token' is missing.")
@@ -82,14 +82,14 @@ class EnEffCoConnection(BaseSeriesConnection):
 
     @classmethod
     def from_ids(cls, ids: Sequence[str], url: str, usr: str, pwd: str, api_token: str) -> EnEffCoConnection:
-        """Initialize the connection object from an EnEffCo protocol through the node ids
+        """Initialize the connection object from an EnEffCo protocol through the node IDs
 
-        :param ids: Identification of the Node
-        :param url: URL for EnEffco connection
-        :param usr: Username for EnEffCo login
-        :param pwd: Password for EnEffCo login
-        :param api_token: Token for API authentication
-        :return: EnEffCoConnection object
+        :param ids: Identification of the Node.
+        :param url: URL for EnEffco connection.
+        :param usr: Username for EnEffCo login.
+        :param pwd: Password for EnEffCo login.
+        :param api_token: Token for API authentication.
+        :return: EnEffCoConnection object.
         """
         nodes = [Node(name=name, url=url, protocol="eneffco", eneffco_code=name) for name in ids]
         return cls(url=url, usr=usr, pwd=pwd, api_token=api_token, nodes=nodes)
@@ -97,8 +97,8 @@ class EnEffCoConnection(BaseSeriesConnection):
     def read(self, nodes: Nodes | None = None) -> pd.DataFrame:
         """Download current value from the EnEffCo Database
 
-        :param nodes: List of nodes to read values from
-        :return: Pandas DataFrame containing the data read from the connection
+        :param nodes: List of nodes to read values from.
+        :return: pandas.DataFrame containing the data read from the connection.
         """
         nodes = self._validate_nodes(nodes)
         base_time = 1  # seconds
@@ -111,8 +111,8 @@ class EnEffCoConnection(BaseSeriesConnection):
     ) -> None:
         """Writes some values to the EnEffCo Database
 
-        :param values: Dictionary of nodes and data to write. {node: value}
-        :param time_interval: Interval between datapoints (i.e. between "From" and "To" in EnEffCo Upload), default 1s
+        :param values: Dictionary of nodes and data to write {node: value}.
+        :param time_interval: Interval between datapoints (i.e. between "From" and "To" in EnEffCo Upload) (default 1s).
         """
         nodes = self._validate_nodes(values.keys())
 
@@ -137,12 +137,12 @@ class EnEffCoConnection(BaseSeriesConnection):
     def _prepare_raw_data(
         self, data: Mapping[datetime, Any] | pd.Series[datetime, Any], time_interval: timedelta
     ) -> str:
-        """Change the input format into a compatible format with EnEffCo and filter NaN values
+        """Change the input format into a compatible format with EnEffCo and filter NaN values.
 
         :param data: Data to write to node {time: value}. Could be a dictionary or a pandas Series.
-        :param time_interval: Interval between datapoints (i.e. between "From" and "To" in EnEffCo Upload)
+        :param time_interval: Interval between datapoints (i.e. between "From" and "To" in EnEffCo Upload).
 
-        :return upload_data: String from dictionary in the format for the upload to EnEffCo
+        :return upload_data: String from dictionary in the format for the upload to EnEffCo.
         """
 
         if isinstance(data, dict) or isinstance(data, pd.Series):
@@ -167,8 +167,8 @@ class EnEffCoConnection(BaseSeriesConnection):
     def read_info(self, nodes: Nodes | None = None) -> pd.DataFrame:
         """Read additional datapoint information from Database.
 
-        :param nodes: List of nodes to read values from
-        :return: Pandas DataFrame containing the data read from the connection
+        :param nodes: List of nodes to read values from.
+        :return: pandas.DataFrame containing the data read from the connection.
         """
 
         nodes = self._validate_nodes(nodes)
@@ -185,9 +185,9 @@ class EnEffCoConnection(BaseSeriesConnection):
         """Subscribe to nodes and call handler when new data is available. This will return only the
         last available values.
 
-        :param handler: SubscriptionHandler object with a push method that accepts node, value pairs
-        :param interval: interval for receiving new data. It it interpreted as seconds when given as an integer.
-        :param nodes: identifiers for the nodes to subscribe to
+        :param handler: SubscriptionHandler object with a push method that accepts node, value pairs.
+        :param interval: Interval for receiving new data. It is interpreted as seconds when given as an integer.
+        :param nodes: Identifiers for the nodes to subscribe to.
         """
         self.subscribe_series(handler=handler, req_interval=1, nodes=nodes, interval=interval, data_interval=interval)
 
@@ -196,12 +196,12 @@ class EnEffCoConnection(BaseSeriesConnection):
     ) -> pd.DataFrame:
         """Download timeseries data from the EnEffCo Database
 
-        :param nodes: List of nodes to read values from
-        :param from_time: Starting time to begin reading (included in output)
-        :param to_time: To to stop reading at (not included in output)
-        :param interval: interval between time steps. It is interpreted as seconds if given as integer.
-        :param kwargs: Other parameters (ignored by this connector)
-        :return: Pandas DataFrame containing the data read from the connection
+        :param nodes: List of nodes to read values from.
+        :param from_time: Starting time to begin reading (included in output).
+        :param to_time: Time to stop reading at (not included in output).
+        :param interval: Interval between time steps. It is interpreted as seconds if given as integer.
+        :param kwargs: Other parameters (ignored by this connector).
+        :return: Pandas DataFrame containing the data read from the connection.
         """
         _interval = interval if isinstance(interval, timedelta) else timedelta(seconds=interval)
 
@@ -247,15 +247,15 @@ class EnEffCoConnection(BaseSeriesConnection):
         """Subscribe to nodes and call handler when new data is available. This will always return a series of values.
         If nodes with different intervals should be subscribed, multiple connection objects are needed.
 
-        :param handler: SubscriptionHandler object with a push method that accepts node, value pairs
-        :param req_interval: Duration covered by requested data (time interval). Interpreted as seconds if given as int
+        :param handler: SubscriptionHandler object with a push method that accepts node, value pairs.
+        :param req_interval: Duration covered by requested data (time interval). Interpreted as seconds if given as int.
         :param offset: Offset from datetime.now from which to start requesting data (time interval).
                        Interpreted as seconds if given as int. Use negative values to go to past timestamps.
         :param data_interval: Time interval between values in returned data. Interpreted as seconds if given as int.
         :param interval: interval (between requests) for receiving new data.
-                         It it interpreted as seconds when given as an integer.
-        :param nodes: identifiers for the nodes to subscribe to
-        :param kwargs: other, ignored parameters
+                         It is interpreted as seconds when given as an integer.
+        :param nodes: Identifiers for the nodes to subscribe to.
+        :param kwargs: Other, ignored parameters.
         """
 
         # todo umbenennen: req_interval = data_interval, data_interval = resolution; take these attributes from node;
@@ -311,12 +311,12 @@ class EnEffCoConnection(BaseSeriesConnection):
     ) -> None:
         """The subscription loop handles requesting data from the server in the specified interval
 
-        :param handler: Handler object with a push function to receive data
-        :param interval: Interval for requesting data in seconds
-        :param req_interval: Duration covered by the requested data
+        :param handler: Handler object with a push function to receive data.
+        :param interval: Interval for requesting data in seconds.
+        :param req_interval: Duration covered by the requested data.
         :param offset: Offset from datetime.now from which to start requesting data (time interval).
                        Use negative values to go to past timestamps.
-        :param data_interval: Interval between data points
+        :param data_interval: Interval between data points.
         """
         interval = interval if isinstance(interval, timedelta) else timedelta(seconds=interval)
         req_interval = req_interval if isinstance(req_interval, timedelta) else timedelta(seconds=req_interval)
@@ -341,11 +341,11 @@ class EnEffCoConnection(BaseSeriesConnection):
         """
         Function to get the raw EnEffCo ID corresponding to a specific (raw) datapoint
 
-        :param code: exact EnEffCo code
-        :param raw_datapoint: returns raw datapoint id
+        :param code: Exact EnEffCo code.
+        :param raw_datapoint: Returns raw datapoint ID.
         """
 
-        # Only build lists of ids if they are not available yet
+        # Only build lists of IDs if they are not available yet
         if self._node_ids is None:
             response = self._raw_request("GET", "/datapoint")
             self._node_ids = pd.DataFrame(data=response.json())
@@ -366,10 +366,10 @@ class EnEffCoConnection(BaseSeriesConnection):
                 raise ValueError(f"Code {code} does not exist on server {self.url}.")
 
     def timestr_from_datetime(self, dt: datetime) -> str:
-        """Create an EnEffCo compatible time string
+        """Create an EnEffCo compatible time string.
 
-        :param dt: datetime object to convert to string
-        :return: EnEffCo compatible time string
+        :param dt: Datetime object to convert to string.
+        :return: EnEffCo compatible time string.
         """
 
         return dt.isoformat(sep="T", timespec="seconds").replace(":", "%3A").replace("+", "%2B")
@@ -377,8 +377,8 @@ class EnEffCoConnection(BaseSeriesConnection):
     def _raw_request(self, method: str, endpoint: str, **kwargs: Any) -> requests.Response:
         """Perform EnEffCo request and handle possibly resulting errors.
 
-        :param method: HTTP request method
-        :param endpoint: endpoint for the request (server uri is added automatically
+        :param method: HTTP request method.
+        :param endpoint: Endpoint for the request (server URI is added automatically).
         :param kwargs: Additional arguments for the request.
         """
         response = requests.request(method, self.url + "/" + str(endpoint), auth=(self.usr, self.pwd), **kwargs)

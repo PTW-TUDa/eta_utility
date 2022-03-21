@@ -3,17 +3,17 @@
 Contributing to development
 ===========================
 
-Before contributing to development of *eta_utility*, please carefully read this development
-guide. If you are looking for instructions on how to install *eta_utility* for usage only, please
-take a look at the :ref:`install` guide.
+Before contributing to development of *eta_utility*, please read this development
+guide carefully. If you are looking for instructions on how to install *eta_utility* for usage
+only, please take a look at the :ref:`install` guide.
 
 If you need help installing python or git, please consult the :ref:`python_install` guide.
 
 The most important things
 -----------------------------
 
-If you would like to contribute, please create an issue in the repository to discuss suggested
-once the general idea has been agreed upon, you can create a merge request from the issue and
+If you would like to contribute, please create an issue in the repository to discuss your suggestions.
+Once the general idea has been agreed upon, you can create a merge request from the issue and
 implement your changes there.
 
 If you want to perform development work, specify the "develop" extension during installation.
@@ -21,7 +21,7 @@ This will install all packages required for development work and for the automat
 checks.
 
 We use pre-commit to check code before committing. Therefore, after installing *eta_utility* with
-the develop extension and creating your virtual environment please execute:
+the develop extension and creating your virtual environment, please execute:
 
 .. code-block:: console
 
@@ -44,7 +44,7 @@ Open a terminal for the next steps (such as PowerShell)
 
  .. note::
     Depending on where the relevant folders for the installation are located on your OS,
-    the terminal may need to executed run as administrator / root.
+    the terminal may need to be executed as administrator / root.
 
 First, clone the repository to a directory of your choosing. You can use a git GUI for this or
 execute the following command. See also :ref:`install_git`.
@@ -71,7 +71,7 @@ and setuptools before executing the next steps:
 
 After this, go to the root directory of the Git project and install the project with the
 development extension. This includes all requirements plus everything required for development
-and continous integration checks:
+and continuous integration checks:
 
 .. code-block:: console
 
@@ -101,7 +101,7 @@ to the repository. This ensures that your commits will be checked and formatted 
 
 Testing your code
 -------------------------------
-Please always execute the tests before commiting changes. You can do this by navigating to the main
+Please always execute the tests before committing changes. You can do this by navigating to the main
 folder of the *eta_utility* repository and executing pytest in a terminal. Make sure the virtual
 environment is activated before this (see :ref:`create_virtual_environment`).
 
@@ -119,11 +119,11 @@ extension, sphinx should already be installed.
 You can edit the *.rst-files* in the *docs* folder. A simple text editor is sufficient for this.
 A helpful start for learning the syntax can be found `here <https://sublime-and-sphinx-guide.readthedocs.io/en/latest/index.html>`_.
 
-For test purposes the following command can be executed in the directory of the documentation:
+For test purposes, the following command can be executed in the directory of the documentation:
 
 .. code-block:: console
 
-	$> make html
+    $> make html
 
 This creates a folder named *_build* (inside the *docs* folder) which allows the HTML pages to
 be previewed locally. This folder will not be committed to git. Re-execute this command each

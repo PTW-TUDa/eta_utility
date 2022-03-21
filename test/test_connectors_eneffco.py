@@ -38,7 +38,7 @@ def _local_requests(monkeypatch):
 
 
 def test_check_access(_local_requests):
-    # Check access to see, whether anything responds"
+    # Check access to see, whether anything responds
     try:
         result = requests.request("GET", Config.ENEFFCO_URL)
     except Exception as e:
@@ -102,7 +102,7 @@ def test_eneffco_write(_local_requests):
 def test_eneffco_subscribe_multi(_local_requests):
     """Test eneffco subscribe_series function; this needs network access"""
 
-    # Test subscribing nodes with multiple timesteps
+    # Test subscribing nodes with multiple time steps
     server = EnEffCoConnection(node.url, Config.ENEFFCO_USER, Config.ENEFFCO_PW, api_token=Config.ENEFFCO_POSTMAN_TOKEN)
     # changed write_interval from 10 to 1
     handler = DFSubHandler(write_interval=1)

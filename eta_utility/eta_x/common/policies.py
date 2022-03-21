@@ -28,8 +28,8 @@ class NoPolicy(policies.BasePolicy):
 
         Not implemented in NoPolicy.
 
-        :param observation: Observations of the agent
-        :param deterministic: Whether to use stochastic or deterministic actions
-        :return: Taken action according to the policy
+        :param observation: Observations of the agent.
+        :param deterministic: Whether to use stochastic or deterministic actions.
+        :return: Taken action according to the policy.
         """
         raise NotImplementedError("'NoPolicy' should be used only, when predictions are calculated otherwise.")

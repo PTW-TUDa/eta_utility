@@ -104,7 +104,7 @@ class TestDFSubHandler:
         assert (data.values == sample_series.values[-1]).all()
 
     def test_auto_fillna(self):
-        # First test default behaviour: nans are filled
+        # First test default behavior: nans are filled
         handler = DFSubHandler(write_interval=1)
         test_node = Node(name="Test-node", url="", protocol="local")
         handler.push(test_node, sample_series_nan)

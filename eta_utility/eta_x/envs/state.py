@@ -30,12 +30,12 @@ log = get_logger("eta_x.envs")
 
 
 def _valid_id(instance: type, attribute: Attribute, value: Any) -> None:
-    """Validate an id attribute
+    """Validate an ID attribute.
 
-    :param instance: The attrs class instance to check
-    :param attribute: The attribute to validate
-    :param value: New value of the attribute
-    :raises: ValueError
+    :param instance: The attrs class instance to check.
+    :param attribute: The attribute to validate.
+    :param value: New value of the attribute.
+    :raises: ValueError.
     """
     if not isinstance(value, str) and not isinstance(value, int):
         raise ValueError("An ID value must be either of type int or str.")
@@ -43,18 +43,18 @@ def _valid_id(instance: type, attribute: Attribute, value: Any) -> None:
 
 @define(frozen=True)
 class StateVar:
-    """A variable in the state of an environment"""
+    """A variable in the state of an environment."""
 
-    #: Name of the state variable (This must always be specified
+    #: Name of the state variable (This must always be specified).
     name: str = field(validator=validators.instance_of(str))
-    #: Should the agent specify actions for this variable? (default: False)
+    #: Should the agent specify actions for this variable? (default: False).
     is_agent_action: bool = field(
         kw_only=True,
         default=False,
         converter=converters.pipe(converters.default_if_none(False), bool)  # type: ignore
         # mypy does not recognize default_if_none
     )
-    #: Should the agent be allowed to observe the value of this variable? (default: False)
+    #: Should the agent be allowed to observe the value of this variable? (default: False).
     is_agent_observation: bool = field(
         kw_only=True,
         default=False,
@@ -63,30 +63,30 @@ class StateVar:
     )
 
     #: Name or identifier (order) of the variable in the external interaction model
-    #: (e.g.: environment or FMU) (default: None)
+    #: (e.g.: environment or FMU) (default: None).
     ext_id: str | int | None = field(kw_only=True, default=None, validator=validators.optional(_valid_id))
-    #: Should this variable be passed to the external model as an input? (default: False)
+    #: Should this variable be passed to the external model as an input? (default: False).
     is_ext_input: bool = field(
         kw_only=True,
         default=False,
         converter=converters.pipe(converters.default_if_none(False), bool)  # type: ignore
         # mypy does not recognize default_if_none
     )
-    #: Should this variable be parsed from the external model output? (default: False)
+    #: Should this variable be parsed from the external model output? (default: False).
     is_ext_output: bool = field(
         kw_only=True,
         default=False,
         converter=converters.pipe(converters.default_if_none(False), bool)  # type: ignore
         # mypy does not recognize default_if_none
     )
-    #: Value to add to the output from an external model (default: 0)
+    #: Value to add to the output from an external model (default: 0).
     ext_scale_add: float = field(
         kw_only=True,
         default=0,
         converter=converters.pipe(converters.default_if_none(0), float)  # type: ignore
         # mypy does not recognize default_if_none
     )
-    #: Value to multiply to the output from an external model (default: 1)
+    #: Value to multiply to the output from an external model (default: 1).
     ext_scale_mult: float = field(
         kw_only=True,
         default=1,
@@ -94,25 +94,25 @@ class StateVar:
         # mypy does not recognize default_if_none
     )
 
-    #: Name of the scenario variable, this value should be read from (default: None)
+    #: Name of the scenario variable, this value should be read from (default: None).
     scenario_id: str | None = field(
         kw_only=True, default=None, validator=validators.optional(validators.instance_of(str))
     )
-    #: Should this variable be read from imported timeseries date? (default: False)
+    #: Should this variable be read from imported timeseries date? (default: False).
     from_scenario: bool = field(
         kw_only=True,
         default=False,
         converter=converters.pipe(converters.default_if_none(False), bool)  # type: ignore
         # mypy does not recognize default_if_none
     )
-    #: Value to add to the value read from a scenario file (default: 0)
+    #: Value to add to the value read from a scenario file (default: 0).
     scenario_scale_add: float = field(
         kw_only=True,
         default=0,
         converter=converters.pipe(converters.default_if_none(0), float)  # type: ignore
         # mypy does not recognize default_if_none
     )
-    #: Value to multiply to the value read from a scenario file (default: 1)
+    #: Value to multiply to the value read from a scenario file (default: 1).
     scenario_scale_mult: float = field(
         kw_only=True,
         default=1,
@@ -120,17 +120,17 @@ class StateVar:
         # mypy does not recognize default_if_none
     )
 
-    #: Lowest possible value of the state variable (default: None)
+    #: Lowest possible value of the state variable (default: None).
     low_value: float | None = field(kw_only=True, default=None, converter=converters.optional(float))
-    #: Highest possible value of the state variable (default: None)
+    #: Highest possible value of the state variable (default: None).
     high_value: float | None = field(kw_only=True, default=None, converter=converters.optional(float))
-    #: If value of variable dips below this, the episode should be aborted (default: None)
+    #: If the value of the variable dips below this, the episode should be aborted (default: None).
     abort_condition_min: float | None = field(kw_only=True, default=None, converter=converters.optional(float))
-    #: If value of variable rises above this, the episode should be aborted (default: None)
+    #: If the value of the variable rises above this, the episode should be aborted (default: None).
     abort_condition_max: float | None = field(kw_only=True, default=None, converter=converters.optional(float))
 
     #: Determine the index, where to look (useful for mathematical optimization, where multiple time steps could be
-    #: returned). In this case the index values might be different for actions and observations.
+    #: returned). In this case, the index values might be different for actions and observations.
     index: int = field(
         kw_only=True,
         default=0,
@@ -201,8 +201,8 @@ class StateVar:
 
 class StateConfig:
     """The configuration for the action and observation spaces. The values are used to control which variables are
-    part of the action space and observation space. Additionally the parameters can specify abort conditions
-    and the handling of values from interaction environments or from simulation. Therefore the config_spaces
+    part of the action space and observation space. Additionally, the parameters can specify abort conditions
+    and the handling of values from interaction environments or from simulation. Therefore, the *StateConfig*
     is very important for the functionality of ETA X.
     """
 
@@ -210,33 +210,33 @@ class StateConfig:
         #: Mapping of the variables names to their StateVar instance with all associated information.
         self.vars: dict[str, StateVar] = {}
 
-        #: List of variables that are agent actions
+        #: List of variables that are agent actions.
         self.actions: list[str] = []
-        #: List of variables that are agent observations
+        #: List of variables that are agent observations.
         self.observations: list[str] = []
 
-        #: List of variables that should be provided to an external source (such as an FMU)
+        #: List of variables that should be provided to an external source (such as an FMU).
         self.ext_inputs: list[str] = []
-        #: List of variables that can be received from an external source (such as an FMU)
+        #: List of variables that can be received from an external source (such as an FMU).
         self.ext_outputs: list[str] = []
-        #: Mapping of variable names to their external IDs
+        #: Mapping of variable names to their external IDs.
         self.map_ext_ids: dict[str, str | int] = {}
-        #: Reverse mapping of external IDs to their corresponding variable names
+        #: Reverse mapping of external IDs to their corresponding variable names.
         self.rev_ext_ids: dict[str | int, str] = {}
         #: Dictionary of scaling values for external input values (for example from simulations).
         #: Contains fields 'add' and 'multiply'
         self.ext_scale: dict[str, dict[str, float]] = {}
 
-        #: List of variables which are loaded from scenario files
+        #: List of variables which are loaded from scenario files.
         self.scenarios: list[str] = []
-        #: Mapping of internal environment names to scenario ids.
+        #: Mapping of internal environment names to scenario IDs.
         self.map_scenario_ids: dict[str, str] = {}
-        #: Dictionary of scaling values for scenario values. Contains fields 'add' and 'multiply'
+        #: Dictionary of scaling values for scenario values. Contains fields 'add' and 'multiply'.
         self.scenario_scale: dict[str, dict[str, float]] = {}
 
-        #: List of variables that have minimum values for an abort condition
+        #: List of variables that have minimum values for an abort condition.
         self.abort_conditions_min: list[str] = []
-        #: List of variables that have maximum values for an abort condition
+        #: List of variables that have maximum values for an abort condition.
         self.abort_conditions_max: list[str] = []
 
         # Initialize variable mappings
@@ -248,8 +248,8 @@ class StateConfig:
         """This will convert a potentially incomplete StateConfig DataFrame or a list of dictionaries to the
         standardized StateConfig format. This will ignore any additional columns.
 
-        :param mapping: Mapping to be converted to the StateConfig format
-        :return: StateConfig object
+        :param mapping: Mapping to be converted to the StateConfig format.
+        :return: StateConfig object.
         """
         state_vars = []
         for col in mapping:
@@ -258,9 +258,9 @@ class StateConfig:
         return cls(*state_vars)
 
     def append_state(self, var: StateVar) -> None:
-        """Append a state variable to the state configuration
+        """Append a state variable to the state configuration.
 
-        :param var: StateVar instance to append to the configuration
+        :param var: StateVar instance to append to the configuration.
         """
         self.vars[var.name] = var
 
@@ -298,7 +298,7 @@ class StateConfig:
     def store_file(self, file: Path) -> None:
         """Save the StateConfig to a comma separated file.
 
-        :param file: Path to the file
+        :param file: Path to the file.
         """
         _file = file if isinstance(file, pathlib.Path) else pathlib.Path(file)
         _header = fields_dict(StateVar).keys()
@@ -312,8 +312,8 @@ class StateConfig:
     def within_abort_conditions(self, state: Mapping[str, float]) -> bool:
         """Check whether the given state is within the abort conditions specified by the StateConfig instance.
 
-        :param state: The state array to check for conformance
-        :return: Result of the check (False if the state does not conform to the required conditions)
+        :param state: The state array to check for conformance.
+        :return: Result of the check (False if the state does not conform to the required conditions).
         """
         valid = all(
             state[name] >= self.vars[name].abort_condition_min for name in self.abort_conditions_min  # type: ignore
@@ -330,10 +330,10 @@ class StateConfig:
         return valid
 
     def continuous_action_space(self) -> spaces.Box:
-        """Generate a continous action space according to the format required by the OpenAI
+        """Generate an action space according to the format required by the OpenAI
         specification.
 
-        :return: Action space
+        :return: Action space.
         """
         action_low = np.fromiter(
             (var.low_value for var in self.vars.values() if var.is_agent_action and var.low_value is not None),
@@ -347,10 +347,10 @@ class StateConfig:
         return spaces.Box(action_low, action_high, dtype=np.floating)
 
     def continuous_obs_space(self) -> spaces.Box:
-        """Generate a continous observation space according to the format required by the OpenAI
+        """Generate a continuous observation space according to the format required by the OpenAI
         specification.
 
-        :return: Observation Space
+        :return: Observation Space.
         """
         obs_low = np.fromiter(
             (var.low_value for var in self.vars.values() if var.is_agent_observation and var.low_value is not None),
@@ -365,7 +365,7 @@ class StateConfig:
         return spaces.Box(obs_low, obs_high, dtype=np.floating)
 
     def continuous_spaces(self) -> tuple[spaces.Box, spaces.Box]:
-        """Generate continous action and observation spaces according to the OpenAI specification.
+        """Generate continuous action and observation spaces according to the OpenAI specification.
 
         :return: Tuple of action space and observation space.
         """

@@ -22,21 +22,21 @@ log = get_logger("eta_x.envs")
 
 
 class BaseEnvSim(BaseEnv, abc.ABC):
-    """Base class for FMU Simulation models environments
+    """Base class for FMU Simulation models environments.
 
-    :param env_id: Identification for the environment, usefull when creating multiple environments
-    :param config_run: Configuration of the optimization run
+    :param env_id: Identification for the environment, useful when creating multiple environments.
+    :param config_run: Configuration of the optimization run.
     :param seed: Random seed to use for generating random numbers in this environment
-        (default: None / create random seed)
-    :param verbose: Verbosity to use for logging (default: 2)
-    :param callback: callback which should be called after each episode
-    :param scenario_time_begin: Beginning time of the scenario
-    :param scneario_time_end: Ending time of the scenario
-    :param episode_duration: Duration of the episode in seconds
-    :param sampling_time: Duration of a single time sample / time step in seconds
-    :param model_parameters: Parameters for the mathematical model (default: None)
-    :param sim_steps_per_sample: Number of simulation steps to perform during every sample (default: 1)
-    :param kwargs: Other keyword arguments (for subclasses)
+        (default: None / create random seed).
+    :param verbose: Verbosity to use for logging.
+    :param callback: callback which should be called after each episode.
+    :param scenario_time_begin: Beginning time of the scenario.
+    :param scneario_time_end: Ending time of the scenario.
+    :param episode_duration: Duration of the episode in seconds.
+    :param sampling_time: Duration of a single time sample / time step in seconds.
+    :param model_parameters: Parameters for the mathematical model.
+    :param sim_steps_per_sample: Number of simulation steps to perform during every sample.
+    :param kwargs: Other keyword arguments (for subclasses).
     """
 
     @property
@@ -81,7 +81,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         if self.sampling_time % self.sim_steps_per_sample != 0:
             log.error(
                 "'sim_steps_per_sample' must be an even divisor of 'sampling_time' "
-                "(sampling_time % sim_steps_per_sample must equal 0."
+                "(sampling_time % sim_steps_per_sample must equal 0)."
             )
             errors = True
 
@@ -106,7 +106,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         This can also be used to reset the simulator after an episode is completed. It will reuse the same simulator
         object and reset it to the given initial values.
 
-        :param init_values: Dictionary of initial values for some of the FMU variables
+        :param init_values: Dictionary of initial values for some FMU variables.
         """
         assert self.state_config is not None, "Set state_config before calling _init_simulator function."
 
@@ -131,9 +131,9 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         """Perform a simulator step and return data as specified by the is_ext_observation parameter of the
         state_config.
 
-        :param state: State of the environment before the simulation
+        :param state: State of the environment before the simulation.
         :return: Output of the simulation, boolean showing whether all simulation steps where successful, time elapsed
-                 during simulation
+                 during simulation.
         """
         assert self.state_config is not None, "Set state_config before calling simulate function."
 
@@ -171,7 +171,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         return output, step_success, sim_time_elapsed
 
     def step(self, action: np.ndarray) -> StepResult:
-        """Perfom one time step and return its results. This is called for every event or for every time step during
+        """Perform one time step and return its results. This is called for every event or for every time step during
         the simulation/optimization run. It should utilize the actions as supplied by the agent to determine
         the new state of the environment. The method must return a four-tuple of observations, rewards, dones, info.
 
@@ -234,10 +234,10 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         counter, resets the episode steps and appends the state_log to the longtime storage.
 
         If you want to extend this function, write your own code and call super().reset() afterwards to return
-        fresh observations. This allows you to ajust timeseries for example. If you need to manipulate the state
+        fresh observations. This allows you to adjust timeseries for example. If you need to manipulate the state
         before initializing or if you want to adjust the initialization itself, overwrite the function entirely.
 
-        :return: Initial observation
+        :return: Initial observation.
         """
         assert self.state_config is not None, "Set state_config before calling reset function."
 
@@ -278,8 +278,6 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         """Close the environment. This should always be called when an entire run is finished. It should be used to
         close any resources (i.e. simulation models) used by the environment.
 
-        Default behaviour for the Simulation environment is to close the FMU object.
-
-        :return:
+        Default behavior for the Simulation environment is to close the FMU object.
         """
         self.simulator.close()  # close the FMU

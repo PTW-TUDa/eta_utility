@@ -69,7 +69,7 @@ class TestNodeInit:
 
     @pytest.mark.parametrize(("excel_file", "excel_sheet"), [(Config.EXCEL_NODES_FILE, Config.EXCEL_NODES_SHEET)])
     def test_node_from_excel(self, excel_file, excel_sheet):
-        """Test reading nodes from excel files and check some parameters of the resulting node objects"""
+        """Test reading nodes from Excel files and check some parameters of the resulting node objects"""
         nodes = Node.from_excel(excel_file, excel_sheet)
 
         assert len(nodes) == 4

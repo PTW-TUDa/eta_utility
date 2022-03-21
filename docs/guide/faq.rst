@@ -17,7 +17,7 @@ In this case, you can add the path to git to your environment variables manually
     Error message if git was not correctly added to the environment PATH.
 
 On Windows this is done by navigating to "Advanced System Settings", then "Advanced" and clicking
-"Environment variables at the bottom of the window. In the figure you can see the path for
+"Environment Variables" at the bottom of the window. In the figure you can see the path for
 git.exe in GitHub Desktop 2.6.3 added to the SYSTEM variables:
 
 
@@ -27,7 +27,7 @@ git.exe in GitHub Desktop 2.6.3 added to the SYSTEM variables:
 
    Adding git to environment variables.
 
-Alternatively you can use a terminal to add the variable:
+Alternatively, you can use a terminal to add the variable:
 
 .. code-block:: console
 
@@ -39,7 +39,7 @@ might help.
 
 After this, git should work as expected.
 
-I cannot login to gitlab but Windows doesn't ask for new login information
+I cannot login to gitlab, but Windows doesn't ask for new login information
 --------------------------------------------------------------------------------
 Git uses the Windows credential manager and sometimes does not recognize correctly when
 a wrong password or username is provided. This leads to errors regarding incorrect login
@@ -54,7 +54,7 @@ You can force resetting the git credentials in Windows:
 FMU model initialization (Dymola) fails with "Exception: Failed to instantiate model"
 -------------------------------------------------------------------------------------
 If the log before this also shows the following error, there is a problem with the Dymola
-license file
+license file.
 
 .. code-block:: console
 
@@ -85,7 +85,7 @@ server (either physically or using the VPN).
 
 .. _sphinx_not_found:
 
-I want to execute sphinx but it complains it's not installed
+I want to execute sphinx, but it complains it's not installed
 --------------------------------------------------------------
 
 If you receive the following message, you might  have to add the sphinx-scripts to your

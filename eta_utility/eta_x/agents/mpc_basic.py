@@ -24,18 +24,18 @@ log = get_logger("eta_x.agents")
 
 
 class MPCBasic(BaseAlgorithm):
-    """Simple, Pyomo based MPC agent
+    """Simple, Pyomo based MPC agent.
 
-    The agent requires an environment that specifies a the 'model' attribute returning a pyo.ConcreteModel and
-    a sorted list as the order for the action space. This list is used to avoid ambiguity when returning a list of
-    actions. Since the model specifies its own action and observation space, this agent does not use the action_space
-    and observation_space specified by the environment.
+    The agent requires an environment that specifies the 'model' attribute, returning a
+    :py:class:`pyomo.ConcreteModel` and a sorted list as the order for the action space. This list is used to
+    avoid ambiguity when returning a list of actions. Since the model specifies its own action and observation
+    space, this agent does not use the *action_space* and *observation_space* specified by the environment.
 
-    :param policy: Agent policy. Parameter is not used in this agent
-    :param env: Environment to be optimized
-    :param verbose: Logging verbosity
-    :param solver_name: Name of the solver, could be cplex or glpk
-    :param kwargs: Additional arguments as specified in stable_baselins3.commom.base_class or as provided by solver
+    :param policy: Agent policy. Parameter is not used in this agent.
+    :param env: Environment to be optimized.
+    :param verbose: Logging verbosity.
+    :param solver_name: Name of the solver, could be cplex or glpk.
+    :param kwargs: Additional arguments as specified in stable_baselins3.commom.base_class or as provided by solver.
     """
 
     def __init__(
@@ -108,7 +108,7 @@ class MPCBasic(BaseAlgorithm):
         self._setup_model()
 
     def _setup_model(self) -> None:
-        """Load the MILP model from the environment"""
+        """Load the MILP model from the environment."""
         assert self.env is not None, "The MPC agent needs a specific environment to work. Cannot use env = None."
         self.model, self.actions_order = self.env.get_attr("model", 0)[0]
 
@@ -116,7 +116,7 @@ class MPCBasic(BaseAlgorithm):
         """Solve the current pyomo model instance with given parameters. This could also be used separately to solve
         normal MILP problems. Since the entire problem instance is returned, result handling can be outsourced.
 
-        :return: Solved pyomo model instance
+        :return: Solved pyomo model instance.
         """
         assert self.env is not None, "The MPC agent needs a specific environment to work. Cannot use env = None."
 
@@ -180,14 +180,14 @@ class MPCBasic(BaseAlgorithm):
         deterministic: bool = False,
     ) -> tuple[np.ndarray, tuple[np.ndarray, ...] | None]:
         """
-        Solve the current pyomo model instance with given parameters and observations and return the optimal actions
+        Solve the current pyomo model instance with given parameters and observations and return the optimal actions.
 
-        :param observation: the input observation (not used here)
-        :param state: The last states (not used here)
-        :param episode_start: The last masks (not used here)
+        :param observation: the input observation (not used here).
+        :param state: The last states (not used here).
+        :param episode_start: The last masks (not used here).
         :param deterministic: Whether to return deterministic actions. This agent always returns
-                                   deterministic actions
-        :return: Tuple of the model's action and the next state (not used here)
+                                   deterministic actions.
+        :return: Tuple of the model's action and the next state (not used here).
         """
         assert self.env is not None, "The MPC agent needs a specific environment to work. Cannot use env = None."
         self.model, _ = self.env.get_attr("model", 0)[0]
@@ -201,7 +201,7 @@ class MPCBasic(BaseAlgorithm):
             if not isinstance(com, pyo.SimpleVar)
         }
 
-        # Make sure that actions are returned in the correct order and as a numpy array.
+        # Make sure that actions are returned to the correct order and as a numpy array.
         actions: np.ndarray = np.ndarray((1, len(self.actions_order)))
         for i, action in enumerate(self.actions_order):
             log.debug(f"Action '{action}' value: {solution[action]}")
@@ -264,11 +264,11 @@ class MPCBasic(BaseAlgorithm):
 
     def get_parameter_list(self) -> list:
         """
-        Get tensorflow Variables of model's parameters
+        Get tensorflow Variables of model's parameters.
 
         This includes all variables necessary for continuing training (saving / loading).
 
-        :return: List of tensorflow Variables
+        :return: List of tensorflow Variables.
         """
         pass
 

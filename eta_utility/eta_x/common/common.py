@@ -31,7 +31,7 @@ class CallbackEnvironment:
     """This callback should be called at the end of each episode.
     When multiprocessing is used, no global variables are available (as an own python instance is created).
 
-    :param plot_interval: How many episodes to pass between each render call
+    :param plot_interval: How many episodes to pass between each render call.
     """
 
     def __init__(self, plot_interval: int) -> None:
@@ -42,7 +42,7 @@ class CallbackEnvironment:
         This callback should be called at the end of each episode.
         When multiprocessing is used, no global variables are available (as an own python instance is created).
 
-        :param env: the instance of the environment where the callback was triggered
+        :param env: Instance of the environment where the callback was triggered.
         """
         log.info(
             "Environment callback triggered (env_id = {}, n_episodes = {}, run_name = {}.".format(
@@ -80,27 +80,24 @@ def vectorize_environment(
     is initialized as an interaction_env it will not have normalization wrappers and use the appropriate configuration
     automatically.
 
-    :param env: Environment class which will be instantiated and vectorized
-    :param config_run: Configuration for a specific optimization run
-    :param env_settings: Configuration settings dictionary for the environment which is being initialized
-    :param callback: Callback to call with an environment instance
-    :param seed: Random seed for the environment (default: None)
-    :param verbose: Logging verbosity to use in the environment (default: 2)
-    :param vectorizer: Vectorizer class to use for vectorizing the environments (default: DummyVecEnv)
-    :param n: Number of vectorized environments to create (default: 1)
-    :param training: Flag to identify whether the environment should be initialized for training or playing. It true,
-                     it will be initialized for training. (default: False)
-    :param norm_wrapper_obs: Flag to determine whether observations from the environments should be normalized
-                             (default: False)
-    :param norm_wrapper_clip_obs: Flag to determine whether a normalized observations should be clipped
-                             (default: False)
-    :param norm_wrapper_reward: Flag to determine whether rewards from the environments should be normalized
-                             (default: False)
+    :param env: Environment class which will be instantiated and vectorized.
+    :param config_run: Configuration for a specific optimization run.
+    :param env_settings: Configuration settings dictionary for the environment which is being initialized.
+    :param callback: Callback to call with an environment instance.
+    :param seed: Random seed for the environment.
+    :param verbose: Logging verbosity to use in the environment.
+    :param vectorizer: Vectorizer class to use for vectorizing the environments.
+    :param n: Number of vectorized environments to create.
+    :param training: Flag to identify whether the environment should be initialized for training or playing. If true,
+                     it will be initialized for training.
+    :param norm_wrapper_obs: Flag to determine whether observations from the environments should be normalized.
+    :param norm_wrapper_clip_obs: Flag to determine whether a normalized observations should be clipped.
+    :param norm_wrapper_reward: Flag to determine whether rewards from the environments should be normalized.
     :return: Vectorized environments, possibly also wrapped in a normalizer.
     """
     # Create the vectorized environment
     log.debug("Trying to vectorize the environment.")
-    # Ensure n is one if the DummyVecEnv is used (it doesn't support more than one
+    # Ensure n is one, if the DummyVecEnv is used (it doesn't support more than one)
     if vectorizer.__class__.__name__ == "DummyVecEnv" and n != 1:
         n = 1
         log.warning("Setting number of environments to 1 because DummyVecEnv (default) is used.")
@@ -164,16 +161,16 @@ def initialize_model(
     tensorboard_log: bool = False,
     path_results: Path | None = None,
 ) -> BaseAlgorithm:
-    """Initialize a new model or algorithm
+    """Initialize a new model or algorithm.
 
-    :param algo: Algorithm to initialize
-    :param policy: The policy that should be used by the algorithm
-    :param envs: The environment which the algorithm operates on
-    :param algo_settings: Additional settings for the algorithm
-    :param seed: Random seed to be used by the algorithm (default: None)
-    :param tensorboard_log: Flag to enable logging to tensorboard (default: False)
-    :param path_results: Path to store results in. Only required if logging is true. (default: None)
-    :return: Initialized model
+    :param algo: Algorithm to initialize.
+    :param policy: The policy that should be used by the algorithm.
+    :param envs: The environment which the algorithm operates on.
+    :param algo_settings: Additional settings for the algorithm.
+    :param seed: Random seed to be used by the algorithm.
+    :param tensorboard_log: Flag to enable logging to tensorboard.
+    :param path_results: Path to store results in. Only required if logging is true.
+    :return: Initialized model.
     """
     log.debug(f"Trying to initialize model: {algo.__name__}")
     _path_results = (
@@ -216,15 +213,15 @@ def load_model(
     tensorboard_log: bool = False,
     path_results: Path | None = None,
 ) -> BaseAlgorithm:
-    """Load an existing model
+    """Load an existing model.
 
-    :param algo: Algorithm type of the model to be loaded
-    :param envs: The environment which the algorithm operates on
-    :param algo_settings: Additional settings for the algorithm
-    :param path_model: Path to load the model from
-    :param tensorboard_log: Flag to enable logging to tensorboard (default: False)
-    :param path_results: Path to store results in. Only required if logging is true. (default: None)
-    :return: Initialized model
+    :param algo: Algorithm type of the model to be loaded.
+    :param envs: The environment which the algorithm operates on.
+    :param algo_settings: Additional settings for the algorithm.
+    :param path_model: Path to load the model from.
+    :param tensorboard_log: Flag to enable logging to tensorboard.
+    :param path_results: Path to store results in. Only required if logging is true.
+    :return: Initialized model.
     """
     log.debug(f"Trying to load existing model: {path_model}")
     _path_model = path_model if isinstance(path_model, pathlib.Path) else pathlib.Path(path_model)
@@ -258,26 +255,26 @@ def load_model(
 
 
 def log_run_info(config: ConfigOpt, config_run: ConfigOptRun) -> None:
-    """Save run configuration to the run_info file
+    """Save run configuration to the run_info file.
 
-    :param config: Configuration for the framework
-    :param config_run: Configuration for this optimization run
+    :param config: Configuration for the framework.
+    :param config_run: Configuration for this optimization run.
     """
     with config_run.path_run_info.open("w") as f:
         try:
             json.dump({**asdict(config_run), **asdict(config)}, f)
             log.info("Log file successfully created.")
         except TypeError:
-            log.warning("Log file could not be created because of non serializable input in config.")
+            log.warning("Log file could not be created because of non-serializable input in config.")
 
 
 def log_net_arch(model: BaseAlgorithm, config_run: ConfigOptRun) -> None:
     """Store network architecture or policy information in a file. This requires for the model to be initialized,
     otherwise it will raise a ValueError.
 
-    :param model: The algorithm whose network architecture is stored
-    :param config_run: Optimization run configuration (which contains info about the file to store info in)
-    :raises: ValueError
+    :param model: The algorithm whose network architecture is stored.
+    :param config_run: Optimization run configuration (which contains info about the file to store info in).
+    :raises: ValueError.
     """
     if not config_run.path_net_arch.exists() and model.policy.__class__ is not NoPolicy:
         with open(config_run.path_net_arch, "w") as f:
@@ -289,9 +286,9 @@ def log_net_arch(model: BaseAlgorithm, config_run: ConfigOptRun) -> None:
 
 
 def is_vectorized_env(env: BaseEnv | VecEnv | VecNormalize | None) -> bool:
-    """Check if an environment is vectorized
+    """Check if an environment is vectorized.
 
-    :param env: The environment to check
+    :param env: The environment to check.
     """
     if env is None:
         return False
@@ -300,9 +297,9 @@ def is_vectorized_env(env: BaseEnv | VecEnv | VecNormalize | None) -> bool:
 
 
 def is_env_closed(env: BaseEnv | VecEnv | VecNormalize | None) -> bool:
-    """Check whether an environment has been closed
+    """Check whether an environment has been closed.
 
-    :param env: The environment to check
+    :param env: The environment to check.
     """
     if env is None:
         return True
@@ -319,10 +316,10 @@ def is_env_closed(env: BaseEnv | VecEnv | VecNormalize | None) -> bool:
 def episode_results_path(series_results_path: Path, run_name: str, episode: int, env_id: int = 1) -> pathlib.Path:
     """Generate a path which can be used for storing episode results of a specific environment.
 
-    :param series_results_path: Path for results of the series of optimization runs
-    :param run_name: Name of the optimization run
-    :param episode: Number of the episode the environment is working on
-    :param env_id: Identification of the environment
+    :param series_results_path: Path for results of the series of optimization runs.
+    :param run_name: Name of the optimization run.
+    :param episode: Number of the episode the environment is working on.
+    :param env_id: Identification of the environment.
     """
     path = series_results_path if isinstance(series_results_path, pathlib.Path) else pathlib.Path(series_results_path)
 

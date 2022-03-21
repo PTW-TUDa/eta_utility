@@ -22,13 +22,13 @@ log = get_logger("servers.opcua")
 class OpcUaServer:
     """Provides an OPC UA server with a number of specified nodes. Each node can contain single values or arrays.
 
-    :param namespace: Namespace of the OPC UA Server
-    :param ip: IP Address to listen on (default: None)
-    :param port: Port to listen on (default: 4840)
+    :param namespace: Namespace of the OPC UA Server.
+    :param ip: IP Address to listen on (default: None).
+    :param port: Port to listen on (default: 4840).
     """
 
     def __init__(self, namespace: str | int, ip: str | None = None, port: int = 4840) -> None:
-        #: URL of the OPC UA Server
+        #: URL of the OPC UA Server.
         self.url: str
         if ip is None:
             self.url = f"opc.tcp://{socket.gethostbyname(socket.gethostname())}:{port}"
@@ -49,10 +49,9 @@ class OpcUaServer:
         self._server.start()
 
     def write(self, values: Mapping[AnyNode, Any]) -> None:
-        """
-        Writes some values directly to the OPCUA server
+        """Write some values directly to the OPC UA server.
 
-        :param values: Dictionary of data to write. {node.name: value}
+        :param values: Dictionary of data to write {node.name: value}.
         """
 
         nodes = self._validate_nodes(set(values.keys()))
@@ -65,7 +64,7 @@ class OpcUaServer:
     def create_nodes(self, nodes: Nodes) -> None:
         """Create nodes on the server from a list of nodes. This will try to create the entire node path.
 
-        :param nodes: List or set of nodes to create
+        :param nodes: List or set of nodes to create.
         """
 
         def create_object(parent: OpcNode, child: NodeOpcUa) -> OpcNode:
@@ -108,7 +107,7 @@ class OpcUaServer:
     def delete_nodes(self, nodes: Nodes) -> None:
         """Delete the given nodes and their parents (if the parents do not have other children).
 
-        :param nodes: List or set of nodes to be deleted
+        :param nodes: List or set of nodes to be deleted.
         """
 
         def delete_node_parents(node: OpcNode, depth: int = 20) -> None:
@@ -135,8 +134,8 @@ class OpcUaServer:
         """Make sure that nodes are a Set of nodes and that all nodes correspond to the protocol and url
         of the connection.
 
-        :param nodes: Sequence of Node objects to validate
-        :return: set of valid Node objects for this connection
+        :param nodes: Sequence of Node objects to validate.
+        :return: Set of valid Node objects for this connection.
         """
         _nodes = None
 

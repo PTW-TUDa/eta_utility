@@ -25,7 +25,7 @@ class DampedOscillatorControl(RuleBased):
         """
         Controller of the model. For this case, function does not use observation.
 
-        :param observation: observation of the environment given one action
-        :returns: uniform random value [-1, 1) as action (u) for the model
+        :param observation: Observation of the environment given one action.
+        :returns: Uniform random value [-1, 1) as action (u) for the model.
         """
         return np.random.uniform(low=-1, high=1, size=1)
