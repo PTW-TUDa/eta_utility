@@ -122,8 +122,8 @@ class BaseEnvSim(BaseEnv, abc.ABC):
                 start_time=0.0,
                 stop_time=self.episode_duration,
                 step_size=int(self.sampling_time / self.sim_steps_per_sample),
-                names_inputs=[self.state_config.rev_ext_ids[name] for name in self.state_config.ext_inputs],
-                names_outputs=[self.state_config.rev_ext_ids[name] for name in self.state_config.ext_outputs],
+                names_inputs=[str(self.state_config.map_ext_ids[name]) for name in self.state_config.ext_inputs],
+                names_outputs=[str(self.state_config.map_ext_ids[name]) for name in self.state_config.ext_outputs],
                 init_values=_init_vals,
             )
 
