@@ -15,7 +15,7 @@ from eta_utility import get_logger, timeseries
 from eta_utility.eta_x.envs.state import StateConfig
 
 if TYPE_CHECKING:
-    from typing import Any, Callable
+    from typing import Any, Callable, Mapping
 
     from eta_utility.eta_x import ConfigOptRun
     from eta_utility.type_hints import Path, StepResult, TimeStep
@@ -307,7 +307,7 @@ class BaseEnv(Env, abc.ABC):
 
         return self.state_config
 
-    def import_scenario(self, *scenario_paths: dict[str, Any], prefix_renamed: bool = True) -> pd.DataFrame:
+    def import_scenario(self, *scenario_paths: Mapping[str, Any], prefix_renamed: bool = True) -> pd.DataFrame:
         """Load data from csv into self.timeseries_data by using scenario_from_csv
 
         :param scenario_paths: One or more scenario configuration dictionaries (or a list of dicts), which each contain
@@ -419,6 +419,21 @@ class BaseEnv(Env, abc.ABC):
                  step is performed.
         """
         raise NotImplementedError("Cannot reset an abstract Environment.")
+
+    def _reset_state(self) -> None:
+        """Store episode statistics and reset episode counters"""
+        if self.n_steps > 0:
+            if self.callback is not None:
+                self.callback(self)
+
+            # Store some logging data
+            self.n_episodes += 1
+            self.state_log_longtime.append(self.state_log)
+            self.n_steps_longtime += self.n_steps
+
+            # Reset episode variables
+            self.n_steps = 0
+            self.state_log = []
 
     @abc.abstractmethod
     def close(self) -> None:

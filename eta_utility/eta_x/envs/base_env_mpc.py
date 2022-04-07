@@ -71,6 +71,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             scenario_time_end=scenario_time_end,
             episode_duration=episode_duration,
             sampling_time=sampling_time,
+            **kwargs,
         )
 
         # Check configuration for MILP compatibility
@@ -336,18 +337,8 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         """
         assert self.state_config is not None, "Set state_config before calling update function."
 
+        self._reset_state()
         if self.n_steps > 0:
-            if self.callback is not None:
-                self.callback(self)
-
-            # Store some logging data
-            self.n_episodes += 1
-            self.state_log_longtime.append(self.state_log)
-            self.n_steps_longtime += self.n_steps
-
-            # Reset episode variables
-            self.n_steps = 0
-            self.state_log = []
             self._concrete_model = self._model()
 
         assert self._concrete_model is not None, "Mathematical model is not initialized. Call reset another time."

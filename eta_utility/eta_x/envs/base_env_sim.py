@@ -71,6 +71,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
             scenario_time_end=scenario_time_end,
             episode_duration=episode_duration,
             sampling_time=sampling_time,
+            **kwargs,
         )
 
         # Check configuration for compatibility
@@ -240,20 +241,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         :return: Initial observation.
         """
         assert self.state_config is not None, "Set state_config before calling reset function."
-
-        # save episode's stats
-        if self.n_steps > 0:
-            if self.callback is not None:
-                self.callback(self)
-
-            # Store some logging data
-            self.n_episodes += 1
-            self.state_log_longtime.append(self.state_log)
-            self.n_steps_longtime += self.n_steps
-
-            # Reset episode variables
-            self.n_steps = 0
-            self.state_log = []
+        self._reset_state()
 
         # reset the FMU after every episode with new parameters
         self._init_simulator(self.model_parameters)
@@ -263,8 +251,13 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         for obs in self.state_config.ext_outputs:
             start_obs.append(str(self.state_config.map_ext_ids[obs]))
 
-        result = self.simulator.read_values(start_obs)
-        self.state = {name: result[idx] for idx, name in enumerate(self.state_config.ext_outputs)}
+        output = self.simulator.read_values(start_obs)
+        self.state = {}
+        for idx, name in enumerate(self.state_config.ext_outputs):
+            self.state[name] = (output[idx] + self.state_config.ext_scale[name]["add"]) * self.state_config.ext_scale[
+                name
+            ]["multiply"]
+
         self.state.update(self.get_scenario_state())
         self.state_log.append(self.state)
 

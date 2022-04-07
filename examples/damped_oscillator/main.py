@@ -31,6 +31,10 @@ def experiment(root_path: pathlib.Path, overwrite: dict[str, Any] | None = None)
 
 
 def get_path() -> pathlib.Path:
+    """Get the path of this file.
+
+    :return: Path to this file.
+    """
     return pathlib.Path(__file__).parent
 
 

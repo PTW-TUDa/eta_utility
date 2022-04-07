@@ -1,9 +1,7 @@
 {
     "setup": {
-        "environment_package": "examples.pendulum.pendulum",
-        "environment_class": "PendulumEnv",
-        "agent_package": "examples.pendulum.controller",
-        "agent_class": "PendulumControl"
+        "environment_import": "examples.pendulum.pendulum.PendulumEnv",
+        "agent_import": "examples.pendulum.controller.PendulumControl"
     },
     "paths": {
         "relpath_results": "results/"

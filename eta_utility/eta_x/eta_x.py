@@ -439,8 +439,10 @@ class ETAx:
                     self.interaction_env is not None
                 ), "Initialized interaction environments could not be found. Call prepare_run first."
                 observations = self.interaction_env.reset()
-                self.environments.reset()
-                observations = np.array(self.environments.env_method("update", observations, indices=0))
+                try:
+                    observations = np.array(self.environments.env_method("first_update", observations, indices=0))
+                except AttributeError:
+                    observations = self.environments.reset()
             else:
                 observations = self.environments.reset()
         except ValueError as e:

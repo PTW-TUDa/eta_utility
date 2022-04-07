@@ -1,0 +1,75 @@
+{
+    "system": [
+        {
+            "name": "CM",
+            "servers": {"glt": {"url": "localhost:4840", "protocol": "opcua", "usr": "admin", "pwd": ""}},
+            "nodes": [
+                {
+                    "name": "temp_tank",
+                    "server": "glt",
+                    "opc_id": "ns=2;s=Application.general.Tanktemperatur.senT",
+                    "dtype": "float"
+                },
+                {
+                    "name": "tankheater",
+                    "server": "glt",
+                    "opc_id": "ns=2;s=Application.outputs.Tankheizung",
+                    "dtype": "bool"
+                },
+                {
+                    "name": "mode_tankheater",
+                    "server": "glt",
+                    "opc_id": "ns=2;s=Application.IL_4EEApplication.bTankheizungONOFF",
+                    "dtype": "bool"
+                },
+                {
+                    "name": "heating_register",
+                    "server": "glt",
+                    "opc_id": "ns=2;s=Application.general.Scada_Heissblasen",
+                    "dtype": "bool"
+                },
+                {
+                    "name": "motor_nozzles",
+                    "server": "glt",
+                    "opc_id": "ns=2;s=Application.outputs.Antrieb_Duesen_Freigabe",
+                    "dtype": "bool"
+                },
+                {
+                    "name": "motor_basket",
+                    "server": "glt",
+                    "opc_id": "ns=2;s=Application.outputs.Antrieb_Korb_Freigabe",
+                    "dtype": "bool"
+                },
+                {
+                    "name": "pump",
+                    "server": "glt",
+                    "opc_id": "ns=2;s=Application.outputs.Spritzpumpe",
+                    "dtype": "bool"
+                },
+                {
+                    "name": "fan",
+                    "server": "glt",
+                    "opc_id": "ns=2;s=Application.outputs.Abluftgeblaese",
+                    "dtype": "bool"
+                },
+                {
+                    "name": "valve",
+                    "server": "glt",
+                    "opc_id": "ns=2;s=Application.general.Scada_Impulsblasen",
+                    "dtype": "bool"
+                }
+            ],
+            "set_value": {
+                "name": "u",
+                "node": "mode_tankheater",
+                "min": 0,
+                "max": 1,
+                "threshold": 1,
+                "add": 0,
+                "mult": 1
+            },
+            "observe": ["temp_tank", "tankheater", "heating_register", "motor_nozzles", "motor_basket", "pump",
+                "fan", "valve"]
+        }
+    ]
+}

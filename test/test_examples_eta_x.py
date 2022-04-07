@@ -2,6 +2,7 @@ import shutil
 
 import pytest
 
+from examples.cyber_physical_system.main import get_path as get_cps_path  # noqa: I900
 from examples.damped_oscillator.main import experiment as ex_oscillator  # noqa: I900
 from examples.damped_oscillator.main import (  # noqa: I900
     get_path as get_oscillator_path,
@@ -40,3 +41,23 @@ class TestOscillatorExample:
 
     def test_oscillator(self, expriment_path):
         ex_oscillator(expriment_path)
+
+
+class TestCPSExample:
+    @pytest.fixture(scope="class")
+    def expriment_path(self):
+        path = get_cps_path()
+        yield path
+        try:
+            shutil.rmtree(path / "results")
+        except FileNotFoundError:
+            pass
+
+    def test_cps(self, expriment_path):
+        """Text for example to be added. This is currently impossible because simulation model
+        cannot be compiled on linux.
+
+            from examples.cyber_physical_system.main import experiment as ex_cps
+            ex_cps(expriment_path, {"settings": {"sampling_time": 2, "episode_duration": 20}})
+        """
+        pass
