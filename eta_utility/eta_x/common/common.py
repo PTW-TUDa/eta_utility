@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import abc
 import inspect
 import json
 import pathlib
@@ -261,8 +262,18 @@ def log_run_info(config: ConfigOpt, config_run: ConfigOptRun) -> None:
     :param config_run: Configuration for this optimization run.
     """
     with config_run.path_run_info.open("w") as f:
+
+        class Encoder(json.JSONEncoder):
+            def default(self, o: object) -> object:
+                if isinstance(o, pathlib.Path):
+                    return str(o)
+                elif isinstance(o, abc.ABCMeta):
+                    return None
+                else:
+                    return json.JSONEncoder.default(self, o)
+
         try:
-            json.dump({**asdict(config_run), **asdict(config)}, f)
+            json.dump({**asdict(config_run), **asdict(config)}, f, indent=4, cls=Encoder)
             log.info("Log file successfully created.")
         except TypeError:
             log.warning("Log file could not be created because of non-serializable input in config.")

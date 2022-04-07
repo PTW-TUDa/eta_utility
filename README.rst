@@ -16,6 +16,10 @@ optimization results.
 Full Documentation can be found on the
 `Documentation Page <https://eta-fabrik.pages.rwth-aachen.de/industrialenergylab/utility-functions/>`_.
 
+.. warning::
+    This is beta software. APIs and functionality might change without prior notice. Please fix the version you
+    are using in your requirements to ensure your software will not be broken by changes in *eta_utility*.
+
 The package *eta_utility* consists of five main modules and some additional functionality:
 
 - *eta_x* is the rolling horizon optimization module which combines the functionality of the

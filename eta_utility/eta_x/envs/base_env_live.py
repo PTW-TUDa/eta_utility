@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from abc import ABC
+import abc
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 log = get_logger("eta_x.envs")
 
 
-class BaseEnvLive(BaseEnv, ABC):
+class BaseEnvLive(BaseEnv, abc.ABC):
     """Base class for Live Connector environments. The class will prepare the initialization of the LiveConnect class
     and provide facilities to automatically read step results and reset the connection.
 
@@ -30,12 +30,18 @@ class BaseEnvLive(BaseEnv, ABC):
     :param verbose: Verbosity to use for logging.
     :param callback: callback which should be called after each episode.
     :param scenario_time_begin: Beginning time of the scenario.
-    :param scneario_time_end: Ending time of the scenario.
+    :param scenario_time_end: Ending time of the scenario.
     :param episode_duration: Duration of the episode in seconds.
     :param sampling_time: Duration of a single time sample / time step in seconds.
     :param max_errors: Maximum number of connection errors before interrupting the optimization process.
     :param kwargs: Other keyword arguments (for subclasses).
     """
+
+    @property
+    @abc.abstractmethod
+    def config_name(self) -> str:
+        """Name of the live_connect configuration"""
+        return ""
 
     def __init__(
         self,
@@ -62,11 +68,14 @@ class BaseEnvLive(BaseEnv, ABC):
             scenario_time_end=scenario_time_end,
             episode_duration=episode_duration,
             sampling_time=sampling_time,
+            **kwargs,
         )
         #: Instance of the Live Connector.
         self.live_connector: LiveConnect
         #: Path or Dict to initialize the live connector.
-        self.live_connect_config: Path | Sequence[Path] | dict[str, Any] | None = None
+        self.live_connect_config: Path | Sequence[Path] | dict[str, Any] | None = (
+            self.path_env / f"{self.config_name}.json"
+        )
         #: Maximum error count when connections in live connector are aborted.
         self.max_error_count: int = max_errors
 
@@ -142,7 +151,7 @@ class BaseEnvLive(BaseEnv, ABC):
         self.state_log.append(self.state)
 
         # Check if the episode is over or not
-        done = True if self.n_steps >= self.n_episode_steps else False
+        done = self.n_steps >= self.n_episode_steps
 
         observations = np.empty(len(self.state_config.observations))
         for idx, name in enumerate(self.state_config.observations):
@@ -161,20 +170,7 @@ class BaseEnvLive(BaseEnv, ABC):
         :return: Initial observation.
         """
         assert self.state_config is not None, "Set state_config before calling reset function."
-
-        # Save episode's stats
-        if self.n_steps > 0:
-            if self.callback is not None:
-                self.callback(self)
-
-            # Store some logging data
-            self.n_episodes += 1
-            self.state_log_longtime.append(self.state_log)
-            self.n_steps_longtime += self.n_steps
-
-            # Reset episode variables
-            self.n_steps = 0
-            self.state_log: list[dict[str, float]] = []
+        self._reset_state()
 
         self._init_live_connector()
 
