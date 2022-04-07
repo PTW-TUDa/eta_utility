@@ -14,6 +14,19 @@ The *data_recorder* example is more complex in that it uses multiple *connectors
 can connect to different protocols and provides a command line interface for
 configuration.
 
+Forecasting
+--------------
+The *forecasting* example demonstrates how a machine learning model can be deployed using
+the *connectors* module to connect to data sources (in this example OPC UA). The model is a load forecasting
+model of a machine tool in the ETA research factory. It forecasts the electric load of the machine tool during
+the next 100 seconds. Input data is a time window of the last 100 seconds of 8 separate electric load signals
+of sub-components of the machine tool as well as the total electric load of the machine tool. The model was
+exported into ONNX format and is deployed using the *onnxruntime* module. The forecast is published to an
+OPC UA server that is established on the local machine using the *servers* module.
+
+In the example, data is collected for 100 seconds in an internal memory. Once enough time steps are present, the
+inference is triggered and the forecast is published to the OPC UA server. This loop is repeated every second.
+
 eta_x Optimization
 --------------------
 Examples for the optimization part of the framework are also provided. The *pendulum* example is the

@@ -10,6 +10,7 @@ from eta_utility import get_logger, url_parse
 from eta_utility.connectors.node import NodeOpcUa
 
 if TYPE_CHECKING:
+    import types
     from typing import Any, Mapping
 
     from opcua import Node as OpcNode
@@ -156,3 +157,11 @@ class OpcUaServer:
             )
 
         return _nodes
+
+    def __enter__(self) -> OpcUaServer:
+        return self
+
+    def __exit__(
+        self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: types.TracebackType | None
+    ) -> None:
+        self.stop()
