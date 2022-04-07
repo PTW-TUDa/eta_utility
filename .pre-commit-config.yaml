@@ -64,3 +64,4 @@ repos:
           - attrs
           - stable_baselines3
           - pygame
+          - importlib_metadata

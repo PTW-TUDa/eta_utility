@@ -54,6 +54,9 @@ module = [
     "opcua.*",
     "pyModbusTCP.*",
     "pyomo.*",
-    "keyboard.*"
+    "keyboard.*",
+    "torch.nn.qat.dynamic",
+    "onnxruntime.*",
+    "importlib.*"
 ]
 ignore_missing_imports = true
