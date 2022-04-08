@@ -3,7 +3,9 @@ import shutil
 import pytest
 
 from examples.cyber_physical_system.main import get_path as get_cps_path  # noqa: I900
-from examples.damped_oscillator.main import experiment as ex_oscillator  # noqa: I900
+from examples.damped_oscillator.main import (  # noqa: I900
+    experiment_conventional as ex_oscillator,
+)
 from examples.damped_oscillator.main import (  # noqa: I900
     get_path as get_oscillator_path,
 )

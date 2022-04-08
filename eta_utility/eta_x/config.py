@@ -493,6 +493,7 @@ class ConfigOptSettings:
 
         interact_with_env = settings.pop("interact_with_env", False)
         save_model_every_x_episodes = settings.pop("save_model_every_x_episodes", None)
+        plot_interval = settings.pop("plot_interval", None)
 
         if "episode_duration" not in settings:
             log.error("'episode_duration' is not specified in settings.")
@@ -540,6 +541,7 @@ class ConfigOptSettings:
             n_episodes_learn=n_episodes_learn,
             interact_with_env=interact_with_env,
             save_model_every_x_episodes=save_model_every_x_episodes,
+            plot_interval=plot_interval,
             episode_duration=episode_duration,  # type: ignore # type is ensured through errors above
             sampling_time=sampling_time,  # type: ignore # type is ensured through errors above
             sim_steps_per_sample=sim_steps_per_sample,

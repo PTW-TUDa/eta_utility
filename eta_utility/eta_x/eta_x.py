@@ -122,7 +122,7 @@ class ETAx:
                 self.config.settings.agent,
                 self.config_run.path_run_model,
                 tensorboard_log=self.config.setup.tensorboard_log,
-                path_results=self.config_run.path_results,
+                log_path=self.config_run.path_series_results,
             )
             return
 
@@ -134,7 +134,7 @@ class ETAx:
             self.config.settings.agent,
             self.config.settings.seed,
             tensorboard_log=self.config.setup.tensorboard_log,
-            path_results=self.config_run.path_results,
+            log_path=self.config_run.path_series_results,
         )
 
     def _prepare_environments(self, training: bool = True) -> None:

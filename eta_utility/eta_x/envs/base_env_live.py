@@ -128,15 +128,21 @@ class BaseEnvLive(BaseEnv, abc.ABC):
             * **info**: Provide some additional info about the state of the environment. The contents of this may
               be used for logging purposes in the future but typically do not currently serve a purpose.
         """
+        if self.action_space.shape != action.shape:
+            raise RuntimeError(
+                f"Agent action {action} (shape: {action.shape})"
+                f" does not correspond to shape of environment action space (shape: {self.action_space.shape})."
+            )
+
         assert self.state_config is not None, "Set state_config before calling step function."
 
         self.n_steps += 1
 
         # Store actions
-        self.state = {}
+        self.state = {} if self.additional_state is None else self.additional_state
+
         # Preparation for the setting of the actions, store actions
         node_in = {}
-
         # Set actions in the opc ua server and read out the observations
         for idx, name in enumerate(self.state_config.actions):
             self.state[name] = action[idx]
@@ -171,9 +177,9 @@ class BaseEnvLive(BaseEnv, abc.ABC):
         """
         assert self.state_config is not None, "Set state_config before calling reset function."
         self._reset_state()
-
         self._init_live_connector()
 
+        self.state = {} if self.additional_state is None else self.additional_state
         # Update scenario data, read out the start conditions from opc ua server and store the results
         start_obs = []
         for name in self.state_config.ext_outputs:
@@ -181,7 +187,7 @@ class BaseEnvLive(BaseEnv, abc.ABC):
 
         # Read out and store start conditions
         results = self.live_connector.read(*start_obs)
-        self.state = {self.state_config.rev_ext_ids[name]: results[name] for name in start_obs}
+        self.state.update({self.state_config.rev_ext_ids[name]: results[name] for name in start_obs})
         self.state.update(self.get_scenario_state())
         self.state_log.append(self.state)
 

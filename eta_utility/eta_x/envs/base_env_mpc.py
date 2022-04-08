@@ -190,8 +190,11 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             * info: Provide some additional info about the state of the environment. The contents of this may
               be used for logging purposes in the future but typically do not currently serve a purpose.
         """
-        if not self.action_space.contains(action):
-            raise RuntimeError(f"Action {action} ({type(action)}) is invalid. Not in action space.")
+        if self.action_space.shape != action.shape:
+            raise RuntimeError(
+                f"Agent action {action} (shape: {action.shape})"
+                f" does not correspond to shape of environment action space (shape: {self.action_space.shape})."
+            )
 
         assert self.state_config is not None, "Set state_config before calling step function."
         assert self._concrete_model is not None, (
@@ -203,7 +206,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         observations = self.update()
 
         # update and log current state
-        self.state = {}
+        self.state = {} if self.additional_state is None else self.additional_state
         for idx, act in enumerate(self.state_config.actions):
             self.state[act] = action[idx]
         for idx, obs in enumerate(self.state_config.observations):
@@ -344,7 +347,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         assert self._concrete_model is not None, "Mathematical model is not initialized. Call reset another time."
 
         # Initialize state with the initial observation
-        self.state = {}
+        self.state = {} if self.additional_state is None else self.additional_state
         observations = []
         for var_name in self.state_config.observations:
             for component in self._concrete_model.component_objects():
