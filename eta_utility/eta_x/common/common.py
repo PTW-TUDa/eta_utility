@@ -160,7 +160,7 @@ def initialize_model(
     seed: int | None = None,
     *,
     tensorboard_log: bool = False,
-    path_results: Path | None = None,
+    log_path: Path | None = None,
 ) -> BaseAlgorithm:
     """Initialize a new model or algorithm.
 
@@ -170,26 +170,23 @@ def initialize_model(
     :param algo_settings: Additional settings for the algorithm.
     :param seed: Random seed to be used by the algorithm.
     :param tensorboard_log: Flag to enable logging to tensorboard.
-    :param path_results: Path to store results in. Only required if logging is true.
+    :param log_path: Path for tensorboard log. Online required if logging is true
     :return: Initialized model.
     """
     log.debug(f"Trying to initialize model: {algo.__name__}")
-    _path_results = (
-        path_results if path_results is None or isinstance(path_results, pathlib.Path) else pathlib.Path(path_results)
-    )
+    _log_path = log_path if log_path is None or isinstance(log_path, pathlib.Path) else pathlib.Path(log_path)
 
     # tensorboard logging
     algo_kwargs = {}
     if tensorboard_log:
-        if _path_results is None:
+        if _log_path is None:
             raise ValueError("If tensorboard logging is enabled, a path for results must be specified as well.")
-        log_path = _path_results
-        log.info(f"Tensorboard logging is enabled. Log file: {log_path}")
+        log.info(f"Tensorboard logging is enabled. Log file: {_log_path}")
         log.info(
             f"Please run the following command in the console to start tensorboard: \n"
-            f"tensorboard --logdir '{log_path}' --port 6006"
+            f"tensorboard --logdir '{_log_path}' --port 6006"
         )
-        algo_kwargs = {"tensorboard_log": str(_path_results)}
+        algo_kwargs = {"tensorboard_log": str(_log_path)}
 
     # check if the agent takes all the default parameters.
     algo_settings.setdefault("seed", seed)
@@ -212,7 +209,7 @@ def load_model(
     path_model: Path,
     *,
     tensorboard_log: bool = False,
-    path_results: Path | None = None,
+    log_path: Path | None = None,
 ) -> BaseAlgorithm:
     """Load an existing model.
 
@@ -221,14 +218,12 @@ def load_model(
     :param algo_settings: Additional settings for the algorithm.
     :param path_model: Path to load the model from.
     :param tensorboard_log: Flag to enable logging to tensorboard.
-    :param path_results: Path to store results in. Only required if logging is true.
+    :param log_path: Path for tensorboard log. Online required if logging is true
     :return: Initialized model.
     """
     log.debug(f"Trying to load existing model: {path_model}")
     _path_model = path_model if isinstance(path_model, pathlib.Path) else pathlib.Path(path_model)
-    _path_results = (
-        path_results if path_results is None or isinstance(path_results, pathlib.Path) else pathlib.Path(path_results)
-    )
+    _log_path = log_path if log_path is None or isinstance(log_path, pathlib.Path) else pathlib.Path(log_path)
 
     if not _path_model.exists():
         raise OSError(f"Model couldn't be loaded. Path not found: {_path_model}")
@@ -236,15 +231,14 @@ def load_model(
     # tensorboard logging
     algo_kwargs = {}
     if tensorboard_log:
-        if _path_results is None:
+        if _log_path is None:
             raise ValueError("If tensorboard logging is enabled, a path for results must be specified as well.")
-        log_path = _path_results
-        log.info(f"Tensorboard logging is enabled. Log file: {log_path}")
+        log.info(f"Tensorboard logging is enabled. Log file: {_log_path}")
         log.info(
             f"Please run the following command in the console to start tensorboard: \n"
-            f"tensorboard --logdir '{log_path}' --port 6006"
+            f"tensorboard --logdir '{_log_path}' --port 6006"
         )
-        algo_kwargs = {"tensorboard_log": str(_path_results)}
+        algo_kwargs = {"tensorboard_log": str(_log_path)}
 
     try:
         model = algo.load(_path_model, envs, **algo_settings, **algo_kwargs)  # type: ignore
@@ -287,8 +281,13 @@ def log_net_arch(model: BaseAlgorithm, config_run: ConfigOptRun) -> None:
     :param config_run: Optimization run configuration (which contains info about the file to store info in).
     :raises: ValueError.
     """
-    if not config_run.path_net_arch.exists() and model.policy.__class__ is not NoPolicy:
-        with open(config_run.path_net_arch, "w") as f:
+    # model.policy has incorrect type annotation in stable_baselines
+    if (
+        not config_run.path_net_arch.exists()
+        and model.policy is not None
+        and model.policy.__class__ is not NoPolicy  # type: ignore
+    ):
+        with open(config_run.path_net_arch, "w") as f:  # type: ignore
             f.write(str(model.policy))
 
         log.info(f"Net arch / Policy information store successfully in: {config_run.path_net_arch}.")

@@ -171,6 +171,8 @@ class BaseEnv(Env, abc.ABC):
         self.episode_timer: float = time.time()
         #: Current state of the environment.
         self.state: dict[str, float]
+        #: Additional state information to append to the state during stepping and reset
+        self.additional_state: dict[str, float] | None = None
         #: Log of the environment state.
         self.state_log: list[dict[str, float]] = []
         #: Log of the environment state over multiple episodes.

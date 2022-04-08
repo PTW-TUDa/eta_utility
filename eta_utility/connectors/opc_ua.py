@@ -12,11 +12,8 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
-import opcua
 import pandas as pd
-from opcua import Client
-from opcua import Node as OpcNode
-from opcua import ua
+from opcua import Client, Subscription, ua
 from opcua.ua import uaerrors
 
 from eta_utility import get_logger
@@ -24,6 +21,7 @@ from eta_utility.connectors.node import Node, NodeOpcUa
 
 if TYPE_CHECKING:
     from typing import Any, Generator, Mapping, Sequence
+    from opcua import Node as OpcNode
     from eta_utility.type_hints import AnyNode, Nodes, TimeStep
 
 from .base_classes import BaseConnection, SubscriptionHandler
@@ -52,7 +50,7 @@ class OpcUaConnection(BaseConnection):
         self.connection: Client = Client(self.url)
         self._connected = False
 
-        self._sub: opcua.Subscription
+        self._sub: Subscription
         self._sub_task: asyncio.Task
         self._subscription_open: bool = False
         self._subscription_nodes: set[NodeOpcUa] = set()
