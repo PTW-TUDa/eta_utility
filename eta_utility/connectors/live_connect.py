@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import pathlib
 import time
-import types
 from contextlib import AbstractContextManager
 from datetime import timedelta
 from typing import TYPE_CHECKING, Mapping, Sequence
@@ -16,6 +15,7 @@ from eta_utility.connectors import connections_from_nodes, name_map_from_node_se
 from eta_utility.connectors.node import Node, default_schemes
 
 if TYPE_CHECKING:
+    import types
     from typing import Any
 
     from eta_utility.connectors.base_classes import BaseConnection

@@ -94,6 +94,16 @@ class StateVar:
         # mypy does not recognize default_if_none
     )
 
+    #: Name or identifier (order) of the variable in an interaction environment (default: None).
+    interact_id: str | int | None = field(kw_only=True, default=None, validator=validators.optional(_valid_id))
+    #: Should this variable be read from the interaction environment? (default: False).
+    from_interact: bool = field(
+        kw_only=True,
+        default=False,
+        converter=converters.pipe(converters.default_if_none(False), bool)  # type: ignore
+        # mypy does not recognize default_if_none
+    )
+
     #: Name of the scenario variable, this value should be read from (default: None).
     scenario_id: str | None = field(
         kw_only=True, default=None, validator=validators.optional(validators.instance_of(str))
@@ -121,9 +131,9 @@ class StateVar:
     )
 
     #: Lowest possible value of the state variable (default: None).
-    low_value: float | None = field(kw_only=True, default=None, converter=converters.optional(float))
+    low_value: float | None = field(kw_only=True, default=np.nan, converter=converters.optional(float))
     #: Highest possible value of the state variable (default: None).
-    high_value: float | None = field(kw_only=True, default=None, converter=converters.optional(float))
+    high_value: float | None = field(kw_only=True, default=np.nan, converter=converters.optional(float))
     #: If the value of the variable dips below this, the episode should be aborted (default: None).
     abort_condition_min: float | None = field(kw_only=True, default=None, converter=converters.optional(float))
     #: If the value of the variable rises above this, the episode should be aborted (default: None).
@@ -161,8 +171,8 @@ class StateVar:
         from_scenario = _map.pop("from_scenario", None)
         scenario_scale_add = _map.pop("scenario_scale_add", None)
         scenario_scale_mult = _map.pop("scenario_scale_mult", None)
-        low_value = _map.pop("low_value", None)
-        high_value = _map.pop("high_value", None)
+        low_value = _map.pop("low_value", np.nan)
+        high_value = _map.pop("high_value", np.nan)
         abort_condition_min = _map.pop("abort_condition_min", None)
         abort_condition_max = _map.pop("abort_condition_max", None)
         index = _map.pop("index", None)
@@ -227,6 +237,9 @@ class StateConfig:
         #: Contains fields 'add' and 'multiply'
         self.ext_scale: dict[str, dict[str, float]] = {}
 
+        #: List of variables that should be read from an interaction environment.
+        self.interact_outputs: list[str] = []
+
         #: List of variables which are loaded from scenario files.
         self.scenarios: list[str] = []
         #: Mapping of internal environment names to scenario IDs.
@@ -288,6 +301,9 @@ class StateConfig:
             self.map_ext_ids[var.name] = var.ext_id
             self.rev_ext_ids[var.ext_id] = var.name
             self.ext_scale[var.name] = {"add": var.ext_scale_add, "multiply": var.ext_scale_mult}
+
+        if var.from_interact:
+            self.interact_outputs.append(var.name)
 
         # Mappings for scenario variables
         if var.from_scenario and var.scenario_id is not None:

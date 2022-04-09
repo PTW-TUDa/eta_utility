@@ -71,8 +71,9 @@ class RuleBased(BaseAlgorithm, abc.ABC):
         :return: Tuple of the model's action and the next state (state is typically None in this agent).
         """
         action = []
-        for obs in observation:
+        for idx, obs in enumerate(observation):
             action.append(np.array(self.control_rules(obs)))
+            log.debug(f"Action vector for environment {idx}: {action[-1]}")
 
         return np.array(action), None
 

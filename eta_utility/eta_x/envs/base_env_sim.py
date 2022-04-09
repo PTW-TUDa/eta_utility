@@ -71,24 +71,11 @@ class BaseEnvSim(BaseEnv, abc.ABC):
             scenario_time_end=scenario_time_end,
             episode_duration=episode_duration,
             sampling_time=sampling_time,
+            **kwargs,
         )
-
-        # Check configuration for compatibility
-        errors = False
 
         #: Number of simulation steps to be taken for each sample. This must be a divisor of 'sampling_time'.
         self.sim_steps_per_sample: int = int(sim_steps_per_sample)
-        if self.sampling_time % self.sim_steps_per_sample != 0:
-            log.error(
-                "'sim_steps_per_sample' must be an even divisor of 'sampling_time' "
-                "(sampling_time % sim_steps_per_sample must equal 0)."
-            )
-            errors = True
-
-        if errors:
-            raise ValueError(
-                "Some configuration parameters do not conform to the Sim environment requirements (see log)."
-            )
 
         #: The FMU is expected to be placed in the same folder as the environment
         self.path_fmu: pathlib.Path = self.path_env / (self.fmu_name + ".fmu")
@@ -121,9 +108,9 @@ class BaseEnvSim(BaseEnv, abc.ABC):
                 self.path_fmu,
                 start_time=0.0,
                 stop_time=self.episode_duration,
-                step_size=int(self.sampling_time / self.sim_steps_per_sample),
-                names_inputs=[self.state_config.rev_ext_ids[name] for name in self.state_config.ext_inputs],
-                names_outputs=[self.state_config.rev_ext_ids[name] for name in self.state_config.ext_outputs],
+                step_size=float(self.sampling_time / self.sim_steps_per_sample),
+                names_inputs=[str(self.state_config.map_ext_ids[name]) for name in self.state_config.ext_inputs],
+                names_outputs=[str(self.state_config.map_ext_ids[name]) for name in self.state_config.ext_outputs],
                 init_values=_init_vals,
             )
 
@@ -199,17 +186,13 @@ class BaseEnvSim(BaseEnv, abc.ABC):
                 f"Agent action {action} (shape: {action.shape})"
                 f" does not correspond to shape of environment action space (shape: {self.action_space.shape})."
             )
-        elif not self.action_space.contains(action):
-            raise RuntimeError(
-                f"Action {action} ({type(action)}) is invalid. At least one of the actions is not in action space."
-            )
 
         assert self.state_config is not None, "Set state_config before calling step function."
 
         self.n_steps += 1
 
         # Store actions
-        self.state = {}
+        self.state = {} if self.additional_state is None else self.additional_state
         for idx, act in enumerate(self.state_config.actions):
             self.state[act] = action[idx]
 
@@ -218,7 +201,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         for _ in range(self.sim_steps_per_sample):  # do multiple FMU steps in one environment-step
             sim_result, step_success, sim_time_elapsed = self.simulate(self.state)
             self.state.update(sim_result)
-            self.state_log.append(self.state)
+            self.state_log.append(self.state.copy())
 
         # Check if the episode is over or not
         done = self.n_steps >= self.n_episode_steps or not step_success
@@ -240,20 +223,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         :return: Initial observation.
         """
         assert self.state_config is not None, "Set state_config before calling reset function."
-
-        # save episode's stats
-        if self.n_steps > 0:
-            if self.callback is not None:
-                self.callback(self)
-
-            # Store some logging data
-            self.n_episodes += 1
-            self.state_log_longtime.append(self.state_log)
-            self.n_steps_longtime += self.n_steps
-
-            # Reset episode variables
-            self.n_steps = 0
-            self.state_log = []
+        self._reset_state()
 
         # reset the FMU after every episode with new parameters
         self._init_simulator(self.model_parameters)
@@ -263,8 +233,13 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         for obs in self.state_config.ext_outputs:
             start_obs.append(str(self.state_config.map_ext_ids[obs]))
 
-        result = self.simulator.read_values(start_obs)
-        self.state = {name: result[idx] for idx, name in enumerate(self.state_config.ext_outputs)}
+        output = self.simulator.read_values(start_obs)
+        self.state = {} if self.additional_state is None else self.additional_state
+        for idx, name in enumerate(self.state_config.ext_outputs):
+            self.state[name] = (output[idx] + self.state_config.ext_scale[name]["add"]) * self.state_config.ext_scale[
+                name
+            ]["multiply"]
+
         self.state.update(self.get_scenario_state())
         self.state_log.append(self.state)
 

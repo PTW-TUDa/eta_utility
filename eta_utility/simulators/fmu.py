@@ -323,7 +323,7 @@ class FMUSimulator:
 
         # advance time
         if advance_time:
-            self.time += int(self.step_size)  # advance the time
+            self.time += self.step_size  # advance the time
 
         output = self.read_values(output_names)
         return output

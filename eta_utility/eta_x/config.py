@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import itertools
 import json
 import pathlib
 import re
@@ -492,6 +493,7 @@ class ConfigOptSettings:
 
         interact_with_env = settings.pop("interact_with_env", False)
         save_model_every_x_episodes = settings.pop("save_model_every_x_episodes", None)
+        plot_interval = settings.pop("plot_interval", None)
 
         if "episode_duration" not in settings:
             log.error("'episode_duration' is not specified in settings.")
@@ -518,11 +520,11 @@ class ConfigOptSettings:
         agent = dikt.pop("agent_specific", None)
 
         interaction_env = dict_pop_any(
-            settings, "interaction_env_specific", "interaction_environment_specific", fail=False, default=None
+            dikt, "interaction_env_specific", "interaction_environment_specific", fail=False, default=None
         )
 
         # Log configuration values which were not recognized.
-        for name in settings:
+        for name in itertools.chain(settings, dikt):
             log.warning(
                 f"Specified configuration value '{name}' in the settings section of the configuration "
                 f"was not recognized and is ignored."
@@ -539,6 +541,7 @@ class ConfigOptSettings:
             n_episodes_learn=n_episodes_learn,
             interact_with_env=interact_with_env,
             save_model_every_x_episodes=save_model_every_x_episodes,
+            plot_interval=plot_interval,
             episode_duration=episode_duration,  # type: ignore # type is ensured through errors above
             sampling_time=sampling_time,  # type: ignore # type is ensured through errors above
             sim_steps_per_sample=sim_steps_per_sample,

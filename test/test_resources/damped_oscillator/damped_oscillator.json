@@ -22,5 +22,10 @@
         "scenario_time_begin": "2018-01-09 06:00",
         "scenario_time_end": "2018-01-09 16:00",
         "model_parameters": {}
+    },
+    "agent_specific": {
+        "p": 0.08,
+        "i": 0.3,
+        "d": 0.35
     }
 }

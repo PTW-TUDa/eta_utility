@@ -211,8 +211,8 @@ def csv_export(
     elif isinstance(data, Sequence):
         if names is not None:
             cols = names
-        elif isinstance(data[0], Mapping):
-            cols = list(data[0].keys())
+        elif isinstance(data[-1], Mapping):
+            cols = list(data[-1].keys())
         else:
             raise ValueError("Column names for csv export not specified.")
 
