@@ -4,13 +4,16 @@ import copy
 import csv
 import json
 import logging
+import math
 import pathlib
 import re
 import sys
+from datetime import datetime
 from typing import TYPE_CHECKING, Mapping, Sequence
 from urllib.parse import urlparse, urlunparse
 
 import pandas as pd
+from dateutil import tz
 
 if TYPE_CHECKING:
     from typing import Any
@@ -157,6 +160,20 @@ def dict_pop_any(dikt: dict[str, Any], *names: str, fail: bool = True, default: 
         return default
 
 
+def dict_search(dikt: dict[str, str], val: str) -> str:
+    """Function to get key of _psr_types dictionary, given value.
+    Raise ValueError in case of value not specified in data.
+
+    :param val: value to search
+    :param data: dictionary to search for value
+    :return: key of the dictionary
+    """
+    for key, value in dikt.items():
+        if val == value:
+            return key
+    raise ValueError(f"Value: {val} not specified in specified dictionary")
+
+
 def deep_mapping_update(
     source: Mapping[str, str | Mapping[str, Any]], overrides: Mapping[str, str | Mapping[str, Any]]
 ) -> dict[str, str | Mapping[str, Any]]:
@@ -229,3 +246,32 @@ def replace_decimal_str(value: str | float, decimal: str = ".") -> str:
     :param decimal: New decimal sign.
     """
     return str(value).replace(".", decimal)
+
+
+def ensure_timezone(dt_value: datetime) -> datetime:
+    """Helper function to check if datetime has timezone and if not assign local time zone.
+
+    :param dt_value: Datetime object
+    :return: datetime object with timezone information"""
+    if dt_value.tzinfo is None:
+        return dt_value.replace(tzinfo=tz.tzlocal())
+    return dt_value
+
+
+def round_timestamp(dt_value: datetime, interval: float = 1, ensure_tz: bool = True) -> datetime:
+    """Helper method for rounding date time objects to specified interval in seconds.
+    The method will also add local timezone information is None in datetime and
+    if ensure_timezone is True.
+
+    :param dt_value: Datetime object to be rounded
+    :param interval: Interval in seconds to be rounded to
+    :param ensure_tz: Boolean value to ensure or not timezone info in datetime
+    :return: Rounded datetime object
+    """
+    if ensure_tz:
+        dt_value = ensure_timezone(dt_value)
+    timezone_store = dt_value.tzinfo
+
+    rounded_timestamp = math.ceil(dt_value.timestamp() / interval) * interval
+
+    return datetime.fromtimestamp(rounded_timestamp).replace(tzinfo=timezone_store)

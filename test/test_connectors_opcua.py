@@ -136,44 +136,42 @@ class TestOpcUABasics:
 
 class TestOpcUAServerAndConnection:
     @pytest.fixture()
-    def server(self):
+    def server_and_connection(self, local_nodes):
         server = OpcUaServer(6)
-        yield server
+        connection = OpcUaConnection(local_nodes[0].url, "admin", nodes=local_nodes[0])
+        yield connection
+
         server.stop()
 
     @pytest.fixture()
-    def connection(self, server, local_nodes):
-        return OpcUaConnection(local_nodes[0].url, "admin", nodes=local_nodes[0])
-
-    def test_opcua_client_write(self, connection, local_nodes):
-        connection.create_nodes(local_nodes)
+    def server_and_connection_with_nodes(self, server_and_connection, local_nodes):
+        server_and_connection.create_nodes(local_nodes)
         values = {local_nodes[0]: 16, local_nodes[1]: 56}
-        connection.write(values)
-        assert int(connection.read(local_nodes[0])[local_nodes[0].name].iloc[0]) == 16
+        server_and_connection.write(values)
+        return server_and_connection
 
-    @pytest.fixture()
-    def connection_with_nodes(self, connection, local_nodes):
-        connection.create_nodes(local_nodes)
+    def test_opcua_client_write(self, server_and_connection, local_nodes):
+        server_and_connection.create_nodes(local_nodes)
         values = {local_nodes[0]: 16, local_nodes[1]: 56}
-        connection.write(values)
-        return connection
+        server_and_connection.write(values)
+        assert int(server_and_connection.read(local_nodes[0])[local_nodes[0].name].iloc[0]) == 16
 
-    def test_recreate_existing_node(self, connection_with_nodes, local_nodes, caplog):
+    def test_recreate_existing_node(self, server_and_connection_with_nodes, local_nodes, caplog):
         log = get_logger()
         log.propagate = True
 
-        sacwn = connection_with_nodes
+        sacwn = server_and_connection_with_nodes
         # Create Node that already exists
         sacwn.create_nodes(local_nodes[0])
         assert f"Node with NodeId : {local_nodes[0].opc_id} could not be created. It already exists." in caplog.text
 
-    def test_read_non_existent_node(self, connection, local_nodes):
+    def test_read_non_existent_node(self, server_and_connection, local_nodes):
         # Read from a node that does not exist
         with pytest.raises(ConnectionError, match="The node id refers to a node that does not exist"):
-            connection.read(local_nodes[0])
+            server_and_connection.read(local_nodes[0])
 
-    def test_delete_one_node_check_for_another(self, connection_with_nodes, local_nodes):
-        sacwn = connection_with_nodes
+    def test_delete_one_node_check_for_another(self, server_and_connection_with_nodes, local_nodes):
+        sacwn = server_and_connection_with_nodes
 
         # Delete one of the nodes and check that the other one remains
         sacwn.delete_nodes(local_nodes[0])
@@ -181,8 +179,8 @@ class TestOpcUAServerAndConnection:
             sacwn.read(local_nodes[0])
         assert int(sacwn.read(local_nodes[1])[local_nodes[1].name].iloc[0]) == 56
 
-    def test_opc_id_not_case_sensitive(self, connection_with_nodes, local_node_case_sensitive):
-        sacwn = connection_with_nodes
+    def test_opc_id_not_case_sensitive(self, server_and_connection_with_nodes, local_node_case_sensitive):
+        sacwn = server_and_connection_with_nodes
         node = local_node_case_sensitive
 
         sacwn.create_nodes(node)
@@ -198,7 +196,7 @@ class TestOpcUAServer:
         server.create_nodes(local_nodes)
         values = {local_nodes[0]: 16, local_nodes[1]: 56}
         server.write(values)
-        yield server
+        yield (server)
 
         server.stop()
 
