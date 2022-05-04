@@ -25,23 +25,12 @@ def nodes_from_config(file=Config.LIVE_CONNECT_CONFIG):
 
 
 @pytest.fixture()
-def server():
-    server = OpcUaServer(6)
-    yield server
-    server.stop()
-
-
-@pytest.fixture()
-def server_with_nodes(server):
+def setup_live_connect():
     nodes = nodes_from_config()
 
+    server = OpcUaServer(6)
     server.create_nodes(nodes)
     server._server.allow_remote_admin(True)
-    return server
-
-
-@pytest.fixture()
-def setup_live_connect(server_with_nodes):
 
     config = json_import(Config.LIVE_CONNECT_CONFIG)  # noqa:F405
     config["system"][0]["servers"]["glt"]["url"] = f"{socket.gethostbyname(socket.gethostname())}:4840"
@@ -50,7 +39,8 @@ def setup_live_connect(server_with_nodes):
 
     connector.step({"CHP.u": 0})
     connector.deactivate()
-    return connector
+    yield connector
+    server.stop()
 
 
 def test_read(setup_live_connect):
