@@ -1,0 +1,4 @@
+exclude .*
+prune docs
+prune examples
+prune test
