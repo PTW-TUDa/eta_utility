@@ -14,7 +14,10 @@ rolling horizon optimizations for factory systems and to directly control device
 optimization results.
 
 Full Documentation can be found on the
-`Documentation Page <https://eta-fabrik.pages.rwth-aachen.de/industrialenergylab/utility-functions/>`_.
+`Documentation Page <https://eta-fabrik.pages.rwth-aachen.de/public/eta-utility/>`_.
+
+The git repository is `hosted on gitlab <https://git.rwth-aachen.de/eta-fabrik/public/eta-utility>`_.
+
 
 .. warning::
     This is beta software. APIs and functionality might change without prior notice. Please fix the version you
