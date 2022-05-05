@@ -3,7 +3,6 @@
 """
 from __future__ import annotations
 
-import math
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Iterable
@@ -12,6 +11,7 @@ import pandas as pd
 from dateutil import tz
 
 from eta_utility import url_parse
+from eta_utility.util import ensure_timezone, round_timestamp
 
 if TYPE_CHECKING:
     from typing import Any, Mapping, Sequence
@@ -32,33 +32,12 @@ class SubscriptionHandler(ABC):
             write_interval.total_seconds() if isinstance(write_interval, timedelta) else write_interval
         )
         self._local_tz = tz.tzlocal()
-
-    def _assert_tz_awareness(self, timestamp: datetime) -> datetime:
-        """Helper function to check if timestamp has timezone and if not assign local time zone.
-
-        :param datetime timestamp: Datetime object to be rounded.
-        :return: Rounded datetime object with timezone information.
-        """
-        if timestamp.tzinfo is None:
-            timestamp = timestamp.replace(tzinfo=self._local_tz)
-        return timestamp
-
-    def _round_timestamp(self, timestamp: datetime) -> datetime:
-        """Helper method for rounding date time objects to the specified write interval.
-        The method will also add local timezone information if not already present.
-
-        :param datetime timestamp: Datetime object to be rounded.
-        :return: Rounded datetime object with timezone information.
-        """
-        ts_store = self._assert_tz_awareness(timestamp)  # store previous information, include timezone information
-
-        # Round timestamp
-        intervals = math.ceil(ts_store.timestamp() / self._write_interval) * self._write_interval
-        timestamp = datetime.fromtimestamp(intervals)
-
-        # Restore timezone information
-        timestamp = timestamp.replace(tzinfo=ts_store.tzinfo).astimezone(self._local_tz)
-        return timestamp
+        # Method to round a datetime timestamp by the SubscriptionHandler._write_interval interval in seconds
+        #: :py:func:`eta_utility.util.round_timestamp`
+        self._round_timestamp = lambda dt: round_timestamp(dt, self._write_interval)
+        #: Method to ensure timezone by assigning local timezone
+        #: :py:func:`eta_utility.util.ensure_timezone`
+        self._assert_tz_awareness = ensure_timezone
 
     def _convert_series(self, value: pd.Series | Sequence[Any], timestamp: pd.DatetimeIndex | TimeStep) -> pd.Series:
         """Helper function to convert a value, timestamp pair in which value is a Series or list to a Series with
@@ -182,6 +161,10 @@ class BaseConnection(ABC):
 
         #: Store local time zone
         self._local_tz = tz.tzlocal()
+        #: :py:func:`eta_utility.util.round_timestamp`
+        self._round_timestamp = round_timestamp
+        #: :py:func:`eta_utility.util.ensure_timezone`
+        self._assert_tz_awareness = ensure_timezone
 
         self.exc: BaseException | None = None
 
@@ -259,34 +242,6 @@ class BaseConnection(ABC):
             )
 
         return _nodes
-
-    def _assert_tz_awareness(self, timestamp: datetime) -> datetime:
-        """Helper function to check if timestamp has timezone and if not assign local time zone.
-
-        :param datetime timestamp: Datetime object to be rounded.
-        :return: datetime object with timezone information.
-        """
-        if timestamp.tzinfo is None:
-            timestamp = timestamp.replace(tzinfo=self._local_tz)
-        return timestamp
-
-    def _round_timestamp(self, timestamp: datetime, interval: float = 1) -> datetime:
-        """Helper method for rounding date time objects to specified interval in seconds.
-        The method will also add local timezone information if not already present.
-
-        :param datetime timestamp: Datetime object to be rounded.
-        :param interval: Interval in seconds to be rounded to.
-        :return: Rounded datetime object with timezone information.
-        """
-        ts_store = self._assert_tz_awareness(timestamp)  # store previous information, include timezone information
-
-        # Round timestamp
-        intervals = math.ceil(ts_store.timestamp() / interval) * interval
-        timestamp = datetime.fromtimestamp(intervals)
-
-        # Restore timezone information
-        timestamp = timestamp.replace(tzinfo=ts_store.tzinfo)
-        return timestamp
 
 
 class BaseSeriesConnection(BaseConnection, ABC):

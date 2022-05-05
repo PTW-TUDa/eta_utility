@@ -14,7 +14,10 @@ rolling horizon optimizations for factory systems and to directly control device
 optimization results.
 
 Full Documentation can be found on the
-`Documentation Page <https://eta-fabrik.pages.rwth-aachen.de/industrialenergylab/utility-functions/>`_.
+`Documentation Page <https://eta-fabrik.pages.rwth-aachen.de/public/eta-utility/>`_.
+
+The git repository is `hosted on gitlab <https://git.rwth-aachen.de/eta-fabrik/public/eta-utility>`_.
+
 
 .. warning::
     This is beta software. APIs and functionality might change without prior notice. Please fix the version you
@@ -59,12 +62,10 @@ Citing this project
 
 Please cite this project using our publication:
 
-.. highlight:: none
 .. code-block::
 
     Grosch, B., Ranzau, H., Dietrich, B., Kohne, T., Sossenheimer, J., Lindner, M.,
-    Fuhrländer-Völker, D., Weigold, M., Framework for researching energy optimization of factory
-    operations. Energy Inform ... Publication in review.
+    Fuhrländer-Völker, D., Weigold, M., A framework for researching energy optimization of factory operations. ... Publication in review.
 
 We would like to thank the many contributors who developed functionality for the package, helped with
 documentation or provided insights which helped to create the framework architecture.

@@ -381,7 +381,9 @@ class EnEffCoConnection(BaseSeriesConnection):
         :param endpoint: Endpoint for the request (server URI is added automatically).
         :param kwargs: Additional arguments for the request.
         """
-        response = requests.request(method, self.url + "/" + str(endpoint), auth=(self.usr, self.pwd), **kwargs)
+        response = requests.request(
+            method, self.url + "/" + str(endpoint), auth=requests.auth.HTTPBasicAuth(self.usr, self.pwd), **kwargs
+        )
 
         # Check for request errors
         if response.status_code not in [200, 204]:  # Status 200 for GET requests, 204 for POST requests

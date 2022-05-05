@@ -83,7 +83,13 @@ class CleaningMachineSimulation(BaseEnvSim):
                 abort_condition_min=0,
                 abort_condition_max=90,
             ),
-            StateVar(name="temp_tank_opcua", is_agent_observation=True, from_interact=True),
+            StateVar(
+                name="temp_tank_opcua",
+                ext_id="MAFAC_KEA.tank.tank.medium.T",
+                is_ext_input=True,
+                is_agent_observation=True,
+                from_interact=True,
+            ),
             StateVar(
                 name="tankheater",
                 is_agent_observation=True,
@@ -151,8 +157,8 @@ class CleaningMachineSimulation(BaseEnvSim):
                 name
             ]["multiply"]
 
-        log.debug(f"Current temperature in tank (simulated): {self.state['temp_tank_sim']} K")
-        log.debug(f"Current market price: {self.state['market_price']} €")
+        log.info(f"Current temperature in tank (simulated): {self.state['temp_tank_sim']} K")
+        log.info(f"Current market price: {self.state['market_price']} €")
         self.state_log.append(self.state)
 
         # Return of the observation np- array to the controller
@@ -184,8 +190,8 @@ class CleaningMachineSimulation(BaseEnvSim):
         sim_output, step_success, sim_time_elapsed = self.simulate(self.state)
 
         self.state.update(sim_output)
-        log.debug(f"Current temperature in tank (simulated): {self.state['temp_tank_sim']} K")
-        log.debug(f"Current market price: {self.state['market_price']} €")
+        log.info(f"Current temperature in tank (simulated): {self.state['temp_tank_sim']} K")
+        log.info(f"Current market price: {self.state['market_price']} €")
         self.state_log.append(self.state)
 
         # Return of the observation np- array to the controller
