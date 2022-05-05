@@ -88,7 +88,7 @@ class CleaningMachineSimulation(BaseEnvSim):
                 ext_id="MAFAC_KEA.tank.tank.medium.T",
                 is_ext_input=True,
                 is_agent_observation=True,
-                from_interact=True
+                from_interact=True,
             ),
             StateVar(
                 name="tankheater",

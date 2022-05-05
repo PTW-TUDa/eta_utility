@@ -62,12 +62,10 @@ Citing this project
 
 Please cite this project using our publication:
 
-.. highlight:: none
 .. code-block::
 
     Grosch, B., Ranzau, H., Dietrich, B., Kohne, T., Sossenheimer, J., Lindner, M.,
-    Fuhrländer-Völker, D., Weigold, M., Framework for researching energy optimization of factory
-    operations. Energy Inform ... Publication in review.
+    Fuhrländer-Völker, D., Weigold, M., A framework for researching energy optimization of factory operations. ... Publication in review.
 
 We would like to thank the many contributors who developed functionality for the package, helped with
 documentation or provided insights which helped to create the framework architecture.
