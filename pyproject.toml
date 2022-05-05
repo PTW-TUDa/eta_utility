@@ -69,6 +69,7 @@ module = [
     "numpy.*",
     "nptyping.*",
     "mmh3.*",
+    "torch.*",
 ]
 ignore_missing_imports = true
 
