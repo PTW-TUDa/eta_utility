@@ -1,2 +1,4 @@
-include README.rst
-include eta_utility/py.typed
+exclude .*
+prune docs
+prune examples
+prune test
