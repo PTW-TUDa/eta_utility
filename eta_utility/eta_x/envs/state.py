@@ -265,7 +265,9 @@ class StateConfig:
         :return: StateConfig object.
         """
         state_vars = []
-        for col in mapping:
+        _mapping = mapping.to_dict("records") if isinstance(mapping, pd.DataFrame) else mapping
+
+        for col in _mapping:
             state_vars.append(StateVar.from_dict(col))
 
         return cls(*state_vars)
