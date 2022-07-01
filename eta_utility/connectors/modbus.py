@@ -197,10 +197,10 @@ class ModbusConnection(BaseConnection):
         """Read raw value from modbus server. This function should not be used directly. It does not
         establish a connection or handle connection errors.
         """
-        if not self.connection.is_open():
+        if not self.connection.is_open:
             raise ConnectionError(f"Could not establish connection to host {self.url}")
 
-        self.connection.unit_id(node.mb_slave)
+        self.connection.unit_id = node.mb_slave
 
         if node.mb_register == "holding":
             result = self.connection.read_holding_registers(node.mb_channel, 2)
@@ -215,10 +215,9 @@ class ModbusConnection(BaseConnection):
     def _connect(self) -> None:
         """Connect to server."""
         try:
-            if not self.connection.is_open():
+            if not self.connection.is_open:
                 if not self.connection.open():
                     raise ConnectionError(f"Could not establish connection to host {self.url}")
-                self.connection.mode(1)
         except (socket.herror, socket.gaierror) as e:
             raise ConnectionError(f"Host not found: {self.url}") from e
         except (socket.timeout) as e:

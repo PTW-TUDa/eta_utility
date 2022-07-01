@@ -388,7 +388,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
     ) -> PyoParams:
         """Retrieve parameters for the named component and convert the parameters into the pyomo dict-format.
         If required, timeseries can be added to the parameters and timeseries may be reindexed. The
-        pyo_convert_timeseries function is used for timeseries handling. See also :ref:`pyo_convert_timeseries`
+        pyo_convert_timeseries function is used for timeseries handling. See also *pyo_convert_timeseries*
 
         :param component_name: Name of the component.
         :param ts: Timeseries for the component.
