@@ -7,7 +7,7 @@ Installation of Python
 ------------------------
 
 If you do not already have it, install Python (64 Bit) on your device. We recommend a version between
-3.7 and 3.8.10. Depending on the used modules newer versions will also work. If you are using the
+3.7 and 3.9. Depending on the used modules newer versions will also work. If you are using the
 *eta_x* module, the version is limited by what is supported by *pytorch*.
 
 Below, the installation is illustrated using Python 3.7, 64 Bit. You can install Python for
