@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import socket
+from datetime import datetime
 from typing import TYPE_CHECKING, Sized
 
+import pandas as pd
 from opcua import Server, ua
 from opcua.ua import uaerrors
 
-from eta_utility import get_logger, url_parse
+from eta_utility import ensure_timezone, get_logger, url_parse
 from eta_utility.connectors.node import NodeOpcUa
 
 if TYPE_CHECKING:
@@ -61,6 +63,30 @@ class OpcUaServer:
             var = self._server.get_node(node.opc_id)
             opc_type = var.get_data_type_as_variant_type()
             var.set_value(ua.Variant(values[node], opc_type))
+
+    def read(self, nodes: Nodes | None = None) -> pd.DataFrame:
+        """
+        Read some manually selected values directly from the OPC UA server.
+
+        :param nodes: List of nodes to read from.
+        :return: pandas.DataFrame containing current values of the OPC UA-variables.
+        :raises RuntimeError: When an error occurs during reading.
+        """
+        _nodes = self._validate_nodes(nodes)
+
+        _dikt = {}
+        for node in _nodes:
+            try:
+                opcua_variable = self._server.get_node(node.opc_id)
+                value = opcua_variable.get_value()
+                _dikt[node.name] = [value]
+            except uaerrors.BadNodeIdUnknown:
+                raise RuntimeError(
+                    f"The node id ({node.opc_id}) refers to a node that does not exist in the server address space "
+                    f"{self.url}. (BadNodeIdUnknown)"
+                )
+
+        return pd.DataFrame(_dikt, index=[ensure_timezone(datetime.now())])
 
     def create_nodes(self, nodes: Nodes) -> None:
         """Create nodes on the server from a list of nodes. This will try to create the entire node path.

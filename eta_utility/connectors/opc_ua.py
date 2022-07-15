@@ -89,7 +89,6 @@ class OpcUaConnection(BaseConnection):
 
         :param ids: Identification of the Node.
         :param url: URL for  connection.
-        :param names: Names for each Node.
         :param usr: Username in OPC UA for login.
         :param pwd: Password in OPC UA for login.
         :return: OpcUaConnection object.
@@ -112,6 +111,11 @@ class OpcUaConnection(BaseConnection):
                 opcua_variable = self.connection.get_node(node.opc_id)
                 value = opcua_variable.get_value()
                 return {node.name: [value]}
+            except uaerrors.BadNodeIdUnknown:
+                raise ConnectionError(
+                    f"The node id ({node.opc_id}) refers to a node that does not exist in the server address space "
+                    f"{self.url}. (BadNodeIdUnknown)"
+                )
             except RuntimeError as e:
                 raise ConnectionError(str(e)) from e
 
@@ -139,6 +143,11 @@ class OpcUaConnection(BaseConnection):
                     opcua_variable = self.connection.get_node(node.opc_id)
                     opcua_variable_type = opcua_variable.get_data_type_as_variant_type()
                     opcua_variable.set_value(ua.DataValue(ua.Variant(values[node], opcua_variable_type)))
+                except uaerrors.BadNodeIdUnknown:
+                    raise ConnectionError(
+                        f"The node id ({node.opc_id}) refers to a node that does not exist in the server address space "
+                        f"{self.url}. (BadNodeIdUnknown)"
+                    )
                 except RuntimeError as e:
                     raise ConnectionError(str(e)) from e
 
@@ -212,6 +221,11 @@ class OpcUaConnection(BaseConnection):
             for node in _nodes:
                 try:
                     delete_node_parents(self.connection.get_node(node.opc_id))
+                except uaerrors.BadNodeIdUnknown:
+                    raise ConnectionError(
+                        f"The node id ({node.opc_id}) refers to a node that does not exist in the server address space "
+                        f"{self.url}. (BadNodeIdUnknown)"
+                    )
                 except RuntimeError as e:
                     raise ConnectionError(str(e)) from e
 

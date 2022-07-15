@@ -174,13 +174,15 @@ class Node(metaclass=NodeMeta):
 
             # Find URL or IP and port
             if "url" in node:
-                loc = urlparse(node["url"].strip())
-                scheme = None if loc.scheme == "" else loc.scheme
-                loc = loc[1:6]
+                _loc = urlparse(f"//{node['url'].strip()}" if "//" not in node["url"] else node["url"].strip())
+                scheme = None if _loc.scheme == "" else _loc.scheme
+                loc = _loc[1:6]
             else:
                 loc = urlparse(f"//{dict_get_any(node, 'ip')}:{dict_get_any(node, 'port')}")[1:6]
                 scheme = None
             name = dict_get_any(node, "code", "name")
+            pwd = dict_get_any(node, "pwd", "passwort", "password", fail=False)
+            usr = dict_get_any(node, "usr", "user", "username", fail=False)
 
             # Initialize node if protocol is 'modbus'
             if dict_get_any(node, "protocol").strip().lower() == "modbus":
@@ -199,6 +201,8 @@ class Node(metaclass=NodeMeta):
                         name,
                         url,
                         protocol,
+                        usr=usr,
+                        pwd=pwd,
                         mb_register=mb_register,
                         mb_slave=mb_slave,
                         mb_channel=mb_channel,
@@ -216,7 +220,7 @@ class Node(metaclass=NodeMeta):
                 opc_id = dict_get_any(node, "opc_id", "identifier", "identifier")
                 dtype = dict_get_any(node, "dtype", "datentyp", fail=False)
 
-                nodes.append(cls(name, url, protocol, opc_id=opc_id, dtype=dtype))
+                nodes.append(cls(name, url, protocol, usr=usr, pwd=pwd, opc_id=opc_id, dtype=dtype))
 
             # Initialize node if protocol is 'eneffco'
             elif dict_get_any(node, "protocol").strip().lower() == "eneffco":
@@ -226,7 +230,7 @@ class Node(metaclass=NodeMeta):
 
                 code = dict_get_any(node, "code")
 
-                nodes.append(cls(name, url, protocol, eneffco_code=code))
+                nodes.append(cls(name, url, protocol, usr=usr, pwd=pwd, eneffco_code=code))
 
             # Initialize node if protocol is 'REST'
             elif dict_get_any(node, "protocol").strip().lower() == "rest":
@@ -236,7 +240,7 @@ class Node(metaclass=NodeMeta):
 
                 rest_endpoint = dict_get_any(node, "rest_endpoint")
 
-                nodes.append(cls(name, url, protocol, rest_endpoint=rest_endpoint))
+                nodes.append(cls(name, url, protocol, usr=usr, pwd=pwd, rest_endpoint=rest_endpoint))
 
         return nodes
 

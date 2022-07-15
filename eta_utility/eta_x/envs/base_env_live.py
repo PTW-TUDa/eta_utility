@@ -146,7 +146,7 @@ class BaseEnvLive(BaseEnv, abc.ABC):
         # Set actions in the opc ua server and read out the observations
         for idx, name in enumerate(self.state_config.actions):
             self.state[name] = action[idx]
-            node_in.update({name: action[idx]})
+            node_in.update({str(self.state_config.map_ext_ids[name]): action[idx]})
 
         # Update scenario data, do one time step in the live connector and store the results.
         self.state.update(self.get_scenario_state())
@@ -154,6 +154,7 @@ class BaseEnvLive(BaseEnv, abc.ABC):
         results = self.live_connector.step(node_in)
 
         self.state = {name: results[str(self.state_config.map_ext_ids[name])] for name in self.state_config.ext_outputs}
+        self.state.update(self.get_scenario_state())
         self.state_log.append(self.state)
 
         # Check if the episode is over or not
