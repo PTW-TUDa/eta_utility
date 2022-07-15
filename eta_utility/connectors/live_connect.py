@@ -6,13 +6,12 @@ import time
 from contextlib import AbstractContextManager
 from datetime import timedelta
 from typing import TYPE_CHECKING, Mapping, Sequence
-from urllib.parse import urlparse, urlunparse
 
 import numpy as np
 
 from eta_utility import get_logger, json_import
 from eta_utility.connectors import connections_from_nodes, name_map_from_node_sequence
-from eta_utility.connectors.node import Node, default_schemes
+from eta_utility.connectors.node import Node
 
 if TYPE_CHECKING:
     import types
@@ -123,7 +122,7 @@ class LiveConnect(AbstractContextManager):
         close: Mapping[str, Any] | None = None,
         observe: Sequence[str] | None = None,
         activation_indicators: Mapping[str, Any] | None = None,
-        set_values: Mapping[str, Mapping[str, Any]] | None = None,
+        set_values: Mapping[str, Mapping[str, Any] | None] | None = None,
     ) -> None:
         #: Name of the system.
         self.name: str | None = name.strip() if name is not None else None
@@ -149,8 +148,22 @@ class LiveConnect(AbstractContextManager):
         #: Counts the number of errors when Live Connector logs errors.
         self.error_count: list[int] = [0] * len(self._connections)
 
-        errors = False
+        self._init_config_nodes(activate, activation_indicators, close, deactivate, init, observe, set_values)
 
+        if self._init_vals is not None:
+            self.write(self._init_vals)
+
+    def _init_config_nodes(
+        self,
+        activate: Mapping[str, Any] | None,
+        activation_indicators: Mapping[str, Any] | None,
+        close: Mapping[str, Any] | None,
+        deactivate: Mapping[str, Any] | None,
+        init: Mapping[str, Any] | None,
+        observe: Sequence[str] | None,
+        set_values: Mapping[str, Mapping[str, Any] | None] | None,
+    ) -> None:
+        errors = False
         #: Nodes for initializing the system.
         self._init_vals: dict[str, Any] | None
         self._init_vals, e = self._read_value_mapping(
@@ -158,7 +171,6 @@ class LiveConnect(AbstractContextManager):
         )
         if e:
             errors = e
-
         #: Nodes for closing the connection.
         self._close_vals: dict[str, Any] | None
         self._close_vals, e = self._read_value_mapping(
@@ -166,7 +178,6 @@ class LiveConnect(AbstractContextManager):
         )
         if e:
             errors = e
-
         #: Nodes for activating the system.
         self._activate_vals: dict[str, Any] | None = {}
         self._activate_vals, e = self._read_value_mapping(
@@ -174,7 +185,6 @@ class LiveConnect(AbstractContextManager):
         )
         if e:
             errors = e
-
         #: Nodes for deactivating the system.
         self._deactivate_vals: dict[str, Any] | None = {}
         self._deactivate_vals, e = self._read_value_mapping(
@@ -182,7 +192,6 @@ class LiveConnect(AbstractContextManager):
         )
         if e:
             errors = e
-
         #: Nodes to observe.
         self._observe_vals: list[str] | None = []
         if observe is not None:
@@ -196,15 +205,15 @@ class LiveConnect(AbstractContextManager):
         elif not set(self._observe_vals) <= self._nodes.keys():
             log.error("Not all observation nodes of the object are configured as nodes.")
             errors = True
-
         #: Configuration for the step set value.
         self._set_values: dict[str, Any] | None = {}
         if set_values is not None:
             nds = set()
             setval = set_values.values() if isinstance(set_values, Mapping) else set_values
             for sys_setval in setval:
-                self._set_values[sys_setval["name"]] = sys_setval
-                nds.add(self._set_values[sys_setval["name"]]["node"])
+                if sys_setval is not None:
+                    self._set_values[sys_setval["name"]] = sys_setval
+                    nds.add(self._set_values[sys_setval["name"]]["node"])
         if len(self._set_values) <= 0:
             self._set_values = None
         elif not nds <= self._nodes.keys():
@@ -218,7 +227,6 @@ class LiveConnect(AbstractContextManager):
                 set_value.setdefault("add", 0)
                 set_value.setdefault("min", None)
                 set_value.setdefault("max", None)
-
         #: Indicator to keep track of to know whether the system must be activated or deactivated. If this is not
         #: set, the user must keep track of when the activation and deactivation functions need to be called. This
         #: may not be necessary for all systems.
@@ -228,12 +236,8 @@ class LiveConnect(AbstractContextManager):
             flatten=False,
             e_msg="Not all nodes required for checking system activation are configured as nodes.",
         )
-
         if e or errors:
             raise KeyError("Not all required nodes are configured.")
-
-        if self._init_vals is not None:
-            self.write(self._init_vals)
 
     def _read_value_mapping(
         self, values: Mapping[str, Any] | None, flatten: bool = True, *, e_msg: str
@@ -330,11 +334,31 @@ class LiveConnect(AbstractContextManager):
         :return: LiveConnect instance as specified by the JSON file.
         """
 
-        _req_settings = {"name": {}, "servers": {"url", "protocol"}, "nodes": {"name", "server"}}
+        cls._check_config(config)
 
+        # Initialize the connector objects
+        _act_indicators, _actions, nodes, _observe, _set_values = cls._read_config(config, pwd, usr)
+        name = config["system"][0]["name"] if len(config["system"]) == 1 else None
+
+        return cls(
+            nodes,
+            name,
+            step_size=step_size,
+            max_error_count=max_error_count,
+            init=_actions["init"],
+            activate=_actions["activate"],
+            deactivate=_actions["deactivate"],
+            close=_actions["close"],
+            observe=_observe,
+            activation_indicators=_act_indicators,
+            set_values=_set_values,
+        )
+
+    @classmethod
+    def _check_config(cls, config: Mapping[str, Any]) -> None:
+        _req_settings = {"name": {}, "servers": {"url", "protocol"}, "nodes": {"name", "server"}}
         if "system" not in config or not isinstance(config["system"], Sequence) or len(config["system"]) < 1:
             raise KeyError("Could not find a valid 'system' section in the configuration")
-
         # Check that all required parameters are present in config
         errors = False
         for system in config["system"]:
@@ -349,43 +373,55 @@ class LiveConnect(AbstractContextManager):
                             if name not in i:
                                 log.error(f"Required parameter '{name}' not found in config section '{sect}'")
                                 errors = True
-
         if errors:
             log.error("Not all required config parameters were found. Exiting.")
             exit(1)
 
+    @classmethod
+    def _read_config(
+        cls, config: Mapping[str, Any], pwd: str | None, usr: str | None
+    ) -> tuple[
+        dict[str, dict[str, Any] | None],
+        dict[str, dict[str, Any]],
+        list[AnyNode],
+        list[str],
+        dict[str, dict[str, Any] | None],
+    ]:
         # Make sure all the required sections exist - they are just none if they are not in the file.
-        _nodes_conf: list[dict[str, str]] = []
-        _set_values: dict[str, dict[str, Any]] = {}
+        _nodes: list[Node] = []
+        _set_values: dict[str, dict[str, Any] | None] = {}
         _act_indicators: dict[str, dict[str, Any] | None] = {}
         _observe: list[str] = []
         _actions: dict[str, dict[str, Any]] = {"activate": {}, "deactivate": {}, "init": {}, "close": {}}
-
         for system in config["system"]:
             # Combine config for nodes with server config and add system name to nodes
-            for n in system["nodes"]:
-                server = system["servers"][n["server"]]
+            for _node in system["nodes"]:
+                n = _node.copy()
+                server = system["servers"][n.pop("server")]
+                if "usr" in server and "pwd" in server:
+                    usr = server["usr"]
+                    pwd = server["pwd"]
 
-                # Parse the url, make sure the scheme is valid and remove the scheme if present to enable the
-                # injection of username and password later on.
-                url = urlparse(server["url"])
-                scheme = url[0] if url[0] != "" else default_schemes[server["protocol"]]
-                url = urlunparse(["", *url[1:6]])
-
-                if usr is not None and pwd is not None:
-                    n["url"] = f"{scheme}://{usr}:{pwd}@{url}"
-                elif "usr" in server and "pwd" in server:
-                    n["url"] = f"{scheme}://{server['usr']}:{server['pwd']}@{url}"
-                else:
-                    n["url"] = f"{scheme}://{url}"
-                n["protocol"] = server["protocol"]
-                n["name"] = f"{system['name']}.{n['name']}"
-                _nodes_conf.append(n)
+                _nodes.extend(
+                    Node.from_dict(
+                        {
+                            "name": f"{system['name']}.{n.pop('name')}",
+                            "url": server["url"],
+                            "protocol": server["protocol"],
+                            "usr": usr,
+                            "pwd": pwd,
+                            **n,
+                        }
+                    )
+                )
 
             # Rename set_value
-            _set_values[system["name"]] = system["set_value"]
-            _set_values[system["name"]]["name"] = f"{system['name']}.{system['set_value']['name']}"
-            _set_values[system["name"]]["node"] = f"{system['name']}.{system['set_value']['node']}"
+            if "set_value" in system and system["set_value"] is not None:
+                _set_values[system["name"]] = system["set_value"]
+                _set_values[system["name"]]["name"] = f"{system['name']}.{system['set_value']['name']}"  # type: ignore
+                _set_values[system["name"]]["node"] = f"{system['name']}.{system['set_value']['node']}"  # type: ignore
+            else:
+                _set_values[system["name"]] = None
 
             # Convert activation_indicators
             if "activation_indicators" in system and system["activation_indicators"] is not None:
@@ -411,24 +447,7 @@ class LiveConnect(AbstractContextManager):
                     for name, value in system["actions"][action].items():
                         act[f"{system['name']}.{name}"] = value
                     _actions[action][system["name"]] = act
-
-        # Initialize the node objects
-        nodes = Node.from_dict(_nodes_conf)
-        name = config["system"][0]["name"] if len(config["system"]) == 1 else None
-
-        return cls(
-            nodes,
-            name,
-            step_size=step_size,
-            max_error_count=max_error_count,
-            init=_actions["init"],
-            activate=_actions["activate"],
-            deactivate=_actions["deactivate"],
-            close=_actions["close"],
-            observe=_observe,
-            activation_indicators=_act_indicators,
-            set_values=_set_values,
-        )
+        return _act_indicators, _actions, _nodes, _observe, _set_values
 
     @property
     def nodes(self) -> Mapping[str, Node]:
