@@ -16,7 +16,7 @@ optimization results.
 Full Documentation can be found on the
 `Documentation Page <https://eta-fabrik.pages.rwth-aachen.de/public/eta-utility/>`_.
 
-The git repository is `hosted on gitlab <https://git.rwth-aachen.de/eta-fabrik/public/eta-utility>`_.
+You can find the `source code on github <https://github.com/PTW-TUDa/eta_utility/>`_. If you would like to contribute, please check our `working repository <https://eta-fabrik.pages.rwth-aachen.de/public/eta-utility/>`_.
 
 
 .. warning::

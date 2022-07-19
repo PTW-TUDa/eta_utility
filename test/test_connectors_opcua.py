@@ -167,7 +167,7 @@ class TestOpcUAServerAndConnection:
 
     def test_read_non_existent_node(self, server_and_connection, local_nodes):
         # Read from a node that does not exist
-        with pytest.raises(ConnectionError, match="The node id refers to a node that does not exist"):
+        with pytest.raises(ConnectionError, match="The node id "):
             server_and_connection.read(local_nodes[0])
 
     def test_delete_one_node_check_for_another(self, server_and_connection_with_nodes, local_nodes):
