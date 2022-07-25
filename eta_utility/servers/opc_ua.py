@@ -157,6 +157,13 @@ class OpcUaServer:
         """This should always be called, when the server is not needed anymore. It stops the server."""
         self._server.stop()
 
+    def allow_remote_admin(self, allow: bool) -> None:
+        """Allow remote administration of the server.
+
+        :param allow: Set to true to enable remote administration of the server.
+        """
+        self._server.allow_remote_admin(allow)
+
     def _validate_nodes(self, nodes: Nodes | None) -> set[NodeOpcUa]:
         """Make sure that nodes are a Set of nodes and that all nodes correspond to the protocol and url
         of the connection.

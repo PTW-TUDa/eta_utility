@@ -138,7 +138,7 @@ class CsvSubHandler(SubscriptionHandler):
 
                     # Make sure not to send lists to the file handler
                     if not isinstance(value, str) and hasattr(value, "__len__"):
-                        value = value[0]
+                        value = self._format_list(value)
                     if hasattr(timestamp, "__len__"):
                         timestamp = timestamp[0]
                     timestamp = self._round_timestamp(timestamp).astimezone(self._local_tz)
@@ -157,6 +157,10 @@ class CsvSubHandler(SubscriptionHandler):
         self._queue.put_nowait(None)
         self._queue.join()
         self._thread.join()
+
+    def _format_list(self, value: Any) -> str:
+        delim = ";" if self._csv_file.dialect.delimiter == "," else ","
+        return repr(value).replace(self._csv_file.dialect.delimiter, delim)
 
 
 class _CSVFileDB(AbstractContextManager):

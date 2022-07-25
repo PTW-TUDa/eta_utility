@@ -90,24 +90,27 @@ def json_import(path: Path) -> dict[str, Any]:
     return result
 
 
-def url_parse(url: str) -> tuple[ParseResult, str | None, str | None]:
+def url_parse(url: str | None, scheme: str = "") -> tuple[ParseResult, str | None, str | None]:
     """Extend parsing of URL strings to find passwords and remove them from the original URL.
 
     :param url: URL string to be parsed.
     :return: Tuple of ParseResult object and two strings for username and password.
     """
-    _url = urlparse(url)
+    if url is None:
+        _url = urlparse("")
+    else:
+        _url = urlparse(f"//{url.strip()}" if "//" not in url else url.strip(), scheme=scheme)
 
     # Get username and password either from the arguments or from the parsed URL string
-    usr = _url.username if _url.username is not None else None
-    pwd = _url.password if _url.password is not None else None
+    usr = str(_url.username) if _url.username is not None else None
+    pwd = str(_url.password) if _url.password is not None else None
 
     # Find the "password-free" part of the netloc to prevent leaking secret info
     if usr is not None:
-        match = re.search("(?<=@).+$", _url.netloc)
+        match = re.search("(?<=@).+$", str(_url.netloc))
         if match:
             _url = urlparse(
-                urlunparse((_url.scheme, match.group(), _url.path, _url.query, _url.fragment, _url.fragment))
+                str(urlunparse((_url.scheme, match.group(), _url.path, _url.query, _url.fragment, _url.fragment)))
             )
 
     return _url, usr, pwd
