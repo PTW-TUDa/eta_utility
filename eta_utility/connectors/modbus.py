@@ -158,8 +158,8 @@ class ModbusConnection(BaseConnection):
                         log.warning(str(e))
 
                     if result is not None:
-                        self._decode(result, node.mb_byteorder)
-                        handler.push(node, result, self._assert_tz_awareness(datetime.now()))
+                        _result = self._decode(result, node.mb_byteorder)
+                        handler.push(node, _result, self._assert_tz_awareness(datetime.now()))
 
                 await asyncio.sleep(interval)
         except BaseException as e:

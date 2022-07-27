@@ -3,9 +3,9 @@
 """
 from __future__ import annotations
 
+import math
 import pathlib
 from typing import TYPE_CHECKING, Mapping
-from urllib.parse import ParseResult, urlparse, urlunparse
 
 import pandas as pd
 from attrs import converters, define, field, validators  # noqa: I900
@@ -14,14 +14,11 @@ from eta_utility import dict_get_any, get_logger, url_parse
 
 if TYPE_CHECKING:
     from typing import Any, Callable, Sequence
+    from urllib.parse import ParseResult
 
     from eta_utility.type_hints import Path
 
-default_schemes = {
-    "modbus": "modbus.tcp",
-    "opcua": "opc.tcp",
-    "eneffco": "https",
-}
+default_schemes = {"modbus": "modbus.tcp", "opcua": "opc.tcp", "eneffco": "https", "local": "https", "entsoe": "https"}
 
 log = get_logger("connectors")
 
@@ -128,7 +125,8 @@ class Node(metaclass=NodeMeta):
         """Add post-processing to the url, username and password information. Username and password specified during
         class init take precedence.
         """
-        url, usr, pwd = url_parse(self.url)
+        url, usr, pwd = url_parse(self.url, scheme=default_schemes[self.protocol])
+
         if self.usr is None:
             object.__setattr__(self, "usr", usr)
         if self.pwd is None:
@@ -171,25 +169,25 @@ class Node(metaclass=NodeMeta):
         iter_ = [dikt] if isinstance(dikt, Mapping) else dikt
         for lnode in iter_:
             node = {k.strip().lower(): v for k, v in lnode.items()}
+            protocol = dict_get_any(node, "protocol")
+            if type(protocol) is not str and math.isnan(protocol):
+                continue
 
             # Find URL or IP and port
             if "url" in node:
-                _loc = urlparse(f"//{node['url'].strip()}" if "//" not in node["url"] else node["url"].strip())
-                scheme = None if _loc.scheme == "" else _loc.scheme
-                loc = _loc[1:6]
+                url = node["url"].strip() if node["url"] is not None else None
             else:
-                loc = urlparse(f"//{dict_get_any(node, 'ip')}:{dict_get_any(node, 'port')}")[1:6]
-                scheme = None
+                _port = dict_get_any(node, "port", fail=False, default=float("nan"))
+                port = "" if isinstance(_port, float) and math.isnan(_port) else f":{int(_port)}"
+                url = f"{dict_get_any(node, 'ip')}{port}"
+
+            usr = dict_get_any(node, "username", "user", "usr", fail=False)
+            pwd = dict_get_any(node, "password", "pwd", "pw", fail=False)
+
             name = dict_get_any(node, "code", "name")
-            pwd = dict_get_any(node, "pwd", "passwort", "password", fail=False)
-            usr = dict_get_any(node, "usr", "user", "username", fail=False)
 
             # Initialize node if protocol is 'modbus'
-            if dict_get_any(node, "protocol").strip().lower() == "modbus":
-                protocol = "modbus"
-                scheme = default_schemes[protocol] if scheme is None else scheme
-                url = urlunparse((scheme, *loc))
-
+            if protocol.strip().lower() == "modbus":
                 mb_register = dict_get_any(node, "mb_register", "modbusregistertype")
                 mb_slave = int(dict_get_any(node, "mb_slave", "modbusslave"))
                 mb_channel = int(dict_get_any(node, "mb_channel", "modbuschannel"))
@@ -200,7 +198,7 @@ class Node(metaclass=NodeMeta):
                     cls(
                         name,
                         url,
-                        protocol,
+                        "modbus",
                         usr=usr,
                         pwd=pwd,
                         mb_register=mb_register,
@@ -212,35 +210,39 @@ class Node(metaclass=NodeMeta):
                 )
 
             # Initialize node if protocol is 'opcua'
-            elif dict_get_any(node, "protocol").strip().lower() == "opcua":
-                protocol = "opcua"
-                scheme = default_schemes[protocol] if scheme is None else scheme
-                url = urlunparse((scheme, *loc))
-
-                opc_id = dict_get_any(node, "opc_id", "identifier", "identifier")
+            elif protocol.strip().lower() == "opcua":
+                opc_id = dict_get_any(node, "opc_id", "identifier", "identifier", fail=False)
                 dtype = dict_get_any(node, "dtype", "datentyp", fail=False)
 
-                nodes.append(cls(name, url, protocol, usr=usr, pwd=pwd, opc_id=opc_id, dtype=dtype))
+                if opc_id is None:
+                    opc_ns = dict_get_any(node, "opc_ns", "namespace", "ns", fail=False)
+                    opc_path_str = dict_get_any(node, "opc_path", "path", fail=False)
+
+                    nodes.append(
+                        cls(name, url, "opcua", usr=usr, pwd=pwd, opc_ns=opc_ns, opc_path_str=opc_path_str, dtype=dtype)
+                    )
+                else:
+                    nodes.append(cls(name, url, "opcua", usr=usr, pwd=pwd, opc_id=opc_id, dtype=dtype))
 
             # Initialize node if protocol is 'eneffco'
-            elif dict_get_any(node, "protocol").strip().lower() == "eneffco":
-                protocol = "eneffco"
-                scheme = default_schemes[protocol] if scheme is None else scheme
-                url = urlunparse((scheme, *loc))
+            elif protocol.strip().lower() == "eneffco":
+                code = dict_get_any(node, "code", "eneffco_code")
 
-                code = dict_get_any(node, "code")
+                nodes.append(cls(name, url, "eneffco", usr=usr, pwd=pwd, eneffco_code=code))
 
-                nodes.append(cls(name, url, protocol, usr=usr, pwd=pwd, eneffco_code=code))
+            # Initialize node if protocol is 'entsoe'
+            elif protocol.strip().lower() == "entsoe":
+                endpoint = dict_get_any(node, "endpoint")
+                bidding_zone = dict_get_any(node, "bidding zone", "bidding_zone", "zone")
 
-            # Initialize node if protocol is 'REST'
-            elif dict_get_any(node, "protocol").strip().lower() == "rest":
-                protocol = "rest"
-                scheme = default_schemes[protocol] if scheme is None else scheme
-                url = urlunparse((scheme, *loc))
+                nodes.append(cls(name, url, "entsoe", usr=usr, pwd=pwd, endpoint=endpoint, bidding_zone=bidding_zone))
 
-                rest_endpoint = dict_get_any(node, "rest_endpoint")
+            # Initialize node if protocol is 'local'
+            elif protocol.strip().lower() == "local":
+                nodes.append(cls(name, url, "local", usr=usr, pwd=pwd))
 
-                nodes.append(cls(name, url, protocol, usr=usr, pwd=pwd, rest_endpoint=rest_endpoint))
+            else:
+                raise ValueError(f"Specified an unsupported protocol: {protocol}.")
 
         return nodes
 
