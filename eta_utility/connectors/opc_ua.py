@@ -262,14 +262,15 @@ class OpcUaConnection(BaseConnection):
         """
         retry_wait = 0
         subscribed = False
-        try:
-            while self._subscription_open:
+        while self._subscription_open:
+            try:
                 await asyncio.sleep(retry_wait)
                 try:
-                    retry_wait = 2
                     if not self._connected:
                         self._connect()
+                        retry_wait = 5
                 except ConnectionError as e:
+                    retry_wait += 5 if retry_wait <= 60 else 0
                     log.error(str(e))
                     continue
 
@@ -279,6 +280,7 @@ class OpcUaConnection(BaseConnection):
                         subscribed = True
                     except RuntimeError as e:
                         log.warning(str(e))
+                        retry_wait += 5 if retry_wait <= 60 else 0
                         subscribed = False
                         self._disconnect()
                         continue
@@ -290,8 +292,10 @@ class OpcUaConnection(BaseConnection):
                         except RuntimeError as e:
                             log.warning(f"Server {self.url}, Node Id '{node.name}' error: {str(e)}")
 
-        except BaseException as e:
-            self.exc = e
+            except BaseException as e:
+                retry_wait += 5 if retry_wait <= 60 else 0
+                self._connected = False
+                self.exc = e
 
     def close_sub(self) -> None:
         """Close an open subscription."""

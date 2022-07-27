@@ -30,7 +30,7 @@ def setup_live_connect():
 
     server = OpcUaServer(6)
     server.create_nodes(nodes)
-    server._server.allow_remote_admin(True)
+    server.allow_remote_admin(True)
 
     config = json_import(Config.LIVE_CONNECT_CONFIG)  # noqa:F405
     config["system"][0]["servers"]["glt"]["url"] = f"{socket.gethostbyname(socket.gethostname())}:4840"
