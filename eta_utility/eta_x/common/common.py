@@ -184,7 +184,7 @@ def initialize_model(
         log.info(f"Tensorboard logging is enabled. Log file: {_log_path}")
         log.info(
             f"Please run the following command in the console to start tensorboard: \n"
-            f"tensorboard --logdir '{_log_path}' --port 6006"
+            f'tensorboard --logdir "{_log_path}" --port 6006'
         )
         algo_kwargs = {"tensorboard_log": str(_log_path)}
 
