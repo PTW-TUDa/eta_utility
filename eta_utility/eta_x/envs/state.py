@@ -355,14 +355,14 @@ class StateConfig:
         """
         action_low = np.fromiter(
             (var.low_value for var in self.vars.values() if var.is_agent_action and var.low_value is not None),
-            dtype=np.floating,
+            dtype=np.float32,
         )
         action_high = np.fromiter(
             (var.high_value for var in self.vars.values() if var.is_agent_action and var.high_value is not None),
-            dtype=np.floating,
+            dtype=np.float32,
         )
 
-        return spaces.Box(action_low, action_high, dtype=np.floating)
+        return spaces.Box(action_low, action_high, dtype=np.float32)
 
     def continuous_obs_space(self) -> spaces.Box:
         """Generate a continuous observation space according to the format required by the OpenAI
@@ -372,15 +372,15 @@ class StateConfig:
         """
         obs_low = np.fromiter(
             (var.low_value for var in self.vars.values() if var.is_agent_observation and var.low_value is not None),
-            dtype=np.floating,
+            dtype=np.float32,
         )
 
         obs_high = np.fromiter(
             (var.high_value for var in self.vars.values() if var.is_agent_observation and var.high_value is not None),
-            dtype=np.floating,
+            dtype=np.float32,
         )
 
-        return spaces.Box(obs_low, obs_high, dtype=np.floating)
+        return spaces.Box(obs_low, obs_high, dtype=np.float32)
 
     def continuous_spaces(self) -> tuple[spaces.Box, spaces.Box]:
         """Generate continuous action and observation spaces according to the OpenAI specification.
