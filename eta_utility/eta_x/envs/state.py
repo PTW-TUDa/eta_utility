@@ -333,19 +333,20 @@ class StateConfig:
         :param state: The state array to check for conformance.
         :return: Result of the check (False if the state does not conform to the required conditions).
         """
-        valid = all(
-            state[name] >= self.vars[name].abort_condition_min for name in self.abort_conditions_min  # type: ignore
-        )  # this already implicitly ensures that abort_condition_min will not be None.
 
-        if valid:
-            valid = all(
-                state[name] <= self.vars[name].abort_condition_max for name in self.abort_conditions_max  # type: ignore
-            )  # this already implicitly ensures that abort_condition_max will not be None.
-            log.warning("Maximum abort condition exceeded by at least one value.")
-        else:
+        valid_min = all(
+            state[name] >= self.vars[name].abort_condition_min for name in self.abort_conditions_min  # type: ignore
+        )
+        if not valid_min:
             log.warning("Minimum abort condition exceeded by at least one value.")
 
-        return valid
+        valid_max = all(
+            state[name] <= self.vars[name].abort_condition_max for name in self.abort_conditions_max  # type: ignore
+        )
+        if not valid_max:
+            log.warning("Maximum abort condition exceeded by at least one value.")
+
+        return valid_min and valid_max
 
     def continuous_action_space(self) -> spaces.Box:
         """Generate an action space according to the format required by the OpenAI
