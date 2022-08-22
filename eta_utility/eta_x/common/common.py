@@ -7,15 +7,17 @@ import pathlib
 from functools import partial
 from typing import TYPE_CHECKING
 
+import torch as th
 from attrs import asdict  # noqa: I900
 from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor, VecNormalize
 
-from eta_utility import get_logger
+from eta_utility import dict_get_any, get_logger
 
+from . import processors
 from .policies import NoPolicy
 
 if TYPE_CHECKING:
-    from typing import Callable
+    from typing import Any, Callable, Mapping, Sequence
 
     from gym import Env
     from stable_baselines3.common.base_class import BaseAlgorithm, BasePolicy
@@ -264,13 +266,93 @@ def log_run_info(config: ConfigOpt, config_run: ConfigOptRun) -> None:
                 elif isinstance(o, abc.ABCMeta):
                     return None
                 else:
-                    return json.JSONEncoder.default(self, o)
+                    return repr(o)
 
         try:
             json.dump({**asdict(config_run), **asdict(config)}, f, indent=4, cls=Encoder)
             log.info("Log file successfully created.")
         except TypeError:
             log.warning("Log file could not be created because of non-serializable input in config.")
+
+
+def deserialize_net_arch(
+    net_arch: Sequence[Mapping[str, Any]], in_features: int, device: th.device | str = "auto"
+) -> th.nn.Sequential:
+    """Deserialize_net_arch can take a list of dictionaries describing a sequential torch network and deserialize
+    it by instatiating the corresponding classes.
+
+    An example for a possible net_arch would be:
+
+    .. code-block::
+
+        [{"layer": "Linear", "out_features": 60},
+         {"activation_func": "Tanh"},
+         {"layer": "Linear", "out_features": 60},
+         {"activation_func": "Tanh"}]
+
+    One key of the dictionary should be either 'layer', 'activation_func' or 'process'. If the 'layer' key is present,
+    a layer from the :py:mod:`torch.nn` module is instantiated, if the 'activation_func' key is present, the
+    value will be instantiated as an activation function from :py:mod:`torch.nn`. If the key 'process' is present,
+    the value will be interpreted as a data processor from :py:mod:`eta_utility.eta_x.common.processors`.
+
+    All other keys of each dictionary will be used as keyword parameters to the instantiation of the layer,
+    activation function or processor.
+
+    Only the number of input features for the first layer must be specified (using the 'in_features') parameter.
+    The function will then automatically determine the number of input features for all other layers in the
+    sequential network.
+
+    :param net_arch: List of dictionaries describing the network architecture.
+    :param in_features: Number of input features for the first layer.
+    :param device: Torch device to use for training the network.
+    :return: Sequential torch network.
+    """
+    network = th.nn.Sequential()
+    _features = in_features
+
+    for net in net_arch:
+        _net = dict(net)
+        if "process" in net:
+            process = getattr(processors, _net.pop("process"))
+
+            # The "Split" process must be treated differently, because it needs to be deserialized recursively.
+            if {"net_arch" and "sizes"} < inspect.signature(process).parameters.keys():
+                sizes = process.get_full_sizes(_features, _net["sizes"])
+                _net["net_arch"] = [deserialize_net_arch(e, sizes[i], device) for i, e in enumerate(_net["net_arch"])]
+
+            try:
+                if len({"in_channels", "in_features"} & inspect.signature(process).parameters.keys()) > 0:
+                    network.append(process(_features, **_net))
+                else:
+                    network.append(process(**_net))
+            except TypeError as e:
+                raise TypeError(f"Could not instantiate processing module {process.__name__}: {e}") from e
+
+        elif "layer" in net:
+            layer = getattr(th.nn, _net.pop("layer"))
+
+            # Set the number of input features if required by the layer class
+            try:
+                if len({"in_channels", "in_features"} & inspect.signature(layer).parameters.keys()) > 0:
+                    network.append(layer(_features, **_net))
+                else:
+                    network.append(layer(**_net))
+            except TypeError as e:
+                raise TypeError(f"Could not instantiate layer module {layer.__name__}: {e}") from e
+
+        elif "activation_func" in net:
+            activation_func = _net.pop("activation_func")
+            try:
+                network.append(getattr(th.nn, activation_func)(**_net))
+            except TypeError as e:
+                raise TypeError(f"Could not instantiate activation function module {activation_func}: {e}") from e
+        else:
+            raise ValueError(f"Unknown process or layer type: {net}.")
+
+        _features = dict_get_any(_net, "out_channels", "out_features", fail=False, default=_features)
+
+    network.to(device)
+    return network
 
 
 def log_net_arch(model: BaseAlgorithm, config_run: ConfigOptRun) -> None:

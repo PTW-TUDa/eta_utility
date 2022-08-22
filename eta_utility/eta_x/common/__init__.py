@@ -1,6 +1,6 @@
-from .advanced_extractors import MLPCNNExtractor, MLPCNNNetArch
 from .common import (
     CallbackEnvironment,
+    deserialize_net_arch,
     episode_results_path,
     initialize_model,
     is_env_closed,
@@ -10,5 +10,7 @@ from .common import (
     log_run_info,
     vectorize_environment,
 )
+from .extractors import CustomExtractor
 from .policies import NoPolicy
+from .processors import Fold1d, Split1d
 from .schedules import LinearSchedule
