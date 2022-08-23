@@ -63,6 +63,7 @@ intersphinx_mapping = {
     "stable_baselines": ("https://stable-baselines3.readthedocs.io/en/master/", None),
     "numpy": ("https://numpy.org/doc/1.22/", None),
     "pandas": ("https://pandas.pydata.org/docs/", None),
+    "torch": ("https://pytorch.org/docs/stable/", None),
 }
 
 autosummary_generate = True
