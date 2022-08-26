@@ -6,8 +6,8 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import socket
-from concurrent.futures._base import CancelledError
-from concurrent.futures._base import TimeoutError as ConTimeoutError
+from concurrent.futures import CancelledError
+from concurrent.futures import TimeoutError as ConTimeoutError
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
@@ -18,6 +18,8 @@ from opcua.ua import uaerrors
 
 from eta_utility import get_logger
 from eta_utility.connectors.node import Node, NodeOpcUa
+
+from .util import RetryWaiter
 
 if TYPE_CHECKING:
     from typing import Any, Generator, Mapping, Sequence
@@ -45,10 +47,12 @@ class OpcUaConnection(BaseConnection):
         super().__init__(url, usr, pwd, nodes=nodes)
 
         if self._url.scheme != "opc.tcp":
-            raise ValueError("Given URL is not a valid OPC url (scheme: opc.tcp)")
+            raise ValueError("Given URL is not a valid OPC url (scheme: opc.tcp).")
 
         self.connection: Client = Client(self.url)
         self._connected = False
+        self._retry = RetryWaiter()
+        self._conn_check_interval = 1
 
         self._sub: Subscription
         self._sub_task: asyncio.Task
@@ -65,8 +69,8 @@ class OpcUaConnection(BaseConnection):
         :param kwargs: Other arguments are ignored.
         :return: OpcUaConnection object.
         """
-        usr = node.usr if node.usr is not None else kwargs.get("usr", None)
-        pwd = node.pwd if node.pwd is not None else kwargs.get("pwd", None)
+        usr = kwargs.get("usr", None)
+        pwd = kwargs.get("pwd", None)
 
         if node.protocol == "opcua" and isinstance(node, NodeOpcUa):
             return cls(node.url, usr=usr, pwd=pwd, nodes=[node])
@@ -171,27 +175,28 @@ class OpcUaConnection(BaseConnection):
         with self._connection():
             for node in _nodes:
                 try:
-                    last_obj = create_object(self.connection.get_objects_node(), node.opc_path[0])
+                    if len(node.opc_path) == 0:
+                        last_obj = self.connection.get_objects_node()
+                    else:
+                        last_obj = create_object(self.connection.get_objects_node(), node.opc_path[0])
 
-                    for key in range(1, len(node.opc_path) + 1):
-                        init_val: Any
+                    for key in range(1, len(node.opc_path)):
+                        last_obj = create_object(last_obj, node.opc_path[key])
 
-                        if key < len(node.opc_path):
-                            last_obj = create_object(last_obj, node.opc_path[key])
-                        else:
-                            if not hasattr(node, "dtype"):
-                                init_val = 0.0
-                            elif node.dtype is int:
-                                init_val = 0
-                            elif node.dtype is bool:
-                                init_val = False
-                            elif node.dtype is str:
-                                init_val = ""
-                            else:
-                                init_val = 0.0
+                    init_val: Any
+                    if not hasattr(node, "dtype"):
+                        init_val = 0.0
+                    elif node.dtype is int:
+                        init_val = 0
+                    elif node.dtype is bool:
+                        init_val = False
+                    elif node.dtype is str:
+                        init_val = ""
+                    else:
+                        init_val = 0.0
 
-                            last_obj.add_variable(node.opc_id, node.opc_name, init_val)
-                            log.debug(f"OPC UA Node created: {node.opc_id}")
+                    last_obj.add_variable(node.opc_id, node.opc_name, init_val)
+                    log.debug(f"OPC UA Node created: {node.opc_id}")
                 except uaerrors.BadNodeIdExists:
                     log.warning(f"Node with NodeId : {node.opc_id} could not be created. It already exists.")
                 except RuntimeError as e:
@@ -254,77 +259,83 @@ class OpcUaConnection(BaseConnection):
             self._subscription_loop(_OPCSubHandler(handler), float(interval.total_seconds()))
         )
 
-    async def _subscription_loop(self, handler: "_OPCSubHandler", interval: float) -> None:
+    async def _subscription_loop(self, handler: _OPCSubHandler, interval: float) -> None:
         """The subscription loop makes sure that the subscription is reset in case the server generates an error.
 
         :param handler: Handler object with a push function to receive data.
         :param interval: Interval for requesting data in seconds.
         """
-        retry_wait = 0
         subscribed = False
         while self._subscription_open:
             try:
-                await asyncio.sleep(retry_wait)
-                try:
-                    if not self._connected:
+                if not self._connected:
+                    await self._retry.wait_async()
+                    try:
                         self._connect()
-                        retry_wait = 5
-                except ConnectionError as e:
-                    retry_wait += 5 if retry_wait <= 60 else 0
-                    log.error(str(e))
-                    continue
+                    except ConnectionError as e:
+                        log.warning(f"Retrying connection to {self.url} after: {e}.")
+                        continue
 
-                if self._connected and not subscribed:
+                elif self._connected and not subscribed:
                     try:
                         self._sub = self.connection.create_subscription(interval * 1000, handler)
-                        subscribed = True
                     except RuntimeError as e:
-                        log.warning(str(e))
-                        retry_wait += 5 if retry_wait <= 60 else 0
                         subscribed = False
+                        log.warning(f"Unable to subscribe to server {self.url} - Retrying: {e}.")
                         self._disconnect()
+                        self._connected = False
                         continue
+                    else:
+                        subscribed = True
 
                     for node in self._subscription_nodes:
                         try:
                             handler.add_node(node.opc_id, node)  # type: ignore
                             _ = self._sub.subscribe_data_change(self.connection.get_node(node.opc_id))
                         except RuntimeError as e:
-                            log.warning(f"Server {self.url}, Node Id '{node.name}' error: {str(e)}")
+                            log.warning(f"Could not subscribe to node '{node.name}' on server {self.url}, error: {e}")
 
-            except BaseException as e:
-                retry_wait += 5 if retry_wait <= 60 else 0
+            except (TimeoutError, CancelledError, ConnectionAbortedError, ConnectionResetError) as e:
+                log.debug(f"Handling exception ({e}) for server {self.url}.")
+                subscribed = False
                 self._connected = False
-                self.exc = e
+            except BaseException as e:
+                log.error(f"Handling exception ({e}) for server {self.url}.")
+                subscribed = False
+                self._connected = False
+
+            # Exit point in case the connection operates normally.
+            await asyncio.sleep(self._conn_check_interval)
+            if not self._check_connection():
+                subscribed = False
 
     def close_sub(self) -> None:
         """Close an open subscription."""
         self._subscription_open = False
-        if self.exc:
-            raise self.exc
-
         try:
             self._sub.delete()
             self._sub_task.cancel()
         except (OSError, RuntimeError) as e:
-            log.error(f"Deleting subscription for server {self.url} failed")
-            log.debug(f"Server {self.url} returned error: {e}")
+            log.error(f"Deleting subscription for server {self.url} failed.")
+            log.debug(f"Server {self.url} returned error: {e}.")
+        except (TimeoutError, ConTimeoutError):
+            log.warning(f"Timeout occurred while trying to close the subscription to server {self.url}.")
         except AttributeError:
-            log.error(f"Failed to delete subscription for server {self.url}. It did not exist.")
+            # Occurs if the subscription did not exist and can be ignored.
+            pass
 
         self._disconnect()
 
     def _connect(self) -> None:
         """Connect to server."""
+        self._connected = False
         try:
             if self.usr is not None:
                 self.connection.set_user(self.usr)
             if self.pwd is not None:
                 self.connection.set_password(self.pwd)
+            self._retry.tried()
             self.connection.connect()
-
-            log.debug(f"Connected to OPC UA server: {self.url}")
-            self._connected = True
         except (socket.herror, socket.gaierror) as e:
             raise ConnectionError(f"Host not found: {self.url}") from e
         except (socket.timeout, TimeoutError, ConTimeoutError) as e:
@@ -333,17 +344,41 @@ class OpcUaConnection(BaseConnection):
             raise ConnectionError(f"Connection cancelled by host: {self.url}") from e
         except (RuntimeError, ConnectionError) as e:
             raise ConnectionError(f"OPC Connection Error: {self.url}, Error: {str(e)}") from e
+        else:
+            log.debug(f"Connected to OPC UA server: {self.url}")
+            self._connected = True
+            self._retry.success()
+
+    def _check_connection(self) -> bool:
+        if self._connected:
+            try:
+                self.connection.get_node(ua.FourByteNodeId(ua.ObjectIds.Server_ServerStatus_State)).get_value()
+            except AttributeError:
+                self._connected = False
+                log.debug(f"Connection to server {self.url} did not exist - connection check failed.")
+            except BaseException as e:
+                self._connected = False
+                log.error(f"Error while checking connection to server {self.url}: {e}.")
+            else:
+                self._connected = True
+
+        if not self._connected:
+            self._disconnect()
+
+        return self._connected
 
     def _disconnect(self) -> None:
         """Disconnect from server."""
+        self._connected = False
         try:
             self.connection.disconnect()
-            self._connected = False
+        except (CancelledError, ConnectionAbortedError):
+            log.debug(f"Connection to {self.url} already closed by server.")
         except (OSError, RuntimeError) as e:
             log.error(f"Closing connection to server {self.url} failed")
-            log.info(f"Connection to {self.url} returned error: {e}")
+            log.info(f"Connection to {self.url} returned an error while closing the connection: {e}")
         except AttributeError:
-            log.error(f"Connection to server {self.url} already closed.")
+            log.debug(f"Connection to server {self.url} already closed.")
 
     @contextmanager
     def _connection(self) -> Generator:
