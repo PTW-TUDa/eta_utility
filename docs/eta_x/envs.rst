@@ -68,7 +68,7 @@ Each state variable is represented by a *StateVar* object
 
 
     As another example, you could set up an agent action named ``name = "set_heater"`` which the environment uses
-    to determine the state of the tank heater. In this case, the state variable should be configured
+    to set the state of the tank heater. In this case, the state variable should be configured
     with ``is_agent_action = True`` and you might want to pass this on to a simulation model or an actual machine by
     setting ``is_ext_input = True``::
 
