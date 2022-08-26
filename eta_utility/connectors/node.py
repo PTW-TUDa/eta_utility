@@ -3,7 +3,6 @@
 """
 from __future__ import annotations
 
-import math
 import pathlib
 from typing import TYPE_CHECKING, Mapping
 
@@ -59,6 +58,7 @@ def _dtype_converter(value: str) -> Callable | None:
         "short": float,
         "string": str,
         "str": str,
+        "bytes": bytes,
     }
     try:
         dtype = _dtypes[_lower_str(value)]
@@ -95,7 +95,8 @@ class Node(metaclass=NodeMeta):
     usr: str | None = field(default=None, kw_only=True, repr=False, eq=False, order=False)
     #: Password for login to the connection (default: None).
     pwd: str | None = field(default=None, kw_only=True, repr=False, eq=False, order=False)
-    #: Data type of the node (for value conversion).
+    #: Data type of the node (for value conversion). Note that strings will be interpreted as utf-8 encoded. If you
+    #: do not want this behaviour, use 'bytes'.
     dtype: Callable | None = field(
         default=None, converter=converters.optional(_dtype_converter), kw_only=True, repr=False, eq=False, order=False
     )
@@ -127,10 +128,13 @@ class Node(metaclass=NodeMeta):
         """
         url, usr, pwd = url_parse(self.url, scheme=default_schemes[self.protocol])
 
-        if self.usr is None:
+        if self.usr is None or str(self.usr) == "nan":
             object.__setattr__(self, "usr", usr)
-        if self.pwd is None:
+        object.__setattr__(self, "usr", str(self.usr) if self.usr is not None else None)
+
+        if self.pwd is None or str(self.pwd) == "nan":
             object.__setattr__(self, "pwd", pwd)
+        object.__setattr__(self, "pwd", str(self.pwd) if self.pwd is not None else None)
 
         object.__setattr__(self, "url", url.geturl())
         object.__setattr__(self, "url_parsed", url)
@@ -167,47 +171,38 @@ class Node(metaclass=NodeMeta):
         nodes = []
 
         iter_ = [dikt] if isinstance(dikt, Mapping) else dikt
-        for lnode in iter_:
+        for idx, lnode in enumerate(iter_):
             node = {k.strip().lower(): v for k, v in lnode.items()}
-            protocol = dict_get_any(node, "protocol")
-            if type(protocol) is not str and math.isnan(protocol):
-                continue
 
-            # Find URL or IP and port
-            if "url" in node:
-                url = node["url"].strip() if node["url"] is not None else None
-            else:
-                _port = dict_get_any(node, "port", fail=False, default=float("nan"))
-                port = "" if isinstance(_port, float) and math.isnan(_port) else f":{int(_port)}"
-                url = f"{dict_get_any(node, 'ip')}{port}"
-
-            usr = dict_get_any(node, "username", "user", "usr", fail=False)
-            pwd = dict_get_any(node, "password", "pwd", "pw", fail=False)
-
-            name = dict_get_any(node, "code", "name")
+            name, protocol, pwd, url, usr = cls._read_dict_info(node)
 
             # Initialize node if protocol is 'modbus'
             if protocol.strip().lower() == "modbus":
-                mb_register = dict_get_any(node, "mb_register", "modbusregistertype")
-                mb_slave = int(dict_get_any(node, "mb_slave", "modbusslave"))
-                mb_channel = int(dict_get_any(node, "mb_channel", "modbuschannel"))
-                mb_byteorder = dict_get_any(node, "mb_byteorder", "modbusbyteorder")
+                mb_register = cls._try_dict_get_any(node, "mb_register", "modbusregistertype", name=name, idx=idx)
+                mb_channel = cls._try_dict_get_any(node, "mb_channel", "modbuschannel", name=name, idx=idx)
+                mb_byteorder = cls._try_dict_get_any(node, "mb_byteorder", "modbusbyteorder", name=name, idx=idx)
+                mb_slave = dict_get_any(node, "mb_slave", "modbusslave", fail=False, default=32)
+                mb_byte_length = dict_get_any(node, "mb_byte_length", "mb_bytelength", fail=False, default=2)
                 dtype = dict_get_any(node, "dtype", "datentyp", fail=False)
 
-                nodes.append(
-                    cls(
-                        name,
-                        url,
-                        "modbus",
-                        usr=usr,
-                        pwd=pwd,
-                        mb_register=mb_register,
-                        mb_slave=mb_slave,
-                        mb_channel=mb_channel,
-                        mb_byteorder=mb_byteorder,
-                        dtype=dtype,
+                try:
+                    nodes.append(
+                        cls(
+                            name,
+                            url,
+                            "modbus",
+                            usr=usr,
+                            pwd=pwd,
+                            mb_register=mb_register,
+                            mb_slave=mb_slave,
+                            mb_channel=mb_channel,
+                            mb_byte_length=mb_byte_length,
+                            mb_byteorder=mb_byteorder,
+                            dtype=dtype,
+                        )
                     )
-                )
+                except (TypeError, AttributeError):
+                    raise TypeError(f"Could not convert all types for node {name}, index {idx}.")
 
             # Initialize node if protocol is 'opcua'
             elif protocol.strip().lower() == "opcua":
@@ -218,33 +213,113 @@ class Node(metaclass=NodeMeta):
                     opc_ns = dict_get_any(node, "opc_ns", "namespace", "ns", fail=False)
                     opc_path_str = dict_get_any(node, "opc_path", "path", fail=False)
 
-                    nodes.append(
-                        cls(name, url, "opcua", usr=usr, pwd=pwd, opc_ns=opc_ns, opc_path_str=opc_path_str, dtype=dtype)
-                    )
+                    try:
+                        nodes.append(
+                            cls(
+                                name,
+                                url,
+                                "opcua",
+                                usr=usr,
+                                pwd=pwd,
+                                opc_ns=opc_ns,
+                                opc_path_str=opc_path_str,
+                                dtype=dtype,
+                            )
+                        )
+                    except (TypeError, AttributeError):
+                        raise TypeError(f"Could not convert all types for node {name}, index {idx}.")
                 else:
-                    nodes.append(cls(name, url, "opcua", usr=usr, pwd=pwd, opc_id=opc_id, dtype=dtype))
+                    try:
+                        nodes.append(cls(name, url, "opcua", usr=usr, pwd=pwd, opc_id=opc_id, dtype=dtype))
+                    except (TypeError, AttributeError):
+                        raise TypeError(f"Could not convert all types for node {name}, index {idx}.")
 
             # Initialize node if protocol is 'eneffco'
             elif protocol.strip().lower() == "eneffco":
-                code = dict_get_any(node, "code", "eneffco_code")
+                code = cls._try_dict_get_any(node, "code", "eneffco_code", name=name, idx=idx)
 
-                nodes.append(cls(name, url, "eneffco", usr=usr, pwd=pwd, eneffco_code=code))
+                try:
+                    nodes.append(cls(name, url, "eneffco", usr=usr, pwd=pwd, eneffco_code=code))
+                except (TypeError, AttributeError):
+                    raise TypeError(f"Could not convert all types for node {name}, index {idx}.")
 
             # Initialize node if protocol is 'entsoe'
             elif protocol.strip().lower() == "entsoe":
-                endpoint = dict_get_any(node, "endpoint")
-                bidding_zone = dict_get_any(node, "bidding zone", "bidding_zone", "zone")
+                endpoint = cls._try_dict_get_any(node, "endpoint", name=name, idx=idx)
+                bidding_zone = cls._try_dict_get_any(node, "bidding zone", "bidding_zone", "zone", name=name, idx=idx)
 
-                nodes.append(cls(name, url, "entsoe", usr=usr, pwd=pwd, endpoint=endpoint, bidding_zone=bidding_zone))
+                try:
+                    nodes.append(
+                        cls(name, url, "entsoe", usr=usr, pwd=pwd, endpoint=endpoint, bidding_zone=bidding_zone)
+                    )
+                except (TypeError, AttributeError):
+                    raise TypeError(f"Could not convert all types for node {name}, index {idx}.")
 
             # Initialize node if protocol is 'local'
             elif protocol.strip().lower() == "local":
-                nodes.append(cls(name, url, "local", usr=usr, pwd=pwd))
+                try:
+                    nodes.append(cls(name, url, "local", usr=usr, pwd=pwd))
+                except (TypeError, AttributeError):
+                    raise TypeError(f"Could not convert all types for node {name}, index {idx}.")
 
             else:
                 raise ValueError(f"Specified an unsupported protocol: {protocol}.")
 
         return nodes
+
+    @staticmethod
+    def _read_dict_info(node: dict[str, Any]) -> tuple[str, str, str, str, str]:
+        """Read general info about a node from a dictionary.
+
+        :param node: dictionary containing node information.
+        :return: name, protocol, pwd, url, usr of the node
+        """
+        # Read name and protocol first
+        try:
+            protocol = str(dict_get_any(node, "protocol"))
+            if protocol == "nan" or protocol is None:
+                raise KeyError
+        except KeyError:
+            raise KeyError("Protocol must be specified for all nodes in the dictionary.")
+        try:
+            name = str(dict_get_any(node, "code", "name"))
+            if name == "nan" or name is None:
+                raise KeyError
+        except KeyError:
+            raise KeyError("Name or Code must be specified for all nodes in the dictionary.")
+        # Find URL or IP and port
+        if "url" in node and node["url"] is not None and str(node["url"]) not in {"nan", ""}:
+            url = node["url"].strip()
+        elif "ip" in node and node["ip"] is not None and str(node["ip"]) not in {"nan", ""}:
+            _port = dict_get_any(node, "port", fail=False, default="")
+            port = "" if _port in {None, ""} or str(_port) == "nan" else f":{int(_port)}"
+            url = f"{dict_get_any(node, 'ip')}{port}"
+        else:
+            url = None
+        usr = dict_get_any(node, "username", "user", "usr", fail=False)
+        pwd = dict_get_any(node, "password", "pwd", "pw", fail=False)
+        return name, protocol, pwd, url, usr
+
+    @staticmethod
+    def _try_dict_get_any(dikt: dict[str, Any], *names: str, name: str, idx: int) -> Any:
+        """Get any of the specified items from dictionary, if any are available. The function will return
+        the first value it finds, even if there are multiple matches.
+
+        This function will output sensible error messages, when the values are not found.
+
+        :param dikt: Dictionary to get values from.
+        :param names: Item names to look for.
+        :param fail: Flag to determine, if the function should fail with a KeyError, if none of the items are found.
+                     If this is False, the function will return the value specified by 'default'.
+        :param default: Value to return, if none of the items are found and 'fail' is False.
+        :return: Value from dictionary.
+        """
+        try:
+            value = dict_get_any(dikt, *names, fail=True)
+        except KeyError:
+            raise KeyError(f"At least one of the following fields is required for node '{name}', index {idx}: {names}.")
+
+        return value
 
     @classmethod
     def from_excel(cls, path: Path, sheet_name: str) -> list[Node]:
@@ -271,7 +346,7 @@ class Node(metaclass=NodeMeta):
         """
 
         file = path if isinstance(path, pathlib.Path) else pathlib.Path(path)
-        input_ = pd.read_excel(file, sheet_name=sheet_name)
+        input_ = pd.read_excel(file, sheet_name=sheet_name, dtype=str)
 
         return cls.from_dict(list(input_.to_dict("index").values()))
 
@@ -321,13 +396,19 @@ class NodeModbus(Node, protocol="modbus"):
     """Node for the Modbus protocol."""
 
     #: Modbus Slave ID
-    mb_slave: int = field(kw_only=True)
-    #: Modbus Register name (i.e. "Holding")
+    mb_slave: int | None = field(kw_only=True, default=32, converter=int)
+    #: Modbus Register name. One of input, discrete_input, coils and holding. Note that only coils and
+    #: holding can be written to.
     mb_register: str = field(
-        kw_only=True, converter=_lower_str, validator=validators.in_({"holding", "input", "output"})
+        kw_only=True, converter=_lower_str, validator=validators.in_({"input", "discrete_input", "coils", "holding"})
     )
-    #: Modbus Channel
-    mb_channel: int = field(kw_only=True)
+    #: Modbus Channel (Address of the value)
+    mb_channel: int = field(kw_only=True, converter=int)
+    #: Length of the value in byte (default 2). This determines, how much data is read from the server. When using
+    #: standard data types like float or int, the value must be a multiple of 2. If you want to read strings, the
+    #: the value can be any number.
+    mb_byte_length: int = field(kw_only=True, default=2, converter=int, validator=validators.ge(1))
+
     #: Byteorder of values returned by modbus
     mb_byteorder: str = field(
         kw_only=True, converter=_mb_byteorder_converter, validator=validators.in_({"little", "big"})
@@ -358,9 +439,11 @@ class NodeOpcUa(Node, protocol="opcua"):
 
     # Additional fields which will be determined automatically
     #: Type of the OPC UA Node ID Specification.
-    opc_id_type: str = field(init=False, validator=validators.in_({"i", "s"}), repr=False, eq=False, order=False)
+    opc_id_type: str = field(
+        init=False, converter=str, validator=validators.in_({"i", "s"}), repr=False, eq=False, order=False
+    )
     #: Name of the OPC UA Node.
-    opc_name: str = field(init=False, repr=False, eq=False, order=False)
+    opc_name: str = field(init=False, repr=False, eq=False, order=False, converter=str)
     #: Path to the OPC UA node in list representation. Nodes in this list can be used to access any
     #: parent objects.
     opc_path: list[NodeOpcUa] = field(init=False, repr=False, eq=False, order=False)
@@ -377,9 +460,20 @@ class NodeOpcUa(Node, protocol="opcua"):
 
         # Determine, which values to use for initialization and set values
         if self.opc_id is not None:
-            parts = self.opc_id.split(";")
+            try:
+                parts = self.opc_id.split(";")
+            except ValueError:
+                raise ValueError(
+                    f"When specifying opc_id, make sure it follows the format ns=2;s=.path (got {self.opc_id})."
+                )
             for part in parts:
-                key, val = part.split("=")
+                try:
+                    key, val = part.split("=")
+                except ValueError:
+                    raise ValueError(
+                        f"When specifying opc_id, make sure it follows the format ns=2;s=.path (got {self.opc_id})."
+                    )
+
                 if key.strip().lower() == "ns":
                     object.__setattr__(self, "opc_ns", int(val))
                 else:
@@ -403,18 +497,17 @@ class NodeOpcUa(Node, protocol="opcua"):
 
         object.__setattr__(self, "opc_name", split_path[-1].split(".")[-1])
         path = []
-        if len(split_path) > 1:
-            for k in range(len(split_path) - 1):
-                path.append(
-                    Node(
-                        split_path[k].strip(" ."),
-                        self.url,
-                        "opcua",
-                        usr=self.usr,
-                        pwd=self.pwd,
-                        opc_id="ns={};s={}".format(self.opc_ns, ".".join(split_path[: k + 1])),
-                    )
+        for k in range(len(split_path) - 1):
+            path.append(
+                Node(
+                    split_path[k].strip(" ."),
+                    self.url,
+                    "opcua",
+                    usr=self.usr,
+                    pwd=self.pwd,
+                    opc_id="ns={};s={}".format(self.opc_ns, ".".join(split_path[: k + 1])),
                 )
+            )
         object.__setattr__(self, "opc_path", path)
 
 
@@ -422,7 +515,7 @@ class NodeEnEffCo(Node, protocol="eneffco"):
     """Node for the EnEffCo API."""
 
     #: EnEffCo datapoint code / ID.
-    eneffco_code: str = field(kw_only=True)
+    eneffco_code: str = field(kw_only=True, converter=str)
 
     def __attrs_post_init__(self) -> None:
         """Ensure username and password are processed correctly."""
@@ -465,9 +558,9 @@ class NodeEntsoE(Node, protocol="entsoe"):
     """
 
     #: REST endpoint.
-    endpoint: str = field(kw_only=True)
+    endpoint: str = field(kw_only=True, converter=str)
     #: Bidding zone.
-    bidding_zone: str = field(kw_only=True)
+    bidding_zone: str = field(kw_only=True, converter=str)
 
     def __attrs_post_init__(self) -> None:
         """Ensure username and password are processed correctly."""

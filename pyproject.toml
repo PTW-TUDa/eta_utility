@@ -16,6 +16,7 @@ multi_line_output = 3
 
 [tool.pytest.ini_options]
 addopts = "--cov-config=pyproject.toml"
+log_cli = true
 testpaths = [
     "test",
 ]

@@ -1,5 +1,4 @@
 import asyncio
-import pathlib
 
 import pytest
 import requests
@@ -8,15 +7,9 @@ from pyModbusTCP import client as mbclient  # noqa: I900
 from eta_utility.connectors import CsvSubHandler, Node, connections_from_nodes
 from eta_utility.servers import OpcUaServer
 
-from .config_tests import Config
-from .test_utilities.pyModbusTCP.client import ModbusClient as MockModbusClient
-from .test_utilities.requests.eneffco_request import request
-
-EXCEL_NODES_FILE = Config.EXCEL_NODES_FILE
-EXCEL_NODES_SHEET = Config.EXCEL_NODES_SHEET
-ENEFFCO_USER = Config.ENEFFCO_USER
-ENEFFCO_PW = Config.ENEFFCO_PW
-ENEFFCO_POSTMAN_TOKEN = Config.ENEFFCO_POSTMAN_TOKEN
+from ..conftest import stop_execution
+from ..utilities.pyModbusTCP.client import ModbusClient as MockModbusClient
+from ..utilities.requests.eneffco_request import request
 
 node = Node(
     "Pu3.425.Mech_n",
@@ -26,11 +19,6 @@ node = Node(
 )
 ip = "127.95.11.183"  # local ip address
 port = 48050
-
-
-async def stop_execution(sleep_time):
-    await asyncio.sleep(sleep_time)
-    raise KeyboardInterrupt
 
 
 @pytest.fixture()
@@ -46,25 +34,14 @@ def _mock_client(monkeypatch):
     monkeypatch.setattr(requests, "request", request)
 
 
-@pytest.fixture()
-def output_file():
-    file = pathlib.Path(Config.CSV_OUTPUT_FILE)
-    yield file
-    file.unlink()
+def test_multi_connect(config_nodes_file, config_eneffco, _mock_client, local_server, temp_dir):
+    nodes = Node.from_excel(config_nodes_file["file"], config_nodes_file["sheet"])
 
+    connections = connections_from_nodes(
+        nodes, config_eneffco["user"], config_eneffco["pw"], eneffco_api_token=config_eneffco["postman_token"]
+    )
 
-@pytest.mark.parametrize(
-    ("excel_file", "excel_sheet", "eneffco_usr", "eneffco_pw"),
-    [
-        (EXCEL_NODES_FILE, EXCEL_NODES_SHEET, ENEFFCO_USER, ENEFFCO_PW),
-    ],
-)
-def test_multi_connect(excel_file, excel_sheet, eneffco_usr, eneffco_pw, output_file, _mock_client, local_server):
-    nodes = Node.from_excel(excel_file, excel_sheet)
-
-    connections = connections_from_nodes(nodes, eneffco_usr, eneffco_pw, eneffco_api_token=ENEFFCO_POSTMAN_TOKEN)
-
-    subscription_handler = CsvSubHandler(output_file)
+    subscription_handler = CsvSubHandler(temp_dir / "multi_connect_test_output.csv")
     loop = asyncio.get_event_loop()
 
     try:

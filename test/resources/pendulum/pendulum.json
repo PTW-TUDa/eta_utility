@@ -1,6 +1,6 @@
 {
     "setup": {
-        "environment_package": "test.test_resources.pendulum.pendulum",
+        "environment_package": "test.resources.pendulum.pendulum",
         "environment_class": "PendulumEnv",
         "agent_package": "examples.pendulum.controller",
         "agent_class": "PendulumControl"

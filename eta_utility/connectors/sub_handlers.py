@@ -71,7 +71,7 @@ class CsvSubHandler(SubscriptionHandler):
     """Handle data for a subscription and save it as a CSV file.
 
     :param output_file: CSV file to write data to.
-    :param write_interval: Interval for writing data to csv file.
+    :param write_interval: Interval between rows in the CSV file (value that time is rounded to)
     :param size_limit: Size limit for the csv file. A new file with a unique name will be created when the size
         is exceeded.
     :param dialect: Dialect of the csv file. This takes objects, which correspond to the csv.Dialect interface from the
@@ -88,7 +88,7 @@ class CsvSubHandler(SubscriptionHandler):
         super().__init__(write_interval=write_interval)
 
         # Create the csv file handler object which writes data to disc
-        self._csv_file = _CSVFileDB(output_file, self._write_interval, size_limit, dialect)
+        self._csv_file = _CSVFileDB(output_file, size_limit, dialect)
 
         # Enable propagation of exceptions
         self.exc: BaseException | None = None
@@ -167,7 +167,6 @@ class _CSVFileDB(AbstractContextManager):
     """Handle CSV file content.
 
     :param file: Path to the csv file.
-    :param write_interval: interval in seconds between values (rows in csv file).
     :param file_size_limit: Size limit for the file in MB. A new file will be created, once the limit is exceeded.
     :param dialect: Dialect of the csv file. This takes objects, which correspond to the csv.Dialect interface from the
         python csv module.
@@ -176,7 +175,6 @@ class _CSVFileDB(AbstractContextManager):
     def __init__(
         self,
         file: Path,
-        write_interval: Number,
         file_size_limit: int = 1024,
         dialect: type[csv.Dialect] = csv.excel,
     ):
@@ -185,8 +183,6 @@ class _CSVFileDB(AbstractContextManager):
         #: File descriptor.
         self._file: TextIO | None = None
 
-        #: Interval between values in seconds.
-        self.write_interval: Number = write_interval
         #: Size limit for written files in bytes.
         self.file_size_limit: int = file_size_limit * 1024 * 1024
         #: CSV dialect to be used for reading and writing data.
@@ -442,7 +438,7 @@ class _CSVFileDB(AbstractContextManager):
 class DFSubHandler(SubscriptionHandler):
     """Subscription handler for returning pandas.DataFrames when requested.
 
-    :param write_interval: Interval for writing data.
+    :param write_interval: Interval between index values in the data frame (value to which time is rounded).
     :param size_limit: Number of rows to keep in memory.
     :param auto_fillna: If True, missing values in self._data are filled with the pandas-method
                         df.fillna(method='ffill') each time self.data is called.

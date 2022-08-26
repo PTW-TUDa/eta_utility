@@ -8,8 +8,6 @@ import pytest
 
 from eta_utility.connectors import CsvSubHandler, DFSubHandler, Node
 
-from .config_tests import Config
-
 sample_series = pd.Series(
     data=[1, 2, 3], index=pd.DatetimeIndex(["2020-11-05 10:00:00", "2020-11-05 10:00:01.1", "2020-11-05 10:00:01.7"])
 )
@@ -24,12 +22,6 @@ sample_series_nan = pd.Series(
 
 
 class TestCSVSubHandler:
-    @pytest.fixture()
-    def output_file(self):
-        file = pathlib.Path(Config.CSV_OUTPUT_FILE)
-        yield file
-        file.unlink()
-
     async def push_values(self, handler: CsvSubHandler):
         test_node = Node(name="FirstNode", url="", protocol="local")
         test_node2 = Node(name="SecondNode", url="", protocol="local")
@@ -47,8 +39,9 @@ class TestCSVSubHandler:
             except AttributeError:
                 pass
 
-    def test_push_timeseries_to_csv(self, output_file):
-        handler = CsvSubHandler(output_file, 0.5)
+    def test_push_timeseries_to_csv(self, temp_dir):
+        file = temp_dir / "csv_test_output.csv"
+        handler = CsvSubHandler(file, 0.5)
 
         executor = ThreadPoolExecutor(max_workers=3)
         loop = asyncio.get_event_loop()
@@ -56,7 +49,7 @@ class TestCSVSubHandler:
         loop.run_until_complete(self.push_values(handler))
         executor.shutdown()
 
-        with pathlib.Path(output_file).open("r") as f:
+        with pathlib.Path(file).open("r") as f:
             df = pd.read_csv(f)
             df = df.set_index("Timestamp")
             df_check = pd.DataFrame(

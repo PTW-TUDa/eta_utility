@@ -4,19 +4,25 @@ from __future__ import annotations
 
 import asyncio
 import socket
-import struct
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pandas as pd
+from pyModbusTCP import constants as mb_const  # noqa: I900
 from pyModbusTCP.client import ModbusClient  # noqa: I900
 
 from eta_utility import get_logger
 from eta_utility.connectors.node import NodeModbus
+from eta_utility.connectors.util import (
+    RetryWaiter,
+    bitarray_to_bytearray,
+    decode_modbus_value,
+    encode_modbus_value,
+)
 
 if TYPE_CHECKING:
-    from typing import Any, Generator, Mapping, Sequence
+    from typing import Any, Generator, Mapping
     from eta_utility.type_hints import AnyNode, Nodes, TimeStep
 
 from .base_classes import BaseConnection, SubscriptionHandler
@@ -26,11 +32,11 @@ log = get_logger("connectors.modbus")
 
 class ModbusConnection(BaseConnection):
     """The Modbus Connection class allows reading and writing from and to Modbus servers and clients. Additionally,
-    it implements a subscription server, which reads continuously in a specified interval.
+    it implements a subscription service, which reads continuously in a specified interval.
 
     :param url: URL of the Modbus Server.
-    :param usr: Username in EnEffco for login.
-    :param pwd: Password in EnEffco for login.
+    :param usr: No login supported, only here to satisfy the interface
+    :param pwd: No login supported, only here to satisfy the interface
     :param nodes: List of nodes to use for all operations.
     """
 
@@ -48,6 +54,8 @@ class ModbusConnection(BaseConnection):
         self._subscription_nodes: set[NodeModbus] = set()
         self._sub: asyncio.Task
 
+        self._retry = RetryWaiter()
+
     @classmethod
     def from_node(cls, node: AnyNode, **kwargs: Any) -> ModbusConnection:
         """Initialize the connection object from a modbus protocol node object.
@@ -56,8 +64,8 @@ class ModbusConnection(BaseConnection):
         :param kwargs: Other arguments are ignored.
         :return: ModbusConnection object.
         """
-        usr = node.usr if node.usr is not None else kwargs.get("usr", None)
-        pwd = node.pwd if node.pwd is not None else kwargs.get("pwd", None)
+        usr = kwargs.get("usr", None)
+        pwd = kwargs.get("pwd", None)
 
         if node.protocol == "modbus" and isinstance(node, NodeModbus):
             return cls(node.url, usr, pwd, nodes=[node])
@@ -82,7 +90,7 @@ class ModbusConnection(BaseConnection):
             results = {node: self._read_mb_value(node) for node in _nodes}
 
         for node, result in results.items():
-            value = self._decode(result, node.mb_byteorder)
+            value = decode_modbus_value(result, node.mb_byteorder, node.dtype)
             values[node.name] = value
 
         return pd.DataFrame(values, index=[self._assert_tz_awareness(datetime.now())])
@@ -95,7 +103,12 @@ class ModbusConnection(BaseConnection):
 
         :param values: Dictionary of nodes and data to write {node: value}.
         """
-        raise NotImplementedError
+        nodes = self._validate_nodes(set(values.keys()))
+
+        with self._connection():
+            for node in nodes:
+                bits = encode_modbus_value(values[node], node.mb_byteorder, node.mb_byte_length)
+                self._write_mb_value(node, bits)
 
     def subscribe(self, handler: SubscriptionHandler, nodes: Nodes | None = None, interval: TimeStep = 1) -> None:
         """Subscribe to nodes and call handler when new data is available.
@@ -146,6 +159,7 @@ class ModbusConnection(BaseConnection):
         try:
             while self._subscription_open:
                 try:
+                    await self._retry.wait_async()
                     self._connect()
                 except ConnectionError as e:
                     log.warning(str(e))
@@ -158,40 +172,12 @@ class ModbusConnection(BaseConnection):
                         log.warning(str(e))
 
                     if result is not None:
-                        _result = self._decode(result, node.mb_byteorder)
+                        _result = decode_modbus_value(result, node.mb_byteorder, node.dtype)
                         handler.push(node, _result, self._assert_tz_awareness(datetime.now()))
 
                 await asyncio.sleep(interval)
         except BaseException as e:
             self.exc = e
-
-    @staticmethod
-    def _decode(value: Sequence[int], byteorder: str, type_: str = "f") -> Any:
-        r"""Method to decode incoming modbus values.
-
-        :param value: Current value to be decoded into float.
-        :param byteorder: Byteorder for decoding i.e. 'little' or 'big' endian.
-        :param type\_: Type of the output value. See `Python struct format character documentation
-                      <https://docs.python.org/3/library/struct.html#format-characters>` for all possible
-                      format strings (default: f).
-        :return: Decoded value as a python type.
-        """
-        if byteorder == "little":
-            bo = "<"
-        elif byteorder == "big":
-            bo = ">"
-        else:
-            raise ValueError(f"Specified an invalid byteorder: '{byteorder}'")
-
-        # Determine the format strings for packing and unpacking the received byte sequences. These format strings
-        # depend on the endianness (determined by bo), the length of the value in bytes and
-        pack = f"{bo}{len(value):1d}H"
-
-        size_div = {"h": 2, "H": 2, "i": 4, "I": 4, "l": 4, "L": 4, "q": 8, "Q": 8, "f": 4, "d": 8}
-        unpack = f">{len(value) * 2 // size_div[type_]:1d}{type_}"
-
-        # pymodbus gives a Sequence of 16bit unsigned integers which must be converted into the correct format
-        return struct.unpack(unpack, struct.pack(pack, *value))[0]
 
     def _read_mb_value(self, node: NodeModbus) -> list[int]:
         """Read raw value from modbus server. This function should not be used directly. It does not
@@ -202,20 +188,50 @@ class ModbusConnection(BaseConnection):
 
         self.connection.unit_id = node.mb_slave
 
+        quantity = node.mb_byte_length * 8
+
         if node.mb_register == "holding":
-            result = self.connection.read_holding_registers(node.mb_channel, 2)
+            result = self.connection.read_holding_registers(node.mb_channel, quantity)
+        elif node.mb_register == "coils":
+            result = self.connection.read_coils(node.mb_channel, quantity)
+        elif node.mb_register == "discrete_input":
+            result = self.connection.read_discrete_inputs(node.mb_channel, quantity)
+        elif node.mb_register == "input":
+            result = self.connection.read_input_registers(node.mb_channel, quantity)
         else:
             raise ValueError(f"The specified register type is not supported: {node.mb_register}")
 
         if result is None:
             self._handle_mb_error()
+        else:
+            result = bitarray_to_bytearray([int(x) for x in result])
 
         return result
+
+    def _write_mb_value(self, node: NodeModbus, value: list[int]) -> None:
+        """Write raw value to the modbus server. This function should not be used directly. It does not establish
+        a connection or handle connection errors.
+        """
+        if not self.connection.is_open:
+            raise ConnectionError(f"Could not establish connection to host {self.url}.")
+
+        self.connection.unit_id = node.mb_slave
+
+        if node.mb_register == "coils":
+            success = self.connection.write_multiple_coils(node.mb_channel, value)
+        elif node.mb_register == "holding":
+            success = self.connection.write_multiple_registers(node.mb_channel, value)
+        else:
+            raise ValueError(f"The specified register type is not supported for writing: {node.mb_register}")
+
+        if not success:
+            raise ConnectionError(f"Could not write value to channel {node.mb_channel} on server: {self.url}.")
 
     def _connect(self) -> None:
         """Connect to server."""
         try:
             if not self.connection.is_open:
+                self._retry.tried()
                 if not self.connection.open():
                     raise ConnectionError(f"Could not establish connection to host {self.url}")
         except (socket.herror, socket.gaierror) as e:
@@ -224,6 +240,8 @@ class ModbusConnection(BaseConnection):
             raise ConnectionError(f"Host timeout: {self.url}") from e
         except (RuntimeError, ConnectionError) as e:
             raise ConnectionError(f"Connection Error: {self.url}, Error: {str(e)}") from e
+        else:
+            self._retry.success()
 
     def _disconnect(self) -> None:
         """Disconnect from server."""
@@ -247,13 +265,13 @@ class ModbusConnection(BaseConnection):
             self._disconnect()
 
     def _handle_mb_error(self) -> None:
-        error = self.connection.last_error()
-        exception = self.connection.last_except()
+        error = self.connection.last_error
+        exception = self.connection.last_except
 
-        if error is not None:
-            raise ConnectionError(f"ModbusError {error} at {self.url}: {self.connection.last_error_txt()}")
-        elif exception is not None:
-            raise ConnectionError(f"ModbusError {exception} at {self.url}: {self.connection.last_except_txt()}")
+        if error != mb_const.MB_NO_ERR:
+            raise ConnectionError(f"ModbusError {error} at {self.url}: {self.connection.last_error_as_txt}")
+        elif exception != mb_const.EXP_NONE:
+            raise ConnectionError(f"ModbusError {exception} at {self.url}: {self.connection.last_except_as_txt}")
         else:
             raise ConnectionError(f"Unknown ModbusError at {self.url}")
 

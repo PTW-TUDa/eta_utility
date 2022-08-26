@@ -106,26 +106,28 @@ class OpcUaServer:
 
         for node in _nodes:
             try:
-                last_obj = create_object(self._server.get_objects_node(), node.opc_path[0])
+                if len(node.opc_path) == 0:
+                    last_obj = self._server.get_objects_node()
+                else:
+                    last_obj = create_object(self._server.get_objects_node(), node.opc_path[0])
 
-                for key in range(1, len(node.opc_path) + 1):
-                    if key < len(node.opc_path):
-                        last_obj = create_object(last_obj, node.opc_path[key])
-                    else:
-                        init_val: Any
-                        if not hasattr(node, "dtype"):
-                            init_val = 0.0
-                        elif node.dtype is int:
-                            init_val = 0
-                        elif node.dtype is bool:
-                            init_val = False
-                        elif node.dtype is str:
-                            init_val = ""
-                        else:
-                            init_val = 0.0
+                for key in range(1, len(node.opc_path)):
+                    last_obj = create_object(last_obj, node.opc_path[key])
 
-                        last_obj.add_variable(node.opc_id, node.opc_name, init_val)
-                        log.debug(f"OPC UA Node created: {node.opc_id}")
+                init_val: Any
+                if not hasattr(node, "dtype"):
+                    init_val = 0.0
+                elif node.dtype is int:
+                    init_val = 0
+                elif node.dtype is bool:
+                    init_val = False
+                elif node.dtype is str:
+                    init_val = ""
+                else:
+                    init_val = 0.0
+
+                last_obj.add_variable(node.opc_id, node.opc_name, init_val)
+                log.debug(f"OPC UA Node created: {node.opc_id}")
             except uaerrors.BadNodeIdExists:
                 log.warning(f"Node with NodeId : {node.opc_id} could not be created. It already exists.")
             except RuntimeError as e:
@@ -153,9 +155,21 @@ class OpcUaServer:
         for node in nodes:
             delete_node_parents(self._server.get_node(node.opc_id))
 
+    def start(self) -> None:
+        """Restart the server after it was stopped."""
+        self._server.start()
+
     def stop(self) -> None:
         """This should always be called, when the server is not needed anymore. It stops the server."""
-        self._server.stop()
+        try:
+            self._server.stop()
+        except AttributeError:
+            # Occurs only if server did not exist and can be ignored.
+            pass
+
+    @property
+    def active(self) -> bool:
+        return self._server.bserver._server._serving
 
     def allow_remote_admin(self, allow: bool) -> None:
         """Allow remote administration of the server.

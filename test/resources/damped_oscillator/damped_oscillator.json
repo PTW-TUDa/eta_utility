@@ -1,6 +1,6 @@
 {
     "setup": {
-        "environment_package": "test.test_resources.damped_oscillator.damped_oscillator",
+        "environment_package": "test.resources.damped_oscillator.damped_oscillator",
         "environment_class": "DampedOscillatorEnv",
         "agent_package": "examples.damped_oscillator.controller",
         "agent_class": "DampedOscillatorControl"
