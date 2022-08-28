@@ -168,6 +168,19 @@ build_local:
   rules:
     - !reference [.on_version_tag_rule, rules]
 
+# Create readthedocs documentation
+readthedocs:
+  stage: deploy
+  script:
+    - echo $CI_COMMIT_TAG
+    - curl -X POST -d "branches=master" -d "token=$READTHEDOCS_TOKEN" https://readthedocs.org/api/v2/webhook/eta-utility/211185/
+  artifacts:
+    name: "eta_utility-docs-$CI_COMMIT_REF_NAME"
+    paths:
+      - public/
+  rules:
+      - !reference [.on_version_tag_rule, rules]
+
 # Create sphinx html documentation
 pages:
   stage: deploy
@@ -185,5 +198,3 @@ pages:
     name: "eta_utility-docs-$CI_COMMIT_REF_NAME"
     paths:
       - public/
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

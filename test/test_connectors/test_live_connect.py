@@ -6,11 +6,10 @@ from eta_utility import json_import
 from eta_utility.connectors import LiveConnect, Node
 from eta_utility.servers import OpcUaServer
 
-from .config_tests import Config
 
-
-def nodes_from_config(file=Config.LIVE_CONNECT_CONFIG):
-    config = json_import(file)
+@pytest.fixture()
+def nodes_from_config(config_live_connect):
+    config = json_import(config_live_connect["file"])
 
     # Combine config for nodes with server config
     for n in config["system"][0]["nodes"]:
@@ -25,14 +24,12 @@ def nodes_from_config(file=Config.LIVE_CONNECT_CONFIG):
 
 
 @pytest.fixture()
-def setup_live_connect():
-    nodes = nodes_from_config()
-
+def setup_live_connect(config_live_connect, nodes_from_config):
     server = OpcUaServer(6)
-    server.create_nodes(nodes)
+    server.create_nodes(nodes_from_config)
     server.allow_remote_admin(True)
 
-    config = json_import(Config.LIVE_CONNECT_CONFIG)  # noqa:F405
+    config = json_import(config_live_connect["file"])  # noqa:F405
     config["system"][0]["servers"]["glt"]["url"] = f"{socket.gethostbyname(socket.gethostname())}:4840"
 
     connector = LiveConnect.from_dict(**config)

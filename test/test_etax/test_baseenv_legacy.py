@@ -13,7 +13,7 @@ from eta_utility.eta_x.common import episode_results_path
 def pendulum_conventional_eta():
     get_logger()
     root_path = pathlib.Path(__file__).parent
-    etax = ETAx(root_path=root_path, config_name="pendulum", relpath_config="test_resources/pendulum/")
+    etax = ETAx(root_path=root_path, config_name="pendulum", relpath_config="../resources/pendulum/")
     yield etax
     shutil.rmtree(root_path / "data/")
 
@@ -41,9 +41,7 @@ def test_execution(pendulum_conventional_eta):
 @pytest.fixture()
 def damped_oscillator_eta():
     root_path = pathlib.Path(__file__).parent
-    etax = ETAx(
-        root_path=root_path, config_name="damped_oscillator", relpath_config="test_resources/damped_oscillator/"
-    )
+    etax = ETAx(root_path=root_path, config_name="damped_oscillator", relpath_config="../resources/damped_oscillator/")
     yield etax
     shutil.rmtree(root_path / "data/")
 

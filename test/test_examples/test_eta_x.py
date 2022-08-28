@@ -36,18 +36,18 @@ class TestPendulumExample:
 
 class TestOscillatorExample:
     @pytest.fixture(scope="class")
-    def expriment_path(self):
+    def experiment_path(self):
         path = get_oscillator_path()
         yield path
         shutil.rmtree(path / "results")
 
-    def test_oscillator(self, expriment_path):
-        ex_oscillator(expriment_path)
+    def test_oscillator(self, experiment_path):
+        ex_oscillator(experiment_path)
 
 
 class TestCPSExample:
     @pytest.fixture(scope="class")
-    def expriment_path(self):
+    def experiment_path(self):
         path = get_cps_path()
         yield path
         try:
@@ -55,7 +55,7 @@ class TestCPSExample:
         except FileNotFoundError:
             pass
 
-    def test_cps(self, expriment_path):
+    def test_cps(self, experiment_path):
         """Text for example to be added. This is currently impossible because simulation model
         cannot be compiled on linux.
 

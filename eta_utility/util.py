@@ -22,6 +22,12 @@ if TYPE_CHECKING:
     from .type_hints import Path
 
 
+LOG_DEBUG = 1
+LOG_INFO = 2
+LOG_WARNING = 3
+LOG_ERROR = 4
+
+
 def get_logger(
     name: str | None = None, level: int | None = None, format: str | None = None  # noqa: A002
 ) -> logging.Logger:
@@ -96,7 +102,7 @@ def url_parse(url: str | None, scheme: str = "") -> tuple[ParseResult, str | Non
     :param url: URL string to be parsed.
     :return: Tuple of ParseResult object and two strings for username and password.
     """
-    if url is None:
+    if url is None or url == "":
         _url = urlparse("")
     else:
         _url = urlparse(f"//{url.strip()}" if "//" not in url else url.strip(), scheme=scheme)

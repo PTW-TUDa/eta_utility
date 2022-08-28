@@ -2,7 +2,7 @@ ETA Utility Functions
 ======================
 
 While there are many tools which are useful in the area of energy optimized factory operations, at the
-`ETA-Fabrik <https://eta-fabrik.de>`_ at Technical University of Darmstadt we have recognized a lack of
+`ETA-Fabrik <https://www.ptw.tu-darmstadt.de>`_ at Technical University of Darmstadt we have recognized a lack of
 comprehensive frameworks which combine functionality for optimization, simulation and communication with
 devices in the factory.
 
@@ -14,7 +14,7 @@ rolling horizon optimizations for factory systems and to directly control device
 optimization results.
 
 Full Documentation can be found on the
-`Documentation Page <https://eta-fabrik.pages.rwth-aachen.de/public/eta-utility/>`_.
+`Documentation Page <https://eta-utility.readthedocs.io/>`_.
 
 You can find the `source code on github <https://github.com/PTW-TUDa/eta_utility/>`_. If you would like to contribute, please check our `working repository <https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility/>`_.
 

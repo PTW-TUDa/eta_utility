@@ -24,8 +24,8 @@ def create_node(endpoint: str, name: str = "CH1.Elek_U.L1-N") -> Node:
 
 
 @pytest.fixture()
-def _local_requests(monkeypatch):
-    monkeypatch.setattr(requests, "post", post)
+def _local_requests(monkeypatch, config_entsoe):
+    monkeypatch.setattr(requests, "post", Postable(config_entsoe["path"]))
 
 
 @pytest.fixture()
@@ -91,27 +91,32 @@ def test_interval(_local_requests, interval):
 
 
 class MockResponse(requests.Response):
-    def __init__(self, endpoint: str):
+    def __init__(self, endpoint: str, path: pathlib.Path):
         super().__init__()
         self.status_code = 200
         self.endpoint = endpoint
+        self.path = path
 
     @property
     def content(self):
-        with open(pathlib.Path(__file__).parent / f"test_resources/entsoe/{self.endpoint}_sample.xml") as f:
+        with open(self.path / f"{self.endpoint}_sample.xml") as f:
             return f.read().encode()
 
 
-def post(url, data, headers, **kwargs):
-    parser = etree.XMLParser(load_dtd=False, ns_clean=True, remove_pis=True)
-    e_msg = etree.XML(data, parser)
-    ns = e_msg.nsmap
+class Postable:
+    def __init__(self, path):
+        self.path = path
 
-    endpoint_code = (
-        e_msg.find(".//AttributeInstanceComponent", namespaces=ns).find("attributeValue", namespaces=ns).text
-    )
-    doc_types = _ConnectionConfiguration().doc_types
+    def __call__(self, url, data, headers, **kwargs):
+        parser = etree.XMLParser(load_dtd=False, ns_clean=True, remove_pis=True)
+        e_msg = etree.XML(data, parser)
+        ns = e_msg.nsmap
 
-    endpoint = dict_search(doc_types, endpoint_code)
+        endpoint_code = (
+            e_msg.find(".//AttributeInstanceComponent", namespaces=ns).find("attributeValue", namespaces=ns).text
+        )
+        doc_types = _ConnectionConfiguration().doc_types
 
-    return MockResponse(endpoint)
+        endpoint = dict_search(doc_types, endpoint_code)
+
+        return MockResponse(endpoint, self.path)
