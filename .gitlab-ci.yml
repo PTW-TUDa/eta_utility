@@ -198,5 +198,3 @@ pages:
     name: "eta_utility-docs-$CI_COMMIT_REF_NAME"
     paths:
       - public/
-  rules:
-      - !reference [.on_version_tag_rule, rules]
