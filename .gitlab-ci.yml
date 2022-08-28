@@ -169,10 +169,22 @@ build_local:
     - !reference [.on_version_tag_rule, rules]
 
 # Create sphinx html documentation
+readthedocs:
+  stage: deploy
+  script:
+    - echo $CI_COMMIT_TAG
+    - curl -X POST -d "tags=$CI_COMMIT_TAG" -d "token=$READTHEDOCS_TOKEN" https://readthedocs.org/api/v2/webhook/eta-utility/211185/
+  artifacts:
+    name: "eta_utility-docs-$CI_COMMIT_REF_NAME"
+    paths:
+      - public/
+  rules:
+      - !reference [.on_version_tag_rule, rules]
+
+# Create sphinx html documentation
 pages:
   stage: deploy
   script:
-    - curl -X POST -d "tags=$CI_COMMIT_TAG" -d "token=$READTHEDOCS_TOKEN" https://readthedocs.org/api/v2/webhook/example-project/1/
     - apt-get update
     - apt-get --yes install libgl1-mesa-glx
     - pip install sphinx sphinx-rtd-theme
