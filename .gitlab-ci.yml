@@ -178,8 +178,8 @@ readthedocs:
     name: "eta_utility-docs-$CI_COMMIT_REF_NAME"
     paths:
       - public/
-#  rules:
-#      - !reference [.on_version_tag_rule, rules]
+  rules:
+      - !reference [.on_version_tag_rule, rules]
 
 # Create sphinx html documentation
 pages:
