@@ -14,9 +14,10 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 from opcua import Client, Subscription, ua
-from opcua.ua import uaerrors
+from opcua.crypto.security_policies import SecurityPolicyBasic256Sha256
+from opcua.ua import SecurityPolicy, uaerrors
 
-from eta_utility import get_logger
+from eta_utility import KeyCertPair, get_logger
 from eta_utility.connectors.node import Node, NodeOpcUa
 
 from .util import RetryWaiter
@@ -43,7 +44,15 @@ class OpcUaConnection(BaseConnection):
 
     _PROTOCOL = "opcua"
 
-    def __init__(self, url: str, usr: str | None = None, pwd: str | None = None, *, nodes: Nodes | None = None) -> None:
+    def __init__(
+        self,
+        url: str,
+        usr: str | None = None,
+        pwd: str | None = None,
+        *,
+        nodes: Nodes | None = None,
+        key_cert: KeyCertPair | None = None,
+    ) -> None:
         super().__init__(url, usr, pwd, nodes=nodes)
 
         if self._url.scheme != "opc.tcp":
@@ -59,6 +68,9 @@ class OpcUaConnection(BaseConnection):
         self._subscription_open: bool = False
         self._subscription_nodes: set[NodeOpcUa] = set()
 
+        self._key_cert: KeyCertPair | None = key_cert
+        self._try_secure_connect = True
+
     @classmethod
     def from_node(cls, node: AnyNode, **kwargs: Any) -> OpcUaConnection:
         """Initialize the connection object from an EnEffCo protocol Node object.
@@ -69,11 +81,11 @@ class OpcUaConnection(BaseConnection):
         :param kwargs: Other arguments are ignored.
         :return: OpcUaConnection object.
         """
-        usr = kwargs.get("usr", None)
-        pwd = kwargs.get("pwd", None)
+        usr = kwargs.pop("usr", None)
+        pwd = kwargs.pop("pwd", None)
 
         if node.protocol == "opcua" and isinstance(node, NodeOpcUa):
-            return cls(node.url, usr=usr, pwd=pwd, nodes=[node])
+            return cls(node.url, usr=usr, pwd=pwd, nodes=[node], **kwargs)
 
         else:
             raise ValueError(
@@ -316,10 +328,10 @@ class OpcUaConnection(BaseConnection):
             self._sub.delete()
             self._sub_task.cancel()
         except (OSError, RuntimeError) as e:
-            log.error(f"Deleting subscription for server {self.url} failed.")
+            log.debug(f"Deleting subscription for server {self.url} failed.")
             log.debug(f"Server {self.url} returned error: {e}.")
         except (TimeoutError, ConTimeoutError):
-            log.warning(f"Timeout occurred while trying to close the subscription to server {self.url}.")
+            log.debug(f"Timeout occurred while trying to close the subscription to server {self.url}.")
         except AttributeError:
             # Occurs if the subscription did not exist and can be ignored.
             pass
@@ -327,15 +339,41 @@ class OpcUaConnection(BaseConnection):
         self._disconnect()
 
     def _connect(self) -> None:
-        """Connect to server."""
+        """Connect to server. This will try to securely connect using Basic256SHA256 method
+        before trying an insecure connection."""
         self._connected = False
-        try:
-            if self.usr is not None:
-                self.connection.set_user(self.usr)
-            if self.pwd is not None:
-                self.connection.set_password(self.pwd)
-            self._retry.tried()
+        if self.usr is not None:
+            self.connection.set_user(self.usr)
+        if self.pwd is not None:
+            self.connection.set_password(self.pwd)
+        self._retry.tried()
+
+        def _connect_insecure() -> None:
+            self.connection.security_policy = SecurityPolicy()
+            self.connection.uaclient.set_security(self.connection.security_policy)
             self.connection.connect()
+
+        def _connect_secure() -> None:
+            assert self._key_cert is not None
+            try:
+                self.connection.set_security(
+                    SecurityPolicyBasic256Sha256, self._key_cert.cert_path, self._key_cert.key_path
+                )
+                self.connection.connect()
+            except (
+                ua.uaerrors.BadSecurityPolicyRejected,
+                ua.uaerrors.BadSecurityChecksFailed,
+                TimeoutError,
+                ConTimeoutError,
+            ):
+                self._try_secure_connect = False
+                _connect_insecure()
+
+        try:
+            if self._key_cert is not None and self._try_secure_connect:
+                _connect_secure()
+            else:
+                _connect_insecure()
         except (socket.herror, socket.gaierror) as e:
             raise ConnectionError(f"Host not found: {self.url}") from e
         except (socket.timeout, TimeoutError, ConTimeoutError) as e:
@@ -375,8 +413,8 @@ class OpcUaConnection(BaseConnection):
         except (CancelledError, ConnectionAbortedError):
             log.debug(f"Connection to {self.url} already closed by server.")
         except (OSError, RuntimeError) as e:
-            log.error(f"Closing connection to server {self.url} failed")
-            log.info(f"Connection to {self.url} returned an error while closing the connection: {e}")
+            log.debug(f"Closing connection to server {self.url} failed")
+            log.debug(f"Connection to {self.url} returned an error while closing the connection: {e}")
         except AttributeError:
             log.debug(f"Connection to server {self.url} already closed.")
 
@@ -386,8 +424,6 @@ class OpcUaConnection(BaseConnection):
         try:
             self._connect()
             yield None
-        except ConnectionError as e:
-            raise e
         finally:
             self._disconnect()
 
