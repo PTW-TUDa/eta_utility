@@ -35,6 +35,8 @@ class MPCBasic(BaseAlgorithm):
     :param env: Environment to be optimized.
     :param verbose: Logging verbosity.
     :param solver_name: Name of the solver, could be cplex or glpk.
+    :param action_index: Index of the solution value to be used as action (if this is 0, the first value in a list
+        of solution values will be used).
     :param kwargs: Additional arguments as specified in stable_baselins3.commom.base_class or as provided by solver.
     """
 
@@ -45,6 +47,7 @@ class MPCBasic(BaseAlgorithm):
         verbose: int = 1,
         *,
         solver_name: str = "cplex",
+        action_index: int = 0,
         **kwargs: Any,
     ) -> None:
 
@@ -99,13 +102,13 @@ class MPCBasic(BaseAlgorithm):
         self.solver_options: dict = {}
         self.solver_options.update(solver_args)
 
-        # Stepping parameters
-        self._current_shift: int = 0  #: Current shift determines the current optimization step. Starting value 0 should
-        # not be changed  # noqa
-
         self.model: pyo.ConcreteModel  #: Pyomo optimization model as specified by the environment.
         self.actions_order: Sequence[str]  #: Specification of the order in which action values should be returned.
         self._setup_model()
+
+        #: Index of the solution value to be used as action (if this is 0, the first value in a list
+        #: of solution values will be used).
+        self.action_index = action_index
 
     def _setup_model(self) -> None:
         """Load the MILP model from the environment."""
@@ -195,11 +198,16 @@ class MPCBasic(BaseAlgorithm):
         self.env.set_attr("model", self.model, 0)
 
         # Aggregate the agent actions from pyomo component objects
-        solution = {
-            com.name: pyo.value(com[next(com.keys())])
-            for com in self.model.component_objects(pyo.Var)
-            if not isinstance(com, pyo.SimpleVar)
-        }
+        solution = {}
+        for com in self.model.component_objects(pyo.Var):
+            if isinstance(com, pyo.SimpleVar):
+                continue
+
+            index = next(com.keys())
+            for _ in range(0, self.action_index):
+                index = next(com.keys())
+
+            solution[com.name] = pyo.value(com[index])
 
         # Make sure that actions are returned to the correct order and as a numpy array.
         actions: np.ndarray = np.ndarray((1, len(self.actions_order)))
