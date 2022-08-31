@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from typing import Any
 
     from eta_utility.type_hints import AnyNode, Nodes
+    from eta_utility.util import KeyCertPair
 
 
 def connections_from_nodes(
@@ -20,6 +21,7 @@ def connections_from_nodes(
     usr: str | None = None,
     pwd: str | None = None,
     eneffco_api_token: str | None = None,
+    key_cert: KeyCertPair | None = None,
 ) -> dict[str, Any]:
     """Take a list of nodes and return a list of connections.
 
@@ -30,6 +32,7 @@ def connections_from_nodes(
     :param usr: Username to use in case a Node does not specify any.
     :param pwd: Password to use in case a Node does not specify any.
     :param eneffco_api_token: Token for EnEffCo API authorization.
+    :param key_cert: Key and certificate pair object from eta_utility for authorization with servers.
     :return: Dictionary of connection objects {hostname: connection}.
     """
 
@@ -44,7 +47,9 @@ def connections_from_nodes(
             if node.protocol == "modbus":
                 connections[node.url_parsed.hostname] = ModbusConnection.from_node(node, usr=usr, pwd=pwd)
             elif node.protocol == "opcua":
-                connections[node.url_parsed.hostname] = OpcUaConnection.from_node(node, usr=usr, pwd=pwd)
+                connections[node.url_parsed.hostname] = OpcUaConnection.from_node(
+                    node, usr=usr, pwd=pwd, key_cert=key_cert
+                )
             elif node.protocol == "eneffco":
                 if eneffco_api_token is None:
                     raise ValueError("Specify API token for EnEffco access.")
