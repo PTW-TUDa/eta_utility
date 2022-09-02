@@ -95,12 +95,26 @@ class StateVar:
     )
 
     #: Name or identifier (order) of the variable in an interaction environment (default: None).
-    interact_id: str | int | None = field(kw_only=True, default=None, validator=validators.optional(_valid_id))
+    interact_id: int | None = field(kw_only=True, default=None, validator=validators.optional(_valid_id))
     #: Should this variable be read from the interaction environment? (default: False).
     from_interact: bool = field(
         kw_only=True,
         default=False,
         converter=converters.pipe(converters.default_if_none(False), bool)  # type: ignore
+        # mypy does not recognize default_if_none
+    )
+    #: Value to add to the value read from an interaction (default: 0).
+    interact_scale_add: float = field(
+        kw_only=True,
+        default=0,
+        converter=converters.pipe(converters.default_if_none(0), float)  # type: ignore
+        # mypy does not recognize default_if_none
+    )
+    #: Value to multiply to the value read from  an interaction (default: 1).
+    interact_scale_mult: float = field(
+        kw_only=True,
+        default=1,
+        converter=converters.pipe(converters.default_if_none(1), float)  # type: ignore
         # mypy does not recognize default_if_none
     )
 
@@ -167,6 +181,10 @@ class StateVar:
         is_ext_output = _map.pop("is_ext_output", None)
         ext_scale_add = _map.pop("ext_scale_add", None)
         ext_scale_mult = _map.pop("ext_scale_mult", None)
+        interact_id = _map.pop("interact_id", None)
+        from_interact = _map.pop("from_interact", None)
+        interact_scale_add = _map.pop("interact_scale_add", None)
+        interact_scale_mult = _map.pop("interact_scale_mult", None)
         scenario_id = _map.pop("scenario_id", None)
         from_scenario = _map.pop("from_scenario", None)
         scenario_scale_add = _map.pop("scenario_scale_add", None)
@@ -189,6 +207,10 @@ class StateVar:
             is_ext_output=is_ext_output,
             ext_scale_add=ext_scale_add,
             ext_scale_mult=ext_scale_mult,
+            interact_id=interact_id,
+            from_interact=from_interact,
+            interact_scale_add=interact_scale_add,
+            interact_scale_mult=interact_scale_mult,
             scenario_id=scenario_id,
             from_scenario=from_scenario,
             scenario_scale_add=scenario_scale_add,
@@ -239,6 +261,10 @@ class StateConfig:
 
         #: List of variables that should be read from an interaction environment.
         self.interact_outputs: list[str] = []
+        #: Mapping of internal environment names to interact IDs.
+        self.map_interact_ids: dict[str, int] = {}
+        #: Dictionary of scaling values for interact values. Contains fields 'add' and 'multiply'.
+        self.interact_scale: dict[str, dict[str, float]] = {}
 
         #: List of variables which are loaded from scenario files.
         self.scenarios: list[str] = []
@@ -304,8 +330,10 @@ class StateConfig:
             self.rev_ext_ids[var.ext_id] = var.name
             self.ext_scale[var.name] = {"add": var.ext_scale_add, "multiply": var.ext_scale_mult}
 
-        if var.from_interact:
+        if var.from_interact and var.interact_id is not None:
             self.interact_outputs.append(var.name)
+            self.map_interact_ids[var.name] = var.interact_id
+            self.interact_scale[var.name] = {"add": var.interact_scale_add, "multiply": var.interact_scale_mult}
 
         # Mappings for scenario variables
         if var.from_scenario and var.scenario_id is not None:
