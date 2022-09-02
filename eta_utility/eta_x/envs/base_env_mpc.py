@@ -287,13 +287,14 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         return_obs = []  # Array for all current observations
         for var_name in self.state_config.observations:
             settings = self.state_config.vars[var_name]
-            assert type(settings.ext_id) is int, "The ext_id value for observations must be an integer."
+            assert type(settings.interact_id) is int, "The interact_id value for observations must be an integer."
             value = None
 
             # Read values from external environment (for example simulation)
-            if observations is not None and settings.is_ext_output is True:
+            if observations is not None and settings.from_interact is True:
                 value = round(
-                    (observations[0][settings.ext_id] + settings.ext_scale_add) * settings.ext_scale_mult,
+                    (observations[0][settings.interact_id] + settings.interact_scale_add)
+                    * settings.interact_scale_mult,
                     5,
                 )
                 return_obs.append(value)
