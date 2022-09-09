@@ -85,7 +85,7 @@ def get_logger(
 log = get_logger("util")
 
 
-def json_import(path: Path) -> dict[str, Any]:
+def json_import(path: Path) -> list[Any] | dict[str, Any]:
     """Extend standard JSON import to allow '//' comments in JSON files.
 
     :param path: Path to JSON file.
@@ -95,10 +95,13 @@ def json_import(path: Path) -> dict[str, Any]:
 
     try:
         # Remove comments from the JSON file (using regular expression), then parse it into a dictionary
-        cleanup = re.compile(r"^\s*(.*?)(?=/{2}(?!.*\")|$)", re.MULTILINE)
+        cleanup = re.compile(r"^(\s*.*?)(?=/{2}(?!.*\")|$)", re.MULTILINE)
         with path.open("r") as f:
-            file = "".join(cleanup.findall(f.read()))
-        result = json.loads(file)
+            file = "\n".join(cleanup.findall(f.read()))
+        try:
+            result = json.loads(file)
+        except json.JSONDecodeError as e:
+            raise json.JSONDecodeError(f"Error while decoding file {path}: {e.msg}", e.doc, e.pos)
         log.info(f"JSON file {path} loaded successfully.")
     except OSError as e:
         log.error(f"JSON file couldn't be loaded: {e.strerror}. Filename: {e.filename}")

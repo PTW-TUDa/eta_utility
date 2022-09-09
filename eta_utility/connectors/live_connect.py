@@ -305,6 +305,8 @@ class LiveConnect(AbstractContextManager):
         for file in files:
             file = pathlib.Path(file) if not isinstance(file, pathlib.Path) else file
             result = json_import(file)
+            if not isinstance(result, dict):
+                raise TypeError(f"JSON file {file} must define a dictionary of options.")
             if "system" in result:
                 config["system"].extend(result["system"])
             else:
