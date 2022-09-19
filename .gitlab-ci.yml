@@ -52,6 +52,7 @@ default:
     - docker
   image: python:3.7
   before_script:
+    - apt-get update
     - python -V  # Print out python version for debugging
     - python3 -m venv venv
     - source venv/bin/activate
@@ -69,7 +70,7 @@ create_cache:
   stage: setup
   interruptible: true
   before_script:
-    - echo ""
+    - apt-get update
   script:
     - rm -rf venv .venv .cache .pip_cache .pytest_cache .mypy_cache dist doc eta_utility.egg-info build public
     - rm -rf docs/_build docs/_stubs
@@ -125,8 +126,16 @@ secret_detection:
   rules:
     - !reference [.default_rules, rules]
 
-test:
+test3.7:
   stage: test
+  interruptible: true
+  script:
+    - pip install pytest pytest-cov
+    - pytest --cov
+
+test3.9:
+  stage: test
+  image: python:3.9
   interruptible: true
   script:
     - pip install pytest pytest-cov
@@ -183,7 +192,6 @@ readthedocs:
 pages:
   stage: deploy
   script:
-    - apt-get update
     - apt-get --yes install libgl1-mesa-glx
     - pip install sphinx sphinx-rtd-theme
     - rm -rf docs/_build docs/_stubs

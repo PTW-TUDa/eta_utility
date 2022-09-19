@@ -2,14 +2,12 @@ from __future__ import annotations
 
 import importlib
 import itertools
-import json
 import pathlib
-import re
 from typing import TYPE_CHECKING
 
 from attrs import Factory, converters, define, field, fields, validators  # noqa: I900
 
-from eta_utility import deep_mapping_update, dict_pop_any, get_logger
+from eta_utility import deep_mapping_update, dict_pop_any, get_logger, json_import
 
 if TYPE_CHECKING:
     from typing import Any, Mapping
@@ -99,29 +97,24 @@ class ConfigOpt:
         :param overwrite: Config parameters to overwrite.
         :return: ConfigOpt object.
         """
-        _file = file if isinstance(file, pathlib.Path) else pathlib.Path(file)
         _path_root = path_root if isinstance(path_root, pathlib.Path) else pathlib.Path(path_root)
         _overwrite = {} if overwrite is None else overwrite
 
-        try:
-            # Remove comments from the JSON file (using regular expression), then parse it into a dictionary
-            cleanup = re.compile(r"^\s*(.*?)(?=/{2}|$)", re.MULTILINE)
-            with _file.open("r") as f:
-                _data = "".join(cleanup.findall(f.read()))
-            config = json.loads(_data)
-            del _data
+        _config = json_import(file)
+        if not isinstance(_config, dict):
+            raise TypeError("Config file {file} must define a dictionary of options.")
+        config = dict(deep_mapping_update(_config, _overwrite))
 
-            log.info(f"Configuration file {_file} loaded successfully.")
-        except OSError as e:
-            log.error(f"Configuration file {_file} couldn't be loaded: {e.strerror}. \n")
-            raise
-
-        config = dict(deep_mapping_update(config, _overwrite))
+        def _pop_dict(dikt: dict[str, Any], key: str) -> dict[str, Any]:
+            val = dikt.pop(key)
+            if not isinstance(val, dict):
+                raise TypeError(f"'{key}' section must be a dictionary of settings.")
+            return val
 
         # Ensure all required sections are present in configuration
         if {"setup", "settings", "paths"} > config.keys():
             raise ValueError(
-                f"Not all required sections (setup, settings, paths) are present in configuration file {_file}."
+                f"Not all required sections (setup, settings, paths) are present in configuration file {file}."
             )
 
         if "environment_specific" not in config:
@@ -134,30 +127,33 @@ class ConfigOpt:
 
         # Load values from paths section
         errors = False
-        paths = config.pop("paths")
+        paths = _pop_dict(config, "paths")
 
         if "relpath_results" not in paths:
             log.error("'relpath_results' is required and could not be found in section 'paths' of the configuration.")
             errors = True
         relpath_results = paths.pop("relpath_results", None)
-
         relpath_scenarios = paths.pop("relpath_scenarios", None)
 
         # Load values from all other sections.
+        _setup = _pop_dict(config, "setup")
         try:
-            setup = ConfigOptSetup.from_dict(config.pop("setup"))
+            setup = ConfigOptSetup.from_dict(_setup)
         except ValueError as e:
             log.error(e)
             errors = True
 
-        settings_raw = {}
-        settings_raw["settings"] = config.pop("settings")
-        settings_raw["environment_specific"] = config.pop("environment_specific")
+        settings_raw: dict[str, dict[str, Any]] = {}
+        settings_raw["settings"] = _pop_dict(config, "settings")
+        settings_raw["environment_specific"] = _pop_dict(config, "environment_specific")
+
         if "interaction_env_specific" in config:
-            settings_raw["interaction_env_specific"] = config.pop("interaction_env_specific")
+            settings_raw["interaction_env_specific"] = _pop_dict(config, "interaction_env_specific")
         elif "interaction_environment_specific" in config:
-            settings_raw["interaction_env_specific"] = config.pop("interaction_environment_specific")
-        settings_raw["agent_specific"] = config.pop("agent_specific")
+            settings_raw["interaction_env_specific"] = _pop_dict(config, "interaction_environment_specific")
+
+        settings_raw["agent_specific"] = _pop_dict(config, "agent_specific")
+
         try:
             settings = ConfigOptSettings.from_dict(settings_raw)
         except ValueError as e:
@@ -251,7 +247,7 @@ class ConfigOptSetup:
         _get_class(self, _fields.policy_import, self.policy_import)
 
     @classmethod
-    def from_dict(cls, dikt: dict[str, str]) -> ConfigOptSetup:
+    def from_dict(cls, dikt: dict[str, Any]) -> ConfigOptSetup:
         errors = False
 
         if "agent_import" not in dikt and ("agent_package" not in dikt or "agent_class" not in dikt):
@@ -465,7 +461,7 @@ class ConfigOptSettings:
             raise ValueError("At least one of 'n_episodes_play' or 'n_episodes_learn' must be specified in settings.")
 
     @classmethod
-    def from_dict(cls, dikt: dict[str, dict[str, str]]) -> ConfigOptSettings:
+    def from_dict(cls, dikt: dict[str, dict[str, Any]]) -> ConfigOptSettings:
         errors = False
 
         # Read general settings dictionary
@@ -542,8 +538,8 @@ class ConfigOptSettings:
             interact_with_env=interact_with_env,
             save_model_every_x_episodes=save_model_every_x_episodes,
             plot_interval=plot_interval,
-            episode_duration=episode_duration,  # type: ignore # type is ensured through errors above
-            sampling_time=sampling_time,  # type: ignore # type is ensured through errors above
+            episode_duration=episode_duration,
+            sampling_time=sampling_time,
             sim_steps_per_sample=sim_steps_per_sample,
             scale_actions=scale_actions,
             round_actions=round_actions,
