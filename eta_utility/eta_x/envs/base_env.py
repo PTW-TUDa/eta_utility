@@ -430,8 +430,7 @@ class BaseEnv(Env, abc.ABC):
         assert self.state_config is not None, "Set state_config before calling _observations function."
         observations = np.empty(len(self.state_config.observations))
         for idx, name in enumerate(self.state_config.observations):
-            if name in self.state:
-                observations[idx] = self.state[name]
+            observations[idx] = self.state[name]
 
         return observations
 
