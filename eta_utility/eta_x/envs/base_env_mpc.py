@@ -185,11 +185,6 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             do this before calling this function.
             If you need to manipulate observations and rewards, do this after calling this function.
 
-        .. warning::
-            If this function returns done == True the episode is terminated. You can find the final observations in
-            info["terminal_observations"]. self.reset() will be called by this function and its results will be
-            in observations (first observations for new episode).
-
         :param np.ndarray action: Actions to perform in the environment.
         :return: The return value represents the state of the environment after the step was performed.
 
@@ -221,14 +216,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         self.state_log.append(self.state)
 
         reward = pyo.value(list(self._concrete_model.component_objects(pyo.Objective))[0])
-        done = self._done()
-
-        info = {}
-        if done:
-            info["terminal_observation"] = observations
-            observations = self.reset()
-
-        return observations, reward, done, info
+        return observations, reward, self._done(), {}
 
     def update(self, observations: Sequence[Sequence[float | int]] | None = None) -> np.ndarray:
         """Update the optimization model with observations from another environment.

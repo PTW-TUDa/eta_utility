@@ -395,9 +395,6 @@ class BaseEnv(Env, abc.ABC):
         .. note ::
             Do not forget to increment n_steps and n_steps_longtime.
 
-        .. note::
-            If an episode is terminated (self._done() == True), you have to make sure to call self.reset()!
-
         :param action: Actions taken by the agent.
         :return: The return value represents the state of the environment after the step was performed.
 

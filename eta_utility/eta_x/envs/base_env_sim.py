@@ -170,11 +170,6 @@ class BaseEnvSim(BaseEnv, abc.ABC):
             do this before calling this function.
             If you need to manipulate observations and rewards, do this after calling this function.
 
-        .. warning::
-            If this function returns done == True the episode is terminated. You can find the final observations in
-            info["terminal_observations"]. self.reset() will be called by this function and its results will be
-            in observations (first observations for new episode).
-
         :param action: Actions to perform in the environment.
         :return: The return value represents the state of the environment after the step was performed.
 
@@ -191,16 +186,9 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         step_success, sim_time_elapsed = self._update_state(action)
         self.state_log.append(self.state)
 
-        observations = self._observations()
         done = self._done() or not step_success
-
-        # Update terminal_observations for the final environment step.
         info: dict[str, Any] = {"sim_time_elapsed": sim_time_elapsed}
-        if done:
-            info["terminal_observation"] = observations
-            observations = self.reset()
-
-        return observations, 0, done, info
+        return self._observations(), 0, done, info
 
     def _update_state(self, action: np.ndarray) -> tuple[bool, float]:
         """Take additional_state, execute simulation and get state information from scenario. This function

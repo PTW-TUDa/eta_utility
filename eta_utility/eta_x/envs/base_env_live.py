@@ -117,11 +117,6 @@ class BaseEnvLive(BaseEnv, abc.ABC):
             do this before calling this function.
             If you need to manipulate observations and rewards, do this after calling this function.
 
-        .. warning::
-            If this function returns done == True the episode is terminated. You can find the final observations in
-            info["terminal_observations"]. self.reset() will be called by this function and its results will be
-            in observations (first observations for new episode).
-
         :param action: Actions to perform in the environment.
         :return: The return value represents the state of the environment after the step was performed.
 
@@ -158,15 +153,7 @@ class BaseEnvLive(BaseEnv, abc.ABC):
         self.state.update(self.get_scenario_state())
         self.state_log.append(self.state)
 
-        observations = self._observations()
-        done = self._done()
-        # Update terminal_observations for the final environment step.
-        info = {}
-        if done:
-            info["terminal_observation"] = observations
-            observations = self.reset()
-
-        return observations, 0, done, {}
+        return self._observations(), 0, self._done(), {}
 
     def reset(self) -> np.ndarray:
         """Return initial observations. This also calls the callback, increments the episode
