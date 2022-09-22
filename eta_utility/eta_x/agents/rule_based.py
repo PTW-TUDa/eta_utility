@@ -4,6 +4,7 @@ import abc
 from typing import TYPE_CHECKING
 
 import numpy as np
+from stable_baselines3 import __version__ as sb3_version
 from stable_baselines3.common.base_class import BaseAlgorithm
 
 from eta_utility import get_logger
@@ -36,8 +37,10 @@ class RuleBased(BaseAlgorithm, abc.ABC):
 
     def __init__(self, policy: type[BasePolicy], env: VecEnv, verbose: int = 4, **kwargs: Any) -> None:
         # Ensure that arguments required by super class are always present
-        if "policy_base" not in kwargs:
-            kwargs["policy_base"] = None
+        # Prior to version 1.6 stable_baselines3 requires the policy_base parameter.
+        _sb3_versions = sb3_version.split(".")
+        if int(_sb3_versions[0]) <= 1 and int(_sb3_versions[1]) < 6:
+            kwargs.setdefault("policy_base", None)
 
         super().__init__(policy=policy, env=env, verbose=verbose, learning_rate=0, **kwargs)
 
