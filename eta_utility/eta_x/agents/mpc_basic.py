@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pyomo.environ as pyo
 from pyomo import opt
+from stable_baselines3 import __version__ as sb3_version
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.vec_env import VecEnv, VecNormalize
 
@@ -56,8 +57,12 @@ class MPCBasic(BaseAlgorithm):
         solver_args = {}
 
         # Set default values for superclass arguments
-        kwargs.setdefault("policy_base", None)
         kwargs.setdefault("learning_rate", 0)
+
+        # Prior to version 1.6 stable_baselines3 requires the policy_base parameter.
+        _sb3_versions = sb3_version.split(".")
+        if int(_sb3_versions[0]) <= 1 and int(_sb3_versions[1]) < 6:
+            kwargs.setdefault("policy_base", None)
 
         for key in kwargs.keys():
             # Find arguments which are meant for the BaseAlgorithm class and extract them into super_args
