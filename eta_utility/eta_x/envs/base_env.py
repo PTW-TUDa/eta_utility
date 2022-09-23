@@ -409,6 +409,39 @@ class BaseEnv(Env, abc.ABC):
         """
         raise NotImplementedError("Cannot step an abstract Environment.")
 
+    def _actions_valid(self, action: np.ndarray) -> None:
+        """Check whether the actions are within the specified action space.
+
+        :param action: Actions taken by the agent.
+        :raise: RuntimeError, when the actions are not inside of the action space.
+        """
+        if self.action_space.shape != action.shape:
+            raise RuntimeError(
+                f"Agent action {action} (shape: {action.shape})"
+                f" does not correspond to shape of environment action space (shape: {self.action_space.shape})."
+            )
+
+    def _observations(self) -> np.ndarray:
+        """Determine the observations list from environment state. This uses state_config to determine all
+        observations.
+
+        :return: Observations for the agent as determined by state_config.
+        """
+        assert self.state_config is not None, "Set state_config before calling _observations function."
+        observations = np.empty(len(self.state_config.observations))
+        for idx, name in enumerate(self.state_config.observations):
+            observations[idx] = self.state[name]
+
+        return observations
+
+    def _done(self) -> bool:
+        """Check if the episode is over or not using the number of steps (n_steps) and the total number of
+        steps in an episode (n_episode_steps).
+
+        :return: boolean showing, whether the epsiode is done.
+        """
+        return self.n_steps >= self.n_episode_steps
+
     @abc.abstractmethod
     def reset(self) -> np.ndarray:
         """Reset the environment. This is called after each episode is completed and should be used to reset the

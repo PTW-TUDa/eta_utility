@@ -182,7 +182,6 @@ class ETAx:
                 training=training,
                 monitor_wrapper=self.config.setup.monitor_wrapper,
                 norm_wrapper_obs=self.config.setup.norm_wrapper_obs,
-                norm_wrapper_clip_obs=self.config.setup.norm_wrapper_clip_obs,
                 norm_wrapper_reward=self.config.setup.norm_wrapper_reward,
             )
 
@@ -304,7 +303,6 @@ class ETAx:
                 envs.training = training
                 envs.norm_obs = self.config.setup.norm_wrapper_obs
                 envs.norm_reward = self.config.setup.norm_wrapper_reward
-                envs.clip_obs = self.config.setup.norm_wrapper_clip_obs
             else:
                 log.info("No Normalization data detected.")
                 envs = VecNormalize(
@@ -312,7 +310,6 @@ class ETAx:
                     training=training,
                     norm_obs=self.config.setup.norm_wrapper_obs,
                     norm_reward=self.config.setup.norm_wrapper_reward,
-                    clip_obs=self.config.setup.norm_wrapper_clip_obs,
                 )
 
         return envs
