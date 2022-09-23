@@ -231,8 +231,6 @@ class ConfigOptSetup:
     monitor_wrapper: bool = field(default=False, converter=bool)
     #: Flag which is true if the observations should be normalized (default: False).
     norm_wrapper_obs: bool = field(default=False, converter=bool)
-    #: Flag which is true if the observations should be normalized and clipped (default: False).
-    norm_wrapper_clip_obs: bool = field(default=False, converter=bool)
     #: Flag which is true if the rewards should be normalized (default: False).
     norm_wrapper_reward: bool = field(default=False, converter=bool)
     #: Flag to enable tensorboard logging (default: False).
@@ -319,7 +317,6 @@ class ConfigOptSetup:
 
         monitor_wrapper = dikt.pop("monitor_wrapper", None)
         norm_wrapper_obs = dikt.pop("norm_wrapper_obs", None)
-        norm_wrapper_clip_obs = dikt.pop("norm_wrapper_clip_obs", None)
         norm_wrapper_reward = dikt.pop("norm_wrapper_reward", None)
         tensorboard_log = dikt.pop("tensorboard_log", None)
 
@@ -343,7 +340,6 @@ class ConfigOptSetup:
             policy_import=policy_import,
             monitor_wrapper=monitor_wrapper,
             norm_wrapper_obs=norm_wrapper_obs,
-            norm_wrapper_clip_obs=norm_wrapper_clip_obs,
             norm_wrapper_reward=norm_wrapper_reward,
             tensorboard_log=tensorboard_log,
         )
