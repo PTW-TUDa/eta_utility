@@ -179,6 +179,12 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
 
         This also updates self.state and self.state_log to store current state information.
 
+        .. note::
+            This function always returns 0 reward. Therefore, it must be extended if it is to be used with reinforcement
+            learning agents. If you need to manipulate actions (discretization, policy shaping, ...)
+            do this before calling this function.
+            If you need to manipulate observations and rewards, do this after calling this function.
+
         :param np.ndarray action: Actions to perform in the environment.
         :return: The return value represents the state of the environment after the step was performed.
 
@@ -190,11 +196,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             * info: Provide some additional info about the state of the environment. The contents of this may
               be used for logging purposes in the future but typically do not currently serve a purpose.
         """
-        if self.action_space.shape != action.shape:
-            raise RuntimeError(
-                f"Agent action {action} (shape: {action.shape})"
-                f" does not correspond to shape of environment action space (shape: {self.action_space.shape})."
-            )
+        self._actions_valid(action)
 
         assert self.state_config is not None, "Set state_config before calling step function."
         assert self._concrete_model is not None, (
@@ -214,12 +216,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         self.state_log.append(self.state)
 
         reward = pyo.value(list(self._concrete_model.component_objects(pyo.Objective))[0])
-        done = True if self.n_steps >= self.n_episode_steps else False
-
-        info = {}
-        if done:
-            info["terminal_observation"] = observations
-        return observations, reward, done, info
+        return observations, reward, self._done(), {}
 
     def update(self, observations: Sequence[Sequence[float | int]] | None = None) -> np.ndarray:
         """Update the optimization model with observations from another environment.
@@ -341,9 +338,9 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         """
         assert self.state_config is not None, "Set state_config before calling update function."
 
-        self._reset_state()
         if self.n_steps > 0:
             self._concrete_model = self._model()
+        self._reset_state()
 
         assert self._concrete_model is not None, "Mathematical model is not initialized. Call reset another time."
 

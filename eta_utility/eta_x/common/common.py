@@ -76,7 +76,6 @@ def vectorize_environment(
     training: bool = False,
     monitor_wrapper: bool = False,
     norm_wrapper_obs: bool = False,
-    norm_wrapper_clip_obs: bool = False,
     norm_wrapper_reward: bool = False,
 ) -> VecNormalize | VecEnv:
     """Vectorize the environment and automatically apply normalization wrappers if configured. If the environment
@@ -94,7 +93,6 @@ def vectorize_environment(
     :param training: Flag to identify whether the environment should be initialized for training or playing. If true,
                      it will be initialized for training.
     :param norm_wrapper_obs: Flag to determine whether observations from the environments should be normalized.
-    :param norm_wrapper_clip_obs: Flag to determine whether a normalized observations should be clipped.
     :param norm_wrapper_reward: Flag to determine whether rewards from the environments should be normalized.
     :return: Vectorized environments, possibly also wrapped in a normalizer.
     """
@@ -140,16 +138,9 @@ def vectorize_environment(
             envs.training = training
             envs.norm_obs = norm_wrapper_obs
             envs.norm_reward = norm_wrapper_reward
-            envs.clip_obs = norm_wrapper_clip_obs
         else:
             log.info("No Normalization data detected.")
-            envs = VecNormalize(
-                envs,
-                training=training,
-                norm_obs=norm_wrapper_obs,
-                norm_reward=norm_wrapper_reward,
-                clip_obs=norm_wrapper_clip_obs,
-            )
+            envs = VecNormalize(envs, training=training, norm_obs=norm_wrapper_obs, norm_reward=norm_wrapper_reward)
 
     return envs
 

@@ -64,8 +64,8 @@ Please cite this project using our publication:
 
 .. code-block::
 
-    Grosch, B., Ranzau, H., Dietrich, B., Kohne, T., Fuhrländer-Völker D., Sossenheimer, J., Lindner, M., Weigold, M. 
-    A framework for researching energy optimization of factory operations. 
+    Grosch, B., Ranzau, H., Dietrich, B., Kohne, T., Fuhrländer-Völker D., Sossenheimer, J., Lindner, M., Weigold, M.
+    A framework for researching energy optimization of factory operations.
     Energy Inform 5 (Suppl 1), 29 (2022). https://doi.org/10.1186/s42162-022-00207-6
 
 We would like to thank the many contributors who developed functionality for the package, helped with
