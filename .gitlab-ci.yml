@@ -195,7 +195,6 @@ pages:
     - apt-get --yes install libgl1-mesa-glx
     - pip install sphinx sphinx-rtd-theme
     - rm -rf docs/_build docs/_stubs
-    - sphinx-apidoc --tocfile api -e -M -o docs/_stubs eta_utility
     - cd docs
     - make html
     - rm -rf ../public/html/*
