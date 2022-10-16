@@ -590,7 +590,7 @@ class LiveConnect(AbstractContextManager):
             except ConnectionError as e:
                 if self.error_count[idx] < self.max_error_count:
                     self.error_count[idx] += 1
-                    result = {name.name: np.nan for name in reads[connection]}
+                    result.update({name.name: np.nan for name in reads[connection]})
                     log.error(e)
                 else:
                     raise
