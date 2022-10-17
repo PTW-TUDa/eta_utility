@@ -133,6 +133,8 @@ class MPCBasic(BaseAlgorithm):
 
         _tee = True if log.level / 10 <= 1 else False
         result = solver.solve(self.model, symbolic_solver_labels=True, tee=_tee)
+        if _tee:
+            print("\n")  # noqa: T201 (print is ok here, because cplex prints directly to console).
         log.debug(
             "Problem information: \n"
             "\t+----------------------------------+\n"
@@ -205,14 +207,9 @@ class MPCBasic(BaseAlgorithm):
         # Aggregate the agent actions from pyomo component objects
         solution = {}
         for com in self.model.component_objects(pyo.Var):
-            if isinstance(com, pyo.SimpleVar):
+            if isinstance(com, pyo.ScalarVar):
                 continue
-
-            index = next(com.keys())
-            for _ in range(0, self.action_index):
-                index = next(com.keys())
-
-            solution[com.name] = pyo.value(com[index])
+            solution[com.name] = pyo.value(com[com.index_set().at(self.action_index)])
 
         # Make sure that actions are returned to the correct order and as a numpy array.
         actions: np.ndarray = np.ndarray((1, len(self.actions_order)))

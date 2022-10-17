@@ -7,8 +7,16 @@ REM Command file for Sphinx documentation
 if "%SPHINXBUILD%" == "" (
 	set SPHINXBUILD=sphinx-build
 )
+
+if "%SPHINXAPIDOC%" == "" (
+	set SPHINXAPIDOC=sphinx-apidoc
+)
+
+
 set SOURCEDIR=.
 set BUILDDIR=_build
+set STUBSDIR=_stubs
+set MODULEDIR=../eta_utility
 
 if "%1" == "" goto help
 
@@ -25,6 +33,7 @@ if errorlevel 9009 (
 	exit /b 1
 )
 
+%SPHINXAPIDOC% --tocfile api -e -M -o %STUBSDIR% %MODULEDIR% %O%
 %SPHINXBUILD% -M %1 %SOURCEDIR% %BUILDDIR% %SPHINXOPTS% %O%
 goto end
 

@@ -6,7 +6,7 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import socket
-from concurrent.futures import CancelledError
+from concurrent.futures import CancelledError as ConCancelledError
 from concurrent.futures import TimeoutError as ConTimeoutError
 from contextlib import contextmanager
 from datetime import datetime, timedelta
@@ -17,7 +17,7 @@ from opcua import Client, Subscription, ua
 from opcua.crypto.security_policies import SecurityPolicyBasic256Sha256
 from opcua.ua import SecurityPolicy, uaerrors
 
-from eta_utility import KeyCertPair, get_logger
+from eta_utility import KeyCertPair, Suppressor, get_logger
 from eta_utility.connectors.node import Node, NodeOpcUa
 
 from .util import RetryWaiter
@@ -64,6 +64,7 @@ class OpcUaConnection(BaseConnection):
         self._conn_check_interval = 1
 
         self._sub: Subscription
+        self._subbed_nodes: list[int] = []
         self._sub_task: asyncio.Task
         self._subscription_open: bool = False
         self._subscription_nodes: set[NodeOpcUa] = set()
@@ -126,6 +127,7 @@ class OpcUaConnection(BaseConnection):
             try:
                 opcua_variable = self.connection.get_node(node.opc_id)
                 value = opcua_variable.get_value()
+                value = node.dtype(value) if node.dtype is not None else value
                 return {node.name: [value]}
             except uaerrors.BadNodeIdUnknown:
                 raise ConnectionError(
@@ -158,7 +160,8 @@ class OpcUaConnection(BaseConnection):
                 try:
                     opcua_variable = self.connection.get_node(node.opc_id)
                     opcua_variable_type = opcua_variable.get_data_type_as_variant_type()
-                    opcua_variable.set_value(ua.DataValue(ua.Variant(values[node], opcua_variable_type)))
+                    value = node.dtype(values[node]) if node.dtype is not None else values[node]
+                    opcua_variable.set_value(ua.DataValue(ua.Variant(value, opcua_variable_type)))
                 except uaerrors.BadNodeIdUnknown:
                     raise ConnectionError(
                         f"The node id ({node.opc_id}) refers to a node that does not exist in the server address space "
@@ -303,11 +306,13 @@ class OpcUaConnection(BaseConnection):
                     for node in self._subscription_nodes:
                         try:
                             handler.add_node(node.opc_id, node)  # type: ignore
-                            _ = self._sub.subscribe_data_change(self.connection.get_node(node.opc_id))
+                            self._subbed_nodes.append(
+                                self._sub.subscribe_data_change(self.connection.get_node(node.opc_id))
+                            )
                         except RuntimeError as e:
                             log.warning(f"Could not subscribe to node '{node.name}' on server {self.url}, error: {e}")
 
-            except (TimeoutError, CancelledError, ConnectionAbortedError, ConnectionResetError) as e:
+            except (TimeoutError, ConCancelledError, ConnectionAbortedError, ConnectionResetError) as e:
                 log.debug(f"Handling exception ({e}) for server {self.url}.")
                 subscribed = False
                 self._connected = False
@@ -325,8 +330,15 @@ class OpcUaConnection(BaseConnection):
         """Close an open subscription."""
         self._subscription_open = False
         try:
-            self._sub.delete()
+            self._sub.unsubscribe(self._subbed_nodes)
+        except BaseException:
+            pass
+        finally:
+            self._subbed_nodes = []
+
+        try:
             self._sub_task.cancel()
+            self._sub.delete()
         except (OSError, RuntimeError) as e:
             log.debug(f"Deleting subscription for server {self.url} failed.")
             log.debug(f"Server {self.url} returned error: {e}.")
@@ -359,15 +371,20 @@ class OpcUaConnection(BaseConnection):
                 self.connection.set_security(
                     SecurityPolicyBasic256Sha256, self._key_cert.cert_path, self._key_cert.key_path
                 )
-                self.connection.connect()
-            except (
-                ua.uaerrors.BadSecurityPolicyRejected,
-                ua.uaerrors.BadSecurityChecksFailed,
-                TimeoutError,
-                ConTimeoutError,
-            ):
+                with Suppressor():
+                    self.connection.connect()
+            except ua.uaerrors.BadSecurityPolicyRejected:
                 self._try_secure_connect = False
                 _connect_insecure()
+            except ua.UaError as e:
+                if "No matching endpoints" in str(e):
+                    self._try_secure_connect = False
+                    _connect_insecure()
+                else:
+                    raise e
+            except (TimeoutError, ConTimeoutError):
+                self._try_secure_connect = False
+                raise ConnectionError("Host timeout during secure connect")
 
         try:
             if self._key_cert is not None and self._try_secure_connect:
@@ -378,10 +395,10 @@ class OpcUaConnection(BaseConnection):
             raise ConnectionError(f"Host not found: {self.url}") from e
         except (socket.timeout, TimeoutError, ConTimeoutError) as e:
             raise ConnectionError(f"Host timeout: {self.url}") from e
-        except CancelledError as e:
+        except ConCancelledError as e:
             raise ConnectionError(f"Connection cancelled by host: {self.url}") from e
         except (RuntimeError, ConnectionError) as e:
-            raise ConnectionError(f"OPC Connection Error: {self.url}, Error: {str(e)}") from e
+            raise ConnectionError(f"OPC Connection Error: {self.url}: {str(e)}") from e
         else:
             log.debug(f"Connected to OPC UA server: {self.url}")
             self._connected = True
@@ -410,7 +427,7 @@ class OpcUaConnection(BaseConnection):
         self._connected = False
         try:
             self.connection.disconnect()
-        except (CancelledError, ConnectionAbortedError):
+        except (ConCancelledError, ConnectionAbortedError):
             log.debug(f"Connection to {self.url} already closed by server.")
         except (OSError, RuntimeError) as e:
             log.debug(f"Closing connection to server {self.url} failed")

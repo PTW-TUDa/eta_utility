@@ -193,7 +193,7 @@ nodes = (
         "mb_channel": 3264,
         "mb_register": "Holding",
         "mb_byteorder": "big",
-        "mb_bytelength": 9,
+        "mb_bitlength": 80,
         "dtype": "str",
     },
 )
@@ -219,7 +219,7 @@ class TestConnectorOperations:
         connection = ModbusConnection.from_node(local_nodes[0])
         return connection
 
-    values = ((0, 1.5), (1, 5), (2, "something"))
+    values = ((0, 1.5), (1, 5), (2, " something"))
 
     @pytest.mark.parametrize(("index", "value"), values)
     def test_write_node(self, server, connection, local_nodes, index, value):
@@ -243,7 +243,7 @@ class TestConnectorOperations:
             mb_channel=129387192,
             mb_register=n.mb_register,
             mb_byteorder=n.mb_byteorder,
-            mb_byte_length=n.mb_byte_length,
+            mb_bit_length=n.mb_bit_length,
         )
         with pytest.raises(ValueError, match="reg_addr out of range"):
             connection.read(fail_node)
@@ -270,7 +270,7 @@ class TestConnectorOperationsLittleEndian:
         connection = ModbusConnection.from_node(local_nodes[0])
         return connection
 
-    values = ((0, 1.5), (1, 5), (2, "something"))
+    values = ((0, 1.5), (1, 5), (2, " something"))
 
     @pytest.mark.parametrize(("index", "value"), values)
     def test_write_node(self, server, connection, local_nodes, index, value):
@@ -291,14 +291,14 @@ class TestConnectorSubscriptions:
         "Serv.NodeName": (1.5, 2, 2.5, 1, 1.1, 3.4, 6.5, 7.1),
         "Serv.NodeName2": (5, 3, 4, 2, 3, 6, 3, 2),
         "Serv.NodeName4": (
-            "something",
-            "thething1",
-            "another23",
-            "someother",
-            "different",
-            "112389223",
-            "285746384",
-            "327338574",
+            " something",
+            " thething1",
+            " another23",
+            " someother",
+            " different",
+            " 112389223",
+            " 285746384",
+            " 327338574",
         ),
     }
 

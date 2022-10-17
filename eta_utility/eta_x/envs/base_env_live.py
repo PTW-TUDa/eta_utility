@@ -133,9 +133,7 @@ class BaseEnvLive(BaseEnv, abc.ABC):
         assert self.state_config is not None, "Set state_config before calling step function."
 
         self.n_steps += 1
-
-        # Store actions
-        self.state = {} if self.additional_state is None else self.additional_state
+        self._create_new_state(self.additional_state)
 
         # Preparation for the setting of the actions, store actions
         node_in = {}

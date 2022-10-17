@@ -346,17 +346,18 @@ class FMUSimulator:
         :param init_values: Starting values for parameters that should be pushed to the FMU with names corresponding to
                             variables in the FMU.
         """
-
         simulator = cls(0, fmu_path, start_time, stop_time, step_size, init_values=init_values)
 
         dt = np.dtype([(name, float) for name in simulator.read_values()])
         result = np.rec.array(
             None, shape=((simulator.stop_time - simulator.start_time) // simulator.step_size + 1,), dtype=dt
         )
+        assert result.dtype.names is not None, "There must be some output variables specified for the simulator."
 
         step = 0
         while simulator.time <= simulator.stop_time:
             step_result = simulator.step()
+            assert isinstance(step_result, dict), "The simulator needs a dictionary return."
             for name in result.dtype.names:
                 result[step][name] = step_result[name]
 

@@ -62,7 +62,7 @@ def decode_modbus_value(value: Sequence[int], byteorder: str, type_: Callable | 
 
     if type_ is str or type_ is bytes:
         dtype = "s"
-        _len = len(value)
+        _len = len(value) * 2
     elif type_ is bool:
         dtype = "?"
         _len = 1
@@ -72,14 +72,14 @@ def decode_modbus_value(value: Sequence[int], byteorder: str, type_: Callable | 
         _int_types = {1: "b", 2: "h", 4: "i", 8: "q"}
         _len = 1
         try:
-            dtype = _int_types[len(value)]
+            dtype = _int_types[len(value) * 2]
         except KeyError:
             raise ValueError(f"The length of the received value ({len(value)})does not match the data type {type_}")
     elif type_ is float or type_ is None:
         _float_types = {2: "e", 4: "f", 8: "d"}
         _len = 1
         try:
-            dtype = _float_types[len(value)]
+            dtype = _float_types[len(value) * 2]
         except KeyError:
             raise ValueError(f"The length of the received value ({len(value)}) does not match the data type: {type_}")
     else:
@@ -87,7 +87,7 @@ def decode_modbus_value(value: Sequence[int], byteorder: str, type_: Callable | 
 
     # Determine the format strings for packing and unpacking the received byte sequences. These format strings
     # depend on the endianness (determined by bo), the length of the value in bytes and the data type.
-    pack = f"{len(value):1d}B"
+    pack = f">{len(value):1d}H"
     unpack = f"{bo}{_len}{dtype}"
 
     # Convert the value into the appropriate format
@@ -102,19 +102,21 @@ def decode_modbus_value(value: Sequence[int], byteorder: str, type_: Callable | 
     return val
 
 
-def encode_modbus_value(
-    value: str | int | float | bytes, byteorder: str, byte_length: int, type_: Callable | None = None
+def encode_bits(
+    value: str | int | float | bytes, byteorder: str, bit_length: int, type_: Callable | None = None
 ) -> list[int]:
-    r"""Method to encode python data type to modbus value.
+    r"""Method to encode python data type to modbus value. This means an array of bytes to send to a
+    modbus server.
 
     :param value: Current value to be decoded into float.
     :param byteorder: Byteorder for decoding i.e. 'little' or 'big' endian.
-    :param byte_length: Length of the value in bytes.
+    :param bit_length: Length of the value in bits.
     :param type\_: Type of the output value. See `Python struct format character documentation
                   <https://docs.python.org/3/library/struct.html#format-characters>` for all possible
                   format strings (default: f).
     :return: Decoded value as a python type.
     """
+    byte_length = bit_length // 8
     # Make sure that value is of the type specified by the node.
     if type_ is not None:
         value = type_(value)
@@ -156,19 +158,18 @@ def encode_modbus_value(
         raise ValueError(f"Could not convert value {value!r} to bits.")
 
     bitstrings = [f"{bin(x)[2:]:0>8}" for x in byte]
-
     return [int(z) for z in "".join(bitstrings)]
 
 
-def bitarray_to_bytearray(bits: list[int | bool]) -> list[int]:
-    """Convert a list of bits into a list of bytes."""
+def bitarray_to_registers(bits: list[int | bool]) -> list[int]:
+    """Convert a list of bits into a list of 16 bit 'bytes'."""
     # Make sure that _bits is a list of integers, not bools.
     _bits = [int(x) for x in bits] if isinstance(bits[0], bool) else bits
 
-    b_size = (len(_bits) + 7) // 8
-    bytes_list = [0] * b_size
+    b_size = (len(_bits) + 15) // 16
+    register_list = [0] * b_size
     for i in range(0, b_size):
-        start = i * 8
-        bytes_list[i] = int("".join([str(v) for v in _bits[start : start + 8]]), 2)
+        start = i * 16
+        register_list[i] = int("".join([str(v) for v in _bits[start : start + 16]]), 2)
 
-    return bytes_list
+    return register_list

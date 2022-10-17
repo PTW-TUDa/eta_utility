@@ -6,7 +6,7 @@ import asyncio
 import socket
 from contextlib import contextmanager
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 
 import pandas as pd
 from pyModbusTCP import constants as mb_const  # noqa: I900
@@ -16,9 +16,9 @@ from eta_utility import get_logger
 from eta_utility.connectors.node import NodeModbus
 from eta_utility.connectors.util import (
     RetryWaiter,
-    bitarray_to_bytearray,
+    bitarray_to_registers,
     decode_modbus_value,
-    encode_modbus_value,
+    encode_bits,
 )
 
 if TYPE_CHECKING:
@@ -107,7 +107,11 @@ class ModbusConnection(BaseConnection):
 
         with self._connection():
             for node in nodes:
-                bits = encode_modbus_value(values[node], node.mb_byteorder, node.mb_byte_length)
+                if not isinstance(values[node], List):
+                    bits = encode_bits(values[node], node.mb_byteorder, node.mb_bit_length, node.dtype)
+                else:
+                    bits = values[node]
+
                 self._write_mb_value(node, bits)
 
     def subscribe(self, handler: SubscriptionHandler, nodes: Nodes | None = None, interval: TimeStep = 1) -> None:
@@ -188,23 +192,21 @@ class ModbusConnection(BaseConnection):
 
         self.connection.unit_id = node.mb_slave
 
-        quantity = node.mb_byte_length * 8
-
         if node.mb_register == "holding":
-            result = self.connection.read_holding_registers(node.mb_channel, quantity)
+            result = self.connection.read_holding_registers(node.mb_channel, node.mb_bit_length // 16)
         elif node.mb_register == "coils":
-            result = self.connection.read_coils(node.mb_channel, quantity)
+            result = self.connection.read_coils(node.mb_channel, node.mb_bit_length)
         elif node.mb_register == "discrete_input":
-            result = self.connection.read_discrete_inputs(node.mb_channel, quantity)
+            result = self.connection.read_discrete_inputs(node.mb_channel, node.mb_bit_length)
         elif node.mb_register == "input":
-            result = self.connection.read_input_registers(node.mb_channel, quantity)
+            result = self.connection.read_input_registers(node.mb_channel, node.mb_bit_length // 16)
         else:
             raise ValueError(f"The specified register type is not supported: {node.mb_register}")
 
         if result is None:
             self._handle_mb_error()
         else:
-            result = bitarray_to_bytearray([int(x) for x in result])
+            result = [int(x) for x in result]
 
         return result
 
@@ -220,7 +222,7 @@ class ModbusConnection(BaseConnection):
         if node.mb_register == "coils":
             success = self.connection.write_multiple_coils(node.mb_channel, value)
         elif node.mb_register == "holding":
-            success = self.connection.write_multiple_registers(node.mb_channel, value)
+            success = self.connection.write_multiple_registers(node.mb_channel, bitarray_to_registers(value))
         else:
             raise ValueError(f"The specified register type is not supported for writing: {node.mb_register}")
 
