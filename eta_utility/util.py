@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import csv
+import io
 import json
 import locale
 import logging
@@ -26,6 +27,7 @@ from cryptography.x509.oid import NameOID
 from dateutil import tz
 
 if TYPE_CHECKING:
+    import types
     from tempfile import _TemporaryFileWrapper
     from typing import Any, Generator
     from urllib.parse import ParseResult
@@ -539,3 +541,22 @@ class PEMKeyCertPair(KeyCertPair):
     def cert_path(self) -> str:
         """Path to the certificate file."""
         return self._cert_path.as_posix()
+
+
+class Suppressor(io.TextIOBase):
+    """Context manager to suppress standard output."""
+
+    def __enter__(self) -> Suppressor:
+        self.stderr = sys.stderr
+        sys.stderr = self  # type: ignore
+        return self
+
+    def __exit__(
+        self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: types.TracebackType | None
+    ) -> None:
+        sys.stderr = self.stderr
+        if exc_type is not None:
+            raise exc_type(exc_val).with_traceback(exc_tb)
+
+    def write(self, x: Any) -> int:
+        return 0

@@ -140,7 +140,7 @@ class Node(metaclass=NodeMeta):
         object.__setattr__(self, "url_parsed", url)
 
     @classmethod
-    def from_dict(cls, dikt: Sequence[Mapping] | Mapping[str, Any]) -> list[Node]:
+    def from_dict(cls, dikt: Sequence[Mapping] | Mapping[str, Any], fail: bool = True) -> list[Node]:
         """Create nodes from a dictionary of node configurations. The configuration must specify the following
         fields for each node:
 
@@ -165,6 +165,7 @@ class Node(metaclass=NodeMeta):
         For EntsoE nodes the endpoint field must be present.
 
         :param dikt: Configuration dictionary.
+        :param fail: Set this to false, if you would like to log errors instead of raising them.
         :return: List of Node objects.
         """
 
@@ -174,113 +175,45 @@ class Node(metaclass=NodeMeta):
         for idx, lnode in enumerate(iter_):
             node = {k.strip().lower(): v for k, v in lnode.items()}
 
-            name, protocol, pwd, url, usr = cls._read_dict_info(node)
-
-            # Initialize node if protocol is 'modbus'
-            if protocol.strip().lower() == "modbus":
-                mb_register = cls._try_dict_get_any(node, "mb_register", "modbusregistertype", name=name, idx=idx)
-                mb_channel = cls._try_dict_get_any(node, "mb_channel", "modbuschannel", name=name, idx=idx)
-                mb_byteorder = cls._try_dict_get_any(node, "mb_byteorder", "modbusbyteorder", name=name, idx=idx)
-                mb_slave = dict_get_any(node, "mb_slave", "modbusslave", fail=False, default=32)
-                mb_byte_length = dict_get_any(node, "mb_byte_length", "mb_bytelength", fail=False, default=2)
-                dtype = dict_get_any(node, "dtype", "datentyp", fail=False)
-
-                try:
-                    nodes.append(
-                        cls(
-                            name,
-                            url,
-                            "modbus",
-                            usr=usr,
-                            pwd=pwd,
-                            mb_register=mb_register,
-                            mb_slave=mb_slave,
-                            mb_channel=mb_channel,
-                            mb_byte_length=mb_byte_length,
-                            mb_byteorder=mb_byteorder,
-                            dtype=dtype,
-                        )
-                    )
-                except (TypeError, AttributeError):
-                    raise TypeError(f"Could not convert all types for node {name}, index {idx}.")
-
-            # Initialize node if protocol is 'opcua'
-            elif protocol.strip().lower() == "opcua":
-                opc_id = dict_get_any(node, "opc_id", "identifier", "identifier", fail=False)
-                dtype = dict_get_any(node, "dtype", "datentyp", fail=False)
-
-                if opc_id is None:
-                    opc_ns = dict_get_any(node, "opc_ns", "namespace", "ns", fail=False)
-                    opc_path_str = dict_get_any(node, "opc_path", "path", fail=False)
-
-                    try:
-                        nodes.append(
-                            cls(
-                                name,
-                                url,
-                                "opcua",
-                                usr=usr,
-                                pwd=pwd,
-                                opc_ns=opc_ns,
-                                opc_path_str=opc_path_str,
-                                dtype=dtype,
-                            )
-                        )
-                    except (TypeError, AttributeError):
-                        raise TypeError(f"Could not convert all types for node {name}, index {idx}.")
+            try:
+                protocol = cls._read_dict_protocol(node)
+            except KeyError as e:
+                text = f"Error reading node data in row {idx+1}: {e}"
+                if fail:
+                    raise KeyError(text)
                 else:
-                    try:
-                        nodes.append(cls(name, url, "opcua", usr=usr, pwd=pwd, opc_id=opc_id, dtype=dtype))
-                    except (TypeError, AttributeError):
-                        raise TypeError(f"Could not convert all types for node {name}, index {idx}.")
+                    log.error(text)
+                continue
 
-            # Initialize node if protocol is 'eneffco'
-            elif protocol.strip().lower() == "eneffco":
-                code = cls._try_dict_get_any(node, "code", "eneffco_code", name=name, idx=idx)
+            try:
+                node_class = cls._registry[protocol.strip().lower()]
+            except KeyError:
+                text = f"Specified an unsupported protocol in row {idx+1}: {protocol}."
+                if fail:
+                    raise ValueError(text)
+                else:
+                    log.error(text)
+                continue
 
-                try:
-                    nodes.append(cls(name, url, "eneffco", usr=usr, pwd=pwd, eneffco_code=code))
-                except (TypeError, AttributeError):
-                    raise TypeError(f"Could not convert all types for node {name}, index {idx}.")
-
-            # Initialize node if protocol is 'entsoe'
-            elif protocol.strip().lower() == "entsoe":
-                endpoint = cls._try_dict_get_any(node, "endpoint", name=name, idx=idx)
-                bidding_zone = cls._try_dict_get_any(node, "bidding zone", "bidding_zone", "zone", name=name, idx=idx)
-
-                try:
-                    nodes.append(
-                        cls(name, url, "entsoe", usr=usr, pwd=pwd, endpoint=endpoint, bidding_zone=bidding_zone)
-                    )
-                except (TypeError, AttributeError):
-                    raise TypeError(f"Could not convert all types for node {name}, index {idx}.")
-
-            # Initialize node if protocol is 'local'
-            elif protocol.strip().lower() == "local":
-                try:
-                    nodes.append(cls(name, url, "local", usr=usr, pwd=pwd))
-                except (TypeError, AttributeError):
-                    raise TypeError(f"Could not convert all types for node {name}, index {idx}.")
-
-            else:
-                raise ValueError(f"Specified an unsupported protocol: {protocol}.")
+            try:
+                nodes.append(node_class._from_dict(node))
+            except (TypeError, KeyError) as e:
+                text = f"Error while parsing data for node in row {idx+1}: {e}"
+                if fail:
+                    raise TypeError(text)
+                else:
+                    log.error(text)
 
         return nodes
 
     @staticmethod
-    def _read_dict_info(node: dict[str, Any]) -> tuple[str, str, str, str, str]:
+    def _read_dict_info(node: dict[str, Any]) -> tuple[str, str, str, str]:
         """Read general info about a node from a dictionary.
 
         :param node: dictionary containing node information.
-        :return: name, protocol, pwd, url, usr of the node
+        :return: name, pwd, url, usr of the node
         """
-        # Read name and protocol first
-        try:
-            protocol = str(dict_get_any(node, "protocol"))
-            if protocol == "nan" or protocol is None:
-                raise KeyError
-        except KeyError:
-            raise KeyError("Protocol must be specified for all nodes in the dictionary.")
+        # Read name first
         try:
             name = str(dict_get_any(node, "code", "name"))
             if name == "nan" or name is None:
@@ -298,10 +231,21 @@ class Node(metaclass=NodeMeta):
             url = None
         usr = dict_get_any(node, "username", "user", "usr", fail=False)
         pwd = dict_get_any(node, "password", "pwd", "pw", fail=False)
-        return name, protocol, pwd, url, usr
+        return name, pwd, url, usr
 
     @staticmethod
-    def _try_dict_get_any(dikt: dict[str, Any], *names: str, name: str, idx: int) -> Any:
+    def _read_dict_protocol(node: dict[str, Any]) -> str:
+        try:
+            protocol = str(dict_get_any(node, "protocol"))
+            if protocol == "nan" or protocol is None:
+                raise KeyError
+        except KeyError:
+            raise KeyError("Protocol must be specified for all nodes in the dictionary.")
+
+        return protocol
+
+    @staticmethod
+    def _try_dict_get_any(dikt: dict[str, Any], *names: str) -> Any:
         """Get any of the specified items from dictionary, if any are available. The function will return
         the first value it finds, even if there are multiple matches.
 
@@ -309,20 +253,17 @@ class Node(metaclass=NodeMeta):
 
         :param dikt: Dictionary to get values from.
         :param names: Item names to look for.
-        :param fail: Flag to determine, if the function should fail with a KeyError, if none of the items are found.
-                     If this is False, the function will return the value specified by 'default'.
-        :param default: Value to return, if none of the items are found and 'fail' is False.
         :return: Value from dictionary.
         """
         try:
             value = dict_get_any(dikt, *names, fail=True)
         except KeyError:
-            raise KeyError(f"At least one of the following fields is required for node '{name}', index {idx}: {names}.")
+            raise KeyError(f"At least one of the following fields is required for a node: {names}.")
 
         return value
 
     @classmethod
-    def from_excel(cls, path: Path, sheet_name: str) -> list[Node]:
+    def from_excel(cls, path: Path, sheet_name: str, fail: bool = True) -> list[Node]:
         """
         Method to read out nodes from an Excel document. The document must specify the following fields:
 
@@ -342,13 +283,14 @@ class Node(metaclass=NodeMeta):
 
         :param path: Path to Excel document.
         :param sheet_name: name of Excel sheet, which will be read out.
+        :param fail: Set this to false, if you would like to log errors instead of raising them.
         :return: List of Node objects.
         """
 
         file = path if isinstance(path, pathlib.Path) else pathlib.Path(path)
         input_ = pd.read_excel(file, sheet_name=sheet_name, dtype=str)
 
-        return cls.from_dict(list(input_.to_dict("index").values()))
+        return cls.from_dict(list(input_.to_dict("index").values()), fail)
 
     @classmethod
     def get_eneffco_nodes_from_codes(cls, code_list: Sequence[str], eneffco_url: str) -> list[Node]:
@@ -374,6 +316,19 @@ class NodeLocal(Node, protocol="local"):
     def __attrs_post_init__(self) -> None:
         """Ensure username and password are processed correctly."""
         super().__attrs_post_init__()
+
+    @classmethod
+    def _from_dict(cls, dikt: dict[str, Any]) -> NodeLocal:
+        """Create a modblocalus node from a dictionary of node information.
+
+        :param dikt: dictionary with node information.
+        :return: NodeLocal object.
+        """
+        name, pwd, url, usr = cls._read_dict_info(dikt)
+        try:
+            return cls(name, url, "local", usr=usr, pwd=pwd)
+        except (TypeError, AttributeError):
+            raise TypeError(f"Could not convert all types for node {name}")
 
 
 def _mb_byteorder_converter(value: str) -> str:
@@ -404,10 +359,9 @@ class NodeModbus(Node, protocol="modbus"):
     )
     #: Modbus Channel (Address of the value)
     mb_channel: int = field(kw_only=True, converter=int)
-    #: Length of the value in byte (default 2). This determines, how much data is read from the server. When using
-    #: standard data types like float or int, the value must be a multiple of 2. If you want to read strings, the
-    #: the value can be any number.
-    mb_byte_length: int = field(kw_only=True, default=2, converter=int, validator=validators.ge(1))
+    #: Length of the value in bits (default 32). This determines, how much data is read from the server. The
+    #: value must be a multiple of 16.
+    mb_bit_length: int = field(kw_only=True, default=32, converter=int, validator=validators.ge(1))
 
     #: Byteorder of values returned by modbus
     mb_byteorder: str = field(
@@ -423,6 +377,39 @@ class NodeModbus(Node, protocol="modbus"):
             url = self.url_parsed._replace(netloc=f"{self.url_parsed.hostname}:502")
             object.__setattr__(self, "url", url.geturl())
             object.__setattr__(self, "url_parsed", url)
+
+    @classmethod
+    def _from_dict(cls, dikt: dict[str, Any]) -> NodeModbus:
+        """Create a modbus node from a dictionary of node information.
+
+        :param dikt: dictionary with node information.
+        :return: NodeModbus object.
+        """
+        name, pwd, url, usr = cls._read_dict_info(dikt)
+
+        # Initialize node if protocol is 'modbus'
+        mb_register = cls._try_dict_get_any(dikt, "mb_register", "modbusregistertype")
+        mb_channel = cls._try_dict_get_any(dikt, "mb_channel", "modbuschannel")
+        mb_byteorder = cls._try_dict_get_any(dikt, "mb_byteorder", "modbusbyteorder")
+        mb_slave = dict_get_any(dikt, "mb_slave", "modbusslave", fail=False, default=32)
+        mb_bit_length = dict_get_any(dikt, "mb_bit_length", "mb_bitlength", fail=False, default=32)
+        dtype = dict_get_any(dikt, "dtype", "datentyp", fail=False)
+        try:
+            return cls(
+                name,
+                url,
+                "modbus",
+                usr=usr,
+                pwd=pwd,
+                mb_register=mb_register,
+                mb_slave=mb_slave,
+                mb_channel=mb_channel,
+                mb_bit_length=mb_bit_length,
+                mb_byteorder=mb_byteorder,
+                dtype=dtype,
+            )
+        except (TypeError, AttributeError):
+            raise TypeError(f"Could not convert all types for node {name}.")
 
 
 class NodeOpcUa(Node, protocol="opcua"):
@@ -510,6 +497,40 @@ class NodeOpcUa(Node, protocol="opcua"):
             )
         object.__setattr__(self, "opc_path", path)
 
+    @classmethod
+    def _from_dict(cls, dikt: dict[str, Any]) -> NodeOpcUa:
+        """Create an opcua node from a dictionary of node information.
+
+        :param dikt: dictionary with node information.
+        :return: NodeOpcUa object.
+        """
+        name, pwd, url, usr = cls._read_dict_info(dikt)
+
+        opc_id = dict_get_any(dikt, "opc_id", "identifier", "identifier", fail=False)
+        dtype = dict_get_any(dikt, "dtype", "datentyp", fail=False)
+
+        if opc_id is None:
+            opc_ns = dict_get_any(dikt, "opc_ns", "namespace", "ns", fail=False)
+            opc_path_str = dict_get_any(dikt, "opc_path", "path", fail=False)
+            try:
+                return cls(
+                    name,
+                    url,
+                    "opcua",
+                    usr=usr,
+                    pwd=pwd,
+                    opc_ns=opc_ns,
+                    opc_path_str=opc_path_str,
+                    dtype=dtype,
+                )
+            except (TypeError, AttributeError):
+                raise TypeError(f"Could not convert all types for node {name}")
+        else:
+            try:
+                return cls(name, url, "opcua", usr=usr, pwd=pwd, opc_id=opc_id, dtype=dtype)
+            except (TypeError, AttributeError):
+                raise TypeError(f"Could not convert all types for node {name}")
+
 
 class NodeEnEffCo(Node, protocol="eneffco"):
     """Node for the EnEffCo API."""
@@ -520,6 +541,21 @@ class NodeEnEffCo(Node, protocol="eneffco"):
     def __attrs_post_init__(self) -> None:
         """Ensure username and password are processed correctly."""
         super().__attrs_post_init__()
+
+    @classmethod
+    def _from_dict(cls, dikt: dict[str, Any]) -> NodeEnEffCo:
+        """Create a EnEffCo node from a dictionary of node information.
+
+        :param dikt: dictionary with node information.
+        :return: NodeEnEffCo object.
+        """
+        name, pwd, url, usr = cls._read_dict_info(dikt)
+        code = cls._try_dict_get_any(dikt, "code", "eneffco_code")
+
+        try:
+            return cls(name, url, "eneffco", usr=usr, pwd=pwd, eneffco_code=code)
+        except (TypeError, AttributeError):
+            raise TypeError(f"Could not convert all types for node {name}.")
 
 
 class NodeEntsoE(Node, protocol="entsoe"):
@@ -565,3 +601,20 @@ class NodeEntsoE(Node, protocol="entsoe"):
     def __attrs_post_init__(self) -> None:
         """Ensure username and password are processed correctly."""
         super().__attrs_post_init__()
+
+    @classmethod
+    def _from_dict(cls, dikt: dict[str, Any]) -> NodeEntsoE:
+        """Create an EntsoE node from a dictionary of node information.
+
+        :param dikt: dictionary with node information.
+        :return: NodeEntsoE object.
+        """
+        name, pwd, url, usr = cls._read_dict_info(dikt)
+
+        endpoint = cls._try_dict_get_any(dikt, "endpoint")
+        bidding_zone = cls._try_dict_get_any(dikt, "bidding zone", "bidding_zone", "zone")
+
+        try:
+            return cls(name, url, "entsoe", usr=usr, pwd=pwd, endpoint=endpoint, bidding_zone=bidding_zone)
+        except (TypeError, AttributeError):
+            raise TypeError(f"Could not convert all types for node {name}.")

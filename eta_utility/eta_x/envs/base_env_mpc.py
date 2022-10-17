@@ -147,7 +147,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         if self.state_config is None:
             _vars = []
             for com in self._concrete_model.component_objects(pyo.Var):
-                if not isinstance(com, pyo.SimpleVar):
+                if not isinstance(com, pyo.ScalarVar):
                     _vars.append(StateVar(com.name, is_agent_action=True))
 
             self.state_config = StateConfig(*_vars)
@@ -208,9 +208,9 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         observations = self.update()
 
         # update and log current state
-        self.state = {} if self.additional_state is None else self.additional_state
-        for idx, act in enumerate(self.state_config.actions):
-            self.state[act] = action[idx]
+        self._create_new_state(self.additional_state)
+        self._actions_to_state(action)
+
         for idx, obs in enumerate(self.state_config.observations):
             self.state[obs] = observations[idx]
         self.state_log.append(self.state)
@@ -280,6 +280,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
                 )
             )
 
+        self._create_new_state(self.additional_state)
         updated_params = ts_current
         return_obs = []  # Array for all current observations
         for var_name in self.state_config.observations:
@@ -306,9 +307,11 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
                 else:
                     log.error(f"Specified observation value {var_name} could not be found")
             updated_params[var_name] = value
+            self.state[var_name] = value if value is not None else float("nan")
 
             log.debug(f"Observed value {var_name}: {value}")
 
+        self.state_log.append(self.state)
         self.pyo_update_params(updated_params, self.nonindex_update_append_string)
         return np.array(return_obs)
 
@@ -348,20 +351,12 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         self.state = {} if self.additional_state is None else self.additional_state
         observations = []
         for var_name in self.state_config.observations:
-            for component in self._concrete_model.component_objects():
-                if component.name == var_name:
-                    if hasattr(component, "__getitem__") and (
-                        (hasattr(component[0], "stale") and component[0].stale)
-                        or (hasattr(component[0], "active") and not component[0].active)
-                    ):
-                        obs_val = 0
-                    elif not hasattr(component, "__getitem__"):
-                        obs_val = round(pyo.value(component), 5)
-                    else:
-                        obs_val = round(pyo.value(component[0]), 5)
-                    observations.append(obs_val)
-                    break
-            self.state[var_name] = observations[-1]
+            # Try getting the first value from initialized variables. Use the configured low_value from state_config
+            # for all others.
+            obs_val = self.pyo_get_component_value(self._concrete_model.component(var_name), allow_stale=True)
+            obs_val = obs_val if obs_val is not None else 0
+            observations.append(obs_val)
+            self.state[var_name] = obs_val
 
         # Initialize state with zero actions
         for act in self.state_config.actions:
@@ -523,7 +518,14 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         if nonindex_param_append_string is not None:
             original_indices = set(updated_params.keys()).copy()
             for param in original_indices:
-                if not isinstance(updated_params[param], Mapping):
+                component = self._concrete_model.component(param)
+                if (
+                    component is not None
+                    and (
+                        component.is_indexed() or isinstance(component, pyo.Set) or isinstance(component, pyo.RangeSet)
+                    )
+                    and not isinstance(updated_params[param], Mapping)
+                ):
                     updated_params[str(param) + nonindex_param_append_string] = updated_params[param]
                     del updated_params[param]
 
@@ -535,7 +537,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
                     -1
                 ]  # last entry is the parameter name for abstract models which are instanced
             if parameter_name in updated_params.keys():
-                if isinstance(parameter, pyo_base.param.SimpleParam) or isinstance(parameter, pyo_base.var.SimpleVar):
+                if isinstance(parameter, pyo_base.param.ScalarParam) or isinstance(parameter, pyo_base.var.ScalarVar):
                     # update all simple parameters (single values)
                     parameter.value = updated_params[parameter_name]
                 elif isinstance(parameter, pyo_base.indexed_component.IndexedComponent):
@@ -570,9 +572,9 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
 
             # For simple variables we need just the values, for everything else we want time indexed dictionaries
             if (
-                isinstance(com, pyo.SimpleVar)
+                isinstance(com, pyo.ScalarVar)
                 or isinstance(com, pyo_base.objective.SimpleObjective)
-                or isinstance(com, pyo_base.param.SimpleParam)
+                or isinstance(com, pyo_base.param.ScalarParam)
             ):
                 solution[com.name] = pyo.value(com)
             else:
@@ -590,3 +592,24 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
                         ] = pyo.value(val)
 
         return solution
+
+    def pyo_get_component_value(
+        self, component: pyo.Component, at: int = 1, allow_stale: bool = False
+    ) -> float | int | None:
+        assert self.state_config is not None, "Can only get component values after state_config is loaded."
+        if allow_stale and (
+            (hasattr(component, "stale") and component.stale)
+            or (hasattr(component, "_value") and component._value is component.NoValue)
+        ):
+            return self.state_config.vars[component.name].low_value
+
+        if isinstance(component, pyo.Set) or isinstance(component, pyo.RangeSet):
+            val = round(pyo.value(component.at(at)), 5)
+        elif component.is_indexed() and (
+            not hasattr(component, "stale") or (hasattr(component, "stale") and not component.stale)
+        ):
+            val = round(pyo.value(component[component.index_set().at(at)]), 5)
+        else:
+            val = round(pyo.value(component), 5)
+
+        return val

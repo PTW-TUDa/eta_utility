@@ -6,6 +6,7 @@ from .util import (
     KeyCertPair,
     PEMKeyCertPair,
     SelfsignedKeyCertPair,
+    Suppressor,
     deep_mapping_update,
     dict_get_any,
     dict_pop_any,

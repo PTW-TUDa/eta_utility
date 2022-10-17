@@ -3,7 +3,7 @@ import socket
 import pytest
 
 from eta_utility.connectors import Node
-from eta_utility.connectors.util import encode_modbus_value
+from eta_utility.connectors.util import bitarray_to_registers, encode_bits
 from eta_utility.servers import ModbusServer
 
 nodes = (
@@ -14,7 +14,7 @@ nodes = (
         "mb_channel": "5000",
         "mb_byteorder": "big",
         "mb_register": "holding",
-        "mb_bytelength": 4,
+        "mb_bitlength": 32,
         "dtype": "int",
     },
     {
@@ -24,7 +24,7 @@ nodes = (
         "mb_channel": "5032",
         "mb_byteorder": "big",
         "mb_register": "holding",
-        "mb_bytelength": 4,
+        "mb_bitlength": 32,
         "dtype": "float",
     },
     {
@@ -34,7 +34,7 @@ nodes = (
         "mb_channel": "5064",
         "mb_byteorder": "big",
         "mb_register": "holding",
-        "mb_bytelength": 8,
+        "mb_bitlength": 64,
         "dtype": "string",
     },
     {
@@ -44,7 +44,7 @@ nodes = (
         "mb_channel": "5128",
         "mb_byteorder": "big",
         "mb_register": "coils",
-        "mb_bytelength": 1,
+        "mb_bitlength": 1,
         "dtype": "int",
     },
     {
@@ -54,7 +54,7 @@ nodes = (
         "mb_channel": "5136",
         "mb_byteorder": "big",
         "mb_register": "coils",
-        "mb_bytelength": 4,
+        "mb_bitlength": 4,
         "dtype": "int",
     },
 )
@@ -105,13 +105,13 @@ class TestServerOperations:
             mb_channel="5000",
             mb_byteorder="big",
             mb_register="holding",
-            mb_byte_length=4,
+            mb_bit_length=32,
         )
         value = 5
         server.write({node: value})
 
-        result = server._server.data_bank._h_regs[node.mb_channel : node.mb_channel + node.mb_byte_length * 8]
-        expected = encode_modbus_value(value, node.mb_byteorder, node.mb_byte_length)
+        result = server._server.data_bank._h_regs[node.mb_channel : node.mb_channel + node.mb_bit_length // 16]
+        expected = bitarray_to_registers(encode_bits(value, node.mb_byteorder, node.mb_bit_length))
         assert result == expected
 
     def test_write_data_coils(self, server, local_nodes):
@@ -122,16 +122,16 @@ class TestServerOperations:
             mb_channel="5000",
             mb_byteorder="big",
             mb_register="coils",
-            mb_byte_length=4,
+            mb_bit_length=32,
         )
         value = 5
         server.write({node: value})
 
-        result = server._server.data_bank._coils[node.mb_channel : node.mb_channel + node.mb_byte_length * 8]
-        expected = encode_modbus_value(value, node.mb_byteorder, node.mb_byte_length)
+        result = server._server.data_bank._coils[node.mb_channel : node.mb_channel + node.mb_bit_length]
+        expected = encode_bits(value, node.mb_byteorder, node.mb_bit_length)
         assert result == expected
 
-    values = ((0, 0), (1, 1.5), (2, "someelse"), (3, 1), (4, 237642))
+    values = ((0, 0), (1, 1.5), (2, "someelse"), (3, [True]), (4, [False, True, True, False]))
 
     @pytest.mark.parametrize(("index", "value"), values)
     def test_write(self, server, local_nodes, index, value):
@@ -141,23 +141,28 @@ class TestServerOperations:
         if node.mb_register == "holding":
             result = [
                 int(x)
-                for x in server._server.data_bank._h_regs[node.mb_channel : node.mb_channel + node.mb_byte_length * 8]
+                for x in server._server.data_bank._h_regs[node.mb_channel : node.mb_channel + node.mb_bit_length // 16]
             ]
+            expected = bitarray_to_registers(encode_bits(value, node.mb_byteorder, node.mb_bit_length))
         else:
             result = [
-                int(x)
-                for x in server._server.data_bank._coils[node.mb_channel : node.mb_channel + node.mb_byte_length * 8]
+                int(x) for x in server._server.data_bank._coils[node.mb_channel : node.mb_channel + node.mb_bit_length]
             ]
-
-        expected = encode_modbus_value(value, node.mb_byteorder, node.mb_byte_length)
+            expected = value
         assert result == expected
 
     @pytest.mark.parametrize(("index", "value"), values)
     def test_read(self, server, local_nodes, index, value):
         node = local_nodes[index]
-        result = server.read(node)[node.name][0]
+        result = server.read(node)
 
         if isinstance(value, str):
-            assert result == value
+            assert result[node.name][0] == value
+        elif node.mb_register == "coils" or node.mb_register == "discrete_input":
+            if len(value) > 1:
+                for idx, _ in enumerate(value):
+                    assert result[f"{node.name}_{idx}"][0] == value[idx]
+            else:
+                assert result[node.name][0] == value
         else:
-            assert result == pytest.approx(value)
+            assert result[node.name][0] == pytest.approx(value)

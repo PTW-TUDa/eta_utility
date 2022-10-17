@@ -438,8 +438,11 @@ class ETAx:
                 observations = self.interaction_env.reset()
                 try:
                     observations = np.array(self.environments.env_method("first_update", observations, indices=0))
-                except AttributeError:
-                    observations = self.environments.reset()
+                except AttributeError as e:
+                    if "first_update" in str(e):
+                        observations = self.environments.reset()
+                    else:
+                        raise e
             else:
                 observations = self.environments.reset()
         except ValueError as e:

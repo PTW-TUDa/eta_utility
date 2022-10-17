@@ -421,6 +421,22 @@ class BaseEnv(Env, abc.ABC):
                 f" does not correspond to shape of environment action space (shape: {self.action_space.shape})."
             )
 
+    def _create_new_state(self, additional_state: dict[str, float] | None) -> None:
+        """Take some initial values and create a new environment state object, stored in self.state.
+
+        :param additional_state: Values to initialize the state.
+        """
+        self.state = {} if additional_state is None else additional_state
+
+    def _actions_to_state(self, actions: np.ndarray) -> None:
+        """Gather actions and store them in self.state.
+
+        :param actions: Actions taken by the agent.
+        """
+        assert self.state_config is not None, "Set state_config before calling _actions_to_state function."
+        for idx, act in enumerate(self.state_config.actions):
+            self.state[act] = actions[idx]
+
     def _observations(self) -> np.ndarray:
         """Determine the observations list from environment state. This uses state_config to determine all
         observations.

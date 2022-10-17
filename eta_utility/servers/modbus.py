@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import socket
 from datetime import datetime
-from typing import TYPE_CHECKING, Sized
+from typing import TYPE_CHECKING, List, Sized
 
 import pandas as pd
 from pyModbusTCP.server import ModbusServer as BaseModbusServer  # noqa: I900
@@ -10,9 +10,9 @@ from pyModbusTCP.server import ModbusServer as BaseModbusServer  # noqa: I900
 from eta_utility import ensure_timezone, get_logger, url_parse
 from eta_utility.connectors.node import NodeModbus
 from eta_utility.connectors.util import (
-    bitarray_to_bytearray,
+    bitarray_to_registers,
     decode_modbus_value,
-    encode_modbus_value,
+    encode_bits,
 )
 
 if TYPE_CHECKING:
@@ -64,12 +64,15 @@ class ModbusServer:
 
         for node in nodes:
             byteorder = "big" if self._big_endian else "little"
-            bits = encode_modbus_value(values[node], byteorder, node.mb_byte_length, node.dtype)
+            if not isinstance(values[node], List):
+                bits = encode_bits(values[node], byteorder, node.mb_bit_length, node.dtype)
+            else:
+                bits = values[node]
 
             if node.mb_register == "coils":
                 self._server.data_hdl.write_coils(node.mb_channel, bits, srv_info)
             elif node.mb_register == "holding":
-                self._server.data_hdl.write_h_regs(node.mb_channel, bits, srv_info)
+                self._server.data_hdl.write_h_regs(node.mb_channel, bitarray_to_registers(bits), srv_info)
 
     def read(self, nodes: Nodes | None = None) -> pd.DataFrame:
         """
@@ -85,22 +88,28 @@ class ModbusServer:
         results = {}
 
         for node in _nodes:
-            quantity = node.mb_byte_length * 8
-
             if node.mb_register == "holding":
-                val = self._server.data_hdl.read_h_regs(node.mb_channel, quantity, srv_info)
+                val = self._server.data_hdl.read_h_regs(node.mb_channel, node.mb_bit_length // 16, srv_info)
             elif node.mb_register == "coils":
-                val = self._server.data_hdl.read_coils(node.mb_channel, quantity, srv_info)
+                val = self._server.data_hdl.read_coils(node.mb_channel, node.mb_bit_length, srv_info)
             elif node.mb_register == "discrete_input":
-                val = self._server.data_hdl.read_d_inputs(node.mb_channel, quantity, srv_info)
+                val = self._server.data_hdl.read_d_inputs(node.mb_channel, node.mb_bit_length, srv_info)
             elif node.mb_register == "input":
-                val = self._server.data_hdl.read_i_regs(node.mb_channel, quantity, srv_info)
+                val = self._server.data_hdl.read_i_regs(node.mb_channel, node.mb_bit_length // 16, srv_info)
             else:
                 raise ValueError(f"The specified register type is not supported: {node.mb_register}")
 
-            byteorder = "big" if self._big_endian else "little"
-            if val.ok:
-                results[node.name] = decode_modbus_value(bitarray_to_bytearray(val.data), byteorder, node.dtype)
+            if val.ok and (node.mb_register == "holding" or node.mb_register == "input"):
+                byteorder = "big" if self._big_endian else "little"
+                results[node.name] = decode_modbus_value(val.data, byteorder, node.dtype)
+            elif val.ok and isinstance(val.data, List):
+                if len(val.data) > 1:
+                    for idx, value in enumerate(val.data):
+                        results[f"{node.name}_{idx}"] = value
+                else:
+                    results[node.name] = val.data[0]
+            elif val.ok:
+                results[node.name] = val.data
             else:
                 raise RuntimeError("Could not decode bits from ModbusServer.")
 
