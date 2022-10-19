@@ -397,7 +397,9 @@ def is_env_closed(env: BaseEnv | VecEnv | VecNormalize | None) -> bool:
 
 
 def episode_results_path(series_results_path: Path, run_name: str, episode: int, env_id: int = 1) -> pathlib.Path:
-    """Generate a path which can be used for storing episode results of a specific environment.
+    """Generate a filepath which can be used for storing episode results of a specific environment as a csv file.
+
+    Name is of the format: ThisRun_001_01.csv (run name _ episode number _ environment id .csv)
 
     :param series_results_path: Path for results of the series of optimization runs.
     :param run_name: Name of the optimization run.
@@ -406,4 +408,16 @@ def episode_results_path(series_results_path: Path, run_name: str, episode: int,
     """
     path = series_results_path if isinstance(series_results_path, pathlib.Path) else pathlib.Path(series_results_path)
 
-    return path / f"{run_name}_{episode:0>#3}_{env_id:0>#2}.csv"
+    return path / f"{episode_name_string(run_name, episode, env_id)}.csv"
+
+
+def episode_name_string(run_name: str, episode: int, env_id: int = 1) -> str:
+    """Generate a name which can be used to pre or postfix files from a specific episode and run of an environment.
+
+    Name is of the format: ThisRun_001_01 (run name _ episode number _ environment id)
+
+    :param run_name: Name of the optimization run.
+    :param episode: Number of the episode the environment is working on.
+    :param env_id: Identification of the environment.
+    """
+    return f"{run_name}_{episode:0>#3}_{env_id:0>#2}"
