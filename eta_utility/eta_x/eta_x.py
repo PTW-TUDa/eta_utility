@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 
     from stable_baselines3.common.base_class import BaseAlgorithm
     from stable_baselines3.common.vec_env import VecEnv
+    from stable_baselines3.common.vec_env.base_vec_env import VecEnvObs
 
 log = get_logger("eta_x")
 
@@ -431,20 +432,7 @@ class ETAx:
         # Reset the environments before starting to play
         try:
             log.debug("Resetting environments before starting to play.")
-            if self.config.settings.interact_with_env:
-                assert (
-                    self.interaction_env is not None
-                ), "Initialized interaction environments could not be found. Call prepare_run first."
-                observations = self.interaction_env.reset()
-                try:
-                    observations = np.array(self.environments.env_method("first_update", observations, indices=0))
-                except AttributeError as e:
-                    if "first_update" in str(e):
-                        observations = self.environments.reset()
-                    else:
-                        raise e
-            else:
-                observations = self.environments.reset()
+            observations = self._reset_envs()
         except ValueError as e:
             raise ValueError(
                 "It is likely that returned observations do not conform to the specified state config."
@@ -461,25 +449,74 @@ class ETAx:
         _scale_actions = self.config.settings.scale_actions if self.config.settings.scale_actions is not None else 1
 
         while n_episodes < n_episodes_stop:
-            action, _states = self.model.predict(observation=observations, deterministic=False)  # type: ignore
-            # Type ignored because typing in stable_baselines appears to be incorrect
-
-            # Round and scale actions if required
-            if _round_actions is not None:
-                action = np.round(action * _scale_actions, _round_actions)
-            else:
-                action = action * _scale_actions
-
-            # Some agents (i.e. MPC) can interact with an additional environment
-            if self.config.settings.interact_with_env:
-                assert (
-                    self.interaction_env is not None
-                ), "Initialized interaction environments could not be found. Call prepare_run first."
-                # Perform a step  with the interaction environment and update the normal environment with
-                # its observations
-                observations, rewards, dones, info = self.interaction_env.step(action)
-                observations = np.array(self.environments.env_method("update", observations, indices=0))
-            else:
-                observations, rewards, dones, info = self.environments.step(action)
+            try:
+                dones = self._play_step(_round_actions, _scale_actions, observations)
+            except BaseException as e:
+                log.error("Exception occurred during an environment step. Aborting and trying to reset environments.")
+                _ = self._reset_envs()
+                log.debug("Environment reset successful - re-raising exception")
+                raise e
 
             n_episodes += sum(dones)
+
+    def _play_step(self, _round_actions: int | None, _scale_actions: float, observations: VecEnvObs) -> np.ndarray:
+        assert self.environments is not None, "Initialized environments could not be found. Call prepare_run first."
+
+        action, _states = self.model.predict(observation=observations, deterministic=False)  # type: ignore
+        # Type ignored because typing in stable_baselines appears to be incorrect
+        # Round and scale actions if required
+        if _round_actions is not None:
+            action = np.round(action * _scale_actions, _round_actions)
+        else:
+            action = action * _scale_actions
+        # Some agents (i.e. MPC) can interact with an additional environment
+        if self.config.settings.interact_with_env:
+            assert (
+                self.interaction_env is not None
+            ), "Initialized interaction environments could not be found. Call prepare_run first."
+
+            # Perform a step  with the interaction environment and update the normal environment with
+            # its observations
+            observations, rewards, dones, info = self.interaction_env.step(action)
+            observations = np.array(self.environments.env_method("update", observations, indices=0))
+            # Make sure to also reset the environment, if the interaction_env says it's done. For the interaction
+            # env this is done inside the vectorizer.
+            for idx in range(self.environments.num_envs):
+                if dones[idx]:
+                    info[idx]["terminal_observation"] = observations
+                    observations[idx] = self._reset_env_interaction(observations)
+        else:
+            observations, rewards, dones, info = self.environments.step(action)
+        return dones
+
+    def _reset_envs(self) -> VecEnvObs:
+        """Reset the environments when interaction with another environment is taking place.
+
+        :param observations: Observations from the interaction env.
+        :return: observations after reset.
+        """
+        assert self.environments is not None, "Initialized environments could not be found. Call prepare_run first."
+        log.debug("Resetting environments.")
+
+        if self.config.settings.interact_with_env:
+            assert (
+                self.interaction_env is not None
+            ), "Initialized interaction environments could not be found. Call prepare_run first."
+            observations = self.interaction_env.reset()
+            return self._reset_env_interaction(observations)
+        else:
+            return self.environments.reset()
+
+    def _reset_env_interaction(self, observations: VecEnvObs) -> VecEnvObs:
+        assert self.environments is not None, "Initialized environments could not be found. Call prepare_run first."
+        log.debug("Resetting main environment during environment interaction.")
+
+        try:
+            observations = np.array(self.environments.env_method("first_update", observations, indices=0))
+        except AttributeError as e:
+            if "first_update" in str(e):
+                observations = self.environments.reset()
+            else:
+                raise e
+
+        return observations
