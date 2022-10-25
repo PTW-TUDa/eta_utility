@@ -134,7 +134,7 @@ class MPCBasic(BaseAlgorithm):
         _tee = True if log.level / 10 <= 1 else False
         result = solver.solve(self.model, symbolic_solver_labels=True, tee=_tee)
         if _tee:
-            print("\n")  # noqa: T201 (print is ok here, because cplex prints directly to console).
+            print("\n")  # noqa: T001, T201 (print is ok here, because cplex prints directly to console).
         log.debug(
             "Problem information: \n"
             "\t+----------------------------------+\n"
@@ -209,7 +209,7 @@ class MPCBasic(BaseAlgorithm):
         for com in self.model.component_objects(pyo.Var):
             if isinstance(com, pyo.ScalarVar):
                 continue
-            try: 
+            try:
                 solution[com.name] = pyo.value(com[com.index_set().at(self.action_index + 1)])
             except ValueError:
                 pass
