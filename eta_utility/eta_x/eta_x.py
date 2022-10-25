@@ -3,8 +3,9 @@ from __future__ import annotations
 import inspect
 import os
 import pathlib
+from contextlib import contextmanager
 from datetime import datetime
-from typing import TYPE_CHECKING, Mapping
+from typing import TYPE_CHECKING
 
 import numpy as np
 from stable_baselines3.common.callbacks import CheckpointCallback
@@ -23,7 +24,7 @@ from eta_utility.eta_x.common import (
 )
 
 if TYPE_CHECKING:
-    from typing import Any
+    from typing import Any, Generator, Mapping
 
     from stable_baselines3.common.base_class import BaseAlgorithm
     from stable_baselines3.common.vec_env import VecEnv
@@ -67,16 +68,12 @@ class ETAx:
         #: The model or algorithm.
         self.model: BaseAlgorithm | None = None
 
-    def prepare_run(
-        self, series_name: str, run_name: str, run_description: str = "", reset: bool = False, training: bool = True
-    ) -> None:
-        """Prepare the learn and play methods.
+    def prepare_run(self, series_name: str, run_name: str, run_description: str = "") -> None:
+        """Prepare the learn and play methods by reading configuration, creating results folders and the model.
 
         :param series_name: Name for a series of runs.
         :param run_name: Name for a specific run.
         :param run_description: Description for a specific run.
-        :param reset: Should an existing model be backed up and overwritten (otherwise load it)?
-        :param training: Should preparation be done for training (alternative: playing)?
         :return: Boolean value indicating successful preparation.
         """
         self.config_run = ConfigOptRun(
@@ -89,10 +86,14 @@ class ETAx:
         )
         self.config_run.create_results_folders()
 
-        self._prepare_environments(training)
-        self._prepare_model(reset)
-
         log.info("Run prepared successfully.")
+
+    def prepare_model(self, reset: bool = False) -> None:
+        """Check for existing model and load it or back it up and create a new model.
+
+        :param reset: Flag to determine whether an existing model should be reset.
+        """
+        self._prepare_model(reset)
 
     def _prepare_model(self, reset: bool = False) -> None:
         """Check for existing model and load it or back it up and create a new model.
@@ -137,6 +138,25 @@ class ETAx:
             tensorboard_log=self.config.setup.tensorboard_log,
             log_path=self.config_run.path_series_results,
         )
+
+    @contextmanager
+    def prepare_environments(self, training: bool = True) -> Generator:
+        """Context manager which prepares the environments and closes them after it exits.
+
+        :param training: Should preparation be done for training (alternative: playing)?
+        """
+        try:
+            self._prepare_environments(training)
+            yield
+
+        finally:
+            # close all environments when done (kill processes)
+            log.debug("Closing environments.")
+            assert self.environments is not None, "Initialized environments could not be found."
+            self.environments.close()
+            if self.config.settings.interact_with_env:
+                assert self.interaction_env is not None, "Initialized interaction environments could not be found."
+                self.interaction_env.close()
 
     def _prepare_environments(self, training: bool = True) -> None:
         """Vectorize and prepare the environments and potentially the interaction environments.
@@ -333,74 +353,76 @@ class ETAx:
         if is_env_closed(self.environments) or self.model is None:
             _series_name = series_name if series_name is not None else ""
             _run_name = run_name if run_name is not None else ""
-            self.prepare_run(_series_name, _run_name, run_description, reset=reset, training=True)
+            self.prepare_run(_series_name, _run_name, run_description)
 
         assert self.config_run is not None, "Run configuration could not be found. Call prepare_run first."
-        assert self.model is not None, "Initialized model could not be found. Call prepare_run first."
-        assert self.environments is not None, "Initialized environments could not be found. Call prepare_run first."
 
-        # Log some information about the model and configuration
-        log_net_arch(self.model, self.config_run)
-        log_run_info(self.config, self.config_run)
+        with self.prepare_environments(training=True):
+            assert (
+                self.environments is not None
+            ), "Initialized environments could not be found. Call prepare_environments first."
 
-        # Genetic algorithm has a slightly different concept for saving since it does not stop between time steps
-        if "n_generations" in self.config.settings.agent:
-            save_freq = self.config.settings.save_model_every_x_episodes
-            total_timesteps = self.config.settings.agent["n_generations"]
-        else:
-            # Check if all required config values are present
-            if self.config.settings.episode_duration is None:
-                raise ValueError("Missing configuration values for learning: 'episode_duration'.")
-            elif self.config.settings.sampling_time is None:
-                raise ValueError("Missing configuration values for learning: 'sampling_time'.")
-            elif self.config.settings.n_episodes_learn is None:
-                raise ValueError("Missing configuration values for learning: 'n_episodes_learn'.")
+            self.prepare_model(reset)
+            assert self.model is not None, "Initialized model could not be found. Call prepare_model first."
 
-            # define callback for periodically saving models
-            save_freq = int(
-                self.config.settings.episode_duration
-                / self.config.settings.sampling_time
-                * self.config.settings.save_model_every_x_episodes
+            # Log some information about the model and configuration
+            log_net_arch(self.model, self.config_run)
+            log_run_info(self.config, self.config_run)
+
+            # Genetic algorithm has a slightly different concept for saving since it does not stop between time steps
+            if "n_generations" in self.config.settings.agent:
+                save_freq = self.config.settings.save_model_every_x_episodes
+                total_timesteps = self.config.settings.agent["n_generations"]
+            else:
+                # Check if all required config values are present
+                if self.config.settings.episode_duration is None:
+                    raise ValueError("Missing configuration values for learning: 'episode_duration'.")
+                elif self.config.settings.sampling_time is None:
+                    raise ValueError("Missing configuration values for learning: 'sampling_time'.")
+                elif self.config.settings.n_episodes_learn is None:
+                    raise ValueError("Missing configuration values for learning: 'n_episodes_learn'.")
+
+                # define callback for periodically saving models
+                save_freq = int(
+                    self.config.settings.episode_duration
+                    / self.config.settings.sampling_time
+                    * self.config.settings.save_model_every_x_episodes
+                )
+                total_timesteps = int(
+                    self.config.settings.n_episodes_learn
+                    * self.config.settings.episode_duration
+                    / self.config.settings.sampling_time
+                )
+
+            callback_learn = CheckpointCallback(
+                save_freq=save_freq,
+                save_path=str(self.config_run.path_series_results / "models"),
+                name_prefix=self.config_run.name,
             )
-            total_timesteps = int(
-                self.config.settings.n_episodes_learn
-                * self.config.settings.episode_duration
-                / self.config.settings.sampling_time
-            )
 
-        callback_learn = CheckpointCallback(
-            save_freq=save_freq,
-            save_path=str(self.config_run.path_series_results / "models"),
-            name_prefix=self.config_run.name,
-        )
+            # Start learning
+            log.info("Start learning process of agent in environment.")
+            try:
+                self.model.learn(
+                    total_timesteps=total_timesteps,
+                    callback=callback_learn,
+                    tb_log_name=self.config_run.name,
+                )
+            except OSError:
+                filename = str(self.config_run.path_series_results / f"{self.config_run.name}_model_before_error.pkl")
+                log.info(f"Saving model to file: {filename}.")
+                self.model.save(filename)
+                raise
 
-        # Start learning
-        log.info("Start learning process of agent in environment.")
-        try:
-            self.model.learn(
-                total_timesteps=total_timesteps,
-                callback=callback_learn,
-                tb_log_name=self.config_run.name,
-            )
-        except OSError:
-            filename = str(self.config_run.path_series_results / f"{self.config_run.name}_model_before_error.pkl")
-            log.info(f"Saving model to file: {filename}.")
-            self.model.save(filename)
-            raise
+            # reset environment one more time to call environment callback one last time
+            self.environments.reset()
 
-        # reset environment one more time to call environment callback one last time
-        self.environments.reset()
-
-        # save model
-        log.debug(f"Saving model to file: {self.config_run.path_run_model}.")
-        self.model.save(self.config_run.path_run_model)
-        if isinstance(self.environments, VecNormalize):
-            log.debug(f"Saving environment normalization data to file: {self.config_run.path_vec_normalize}.")
-            self.environments.save(str(self.config_run.path_vec_normalize))
-
-        # close all environments when done (kill processes)
-        log.debug("Closing environments.")
-        self.environments.close()
+            # save model
+            log.debug(f"Saving model to file: {self.config_run.path_run_model}.")
+            self.model.save(self.config_run.path_run_model)
+            if isinstance(self.environments, VecNormalize):
+                log.debug(f"Saving environment normalization data to file: {self.config_run.path_vec_normalize}.")
+                self.environments.save(str(self.config_run.path_vec_normalize))
 
         log.info(f"Learning finished: {series_name} / {run_name}")
 
@@ -414,50 +436,58 @@ class ETAx:
         if is_env_closed(self.environments) or self.model is None:
             _series_name = series_name if series_name is not None else ""
             _run_name = run_name if run_name is not None else ""
-            self.prepare_run(_series_name, _run_name, run_description, reset=False, training=False)
+            self.prepare_run(_series_name, _run_name, run_description)
 
         assert self.config_run is not None, "Run configuration could not be found. Call prepare_run first."
-        assert self.model is not None, "Initialized model could not be found. Call prepare_run first."
-        assert self.environments is not None, "Initialized environments could not be found. Call prepare_run first."
 
-        if self.config.settings.n_episodes_play is None:
-            raise ValueError("Missing configuration value for playing: 'n_episodes_play' in section 'settings'")
+        with self.prepare_environments(training=True):
+            assert (
+                self.environments is not None
+            ), "Initialized environments could not be found. Call prepare_environments first."
 
-        # Log some information about the model and configuration
-        log_net_arch(self.model, self.config_run)
-        log_run_info(self.config, self.config_run)
+            self.prepare_model(reset=False)
+            assert self.model is not None, "Initialized model could not be found. Call prepare_model first."
 
-        n_episodes_stop = self.config.settings.n_episodes_play
+            if self.config.settings.n_episodes_play is None:
+                raise ValueError("Missing configuration value for playing: 'n_episodes_play' in section 'settings'")
 
-        # Reset the environments before starting to play
-        try:
-            log.debug("Resetting environments before starting to play.")
-            observations = self._reset_envs()
-        except ValueError as e:
-            raise ValueError(
-                "It is likely that returned observations do not conform to the specified state config."
-            ) from e
-        n_episodes = 0
+            # Log some information about the model and configuration
+            log_net_arch(self.model, self.config_run)
+            log_run_info(self.config, self.config_run)
 
-        log.debug("Start playing process of agent in environment.")
-        if self.config.settings.interact_with_env:
-            log.info("Starting agent with environment/optimization interaction.")
-        else:
-            log.info("Starting without an additional interaction environment.")
+            n_episodes_stop = self.config.settings.n_episodes_play
 
-        _round_actions = self.config.settings.round_actions
-        _scale_actions = self.config.settings.scale_actions if self.config.settings.scale_actions is not None else 1
-
-        while n_episodes < n_episodes_stop:
+            # Reset the environments before starting to play
             try:
-                dones = self._play_step(_round_actions, _scale_actions, observations)
-            except BaseException as e:
-                log.error("Exception occurred during an environment step. Aborting and trying to reset environments.")
-                _ = self._reset_envs()
-                log.debug("Environment reset successful - re-raising exception")
-                raise e
+                log.debug("Resetting environments before starting to play.")
+                observations = self._reset_envs()
+            except ValueError as e:
+                raise ValueError(
+                    "It is likely that returned observations do not conform to the specified state config."
+                ) from e
+            n_episodes = 0
 
-            n_episodes += sum(dones)
+            log.debug("Start playing process of agent in environment.")
+            if self.config.settings.interact_with_env:
+                log.info("Starting agent with environment/optimization interaction.")
+            else:
+                log.info("Starting without an additional interaction environment.")
+
+            _round_actions = self.config.settings.round_actions
+            _scale_actions = self.config.settings.scale_actions if self.config.settings.scale_actions is not None else 1
+
+            while n_episodes < n_episodes_stop:
+                try:
+                    dones = self._play_step(_round_actions, _scale_actions, observations)
+                except BaseException as e:
+                    log.error(
+                        "Exception occurred during an environment step. Aborting and trying to reset environments."
+                    )
+                    _ = self._reset_envs()
+                    log.debug("Environment reset successful - re-raising exception")
+                    raise e
+
+                n_episodes += sum(dones)
 
     def _play_step(self, _round_actions: int | None, _scale_actions: float, observations: VecEnvObs) -> np.ndarray:
         assert self.environments is not None, "Initialized environments could not be found. Call prepare_run first."

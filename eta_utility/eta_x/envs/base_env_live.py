@@ -187,4 +187,4 @@ class BaseEnvLive(BaseEnv, abc.ABC):
 
         Default behavior for the Live_Connector environment is to do nothing.
         """
-        pass
+        self.live_connector.close()
