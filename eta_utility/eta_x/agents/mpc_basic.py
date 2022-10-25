@@ -209,7 +209,10 @@ class MPCBasic(BaseAlgorithm):
         for com in self.model.component_objects(pyo.Var):
             if isinstance(com, pyo.ScalarVar):
                 continue
-            solution[com.name] = pyo.value(com[com.index_set().at(self.action_index + 1)])
+            try: 
+                solution[com.name] = pyo.value(com[com.index_set().at(self.action_index + 1)])
+            except ValueError:
+                pass
 
         # Make sure that actions are returned to the correct order and as a numpy array.
         actions: np.ndarray = np.ndarray((1, len(self.actions_order)))
