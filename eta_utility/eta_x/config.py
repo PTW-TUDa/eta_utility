@@ -5,14 +5,14 @@ import itertools
 import pathlib
 from typing import TYPE_CHECKING
 
-from attrs import Factory, converters, define, field, fields, validators  # noqa: I900
+from attrs import Factory, converters, define, field, fields, validators
 
 from eta_utility import deep_mapping_update, dict_pop_any, get_logger, json_import
 
 if TYPE_CHECKING:
     from typing import Any, Mapping
 
-    from attrs import Attribute  # noqa: I900
+    from attrs import Attribute
     from stable_baselines3.common.base_class import BaseAlgorithm, BasePolicy
     from stable_baselines3.common.vec_env import DummyVecEnv
 

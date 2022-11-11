@@ -39,6 +39,7 @@ repos:
         additional_dependencies:
           - pyflakes
           - pycodestyle
+          - pyproject-flake8
           - flake8-builtins
           - flake8-eradicate
           - flake8-comprehensions
@@ -57,8 +58,10 @@ repos:
         exclude: |
           (?x)^(setup.py|
                 test/.+|
+                _version.py|
           )$
         additional_dependencies:
+          - setuptools
           - tokenize-rt==3.2.0
           - types-python-dateutil
           - types-requests
@@ -67,3 +70,6 @@ repos:
           - pygame
           - importlib_metadata
           - cryptography
+          - keyboard
+          - onnxruntime
+          - matplotlib

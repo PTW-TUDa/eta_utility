@@ -8,7 +8,7 @@ from functools import partial
 from typing import TYPE_CHECKING
 
 import torch as th
-from attrs import asdict  # noqa: I900
+from attrs import asdict
 from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor, VecNormalize
 
 from eta_utility import dict_get_any, get_logger
@@ -28,39 +28,6 @@ if TYPE_CHECKING:
     from eta_utility.type_hints import AlgoSettings, EnvSettings, Path
 
 log = get_logger("eta_x")
-
-
-class CallbackEnvironment:
-    """This callback should be called at the end of each episode.
-    When multiprocessing is used, no global variables are available (as an own python instance is created).
-
-    :param plot_interval: How many episodes to pass between each render call.
-    """
-
-    def __init__(self, plot_interval: int) -> None:
-        self.plot_interval = plot_interval
-
-    def __call__(self, env: BaseEnv) -> None:
-        """
-        This callback should be called at the end of each episode.
-        When multiprocessing is used, no global variables are available (as an own python instance is created).
-
-        :param env: Instance of the environment where the callback was triggered.
-        """
-        log.info(
-            "Environment callback triggered (env_id = {}, n_episodes = {}, run_name = {}.".format(
-                env.env_id, env.n_episodes, env.run_name
-            )
-        )
-
-        # render first episode
-        if env.n_episodes == 1:
-            env.render()
-        # render progress over episodes (for each environment individually)
-        elif env.n_episodes % self.plot_interval == 0:
-            env.render()
-            if hasattr(env, "render_episodes"):
-                env.render_episodes()
 
 
 def vectorize_environment(

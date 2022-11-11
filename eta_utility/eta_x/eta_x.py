@@ -20,6 +20,7 @@ from eta_utility.eta_x.common import (
     load_model,
     log_net_arch,
     log_run_info,
+    merge_callbacks,
     vectorize_environment,
 )
 
@@ -27,6 +28,7 @@ if TYPE_CHECKING:
     from typing import Any, Generator, Mapping
 
     from stable_baselines3.common.base_class import BaseAlgorithm
+    from stable_baselines3.common.type_aliases import MaybeCallback
     from stable_baselines3.common.vec_env import VecEnv
     from stable_baselines3.common.vec_env.base_vec_env import VecEnvObs
 
@@ -341,6 +343,7 @@ class ETAx:
         run_name: str | None = None,
         run_description: str = "",
         reset: bool = False,
+        callbacks: MaybeCallback = None,
     ) -> None:
         """Start the learning job for an agent with the specified environment.
 
@@ -349,6 +352,7 @@ class ETAx:
         :param run_description: Description for a specific run.
         :param reset: Indication whether possibly existing models should be reset. Learning will be continued if
                            model exists and reset is false.
+        :param callbacks: Provide additional callbacks to send to the model.learn() call.
         """
         if is_env_closed(self.environments) or self.model is None:
             _series_name = series_name if series_name is not None else ""
@@ -394,10 +398,13 @@ class ETAx:
                     / self.config.settings.sampling_time
                 )
 
-            callback_learn = CheckpointCallback(
-                save_freq=save_freq,
-                save_path=str(self.config_run.path_series_results / "models"),
-                name_prefix=self.config_run.name,
+            callback_learn = merge_callbacks(
+                CheckpointCallback(
+                    save_freq=save_freq,
+                    save_path=str(self.config_run.path_series_results / "models"),
+                    name_prefix=self.config_run.name,
+                ),
+                callbacks,
             )
 
             # Start learning

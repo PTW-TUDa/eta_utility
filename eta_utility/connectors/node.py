@@ -7,7 +7,7 @@ import pathlib
 from typing import TYPE_CHECKING, Mapping
 
 import pandas as pd
-from attrs import converters, define, field, validators  # noqa: I900
+from attrs import converters, define, field, validators
 
 from eta_utility import dict_get_any, get_logger, url_parse
 
