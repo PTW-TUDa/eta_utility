@@ -244,6 +244,7 @@ class MPCBasic(BaseAlgorithm):
         n_eval_episodes: int = 5,
         eval_log_path: str | None = None,
         reset_num_timesteps: bool = True,
+        progress_bar: bool = False,
     ) -> MPCBasic:
         """The MPC approach cannot learn a new model. Specify the model attribute as a pyomo Concrete model instead,
         to use the prediction function of this agent.

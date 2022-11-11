@@ -106,7 +106,7 @@ flake8:
   script:
     - pip install flake8-json
     - flake8 --version
-    - flake8 --config=setup.cfg --format=codeclimate --tee --output-file=flake8.json eta_utility test
+    - flake8 --config=setup.cfg --format=codeclimate --tee --output-file=flake8.json eta_utility examples test
   artifacts:
     reports:
       codequality: flake8.json

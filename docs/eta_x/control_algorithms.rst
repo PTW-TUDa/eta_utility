@@ -26,11 +26,25 @@ by *BaseAlgorithm* will be passed on to the solver. This allows free configurati
     :noindex:
 
 Rule Based Agent (Base Class)
----------------------------------
+---------------------------------------
 The rule based agent is a base class which facilitates the creation of simple rule based agents. To use it, you need
 to implement the :py:class:`eta_utility.eta_x.agents.RuleBased.control_rules` method. The *control_rules* method
 takes the array of observations from the environment and determines an array of actions based on them.
 
 .. autoclass:: eta_utility.eta_x.agents::RuleBased
     :members: control_rules
+    :noindex:
+
+Non-dominated Sorting Genetic Algorithm (NSGA-II)
+-----------------------------------------------------
+The genetic optimiser implements a genetic algorithm based on the NSGA-II. The NSGA-II was first developed
+and implemented by Kalyanmoy Deb, Amrit Pratap, Sameer Agarwal and T. Meyarivan in their collaborative paper
+'A Fast and Elitist Multiobjective Genetic Algorithm: NSGA-II' in 2002.
+
+The NSGA2 agent is a class that will operate according to the algorithm. To use it, you need
+to instantiate the :py:class:`eta_utility.eta_x.agents.Nsga2` class and use the *learn* function
+combined with an environment to solve your optimization problem. The algorithm will find the
+optimal actions based on interactions with the environment.
+
+.. autoclass:: eta_utility.eta_x.agents.nsga2.Nsga2
     :noindex:

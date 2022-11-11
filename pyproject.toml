@@ -1,18 +1,190 @@
 [build-system]
-requires = ["setuptools>=45", "wheel", "setuptools_scm>=6.2"]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "eta_utility"
+authors = [
+    {"name" = "Technical University of Darmstadt, Institute for Production Management, Technology and Machine Tools (PTW).", "email" = "info@ptw.tu-darmstadt.de"}
+]
+description = "A framework for researching energy optimization of factory operations"
+keywords = [
+    "connectors","servers","simulators","industrial energy optimization","rolling horizon optimization"
+]
+license = {file = "LICENSE"}
+# We're using some functionality from python 3.7 (therefore this is the minimum)
+# and pytorch does not support Versions >3.9 (therefore this is the maximum).
+requires-python = ">=3.7<=3.9"
+classifiers = [
+    "License :: OSI Approved :: BSD License",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Manufacturing",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+]
+dynamic = ["version", "readme"]
+dependencies = [
+    "setuptools",
+    "attrs",
+    "python-dateutil",
+    "numpy",
+    "pandas",
+    "xlrd",
+    "lxml",
+    "requests",
+    "opcua",
+    "pyModbusTCP==0.2.0",
+    "cryptography",
+    # Lower versions of fmpy have problems with setting parameters during initialization:
+    "fmpy>=0.3.5",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "eta_utility._version.__version__"}
+readme = {file = ["README.rst", "LICENSE"]}
+
+[project.urls]
+Homepage = "https://www.ptw.tu-darmstadt.de"
+Documentation = "https://eta-utility.readthedocs.io/"
+Source = "https://github.com/PTW-TUDa/eta_utility/"
+Issues = "https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility/-/issues"
+
+[tool.setuptools.packages.find]
+include = ["eta_utility*"]
+exclude = [
+    "test*",
+    "docs*",
+    "examples*"
+]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+eta_utility = ["eta_utility/py.typed", "*.jl", "EtaUtility*"]
+
+[tool.setuptools.exclude-package-data]
+eta_utility = ["test", "docs", "examples"]
+
+[project.scripts]
+    install-julia = "eta_utility:install_julia"
+
+[project.optional-dependencies]
+"ETA_X" = [
+    "gym",
+    "torch",
+    "stable_baselines3",
+    "tensorboard",
+    # The MPCBasic agent currently does not support pyomo version 6:
+    "pyomo>=6"
+]
+"EXAMPLES" = [
+    # Requirements for the examples
+    "matplotlib",
+    "keyboard",
+    "pygame",
+    "pyglet",
+    "onnxruntime"
+]
+"DEVELOP" = [
+    # Repeat requirements from ETA_X
+    "gym",
+    "torch",
+    "stable_baselines3",
+    "tensorboard",
+    "pyomo>=6",
+    # Repeat requirements for the examples
+    "matplotlib",
+    "keyboard",
+    "pygame",
+    "pyglet",
+    "onnxruntime",
+    # Specific requirements for tests
+    "pytest",
+    "pytest-cov",
+    "openpyxl",
+    # Specific requirements for development
+    "sphinx",
+    "sphinx_rtd_theme",
+    "pre-commit",
+    "black==22.6",
+    "blacken-docs",
+    "isort",
+    "pyupgrade",
+    # MyPy requirements and typing packages
+    "mypy==0.961",
+    "types-python-dateutil",
+    "types-requests",
+    # Linting / Flake8 requirements and linting packages
+    "flake8==4.0.1",
+    "pyproject-flake8",
+    "pyflakes",
+    "pycodestyle",
+    "flake8-builtins",
+    "flake8-eradicate",
+    "flake8-comprehensions",
+    "flake8-mutable",
+    "flake8-print",
+    "flake8-pytest-style",
+    "flake8-requirements",
+    "pep8-naming",
+    "flake8-rst-docstrings"
+    # Could be inserted as a future requirement
+    # flake8-simplify
+]
+
 [tool.setuptools_scm]
+write_to = "eta_utility/_version.py"
 
 [tool.black]
 include = "\\.pyi?$|^eta_utility/|^test/"
-exclude = "\\.xlsx?$|\\.fmu?$|test_resources/|__pycache__/"
+exclude = "\\.xlsx?$|\\.fmu?$|test_resources/|__pycache__/|_version.py$"
 line_length = 120
 target_version = ["py37","py38","py39"]
 
 [tool.isort]
 profile = "black"
 multi_line_output = 3
+
+[tool.mypy]
+python_version = 3.7
+files = ["eta_utility", "examples"]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+no_implicit_optional = true
+warn_unused_ignores = true
+warn_unreachable = true
+show_column_numbers = true
+
+exclude = [
+    "^test/",
+    "_version.py$"
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "fmpy.*",
+    "pandas.*",
+    "gym.*",
+    "opcua.*",
+    "pyModbusTCP.*",
+    "pyomo.*",
+    "lxml.*",
+    "julia.*",
+    "setuptools",
+    "importlib.metadata.*",
+    "keyboard.*",
+    "onnxruntime.*",
+    "matplotlib.*"
+]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 addopts = "--cov-config=pyproject.toml"
@@ -32,35 +204,3 @@ omit = [
     "*/build/*",
     "*/dist/*",
 ]
-
-[tool.mypy]
-python_version = 3.7
-files = "eta_utility"
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-no_implicit_optional = true
-warn_unused_ignores = true
-warn_unreachable = true
-show_column_numbers = true
-
-exclude = [
-    "^test/",
-]
-
-[[tool.mypy.overrides]]
-module = [
-    "fmpy.*",
-    "pandas.*",
-    "gym.*",
-    "opcua.*",
-    "pyModbusTCP.*",
-    "pyomo.*",
-    "keyboard.*",
-    "torch.nn.qat.dynamic",
-    "onnxruntime.*",
-    "importlib.*",
-    "matplotlib.*",
-    "pytest.*",
-    "lxml.*"
-]
-ignore_missing_imports = true

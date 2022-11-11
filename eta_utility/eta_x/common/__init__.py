@@ -1,5 +1,5 @@
+from .callbacks import CallbackEnvironment, merge_callbacks
 from .common import (
-    CallbackEnvironment,
     deserialize_net_arch,
     episode_name_string,
     episode_results_path,

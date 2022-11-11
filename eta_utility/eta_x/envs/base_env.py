@@ -210,7 +210,7 @@ class BaseEnv(Env, abc.ABC):
         """
         from eta_utility.eta_x import ConfigOptRun
 
-        path_root = pathlib.Path(path_settings["path_root"])
+        self.path_root = pathlib.Path(path_settings["path_root"])
         series_name = pathlib.Path(path_settings["path_series_results"]).stem
         path_scenarios = pathlib.Path(path_settings["path_scenarios"]) if "path_scenarios" in path_settings else None
 
@@ -218,7 +218,7 @@ class BaseEnv(Env, abc.ABC):
             series=series_name,
             name=run_name,
             description="",
-            path_root=path_root,
+            path_root=self.path_root,
             path_results=pathlib.Path(path_settings["path_results"]),
             path_scenarios=path_scenarios,
         )
@@ -415,7 +415,7 @@ class BaseEnv(Env, abc.ABC):
         :param action: Actions taken by the agent.
         :raise: RuntimeError, when the actions are not inside of the action space.
         """
-        if self.action_space.shape != action.shape:
+        if self.action_space.shape is not None and self.action_space.shape != action.shape:
             raise RuntimeError(
                 f"Agent action {action} (shape: {action.shape})"
                 f" does not correspond to shape of environment action space (shape: {self.action_space.shape})."
