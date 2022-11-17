@@ -399,13 +399,13 @@ class ConfigOptSettings:
     interact_with_env: bool = field(
         default=False, converter=converters.pipe(converters.default_if_none(False), bool)  # type: ignore
     )  # mypy currently does not recognize converters.default_if_none
-    #: How often to save the model during training (default: 1 - after every episode).
+    #: How often to save the model during training (default: 10 - after every ten episodes).
     save_model_every_x_episodes: int = field(
-        default=1, converter=converters.pipe(converters.default_if_none(1), int)  # type: ignore
+        default=10, converter=converters.pipe(converters.default_if_none(1), int)  # type: ignore
     )  # mypy currently does not recognize converters.default_if_none
-    #: How many episodes to pass between each render call (default: 1 - after every episode).
+    #: How many episodes to pass between each render call (default: 10 - after every ten episodes).
     plot_interval: int = field(
-        default=1, converter=converters.pipe(converters.default_if_none(1), int)  # type: ignore
+        default=10, converter=converters.pipe(converters.default_if_none(1), int)  # type: ignore
     )  # mypy currently does not recognize converters.default_if_none
 
     #: Duration of an episode in seconds (can be a float value).
@@ -554,7 +554,7 @@ class ConfigOptSettings:
 
 
 @define(frozen=True, kw_only=True)
-class ConfigOptRun:
+class ConfigOptRun:  # type: ignore  # MyPy does not understand the type of "description".
     """Configuration for an optimization run, including the series and run names descriptions and paths
     for the run.
     """
@@ -564,8 +564,8 @@ class ConfigOptRun:
     #: Name of an optimization run.
     name: str = field(validator=validators.instance_of(str))
     #: Description of an optimization run.
-    description: str = field(
-        converter=lambda s: "" if s is None else s,  # type: ignore # mypy does not support unnamed functions
+    description: str = field(  # type: ignore
+        converter=lambda s: "" if s is None else s,
         validator=validators.instance_of(str),
     )
     #: Root path of the framework run.

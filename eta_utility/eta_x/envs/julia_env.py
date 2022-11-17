@@ -7,13 +7,21 @@ import numpy as np
 
 from eta_utility import get_logger
 from eta_utility.eta_x.envs import BaseEnv
-from eta_utility.util_julia import import_jl_file
+from eta_utility.util_julia import check_julia_package
+
+if check_julia_package():
+    from julia import Main as Jl  # noqa: I900
+
+    from eta_utility.util_julia import import_jl_file
 
 if TYPE_CHECKING:
     from typing import Any, Callable
 
     from eta_utility.eta_x import ConfigOptRun
     from eta_utility.type_hints import StepResult, TimeStep
+
+Jl.eval("using PyCall")
+jl_setattribute = Jl.eval("pyfunction(setfield!, PyAny, Symbol, PyAny)")
 
 log = get_logger("eta_x.envs")
 
@@ -158,9 +166,7 @@ class JuliaEnv(BaseEnv):
 
         :param mode: Rendering mode.
         """
-        from eta_utility.eta_x.common import episode_name_string
-
-        self.__jl.render(self._jlenv, mode, episode_name_string(self.run_name, self.n_episodes, self.env_id))
+        self.__jl.render(self._jlenv, mode)
 
     def seed(self, seed: int | None = None) -> tuple[np.random.Generator, int]:
         """Set random seed for the random generator of the environment
@@ -171,19 +177,34 @@ class JuliaEnv(BaseEnv):
         generator, seed = super().seed(seed)
 
         # Make sure not to seed the julia environment before it exists.
-        if hasattr(self, "JuliaEnv__jl"):
-            self.__jl.seed(self._jlenv)
+        if hasattr(self, "_JuliaEnv__jl"):
+            self.__jl.seed_b(self._jlenv, seed)
 
         return generator, seed
 
-    def __getattr__(self, item: str) -> Any:
+    def __getattr__(self, name: str) -> Any:
+        # Return the item if it is set on the python object
         try:
-            return getattr(self._jlenv, item)
-        except Exception as e:
-            raise AttributeError(f"Could not get attribute from Julia environment: {item}; {e}.")
+            return super().__getattribute__(name)
+        except AttributeError as e:
+            err = e
 
-    def __setattr__(self, item: str, value: Any) -> None:
-        try:
-            return setattr(self._jlenv, item, value)
-        except Exception as e:
-            raise AttributeError(f"Could not set attribute in Julia environment: {item}; {e}.")
+        # If the item isn't set on the python object, check whether _jlenv exists and has the item
+        if "_jlenv" in self.__dict__:
+            try:
+                return getattr(self._jlenv, name)
+            except Exception:
+                raise AttributeError(f"Could not get {name} from python or julia environment.")
+
+        raise err
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        # Try to set on _jlenv
+        if "_jlenv" in self.__dict__ and hasattr(self._jlenv, name):
+            try:
+                jl_setattribute(self._jlenv, name, value)
+            except BaseException as e:
+                raise AttributeError(f"Could not set {name} on julia environment: {e}")
+
+        # Otherwise set on the python environment.
+        super().__setattr__(name, value)

@@ -355,10 +355,10 @@ def is_env_closed(env: BaseEnv | VecEnv | VecNormalize | None) -> bool:
         return True
 
     if hasattr(env, "closed"):
-        return env.closed  # type: ignore # hasattr not recognized correctly
+        return env.closed
 
     if hasattr(env, "venv"):
-        return is_env_closed(env.venv)  # type: ignore # hasattr not recognized correctly
+        return is_env_closed(env.venv)
 
     return False
 

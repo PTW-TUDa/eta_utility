@@ -43,7 +43,7 @@ mutable struct Solution{T}
     rank::Int
     crowdingdistance::Float64
 
-    function Solution(event_params, variable_params, max_value, empty)
+    function Solution(event_params::Int, variable_params::VariableParameters, max_value, empty::Bool)
         # Create full or empty events
         events = empty ? Vector{Int}(undef, event_params) : collect(UnitRange(0, event_params-1))
 
@@ -55,6 +55,11 @@ mutable struct Solution{T}
         reward = Float64[max_value]
 
         new{T}(events, variables, reward, Int[], 0, typemax(Int), 0.0)
+    end
+
+    function Solution(events::Vector{Int}, variables, max_value::Float64)
+        T = eltype(variables)
+        new{T}(events, variables, Float64[max_value], Int[], 0, typemax(Int), 0.0)
     end
 end
 
@@ -299,6 +304,8 @@ function py_store_reward(generation::Generation, rewards::PyArray)
     end
 end
 
+load_generation(events::PyArray, variables::PyArray, max_value::Float64) =
+    collect(Solution(events[i, :], variables[i, :], max_value) for i in 1:size(events)[1])
 
 # ----- Algorithm
 mutable struct Algorithm
@@ -347,6 +354,15 @@ Seed the random number generator of the algorithm.
 """
 seed!(algo::Algorithm, seed) = seed!(algo.rng, seed)
 
+"""Create a new generation of solutions. The generation can contain all empty solutions
+or (partially) initialized solutions.
+
+:param empty: Set this to false if the events chromosome should be initialized with a range of numbers.
+:return: A generation of Solution objects.
+"""
+create_generation(algo::Algorithm, empty) =
+    collect(Solution(algo.events, algo.variable_params, algo.max_reward, empty) for _ in 1:algo.population)
+
 """
 Check whether the solution has been seen before (hash is in seen solutions).
 
@@ -383,6 +399,28 @@ function initialize_rnd!(algo::Algorithm, generation::Generation)
                 break
             end
             randomize!(algo.rng, solution, algo.variable_params)
+            retries += 1
+        end
+
+        if retries >= algo.maxretries
+            error("There were too many retries due to equivalent solutions.")
+        end
+    end
+    return retries
+end
+
+function initialize_rnd!(algo::Algorithm, generation::Generation, solutions::Vector{Int})
+    # Make sure that each of the new solutions is unique and has not been seen before.
+    @debug "Checking whether any solutions have been seen before."
+    retries = 0
+    for s in solutions
+        randomize!(algo.rng, generation[s], algo.variable_params)
+
+        while retries <= algo.maxretries
+            if !seensolution(algo, generation[s])
+                break
+            end
+            randomize!(algo.rng, generation[s], algo.variable_params)
             retries += 1
         end
 
@@ -668,15 +706,4 @@ function sort_crowding_distance(generation::Generation, generationparent::Genera
     sort!(fronts[frontlengths[end-1]:frontlengths[end]], by=x -> getsolution(x).crowdingdistance, rev=true)
     return fronts
 end
-
-
-"""Create a new generation of solutions. The generation can contain all empty solutions
-or (partially) initialized solutions.
-
-:param empty: Set this to false if the events chromosome should be initialized with a range of numbers.
-:return: A generation of Solution objects.
-"""
-create_generation(algo::Algorithm, empty) =
-    collect(Solution(algo.events, algo.variable_params, algo.max_reward, empty) for _ in 1:algo.population)
-
 end

@@ -23,8 +23,7 @@ class NoPolicy(policies.BasePolicy):
         raise NotImplementedError("'NoPolicy' should be used only, when predictions are calculated otherwise.")
 
     def _predict(self, observation: th.Tensor, deterministic: bool = False) -> th.Tensor:
-        """
-        Get the action according to the policy for a given observation.
+        """Get the action according to the policy for a given observation.
 
         Not implemented in NoPolicy.
 
@@ -33,3 +32,16 @@ class NoPolicy(policies.BasePolicy):
         :return: Taken action according to the policy.
         """
         raise NotImplementedError("'NoPolicy' should be used only, when predictions are calculated otherwise.")
+
+    # type ignored because mypy doesn't seem to think the following is equivalent to the super class...
+    def state_dict(  # type: ignore
+        self, *, destination: dict[str, Any] | None = None, prefix: str = "", keep_vars: bool = False
+    ) -> dict[str, Any]:
+        """Returns a dictionary containing a whole state of the module. The dictionary is empty in NoPolicy.
+
+        :param destination: If provided, the state will be updated into the dictionary and the same object returned.
+        :param prefix: Prefix added to parameter and buffer names when composing keys in state_dict.
+        :param keep_vars: Determine, which variables will be detached from torch.autograd.
+        :return: Dictionary with the module/policy state.
+        """
+        return {}
