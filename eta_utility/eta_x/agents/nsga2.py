@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from collections import deque
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -14,12 +15,13 @@ from stable_baselines3.common.vec_env import VecNormalize
 from eta_utility import get_logger
 from eta_utility.util_julia import check_julia_package
 
-# Import util_julia first to check if julia is available and raise a sensible error if it isn't.
 if check_julia_package():
-    from julia import Main  # noqa: I900
+    from julia import Main as Jl  # noqa: I900
     from julia.ju_extensions.Agents import Nsga2 as ju_NSGA2  # noqa: I900
 
 if TYPE_CHECKING:
+    import io
+    import pathlib
     from typing import Any, Callable
 
     import torch as th
@@ -28,6 +30,8 @@ if TYPE_CHECKING:
     from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
     from stable_baselines3.common.vec_env import VecEnv
 
+Jl.eval("using PyCall")
+Jl.eval("import ju_extensions.Agents.Nsga2")
 log = get_logger("eta_x.agents")
 
 
@@ -100,13 +104,13 @@ class Nsga2(BaseAlgorithm):
     :param population: Maximum number of parallel solutions (>= 2).
     :param mutations: Chance for mutations in existing solutions (between 0 and 1).
     :param crossovers: Chance for crossovers between solutions (between 0 and 1).
+    :param n_generations: Number of generations to run the algorithm for.
     :param max_cross_len: Maximum number of genes (as a proportion of total elements) to cross over between
         solutions (between 0 and 1) (default 1).
     :param max_retries: Maximum number of tries to find new values before the algorithm fails and returns.
         Using the default should usually be fine (default: 10000).
     :param sense: Determine whether the algorithm looks for minimal ("minimize") or maximal ("maximize")
         rewards (default: "minimize")
-    :param n_generations: Number of generations to run the algorithm for.
     :param tensorboard_log: the log location for tensorboard (if None, no logging).
     :param seed: Seed for the pseudo random generators.
     :param _init_setup_model: Determine whether model should be initialized during setup
@@ -119,19 +123,25 @@ class Nsga2(BaseAlgorithm):
         learning_rate: float | Schedule = 1.0,
         verbose: int = 2,
         *,
-        population: int,
-        mutations: float,
-        crossovers: float,
-        max_cross_len: float = 1,
-        max_retries: int = 10000,
-        sense: str = "minimize",
+        population: int | None = None,
+        mutations: float | None = None,
+        crossovers: float | None = None,
         n_generations: int | None = None,
-        tensorboard_log: str | None = None,
+        max_cross_len: float = 1,
+        max_retries: int = 100000,
+        sense: str = "minimize",
         seed: int | None = None,
+        tensorboard_log: str | None = None,
         _init_setup_model: bool = True,
+        **kwargs: Any,
     ) -> None:
+        # Some types are incorrectly defined in the super class; this fixes it for this class and suppresses warnings
+        self.start_time: float | None  # type: ignore
+        self.lr_schedule: Callable
+        self.policy_class: type[BasePolicy]
+        self.policy: BasePolicy  # type: ignore
+
         # Set default values for superclass arguments
-        kwargs: dict[str, Any] = {}
         # Prior to version 1.6 stable_baselines3 requires the policy_base parameter.
         _sb3_versions = sb3_version.split(".")
         if int(_sb3_versions[0]) <= 1 and int(_sb3_versions[1]) < 6:
@@ -154,17 +164,11 @@ class Nsga2(BaseAlgorithm):
             ),
             **kwargs,
         )
+        if self.observation_space is not None and self.action_space is not None:
+            self.policy = self.policy_class(self.observation_space, self.action_space, **self.policy_kwargs)
+
         log.setLevel(int(verbose * 10))
 
-        # Check configuration of the algorithm for compatibility
-        if population < 2:
-            raise ValueError("The population size must be at least two.")
-        if not 0 <= mutations < 1:
-            raise ValueError("The mutation rate must be between 0 and 1.")
-        if not 0 <= crossovers < 0.5:
-            raise ValueError(
-                "The crossover rate must be between 0 and 0.5 (cannot cross more than half of population)."
-            )
         if not 0 <= max_cross_len <= 1:
             raise ValueError("The maximum crossover length must be between 0 and 1 (proportion of total length).")
         if self.env is None:
@@ -176,11 +180,11 @@ class Nsga2(BaseAlgorithm):
             raise ValueError(f"The optimization sense must be one of 'minimize' or 'maximize', got {sense}.")
 
         #: Maximum number of parallel solutions (>= 2).
-        self.population: int = population
+        self.population: int | None = population
         #: Chance for mutations in existing solutions (between 0 and 1).
-        self.mutations: float = mutations
+        self.mutations: float | None = mutations
         #: Chance for crossovers between solutions (between 0 and 1).
-        self.crossovers: float = crossovers
+        self.crossovers: float | None = crossovers
         #: Maximum number of genes (as a proportion of total elements) to cross over between solutions
         #: (between 0 and 1) (default 1).
         self.max_cross_len: float = max_cross_len
@@ -209,36 +213,37 @@ class Nsga2(BaseAlgorithm):
         self._current_learning_rate: float = 1.0
 
         #: List of solutions which have been seen before (avoids duplicate evaluation of equivalent solutions.
-        self.seen_solutions: np.ndarray = np.empty(0, dtype=np.uint64, order="F")
+        self.seen_solutions: int = 0
         #: Total number of retries needed during evolution to generate unique solutions.
         self.total_retries: int = 0
         #: List of current minimal values for all parts of the reward
         self.current_minima: np.ndarray = np.full(1, self._max_value, dtype=np.float64, order="F")
+
+        #: Buffer for actions
+        self.ep_actions_buffer: deque = deque(maxlen=100)
+        #: Buffer for rewards
+        self.ep_reward_buffer: deque = deque(maxlen=100)
 
         self._setup_lr_schedule()
         self._update_learning_rate()
 
         # Initialize and parametrize the julia functions.
         self.__jl_agent: _jlwrapper
-        Main.eval("import ju_extensions.Agents.Nsga2")
-        self._jl_Algorithm = Main.eval(
+        self._jl_Algorithm = Jl.eval(
             "pyfunctionret("
             "Nsga2.Algorithm, Any, Int, Float64, Float64, Int, Int, Int, "
             "Nsga2.VariableParameters, Float64, String, UInt64"
             ")"
         )
-        self._create_generation = Main.eval("pyfunctionret(Nsga2.create_generation, Any, PyAny, Bool)")
-        self._initialize_rnd = Main.eval("pyfunctionret(Nsga2.initialize_rnd!, Int, PyAny, PyAny)")
-        self._evolve = Main.eval("pyfunctionret(Nsga2.evolve!, Int, PyAny, PyAny, PyAny, Float64)")
-        self._evaluate_solutions = Main.eval(
+        self._jl_create_generation = Jl.eval("pyfunctionret(Nsga2.create_generation, Any, PyAny, Bool)")
+        self._jl_initialize_rnd = Jl.eval("pyfunctionret(Nsga2.initialize_rnd!, Int, PyAny, PyAny)")
+        self._jl_reinitialize_rnd = Jl.eval("pyfunctionret(Nsga2.initialize_rnd!, Int, PyAny, PyAny, Vector{Int})")
+        self._jl_evolve = Jl.eval("pyfunctionret(Nsga2.evolve!, Int, PyAny, PyAny, PyAny, Float64)")
+        self._jl_evaluate_solutions = Jl.eval(
             "pyfunctionret(" "Nsga2.evaluate!, Tuple{Vector{Float64}, Int}, PyAny, PyAny, PyAny, PyAny" ")"
         )
-        self._store_reward = Main.eval("pyfunctionret(Nsga2.py_store_reward, nothing, PyAny, PyArray)")
-        self._get_actions = Main.eval("pyfunctionret(Nsga2.py_actions, PyObject, PyAny)")
-
-        # Some types are incorrectly defined in the super class; this fixes it for this class and suppresses warnings
-        self.start_time: float | None  # type: ignore
-        self.lr_schedule: Callable
+        self._jl_store_reward = Jl.eval("pyfunctionret(Nsga2.py_store_reward, nothing, PyAny, PyArray)")
+        self._jl_get_actions = Jl.eval("pyfunctionret(Nsga2.py_actions, PyObject, PyAny)")
 
         if _init_setup_model:
             self._setup_model()
@@ -287,19 +292,7 @@ class Nsga2(BaseAlgorithm):
 
         return event_params, variable_params
 
-    def _setup_model(self) -> None:
-        """Set up the model by taking values from the supplied action space and initializing the first two parent
-        generations.
-
-        TODO: Correctly initialize the julia agent when loading the model.
-
-        """
-        log.debug("Starting agent initialization.")
-        # Set up learning rate and random seeding for all sub modules.
-        self._setup_lr_schedule()
-        # Read the event and variable parameters from the action space.
-        self.event_params, self.variable_params = self._event_and_variable_params()
-
+    def _setup_jl_agent(self) -> None:
         self.__jl_agent = self._jl_Algorithm(
             self.population,
             self.mutations,
@@ -313,6 +306,18 @@ class Nsga2(BaseAlgorithm):
             self.seed,
         )
 
+    def _setup_model(self) -> None:
+        """Set up the model by taking values from the supplied action space and initializing the first two parent
+        generations.
+        """
+        log.debug("Starting agent initialization.")
+        # Set up learning rate and random seeding for all submodules.
+        self._setup_lr_schedule()
+        # Read the event and variable parameters from the action space.
+        self.event_params, self.variable_params = self._event_and_variable_params()
+
+        self._setup_jl_agent()
+
         self.set_random_seed(self.seed)
 
         log.debug("Successfully initialized NSGA 2 agent.")
@@ -325,6 +330,17 @@ class Nsga2(BaseAlgorithm):
         :param optimizers: List of torch optimizers (not used by Nsga2).
         """
         self._current_learning_rate = self.lr_schedule(self._current_progress_remaining)
+
+    def _check_learn_config(self) -> None:
+        # Check configuration of the algorithm for compatibility
+        if self.population is None or self.population < 2:
+            raise ValueError("The population size must be at least two.")
+        if self.mutations is None or (not 0 <= self.mutations < 1):
+            raise ValueError("The mutation rate must be between 0 and 1.")
+        if self.crossovers is None or (not 0 <= self.crossovers < 0.5):
+            raise ValueError(
+                "The crossover rate must be between 0 and 0.5 (cannot cross more than half of population)."
+            )
 
     def learn(
         self,
@@ -340,7 +356,10 @@ class Nsga2(BaseAlgorithm):
         progress_bar: bool = False,
     ) -> Nsga2:
         """
-        Return a trained model.
+        Return a trained model. The environment which the agent is training on should return an info dictionary when
+        a solution is invalid. The info dictionary should contain a 'valid' key which is set to false in that case.
+        If there are too many invalid solutions (more than half of the population), the agent will try to
+        re-initialize these solutions until there is a sufficient number of valid solutions.
 
         :param total_timesteps: The total number of samples (env steps) to train on
         :param callback: callback(s) called at every step with state of the algorithm.
@@ -351,8 +370,13 @@ class Nsga2(BaseAlgorithm):
         :param n_eval_episodes: Number of episode to evaluate the agent
         :param eval_log_path: Path to a folder where the evaluations will be saved
         :param reset_num_timesteps: whether to reset the current timestep number (used in logging)
+        :param progress_bar: Parameter to show progress bar, used by stable_baselines (currently unused!)
         :return: the trained model
         """
+        self._check_learn_config()
+        assert self.crossovers is not None, "Set the crossover rate before starting to learn."
+        assert self.mutations is not None, "Set the mutation rate before starting to learn."
+
         if self.n_generations is not None and total_timesteps > self.n_generations:
             total_timesteps = self.n_generations
 
@@ -381,12 +405,13 @@ class Nsga2(BaseAlgorithm):
         eval_time = iteration_time
         sorting_time = iteration_time
         retries = 0
+        invalid_sol = 0
 
         # Initialize the parent generation in case it is empty (usually when the algorithm is first initialized)
-        if len(self.generation_parent) == 0:
+        if Jl.length(self.generation_parent) == 0:
             log.debug("Initializing parent generation.")
-            self.generation_parent = self._create_generation(self.__jl_agent, False)
-            retries = self._initialize_rnd(self.__jl_agent, self.generation_parent)
+            self.generation_parent = self._jl_create_generation(self.__jl_agent, False)
+            retries = self._jl_initialize_rnd(self.__jl_agent, self.generation_parent)
             evolve_time = time.time()
             self.total_retries += retries
 
@@ -430,20 +455,21 @@ class Nsga2(BaseAlgorithm):
 
             # Create empty offspring generation
             log.debug("Initializing offspring generation and performing evolution.")
-            self.generation_offspr = self._create_generation(self.__jl_agent, True)
-            retries = self._evolve(
+            self.generation_offspr = self._jl_create_generation(self.__jl_agent, True)
+            retries = self._jl_evolve(
                 self.__jl_agent, self.generation_offspr, self.generation_parent, self._current_learning_rate
             )
             evolve_time = time.time()
             self.total_retries += retries
 
             log.debug("Evaluating offspring generation.")
-            self.generation_offspr, invalid_sol = self._evaluate(self.generation_offspr)
+            self.generation_offspr, retries = self._evaluate(self.generation_offspr)
+            self.total_retries += retries
             eval_time = time.time()
 
             log.debug("Performing non-dominated sort with parent and offspring")
-            new_generation_parent = self._create_generation(self.__jl_agent, True)
-            self.current_minima, self.seen_solutions = self._evaluate_solutions(
+            new_generation_parent = self._jl_create_generation(self.__jl_agent, True)
+            self.current_minima, self.seen_solutions = self._jl_evaluate_solutions(
                 self.__jl_agent, self.generation_offspr, self.generation_parent, new_generation_parent
             )
             self.generation_parent = new_generation_parent
@@ -466,22 +492,55 @@ class Nsga2(BaseAlgorithm):
         :return: Sequence of evaluated solutions
         """
         assert self.env is not None, "The agent needs to know the environment to evaluate solutions."
+        assert self.population is not None, "The agent needs to know the population size to evaluate solutions."
 
-        actions = self._get_actions(generation)
-        observations, rewards, dones, infos = self.env.step(actions)
+        rewards = None
+        retries = 0
+        while retries < self.max_retries:
+            observations, rewards, dones, infos = self.env.step(self._get_actions(generation))
+            self._update_info_buffer(infos, dones)
 
-        # Ensure that there are always multiple rewards for every solution.
-        if len(rewards.shape) == 1:
-            rewards = np.reshape(rewards, (len(rewards), 1), order="F")
+            # Ensure that there are always multiple rewards for every solution.
+            if len(rewards.shape) == 1:
+                rewards = np.reshape(rewards, (len(rewards), 1), order="F")
 
-        solution_invalid = set()
-        for idx, _ in enumerate(rewards):
-            if "valid" in infos[idx] and infos[idx]["valid"] is False:
-                rewards[idx] = np.full((len(rewards[idx]),), self._max_value, dtype=np.float64)
-                solution_invalid.add(idx)
+            solution_invalid = []
+            for idx, _ in enumerate(rewards):
+                if "valid" in infos[idx] and infos[idx]["valid"] is False:
+                    rewards[idx] = np.full((len(rewards[idx]),), self._max_value, dtype=np.float64)
+                    solution_invalid.append(idx + 1)
 
+            if len(solution_invalid) < self.population / 2:
+                break
+            else:
+                retries += len(solution_invalid)
+                retries += self._jl_reinitialize_rnd(self.__jl_agent, generation, solution_invalid)
+                log.info(
+                    f"Randomized the generation again because "
+                    f"there were too many invalid solutions: {len(solution_invalid)}; retries: {retries}"
+                )
+
+        assert rewards is not None
         self._store_reward(generation, rewards)
-        return generation, len(solution_invalid)
+        return generation, retries
+
+    def _get_actions(self, generation: _jlwrapper) -> np.ndarray:
+        """Convert and retrieve actions from the julia agent. This also stores the actions in self.ep_actions_buffer.
+
+        :param generation: Generation object to get actions from.
+        :return: Numpy array of the actions.
+        """
+        self.ep_actions_buffer.append(self._jl_get_actions(generation))
+        return self.ep_actions_buffer[-1]
+
+    def _store_reward(self, generation: _jlwrapper, rewards: np.ndarray) -> None:
+        """Store reward in the generation object and in self.ep_reward_buffer.
+
+        :param generation: Generation object to store rewards in.
+        :param rewards: Array of rewards to store.
+        """
+        self.ep_reward_buffer.append(rewards)
+        self._jl_store_reward(generation, rewards)
 
     def set_random_seed(self, seed: int | None = None) -> None:
         """
@@ -505,3 +564,70 @@ class Nsga2(BaseAlgorithm):
             self.env.seed(seed)
         if self.eval_env is not None:
             self.eval_env.seed(seed)
+
+    def _excluded_save_params(self) -> list[str]:
+        """
+        Returns the names of the parameters that should be excluded from being
+        saved by pickling.
+
+        :return: List of parameters that should be excluded from being saved with pickle.
+        """
+
+        excluded_params = super()._excluded_save_params()
+        excluded_params.extend(
+            [
+                "_Nsga2__jl_agent",
+                "_jl_Algorithm",
+                "_jl_create_generation",
+                "_jl_initialize_rnd",
+                "_jl_reinitialize_rnd",
+                "_jl_evolve",
+                "_jl_evaluate_solutions",
+                "_jl_store_reward",
+                "_jl_get_actions",
+                "generation_parent",
+                "generation_offspr",
+            ]
+        )
+        return excluded_params
+
+    @classmethod
+    def load(
+        cls: type[Nsga2],
+        path: str | pathlib.Path | io.BufferedIOBase,
+        env: GymEnv | None = None,
+        device: th.device | str = "auto",
+        custom_objects: dict[str, Any] | None = None,
+        print_system_info: bool = False,
+        force_reset: bool = True,
+        **kwargs: Any,
+    ) -> Nsga2:
+        """
+        Load the model from a zip-file.
+        Warning: ``load`` re-creates the model from scratch, it does not update it in-place!
+        For an in-place load use ``set_parameters`` instead.
+
+        :param path: path to the file (or a file-like) where to load the agent from
+        :param env: the new environment to run the loaded model on
+            (can be None if you only need prediction from a trained model) has priority over any saved environment
+        :param device: Device on which the code should run.
+        :param custom_objects: Dictionary of objects to replace upon loading. If a variable is present in
+            this dictionary as a key, it will not be deserialized and the corresponding item will be used instead.
+        :param print_system_info: Whether to print system info from the saved model and the current system info
+            (useful to debug loading issues)
+        :param force_reset: Force call to ``reset()`` before training to avoid unexpected behavior.
+        :param kwargs: extra arguments to change the model when loading
+        :return: new model instance with loaded parameters
+        """
+        model: Nsga2 = super().load(path, env, device, custom_objects, print_system_info, force_reset, **kwargs)
+
+        model._setup_jl_agent()
+        model._load_generation()
+
+        return model
+
+    def _load_generation(self) -> None:
+        setup_generation = Jl.eval("pyfunctionret(Nsga2.load_generation, Any, PyArray, PyArray, Float64)")
+        self.generation_parent = setup_generation(
+            self.ep_actions_buffer[-1]["events"], self.ep_actions_buffer[-1]["variables"], self._max_value
+        )

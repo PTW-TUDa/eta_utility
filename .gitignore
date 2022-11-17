@@ -10,6 +10,7 @@
 
 # Development environment
 .idea/
+.fleet/
 .vscode/
 *.code-workspace
 

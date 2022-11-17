@@ -248,8 +248,6 @@ class MPCBasic(BaseAlgorithm):
     ) -> MPCBasic:
         """The MPC approach cannot learn a new model. Specify the model attribute as a pyomo Concrete model instead,
         to use the prediction function of this agent.
-        :param kwargs:
-
         """
         raise NotImplementedError("The MPC_simple approach does not need to learn a model.")
 
@@ -275,17 +273,3 @@ class MPCBasic(BaseAlgorithm):
     ) -> MPCBasic:
         """Loading a model is currently not implemented for the MPC agent."""
         raise NotImplementedError("The MPC approach cannot load a model.")
-
-    def get_parameter_list(self) -> list:
-        """
-        Get tensorflow Variables of model's parameters.
-
-        This includes all variables necessary for continuing training (saving / loading).
-
-        :return: List of tensorflow Variables.
-        """
-        pass
-
-    def _get_pretrain_placeholders(self) -> None:
-        """Pretaining is not implemented for the MPC agent."""
-        raise NotImplementedError("The MILP Optimizer does not need to be pre-trained.")
