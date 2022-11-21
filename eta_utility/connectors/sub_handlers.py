@@ -202,6 +202,10 @@ class _CSVFileDB(AbstractContextManager):
         #: Length of the line terminator in bytes (for finding file positions).
         self._len_lineterminator: int = len(bytes(self.dialect.lineterminator, "UTF-8"))
 
+        self.check_file(exclusive_creation=False)
+
+        self.check_valid_csv()
+
     def __enter__(self) -> _CSVFileDB:
         """Enter the context managed file database."""
         self._open_file()
@@ -214,25 +218,16 @@ class _CSVFileDB(AbstractContextManager):
         :param exclusive_creation: Set to True, to request exclusive creation of a new file. If set to False, an
             existing file may be updated.
         """
-        # Try opening or creating the specified file.
-        try:
-            if exclusive_creation:
-                raise FileNotFoundError
+        self.check_file(exclusive_creation)
+        self.check_valid_csv()
 
-            self._file = self.filepath.open("r+t", newline="", encoding="UTF-8")
-            log.debug(f"Opened existing '.csv' file for updating: {self.filepath}.")
-        except FileNotFoundError:
-            try:
-                self._file = self.filepath.open("x+t", newline="", encoding="UTF-8")
-                log.debug(f"Created a new '.csv' file: {self.filepath}.")
-            except OSError:
-                raise OSError(f"Unable to read or write the requested '.csv' file: {self.filepath}.")
+        assert self._file is not None
+        # Go to the end to get ready for updating/extending the file.
+        self._file.seek(0, 2)
 
-        # Check whether the file is accessible in the required ways.
-        if self._file is None or not self._file.readable() or not self._file.seekable() or not self._file.writable():
-            raise ValueError("Output file for writing to '.csv' is not readable or writable.")
-        else:
-            log.debug("Successfully verified full '.csv' file access")
+    def check_valid_csv(self) -> None:
+        """Check whether the file is a valid csv file."""
+        assert self._file is not None, "Open a file before calling check_valid_csv."
 
         # If the file is not empty, go to the beginning and try to figure out, whether existing data could be extended.
         if self._file.readline() in "":
@@ -267,12 +262,28 @@ class _CSVFileDB(AbstractContextManager):
             self._file.seek(0)
             self._header = list(re.sub(r"\s+", "", self._file.readline()).split(self.dialect.delimiter))
             self._endof_header = self._file.tell() - self._len_lineterminator
-
         if not valid:
             raise ValueError(f"Output file for writing to '.csv' is not a valid '.csv' file: {self.filepath}.")
 
-        # Go to the end to get ready for updating/extending the file.
-        self._file.seek(0, 2)
+    def check_file(self, exclusive_creation: bool = False) -> None:
+        # Try opening or creating the specified file.
+        try:
+            if exclusive_creation:
+                raise FileNotFoundError
+
+            self._file = self.filepath.open("r+t", newline="", encoding="UTF-8")
+            log.debug(f"Opened existing '.csv' file for updating: {self.filepath}.")
+        except FileNotFoundError:
+            try:
+                self._file = self.filepath.open("x+t", newline="", encoding="UTF-8")
+                log.debug(f"Created a new '.csv' file: {self.filepath}.")
+            except OSError:
+                raise OSError(f"Unable to read or write the requested '.csv' file: {self.filepath}.")
+        # Check whether the file is accessible in the required ways.
+        if self._file is None or not self._file.readable() or not self._file.seekable() or not self._file.writable():
+            raise ValueError("Output file for writing to '.csv' is not readable or writable.")
+        else:
+            log.debug("Successfully verified full '.csv' file access")
 
     def _write_file(self, field_list: list[str], insert_pos: int | None = None) -> int:
         """Write data to the file.
