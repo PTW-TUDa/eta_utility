@@ -1,3 +1,4 @@
+import logging
 import shutil
 
 import pytest
@@ -39,6 +40,7 @@ class TestOscillatorExample:
     def experiment_path(self):
         path = get_oscillator_path()
         yield path
+        logging.shutdown()
         shutil.rmtree(path / "results")
 
     def test_oscillator(self, experiment_path):

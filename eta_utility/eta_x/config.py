@@ -438,6 +438,11 @@ class ConfigOptSettings:
         on_setattr=_agent_defaults,
     )
 
+    #: Flag which is true if the log output should be written to a file
+    log_to_file: bool = field(
+        default=False, converter=converters.pipe(converters.default_if_none(False), bool)  # type: ignore
+    )
+
     def __attrs_post_init__(self) -> None:
         _fields = fields(ConfigOptSettings)
         _env_defaults(self, _fields.environment, self.environment)
@@ -515,6 +520,8 @@ class ConfigOptSettings:
             dikt, "interaction_env_specific", "interaction_environment_specific", fail=False, default=None
         )
 
+        log_to_file = settings.pop("log_to_file", False)
+
         # Log configuration values which were not recognized.
         for name in itertools.chain(settings, dikt):
             log.warning(
@@ -542,6 +549,7 @@ class ConfigOptSettings:
             environment=environment,
             agent=agent,
             interaction_env=interaction_env,
+            log_to_file=log_to_file,
         )
 
     def __getitem__(self, name: str) -> Any:
@@ -586,6 +594,8 @@ class ConfigOptRun:  # type: ignore  # MyPy does not understand the type of "des
     path_vec_normalize: pathlib.Path = field(init=False, converter=_path_converter)
     #: Path to the neural network architecture file.
     path_net_arch: pathlib.Path = field(init=False, converter=_path_converter)
+    #: Path to the log output file.
+    path_log_output: pathlib.Path = field(init=False, converter=_path_converter)
 
     # Information about the environments
     #: Version of the main environment.
@@ -614,6 +624,7 @@ class ConfigOptRun:  # type: ignore  # MyPy does not understand the type of "des
         object.__setattr__(self, "path_run_monitor", self.path_series_results / f"{self.name}_monitor.csv")
         object.__setattr__(self, "path_vec_normalize", self.path_series_results / "vec_normalize.pkl")
         object.__setattr__(self, "path_net_arch", self.path_series_results / "net_arch.txt")
+        object.__setattr__(self, "path_log_output", self.path_series_results / f"{self.name}_log_output.log")
 
     def create_results_folders(self) -> None:
         """Create the results folders for an optimization run (or check if they already exist)."""
@@ -662,6 +673,7 @@ class ConfigOptRun:  # type: ignore  # MyPy does not understand the type of "des
             "path_run_info": self.path_run_info,
             "path_run_monitor": self.path_run_monitor,
             "path_vec_normalize": self.path_vec_normalize,
+            "path_log_output": self.path_log_output,
         }
         if self.path_scenarios is not None:
             paths["path_scenarios"] = self.path_scenarios

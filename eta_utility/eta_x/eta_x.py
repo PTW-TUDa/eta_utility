@@ -20,6 +20,7 @@ from eta_utility.eta_x.common import (
     load_model,
     log_net_arch,
     log_run_info,
+    log_to_file,
     merge_callbacks,
     vectorize_environment,
 )
@@ -87,6 +88,9 @@ class ETAx:
             path_scenarios=self.config.path_scenarios,
         )
         self.config_run.create_results_folders()
+
+        # Add file handler to parent logger to log the terminal output
+        log_to_file(config=self.config, config_run=self.config_run)
 
         log.info("Run prepared successfully.")
 

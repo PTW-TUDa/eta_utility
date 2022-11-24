@@ -11,7 +11,7 @@ import torch as th
 from attrs import asdict
 from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor, VecNormalize
 
-from eta_utility import dict_get_any, get_logger
+from eta_utility import dict_get_any, get_logger, log_add_filehandler
 
 from . import processors
 from .policies import NoPolicy
@@ -207,6 +207,22 @@ def load_model(
         raise OSError(f"Model couldn't be loaded: {e.strerror}. Filename: {e.filename}") from e
 
     return model
+
+
+def log_to_file(config: ConfigOpt, config_run: ConfigOptRun) -> None:
+    """Log output in terminal to the run_info file.
+
+    :param config: Configuration to figure out the logging settings.
+    :param config_run: Configuration for this optimization run.
+    """
+
+    file_path = config_run.path_log_output
+
+    if config.settings.log_to_file:
+        try:
+            log_add_filehandler(filename=file_path)
+        except Exception:
+            log.error("Log file could not be created.")
 
 
 def log_run_info(config: ConfigOpt, config_run: ConfigOptRun) -> None:

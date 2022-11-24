@@ -9,6 +9,7 @@ from .common import (
     load_model,
     log_net_arch,
     log_run_info,
+    log_to_file,
     vectorize_environment,
 )
 from .extractors import CustomExtractor

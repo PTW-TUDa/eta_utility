@@ -15,7 +15,8 @@
         "n_episodes_play": 1,
         "n_environments": 1,
         "verbose": 2,
-        "seed": 123
+        "seed": 123,
+        "log_to_file": true
     },
     "environment_specific": {
         "scenario_time_begin": "2018-01-09 06:00",
