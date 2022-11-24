@@ -18,16 +18,18 @@ def main() -> None:
     experiment_learning(root_path)
 
 
-def experiment_conventional(root_path: pathlib.Path, overwrite: dict[str, Any] | None = None) -> None:
+def experiment_conventional(root_path: pathlib.Path, overwrite: dict[str, Any] | None = None) -> ETAx:
     """Perform a conventionally controlled experiment with the damped oscillator environment.
     This uses the damped_oscillator_conventional.json config file.
 
     :param root_path: Root path of the experiment.
     :param overwrite: Additional config values to overwrite values from JSON.
+    :return: The ETAx object containing the experiment
     """
     # --main--
     experiment = ETAx(root_path, "damped_oscillator_conventional", overwrite, relpath_config=".")
     experiment.play("conventional_series", "run1")
+    return experiment
     # --main--
 
 

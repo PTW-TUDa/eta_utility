@@ -10,7 +10,6 @@ from matplotlib import cm
 
 from eta_utility.eta_x.common import episode_results_path
 from eta_utility.eta_x.envs import BaseEnvSim, StateConfig, StateVar
-from eta_utility.util import csv_export
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -137,9 +136,8 @@ class DampedOscillatorEnv(BaseEnvSim):
         return observations
 
     def render(self, mode: str = "human") -> None:
-        csv_export(
-            path=episode_results_path(self.config_run.path_series_results, self.run_name, self.n_episodes, self.env_id),
-            data=self.state_log,
+        self.export_state_log(
+            path=episode_results_path(self.config_run.path_series_results, self.run_name, 1, self.env_id)
         )
 
         mpl.rcParams["font.family"] = "Times New Roman"

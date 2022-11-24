@@ -221,6 +221,7 @@ def csv_export(
     path: Path,
     data: Mapping[str, Any] | Sequence[Mapping[str, Any] | Any] | pd.DataFrame,
     names: Sequence[str] | None = None,
+    index: Sequence[int] | pd.DatetimeIndex | None = None,
     *,
     sep: str = ";",
     decimal: str = ".",
@@ -230,6 +231,7 @@ def csv_export(
     :param path: Directory path to export data.
     :param data: Data to be saved.
     :param names: Field names used when data is a Matrix without column names.
+    :param index: Optional sequence to set an index
     :param sep: Separator to use between the fields.
     :param decimal: Sign to use for decimal points.
     """
@@ -248,6 +250,7 @@ def csv_export(
             writer.writerow({key: replace_decimal_str(val, decimal) for key, val in data.items()})
 
     elif isinstance(data, pd.DataFrame):
+        data.index = index
         data.to_csv(path_or_buf=str(_path), sep=sep, decimal=decimal)
 
     elif isinstance(data, Sequence):
@@ -259,6 +262,7 @@ def csv_export(
             raise ValueError("Column names for csv export not specified.")
 
         _data = pd.DataFrame(data=data, columns=cols)
+        _data.index = index
         _data.to_csv(path_or_buf=str(_path), sep=sep, decimal=decimal)
 
     log.info(f"Exported CSV data to {_path}.")
