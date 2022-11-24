@@ -15,6 +15,7 @@ from .util import (
     ensure_timezone,
     get_logger,
     json_import,
+    log_add_filehandler,
     url_parse,
 )
 from .util_julia import install_julia
