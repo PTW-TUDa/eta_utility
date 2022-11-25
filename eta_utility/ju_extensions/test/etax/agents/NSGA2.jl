@@ -9,7 +9,8 @@ import ju_extensions.Agents.Nsga2
 
 const RAND_REPEAT = 100
 
-"""Create a list of variables parameter objects with the specified type and variable info.
+"""
+Create a list of variables parameter objects with the specified type and variable info.
 
 :param type: type of the variables to be created (int or float)
 :param min: Minimum value of the variables
@@ -17,9 +18,10 @@ const RAND_REPEAT = 100
 :param length: length of the list
 """
 create_varparams(type::String, min::Int, max::Int, length::Int) =
-    [py_nsga2._VariableParameters(type, min, max) for _=1:length]
+    [py_nsga2._VariableParameters(type, min, max) for _ in 1:length]
 
-"""Check if all events are present in the events array (should be consecurive numbers from 0 to length).
+"""
+Check if all events are present in the events array (should be consecurive numbers from 0 to length).
 
 :param length: Expected length of the array.
 :param events: Events array.
@@ -38,7 +40,7 @@ end
     solution = Nsga2.Solution(lenevents, create_varparams("int", 0, 3, lenvars), Inf, false)
 
     # Test whether all class attributes are initialized correctly
-    @test all(solution.events[i] == i-1 for i in 1:lenevents)
+    @test all(solution.events[i] == i - 1 for i in 1:lenevents)
     @test solution.reward == Float64[Inf]
     @test solution.dominatedby == 0
     @test solution.rank == typemax(Int)
@@ -61,10 +63,9 @@ end
 end
 
 @testset "RandomizeSolution, $i" for i in 1:RAND_REPEAT
-
     lenevents = 5
     lenvars = 5
-    varparams =  create_varparams("int", 0, 3, lenvars)
+    varparams = create_varparams("int", 0, 3, lenvars)
     solution = Nsga2.Solution(lenevents, varparams, Inf, false)
 
     previoushash = Nsga2.hash(solution)
@@ -73,7 +74,7 @@ end
 
     Nsga2.randomize!(TaskLocalRNG(), solution, varparams)
     # Make sure the events are not all in order anymore
-    @test !all(solution.events[i] == i-1 for i in 1:lenevents)
+    @test !all(solution.events[i] == i - 1 for i in 1:lenevents)
     # Check whether all numbers are still in the events
     @test begin
         presentnums = falses(lenevents)
@@ -188,7 +189,18 @@ end
     lenvars = 20
     population = 10
 
-    algo = Nsga2.Algorithm(population, 0.2, 0.2, 10, 10000, lenevents, create_varparams("int", 0, 3, lenvars), Inf, "minimize", 1502)
+    algo = Nsga2.Algorithm(
+        population,
+        0.2,
+        0.2,
+        10,
+        10000,
+        lenevents,
+        create_varparams("int", 0, 3, lenvars),
+        Inf,
+        "minimize",
+        1502,
+    )
 
     varparams = create_varparams("int", 0, 3, lenvars)
     generation1 = Nsga2.create_generation(algo, false)
@@ -204,7 +216,7 @@ end
     fronts, frontlengths = Nsga2.sort_nondominated(algo, generation1, generation2)
     @test length(fronts) == population * 2
     @test begin
-        presentnums = falses(population*2)
+        presentnums = falses(population * 2)
         for i in fronts
             presentnums[i] = true
         end
@@ -216,7 +228,7 @@ end
     fronts = Nsga2.sort_crowding_distance(generation1, generation2, fronts, frontlengths)
     @test length(fronts) == population * 2
     @test begin
-        presentnums = falses(population*2)
+        presentnums = falses(population * 2)
         for i in fronts
             presentnums[i] = true
         end
@@ -229,7 +241,18 @@ end
     lenvars = 20
     population = 10
 
-    algo = Nsga2.Algorithm(population, 0.2, 0.2, 10, 10000, lenevents, create_varparams("int", 0, 3, lenvars), Inf, "minimize", 1502)
+    algo = Nsga2.Algorithm(
+        population,
+        0.2,
+        0.2,
+        10,
+        10000,
+        lenevents,
+        create_varparams("int", 0, 3, lenvars),
+        Inf,
+        "minimize",
+        1502,
+    )
 
     varparams = create_varparams("int", 0, 3, lenvars)
     generation1 = Nsga2.create_generation(algo, false)
@@ -240,12 +263,12 @@ end
         Nsga2.randomize!(TaskLocalRNG(), generation2[idx], varparams)
 
         generation1[idx].reward = [idx]
-        generation2[idx].reward = [idx+length(generation1)]
+        generation2[idx].reward = [idx + length(generation1)]
     end
     fronts, frontlengths = Nsga2.sort_nondominated(algo, generation1, generation2)
     @test length(fronts) == population * 2
     @test begin
-        presentnums = falses(population*2)
+        presentnums = falses(population * 2)
         for i in fronts
             presentnums[i] = true
         end
@@ -257,7 +280,7 @@ end
     fronts = Nsga2.sort_crowding_distance(generation1, generation2, fronts, frontlengths)
     @test length(fronts) == population * 2
     @test begin
-        presentnums = falses(population*2)
+        presentnums = falses(population * 2)
         for i in fronts
             presentnums[i] = true
         end
