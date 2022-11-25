@@ -11,9 +11,7 @@ export Algorithm, initialize_rnd!, evolve!, evaluate!, create_generation, py_act
 
 const np = PyNULL()
 
-function __init__()
-    copy!(np, pyimport("numpy"))
-end
+__init__() = copy!(np, pyimport("numpy"))
 
 # ----- Types
 """
@@ -27,7 +25,8 @@ Parameters to describe the properties of many variables.
 VariableParameters = Vector{PyObject}
 
 # ----- Solution
-"""Solution object which contains the events and variables used by the algorithm.
+"""
+Solution object which contains the events and variables used by the algorithm.
 
 :param event_params: Length of the events vector.
 :param variable_params: Parameters for the variables vector.
@@ -45,7 +44,7 @@ mutable struct Solution{T}
 
     function Solution(event_params::Int, variable_params::VariableParameters, max_value, empty::Bool)
         # Create full or empty events
-        events = empty ? Vector{Int}(undef, event_params) : collect(UnitRange(0, event_params-1))
+        events = empty ? Vector{Int}(undef, event_params) : collect(UnitRange(0, event_params - 1))
 
         # Check variables type and create corresponding array
         T = "float" in (var.dtype for var in variable_params) ? Float64 : Int
@@ -73,7 +72,8 @@ hash(solution::Solution{T}) where {T} = begin
     hash(Actions(solution))
 end
 
-"""Define an Iterator and item getter for the actions array of the Solution object.
+"""
+Define an Iterator and item getter for the actions array of the Solution object.
 """
 struct Actions{T}
     lenvars::UInt
@@ -87,7 +87,7 @@ struct Actions{T}
             length(solution.events),
             length(solution.variables) + length(solution.events),
             T,
-            solution
+            solution,
         )
     end
 end
@@ -97,7 +97,7 @@ function getindex(actions::Actions{T}, i)::T where {T}
     if i <= actions.lenevents
         return actions.solution.events[i]
     else
-        return actions.solution.variables[i - actions.lenevents]
+        return actions.solution.variables[i-actions.lenevents]
     end
 end
 
@@ -117,9 +117,8 @@ function iterate(actions::Actions{T}, state)::Union{Tuple{T, Int64}, Nothing} wh
     if !(firstindex(actions) <= state <= lastindex(actions))
         return nothing
     end
-    return actions[state], state+1
+    return actions[state], state + 1
 end
-
 
 """
 Create and return the hash of an Actions object.
@@ -163,7 +162,8 @@ function randomize!(rng::AbstractRNG, solution::Solution, variable_params::Varia
     end
 end
 
-"""Split the probability between the events and variables. This is done by getting a random
+"""
+Split the probability between the events and variables. This is done by getting a random
 distribution value, which is then used to calculate the mutation rate for each of the two chromosomes.
 The function makes sure, that there is always at least one gene being changed, if one of the two
 chromosomes is mutated or crossed over according to the random distribution in combination
@@ -207,7 +207,13 @@ Mutate values of the chromosomes. Returns a new genetic solution and does not mo
 :param probability: Mutation probability.
 :param variable_params: Paramters for variable mutation.
 """
-function mutate!(solution::Solution, parent::Solution, rng::AbstractRNG, probability, variable_params::VariableParameters)
+function mutate!(
+    solution::Solution,
+    parent::Solution,
+    rng::AbstractRNG,
+    probability,
+    variable_params::VariableParameters,
+)
     # Probability can be understood as a fraction of the solution that will be changed
     nevents = length(solution.events)
     nvariables = length(solution.variables)
@@ -239,7 +245,6 @@ function mutate!(solution::Solution, parent::Solution, rng::AbstractRNG, probabi
     end
 end
 
-
 """
 Cross the solution with another solution. Returns a new genetic solution and does not modify the
 current solution.
@@ -256,7 +261,7 @@ function crossover!(solution::Solution, other::Solution, rng::AbstractRNG, proba
     rateevents, ratevariables = distribute_rates(rng, nevents, nvariables, probability)
 
     # Cross over the events chromosome
-    len = floor(Int, min(nevents*rateevents*2, maxcrosslen))     # length of the crossover section
+    len = floor(Int, min(nevents * rateevents * 2, maxcrosslen))     # length of the crossover section
     start = floor(Int, rand(rng, 1:(nevents-len)))     # starting index of the crossover section
 
     previous_solutionevents = copy(solution.events)
@@ -265,7 +270,7 @@ function crossover!(solution::Solution, other::Solution, rng::AbstractRNG, proba
     # Insert all elements that are not in the crossover section
     idx = 1
     for event in previous_solutionevents
-        if start <= idx < start+len
+        if start <= idx < start + len
             idx = start + len
         end
 
@@ -276,7 +281,7 @@ function crossover!(solution::Solution, other::Solution, rng::AbstractRNG, proba
     end
 
     # Cross over the variables chromosome
-    len = floor(Int, min(nvariables*ratevariables, maxcrosslen))     # length of the crossover section
+    len = floor(Int, min(nvariables * ratevariables, maxcrosslen))     # length of the crossover section
     start = floor(Int, rand(rng, 1:(nvariables-len)))     # starting index of the crossover section
 
     solution.variables[start:start+len-1] = other.variables[start:start+len-1]
@@ -287,22 +292,21 @@ Generation = AbstractVector{Solution{T}} where {T}
 
 function py_actions(generation::Generation)
     solution = generation[1]
-    var_dtype = typeof(solution.variables[1])<:AbstractFloat ? np.float64 : np.int64
+    var_dtype = typeof(solution.variables[1]) <: AbstractFloat ? np.float64 : np.int64
 
     dtype = pycall(
         np.dtype,
         PyObject,
-        [("events", (np.int64, length(solution.events))), ("variables", (var_dtype, length(solution.variables)))]
+        [("events", (np.int64, length(solution.events))), ("variables", (var_dtype, length(solution.variables)))],
     )
 
     @pycall np.core.records.fromrecords([(s.events, s.variables) for s in generation]; dtype=dtype)::PyObject
 end
 
-function py_store_reward(generation::Generation, rewards::PyArray)
+py_store_reward(generation::Generation, rewards::PyArray) =
     for i in eachindex(generation)
         generation[i].reward::Vector{Float64} = rewards[i, :]
     end
-end
 
 load_generation(events::PyArray, variables::PyArray, max_value::Float64) =
     collect(Solution(events[i, :], variables[i, :], max_value) for i in 1:size(events)[1])
@@ -324,7 +328,18 @@ mutable struct Algorithm
 
     seensolutions::Vector{UInt64}
     currentminima::Vector{Float64}
-    function Algorithm(population, mutations, crossovers, maxcrosslen, maxretries, events, variable_params, max_reward, sense, seed)
+    function Algorithm(
+        population,
+        mutations,
+        crossovers,
+        maxcrosslen,
+        maxretries,
+        events,
+        variable_params,
+        max_reward,
+        sense,
+        seed,
+    )
         rng = Xoshiro()
         seed!(rng, seed)
 
@@ -354,7 +369,8 @@ Seed the random number generator of the algorithm.
 """
 seed!(algo::Algorithm, seed) = seed!(algo.rng, seed)
 
-"""Create a new generation of solutions. The generation can contain all empty solutions
+"""
+Create a new generation of solutions. The generation can contain all empty solutions
 or (partially) initialized solutions.
 
 :param empty: Set this to false if the events chromosome should be initialized with a range of numbers.
@@ -581,12 +597,8 @@ function sort_nondominated(algo::Algorithm, generation::Generation, generationpa
     length_generation = length(generation)
     length_population::Int = length_generation * 2
     # Determine comparison functions for reward evaluation.
-    function smaller(sol1, sol2)
-        all(sol1.reward .<= sol2.reward) && any(sol1.reward .< sol2.reward)
-    end
-    function greater(sol1, sol2)
-        all(sol1.reward .>= sol2.reward) && any(sol1.reward .> sol2.reward)
-    end
+    smaller(sol1, sol2) = all(sol1.reward .<= sol2.reward) && any(sol1.reward .< sol2.reward)
+    greater(sol1, sol2) = all(sol1.reward .>= sol2.reward) && any(sol1.reward .> sol2.reward)
 
     checkmin(reward, idx) = reward[idx] < algo.currentminima[idx]
     checkmax(reward, idx) = reward[idx] > algo.currentminima[idx]
@@ -698,7 +710,8 @@ function sort_crowding_distance(generation::Generation, generationparent::Genera
         getsolution(sorted[end]).crowdingdistance = Inf64
 
         for idx in 2:length(sorted)-1
-            getsolution(sorted[idx]).crowdingdistance += (getreward(sorted[idx - 1], i) + getreward(sorted[idx + 1], i)) / maxmindist
+            getsolution(sorted[idx]).crowdingdistance +=
+                (getreward(sorted[idx-1], i) + getreward(sorted[idx+1], i)) / maxmindist
         end
     end
 

@@ -7,11 +7,8 @@ import Base: source_path
 # (site packages and eta_utility package path).
 pushfirst!(
     PyVector(pyimport("sys")."path"),
-    normpath(joinpath(splitdir(PyCall.pyprogramname)[1], "../Lib/site-packages"))
+    normpath(joinpath(splitdir(PyCall.pyprogramname)[1], "../Lib/site-packages")),
 )
-pushfirst!(
-    PyVector(pyimport("sys")."path"),
-    normpath(joinpath(splitdir(source_path())[1], "../../../"))
-)
+pushfirst!(PyVector(pyimport("sys")."path"), normpath(joinpath(splitdir(source_path())[1], "../../../")))
 
 include("etax/agents/NSGA2.jl")
