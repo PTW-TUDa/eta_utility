@@ -29,8 +29,8 @@ def experiment_conventional(root_path: pathlib.Path, overwrite: dict[str, Any] |
     # --main--
     experiment = ETAx(root_path, "damped_oscillator_conventional", overwrite, relpath_config=".")
     experiment.play("conventional_series", "run1")
-    return experiment
     # --main--
+    return experiment
 
 
 def experiment_learning(root_path: pathlib.Path, overwrite: dict[str, Any] | None = None) -> None:
