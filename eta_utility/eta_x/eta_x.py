@@ -489,18 +489,20 @@ class ETAx:
 
             while n_episodes < n_episodes_stop:
                 try:
-                    dones = self._play_step(_round_actions, _scale_actions, observations)
+                    observations, dones = self._play_step(_round_actions, _scale_actions, observations)
                 except BaseException as e:
                     log.error(
                         "Exception occurred during an environment step. Aborting and trying to reset environments."
                     )
-                    _ = self._reset_envs()
+                    observations = self._reset_envs()
                     log.debug("Environment reset successful - re-raising exception")
                     raise e
 
                 n_episodes += sum(dones)
 
-    def _play_step(self, _round_actions: int | None, _scale_actions: float, observations: VecEnvObs) -> np.ndarray:
+    def _play_step(
+        self, _round_actions: int | None, _scale_actions: float, observations: VecEnvObs
+    ) -> tuple[VecEnvObs, np.ndarray]:
         assert self.environments is not None, "Initialized environments could not be found. Call prepare_run first."
 
         action, _states = self.model.predict(observation=observations, deterministic=False)  # type: ignore
@@ -509,7 +511,7 @@ class ETAx:
         if _round_actions is not None:
             action = np.round(action * _scale_actions, _round_actions)
         else:
-            action = action * _scale_actions
+            action *= _scale_actions
         # Some agents (i.e. MPC) can interact with an additional environment
         if self.config.settings.interact_with_env:
             assert (
@@ -528,7 +530,7 @@ class ETAx:
                     observations[idx] = self._reset_env_interaction(observations)
         else:
             observations, rewards, dones, info = self.environments.step(action)
-        return dones
+        return observations, dones
 
     def _reset_envs(self) -> VecEnvObs:
         """Reset the environments when interaction with another environment is taking place.
