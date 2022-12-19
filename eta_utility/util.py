@@ -39,10 +39,18 @@ LOG_DEBUG = 1
 LOG_INFO = 2
 LOG_WARNING = 3
 LOG_ERROR = 4
+LOG_PREFIX = "eta_utility"
+LOG_FORMATS = {
+    "simple": "[%(levelname)s] %(message)s",
+    "logname": "[%(name)s: %(levelname)s] %(message)s",
+    "time": "[%(asctime)s - %(name)s - %(levelname)s] - %(message)s",
+}
 
 
 def get_logger(
-    name: str | None = None, level: int | None = None, format: str | None = None  # noqa: A002
+    name: str | None = None,
+    level: int | None = None,
+    format: str | None = None,  # noqa: A002
 ) -> logging.Logger:
     """Get eta_utility specific logger.
 
@@ -56,22 +64,20 @@ def get_logger(
 
     :param name: Name of the logger.
     :param level: Logging level (higher is more verbose between 0 - no output and 4 - debug).
-    :param format: Format of the log output. One of: simple, logname. (default: simple).
+    :param format: Format of the log output. One of: simple, logname, time. (default: simple).
     :return: The *eta_utility* logger.
     """
-    prefix = "eta_utility"
 
-    if name is not None and name != prefix:
+    if name is not None and name != LOG_PREFIX:
         # Child loggers
-        name = ".".join((prefix, name))
+        name = ".".join((LOG_PREFIX, name))
         log = logging.getLogger(name)
     else:
         # Main logger (only add handler if it does not have one already)
-        log = logging.getLogger(prefix)
+        log = logging.getLogger(LOG_PREFIX)
         log.propagate = False
 
-        formats = {"simple": "[%(levelname)s] %(message)s", "logname": "[%(name)s: %(levelname)s] %(message)s"}
-        fmt = formats[format] if format in formats else formats["simple"]
+        fmt = LOG_FORMATS[format] if format in LOG_FORMATS else LOG_FORMATS["simple"]
 
         if not log.hasHandlers():
             handler = logging.StreamHandler(stream=sys.stdout)
@@ -81,6 +87,58 @@ def get_logger(
 
     if level is not None:
         log.setLevel(int(level * 10))
+    return log
+
+
+def log_add_filehandler(
+    filename: Path,
+    level: int | None = None,
+    format: str | None = None,  # noqa: A002
+) -> logging.Logger:
+    """Add a file handler to the logger to save the log output.
+
+    :param logger: Logger where file handler is added.
+    :param filename: File path where logger is stored.
+    :param level: Logging level (higher is more verbose between 0 - no output and 4 - debug).
+    :param format: Format of the log output. One of: simple, logname, time. (default: time).
+    :return: The *FileHandler* logger.
+    """
+    log = logging.getLogger(LOG_PREFIX)
+    _format = format if format in LOG_FORMATS else LOG_FORMATS["time"]
+    _filename = filename if isinstance(filename, pathlib.Path) else pathlib.Path(filename)
+
+    filehandler = logging.FileHandler(filename=_filename)
+    filehandler.setLevel(logging.DEBUG)
+    filehandler.setFormatter(logging.Formatter(fmt=_format))
+    log.addHandler(filehandler)
+
+    if level is not None:
+        filehandler.setLevel(int(level * 10))
+
+    return log
+
+
+def log_add_streamhandler(
+    level: int | None = None,
+    format: str | None = None,  # noqa: A002
+) -> logging.Logger:
+    """Add a stream handler to the logger to show the log output.
+
+    :param level: Logging level (higher is more verbose between 0 - no output and 4 - debug).
+    :param format: Format of the log output. One of: simple, logname, time. (default: time).
+    :return: The eta_utility logger with an attached StreamHandler
+    """
+    log = logging.getLogger(LOG_PREFIX)
+    _format = format if format in LOG_FORMATS else LOG_FORMATS["time"]
+
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.DEBUG)
+    handler.setFormatter(logging.Formatter(fmt=_format))
+    log.addHandler(handler)
+
+    if level is not None:
+        handler.setLevel(int(level * 10))
+
     return log
 
 
@@ -221,6 +279,7 @@ def csv_export(
     path: Path,
     data: Mapping[str, Any] | Sequence[Mapping[str, Any] | Any] | pd.DataFrame,
     names: Sequence[str] | None = None,
+    index: Sequence[int] | pd.DatetimeIndex | None = None,
     *,
     sep: str = ";",
     decimal: str = ".",
@@ -230,6 +289,7 @@ def csv_export(
     :param path: Directory path to export data.
     :param data: Data to be saved.
     :param names: Field names used when data is a Matrix without column names.
+    :param index: Optional sequence to set an index
     :param sep: Separator to use between the fields.
     :param decimal: Sign to use for decimal points.
     """
@@ -248,6 +308,7 @@ def csv_export(
             writer.writerow({key: replace_decimal_str(val, decimal) for key, val in data.items()})
 
     elif isinstance(data, pd.DataFrame):
+        data.index = index
         data.to_csv(path_or_buf=str(_path), sep=sep, decimal=decimal)
 
     elif isinstance(data, Sequence):
@@ -259,6 +320,7 @@ def csv_export(
             raise ValueError("Column names for csv export not specified.")
 
         _data = pd.DataFrame(data=data, columns=cols)
+        _data.index = index
         _data.to_csv(path_or_buf=str(_path), sep=sep, decimal=decimal)
 
     log.info(f"Exported CSV data to {_path}.")

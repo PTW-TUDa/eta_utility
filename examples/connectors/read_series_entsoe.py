@@ -1,8 +1,6 @@
 from datetime import datetime
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    import pandas as pd
+import pandas as pd
 
 from eta_utility.connectors import ENTSOEConnection, Node
 

@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING
 
 from eta_utility.eta_x.common import episode_results_path
 from eta_utility.eta_x.envs import BaseEnvSim
-from eta_utility.util import csv_export
 
 if TYPE_CHECKING:
     from typing import Any, Callable
@@ -71,7 +70,6 @@ class DampedOscillatorEnv(BaseEnvSim):
         self._init_simulator()
 
     def render(self):
-        csv_export(
-            episode_results_path(self.config_run.path_series_results, self.run_name, 1, self.env_id),
-            data=self.state_log,
+        self.export_state_log(
+            path=episode_results_path(self.config_run.path_series_results, self.run_name, 1, self.env_id)
         )
