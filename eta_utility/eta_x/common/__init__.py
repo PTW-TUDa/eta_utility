@@ -1,5 +1,5 @@
+from .callbacks import CallbackEnvironment, merge_callbacks
 from .common import (
-    CallbackEnvironment,
     deserialize_net_arch,
     episode_name_string,
     episode_results_path,
@@ -9,6 +9,7 @@ from .common import (
     load_model,
     log_net_arch,
     log_run_info,
+    log_to_file,
     vectorize_environment,
 )
 from .extractors import CustomExtractor

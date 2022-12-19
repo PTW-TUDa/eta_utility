@@ -106,10 +106,25 @@ flake8:
   script:
     - pip install flake8-json
     - flake8 --version
-    - flake8 --config=setup.cfg --format=codeclimate --tee --output-file=flake8.json eta_utility test
+    - flake8 --config=setup.cfg --format=codeclimate --tee --output-file=flake8.json eta_utility examples test
   artifacts:
     reports:
       codequality: flake8.json
+
+check-julia:
+  stage: check
+  image: julia:1.7.2
+  interruptible: true
+  before_script: []
+  script:
+    - julia -e '
+      using Pkg;
+      Pkg.add("JuliaFormatter");
+      using JuliaFormatter;
+      if !format("eta_utility/ju_extensions", verbose=true)
+      @error "Some files have not been formatted !!!";
+      exit(1);
+      end'
 
 license_scanning:
   stage: check
@@ -147,7 +162,7 @@ typecheck:
   script:
     - mypy -V
     - mypy --config-file pyproject.toml
-
+    
 # build the sources
 build:
   stage: deploy

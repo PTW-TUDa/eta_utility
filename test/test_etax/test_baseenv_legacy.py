@@ -1,3 +1,4 @@
+import datetime
 import pathlib
 import shutil
 
@@ -59,3 +60,18 @@ def test_sim_steps_per_sample(damped_oscillator_eta):
     )
 
     assert expected_env_iteractions == len(report)
+
+
+def test_export_state_log_with_time_index(damped_oscillator_eta):
+    damped_oscillator_eta.play("test_fmu", "run1", "Test damped oscillator model from FMU.")
+
+    config = damped_oscillator_eta.config
+    report = pd.read_csv(
+        episode_results_path(damped_oscillator_eta.config_run.path_series_results, "run1", 1, 1),
+        sep=";",
+        index_col=0,
+    )
+    report.index = pd.to_datetime(report.index)
+    step = config.settings.sampling_time / config.settings.sim_steps_per_sample
+
+    assert (report.index[1] - report.index[0]) == datetime.timedelta(seconds=step)

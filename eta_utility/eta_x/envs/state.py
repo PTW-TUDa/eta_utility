@@ -6,14 +6,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
-from attrs import (  # noqa: I900
-    asdict,
-    converters,
-    define,
-    field,
-    fields_dict,
-    validators,
-)
+from attrs import asdict, converters, define, field, fields_dict, validators
 from gym import spaces
 
 from eta_utility import get_logger
@@ -21,7 +14,7 @@ from eta_utility import get_logger
 if TYPE_CHECKING:
     from typing import Any, Mapping, Sequence
 
-    from attrs import Attribute  # noqa: I900
+    from attrs import Attribute
 
     from eta_utility.type_hints import Path
 

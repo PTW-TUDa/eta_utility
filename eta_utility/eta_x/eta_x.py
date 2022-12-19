@@ -20,6 +20,8 @@ from eta_utility.eta_x.common import (
     load_model,
     log_net_arch,
     log_run_info,
+    log_to_file,
+    merge_callbacks,
     vectorize_environment,
 )
 
@@ -27,6 +29,7 @@ if TYPE_CHECKING:
     from typing import Any, Generator, Mapping
 
     from stable_baselines3.common.base_class import BaseAlgorithm
+    from stable_baselines3.common.type_aliases import MaybeCallback
     from stable_baselines3.common.vec_env import VecEnv
     from stable_baselines3.common.vec_env.base_vec_env import VecEnvObs
 
@@ -85,6 +88,9 @@ class ETAx:
             path_scenarios=self.config.path_scenarios,
         )
         self.config_run.create_results_folders()
+
+        # Add file handler to parent logger to log the terminal output
+        log_to_file(config=self.config, config_run=self.config_run)
 
         log.info("Run prepared successfully.")
 
@@ -341,6 +347,7 @@ class ETAx:
         run_name: str | None = None,
         run_description: str = "",
         reset: bool = False,
+        callbacks: MaybeCallback = None,
     ) -> None:
         """Start the learning job for an agent with the specified environment.
 
@@ -349,6 +356,7 @@ class ETAx:
         :param run_description: Description for a specific run.
         :param reset: Indication whether possibly existing models should be reset. Learning will be continued if
                            model exists and reset is false.
+        :param callbacks: Provide additional callbacks to send to the model.learn() call.
         """
         if is_env_closed(self.environments) or self.model is None:
             _series_name = series_name if series_name is not None else ""
@@ -394,10 +402,13 @@ class ETAx:
                     / self.config.settings.sampling_time
                 )
 
-            callback_learn = CheckpointCallback(
-                save_freq=save_freq,
-                save_path=str(self.config_run.path_series_results / "models"),
-                name_prefix=self.config_run.name,
+            callback_learn = merge_callbacks(
+                CheckpointCallback(
+                    save_freq=save_freq,
+                    save_path=str(self.config_run.path_series_results / "models"),
+                    name_prefix=self.config_run.name,
+                ),
+                callbacks,
             )
 
             # Start learning
@@ -478,18 +489,20 @@ class ETAx:
 
             while n_episodes < n_episodes_stop:
                 try:
-                    dones = self._play_step(_round_actions, _scale_actions, observations)
+                    observations, dones = self._play_step(_round_actions, _scale_actions, observations)
                 except BaseException as e:
                     log.error(
                         "Exception occurred during an environment step. Aborting and trying to reset environments."
                     )
-                    _ = self._reset_envs()
+                    observations = self._reset_envs()
                     log.debug("Environment reset successful - re-raising exception")
                     raise e
 
                 n_episodes += sum(dones)
 
-    def _play_step(self, _round_actions: int | None, _scale_actions: float, observations: VecEnvObs) -> np.ndarray:
+    def _play_step(
+        self, _round_actions: int | None, _scale_actions: float, observations: VecEnvObs
+    ) -> tuple[VecEnvObs, np.ndarray]:
         assert self.environments is not None, "Initialized environments could not be found. Call prepare_run first."
 
         action, _states = self.model.predict(observation=observations, deterministic=False)  # type: ignore
@@ -498,7 +511,7 @@ class ETAx:
         if _round_actions is not None:
             action = np.round(action * _scale_actions, _round_actions)
         else:
-            action = action * _scale_actions
+            action *= _scale_actions
         # Some agents (i.e. MPC) can interact with an additional environment
         if self.config.settings.interact_with_env:
             assert (
@@ -517,7 +530,7 @@ class ETAx:
                     observations[idx] = self._reset_env_interaction(observations)
         else:
             observations, rewards, dones, info = self.environments.step(action)
-        return dones
+        return observations, dones
 
     def _reset_envs(self) -> VecEnvObs:
         """Reset the environments when interaction with another environment is taking place.

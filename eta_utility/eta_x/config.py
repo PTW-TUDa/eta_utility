@@ -5,14 +5,14 @@ import itertools
 import pathlib
 from typing import TYPE_CHECKING
 
-from attrs import Factory, converters, define, field, fields, validators  # noqa: I900
+from attrs import Factory, converters, define, field, fields, validators
 
 from eta_utility import deep_mapping_update, dict_pop_any, get_logger, json_import
 
 if TYPE_CHECKING:
     from typing import Any, Mapping
 
-    from attrs import Attribute  # noqa: I900
+    from attrs import Attribute
     from stable_baselines3.common.base_class import BaseAlgorithm, BasePolicy
     from stable_baselines3.common.vec_env import DummyVecEnv
 
@@ -399,13 +399,13 @@ class ConfigOptSettings:
     interact_with_env: bool = field(
         default=False, converter=converters.pipe(converters.default_if_none(False), bool)  # type: ignore
     )  # mypy currently does not recognize converters.default_if_none
-    #: How often to save the model during training (default: 1 - after every episode).
+    #: How often to save the model during training (default: 10 - after every ten episodes).
     save_model_every_x_episodes: int = field(
-        default=1, converter=converters.pipe(converters.default_if_none(1), int)  # type: ignore
+        default=10, converter=converters.pipe(converters.default_if_none(1), int)  # type: ignore
     )  # mypy currently does not recognize converters.default_if_none
-    #: How many episodes to pass between each render call (default: 1 - after every episode).
+    #: How many episodes to pass between each render call (default: 10 - after every ten episodes).
     plot_interval: int = field(
-        default=1, converter=converters.pipe(converters.default_if_none(1), int)  # type: ignore
+        default=10, converter=converters.pipe(converters.default_if_none(1), int)  # type: ignore
     )  # mypy currently does not recognize converters.default_if_none
 
     #: Duration of an episode in seconds (can be a float value).
@@ -436,6 +436,11 @@ class ConfigOptSettings:
         converter=converters.default_if_none(Factory(dict)),  # type: ignore
         # mypy currently does not recognize converters.default_if_none
         on_setattr=_agent_defaults,
+    )
+
+    #: Flag which is true if the log output should be written to a file
+    log_to_file: bool = field(
+        default=False, converter=converters.pipe(converters.default_if_none(False), bool)  # type: ignore
     )
 
     def __attrs_post_init__(self) -> None:
@@ -515,6 +520,8 @@ class ConfigOptSettings:
             dikt, "interaction_env_specific", "interaction_environment_specific", fail=False, default=None
         )
 
+        log_to_file = settings.pop("log_to_file", False)
+
         # Log configuration values which were not recognized.
         for name in itertools.chain(settings, dikt):
             log.warning(
@@ -542,6 +549,7 @@ class ConfigOptSettings:
             environment=environment,
             agent=agent,
             interaction_env=interaction_env,
+            log_to_file=log_to_file,
         )
 
     def __getitem__(self, name: str) -> Any:
@@ -554,7 +562,7 @@ class ConfigOptSettings:
 
 
 @define(frozen=True, kw_only=True)
-class ConfigOptRun:
+class ConfigOptRun:  # type: ignore  # MyPy does not understand the type of "description".
     """Configuration for an optimization run, including the series and run names descriptions and paths
     for the run.
     """
@@ -564,8 +572,8 @@ class ConfigOptRun:
     #: Name of an optimization run.
     name: str = field(validator=validators.instance_of(str))
     #: Description of an optimization run.
-    description: str = field(
-        converter=lambda s: "" if s is None else s,  # type: ignore # mypy does not support unnamed functions
+    description: str = field(  # type: ignore
+        converter=lambda s: "" if s is None else s,
         validator=validators.instance_of(str),
     )
     #: Root path of the framework run.
@@ -586,6 +594,8 @@ class ConfigOptRun:
     path_vec_normalize: pathlib.Path = field(init=False, converter=_path_converter)
     #: Path to the neural network architecture file.
     path_net_arch: pathlib.Path = field(init=False, converter=_path_converter)
+    #: Path to the log output file.
+    path_log_output: pathlib.Path = field(init=False, converter=_path_converter)
 
     # Information about the environments
     #: Version of the main environment.
@@ -614,6 +624,7 @@ class ConfigOptRun:
         object.__setattr__(self, "path_run_monitor", self.path_series_results / f"{self.name}_monitor.csv")
         object.__setattr__(self, "path_vec_normalize", self.path_series_results / "vec_normalize.pkl")
         object.__setattr__(self, "path_net_arch", self.path_series_results / "net_arch.txt")
+        object.__setattr__(self, "path_log_output", self.path_series_results / f"{self.name}_log_output.log")
 
     def create_results_folders(self) -> None:
         """Create the results folders for an optimization run (or check if they already exist)."""
@@ -662,6 +673,7 @@ class ConfigOptRun:
             "path_run_info": self.path_run_info,
             "path_run_monitor": self.path_run_monitor,
             "path_vec_normalize": self.path_vec_normalize,
+            "path_log_output": self.path_log_output,
         }
         if self.path_scenarios is not None:
             paths["path_scenarios"] = self.path_scenarios

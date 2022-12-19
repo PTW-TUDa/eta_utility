@@ -7,12 +7,12 @@ repos:
       - id: isort
         args: [ "--profile", "black", "--filter-files" ]
   - repo: https://github.com/asottile/pyupgrade
-    rev: v2.34.0
+    rev: v3.2.2
     hooks:
       - id: pyupgrade
         args: [ "--py37-plus" ]
   - repo: https://github.com/psf/black
-    rev: 22.6.0
+    rev: 22.10.0
     hooks:
       - id: black
         language_version: python3
@@ -33,12 +33,13 @@ repos:
       - id: check-added-large-files
         args: [ "--maxkb=512" ]
   - repo: https://github.com/pycqa/flake8
-    rev: 4.0.1
+    rev: 5.0.4
     hooks:
       - id: flake8
         additional_dependencies:
           - pyflakes
           - pycodestyle
+          - pyproject-flake8
           - flake8-builtins
           - flake8-eradicate
           - flake8-comprehensions
@@ -50,15 +51,17 @@ repos:
           - flake8-rst-docstrings
         args: [ "--config", "setup.cfg"]
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: 'v0.961'
+    rev: 'v0.991'
     hooks:
       - id: mypy
         args: [ "--config-file", "pyproject.toml"]
         exclude: |
           (?x)^(setup.py|
                 test/.+|
+                _version.py|
           )$
         additional_dependencies:
+          - setuptools
           - tokenize-rt==3.2.0
           - types-python-dateutil
           - types-requests
@@ -67,3 +70,6 @@ repos:
           - pygame
           - importlib_metadata
           - cryptography
+          - keyboard
+          - onnxruntime
+          - matplotlib

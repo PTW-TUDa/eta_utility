@@ -35,3 +35,18 @@ The optional requirements can be installed using pip. For example:
 .. code-block:: console
 
    $> pip install eta_utility[eta_x]
+
+Using Julia Extensions
+-------------------------------------
+
+First, it is necessary to have julia available in your system, the recommended version
+is the latest stable version but minimum v.1.8 (`download julia <https://julialang.org/downloads/>`_).
+
+The next step is to activate your virtual environment for the eta-utility
+and inside the eta-utility directory execute the following command:
+
+.. code-block::
+
+    $> install-julia
+
+This command will install PyJulia, configure PyCall in your system, and install the julia extensions package (ju_extensions) from eta_utility.

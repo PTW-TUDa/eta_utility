@@ -150,6 +150,7 @@ class RuleBased(BaseAlgorithm, abc.ABC):
         n_eval_episodes: int = 5,
         eval_log_path: str | None = None,
         reset_num_timesteps: bool = True,
+        progress_bar: bool = False,
     ) -> RuleBased:
         """Return a trained model. Learning is not implemented for the rule based agent.
 

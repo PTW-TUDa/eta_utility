@@ -25,8 +25,6 @@ class PendulumControl(RuleBased):
         :param kwargs: Additional arguments as specified in
             :py:class:`stable_baselins3.commom.base_class.BaseAlgorithm`.
         """
-        if "policy_base" not in kwargs:
-            kwargs["policy_base"] = None
 
         super().__init__(policy=policy, env=env, verbose=verbose, **kwargs)
         assert self.action_space is not None, "action_space not initialized correctly."

@@ -13,9 +13,10 @@ from gym import Env, utils
 
 from eta_utility import get_logger, timeseries
 from eta_utility.eta_x.envs.state import StateConfig
+from eta_utility.util import csv_export
 
 if TYPE_CHECKING:
-    from typing import Any, Callable, Mapping
+    from typing import Any, Callable, Mapping, Sequence
 
     from eta_utility.eta_x import ConfigOptRun
     from eta_utility.type_hints import Path, StepResult, TimeStep
@@ -210,7 +211,7 @@ class BaseEnv(Env, abc.ABC):
         """
         from eta_utility.eta_x import ConfigOptRun
 
-        path_root = pathlib.Path(path_settings["path_root"])
+        self.path_root = pathlib.Path(path_settings["path_root"])
         series_name = pathlib.Path(path_settings["path_series_results"]).stem
         path_scenarios = pathlib.Path(path_settings["path_scenarios"]) if "path_scenarios" in path_settings else None
 
@@ -218,7 +219,7 @@ class BaseEnv(Env, abc.ABC):
             series=series_name,
             name=run_name,
             description="",
-            path_root=path_root,
+            path_root=self.path_root,
             path_results=pathlib.Path(path_settings["path_results"]),
             path_scenarios=path_scenarios,
         )
@@ -415,7 +416,7 @@ class BaseEnv(Env, abc.ABC):
         :param action: Actions taken by the agent.
         :raise: RuntimeError, when the actions are not inside of the action space.
         """
-        if self.action_space.shape != action.shape:
+        if self.action_space.shape is not None and self.action_space.shape != action.shape:
             raise RuntimeError(
                 f"Agent action {action} (shape: {action.shape})"
                 f" does not correspond to shape of environment action space (shape: {self.action_space.shape})."
@@ -537,3 +538,23 @@ class BaseEnv(Env, abc.ABC):
         :return: Tuple of version and description.
         """
         return cls.version, cls.description  # type: ignore
+
+    def export_state_log(
+        self,
+        path: Path,
+        names: Sequence[str] | None = None,
+        *,
+        sep: str = ";",
+        decimal: str = ".",
+    ) -> None:
+        """Extension of csv_export to include timeseries on the data
+
+        :param names: Field names used when data is a Matrix without column names.
+        :param sep: Separator to use between the fields.
+        :param decimal: Sign to use for decimal points.
+
+        """
+        start_time = datetime.fromtimestamp(self.episode_timer)
+        step = self.sampling_time / self.sim_steps_per_sample
+        timerange = [start_time + timedelta(seconds=(k * step)) for k in range(len(self.state_log))]
+        csv_export(path=path, data=self.state_log, index=timerange, names=names, sep=sep, decimal=decimal)
