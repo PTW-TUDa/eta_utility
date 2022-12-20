@@ -147,6 +147,9 @@ test3.7:
   script:
     - pip install pytest pytest-cov
     - pytest --cov
+  retry:
+    max: 1
+    when: script_failure
 
 test3.9:
   stage: test
@@ -155,6 +158,9 @@ test3.9:
   script:
     - pip install pytest pytest-cov
     - pytest --cov
+  retry:
+    max: 1
+    when: script_failure
 
 typecheck:
   stage: test
@@ -162,7 +168,7 @@ typecheck:
   script:
     - mypy -V
     - mypy --config-file pyproject.toml
-    
+
 # build the sources
 build:
   stage: deploy
