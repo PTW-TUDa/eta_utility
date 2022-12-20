@@ -51,6 +51,8 @@ You can force resetting the git credentials in Windows:
 - Delete information about the git server you are trying to login to
   (in  case of eta_utility: git.rwth-aachen.de)
 
+.. _dymola_license_not_found:
+
 FMU model initialization (Dymola) fails with "Exception: Failed to instantiate model"
 -------------------------------------------------------------------------------------
 If the log before this also shows the following error, there is a problem with the Dymola

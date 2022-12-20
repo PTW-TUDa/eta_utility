@@ -44,4 +44,5 @@ In the example, the controller will just supply random action values.
 Finally, the *cyber_physical_system* example shows the full capabilities of the *eta_utility*
 framework. It utilizes the interaction between a simulation and an actual machine to
 supply advanced observations to an agent which controls the tank heating unit of
-an industrial parts cleaning machine.
+an industrial parts cleaning machine. To be able to run this example, a Dymola license is needed.
+In the :ref:`dymola_license_not_found` it is explained how to use the license.
