@@ -3,13 +3,6 @@
 Installation
 ============
 
-If you need to install python and create a virtual environment first, please take a look at the
-python installation guide:
-
-- :ref:`python_install`
-- `Beginner's Guide to Python (external link) <https://wiki.python.org/moin/BeginnersGuide>`_
-
-
 This section explains how to install the ETA Utility Functions for usage only. For instructions
 what to consider during the installation process if you want to contribute to development of
 the utility functions, please see the development guide :ref:`development`.

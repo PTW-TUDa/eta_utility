@@ -3,6 +3,9 @@
 Set up Python and Git
 ======================
 
+This section explains how to set up Python and Git and also how to create a virtual environment. Additional information can be found in the `Beginner's Guide to Python (external link) <https://wiki.python.org/moin/BeginnersGuide>`_.
+If you have already set this up, you can go to the :ref:`_install` section.
+
 Installation of Python
 ------------------------
 
