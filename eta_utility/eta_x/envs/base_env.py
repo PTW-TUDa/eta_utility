@@ -472,15 +472,31 @@ class BaseEnv(Env, abc.ABC):
         """
         raise NotImplementedError("Cannot reset an abstract Environment.")
 
+    def _reduce_state_log(self) -> list[dict[str, float]]:
+        """Removes unwanted parameters from state_log before storing in state_log_longtime
+
+        :return: The return value is a list of dictionaries,
+         where the parameters that should not be stored were removed
+        """
+
+        assert self.state_config is not None, "Set state_config before calling reduced_state_log."
+
+        dataframe = pd.DataFrame(self.state_log)
+        return dataframe.drop(columns=list(set(dataframe.keys()) - self.state_config.add_to_state_log)).to_dict(
+            "records"
+        )
+
     def _reset_state(self) -> None:
-        """Store episode statistics and reset episode counters"""
+        """Store episode statistics and reset episode counters."""
         if self.n_steps > 0:
             if self.callback is not None:
                 self.callback(self)
 
             # Store some logging data
             self.n_episodes += 1
-            self.state_log_longtime.append(self.state_log)
+
+            # store reduced_state_log in state_log_longtime
+            self.state_log_longtime.append(self._reduce_state_log())
             self.n_steps_longtime += self.n_steps
 
             # Reset episode variables

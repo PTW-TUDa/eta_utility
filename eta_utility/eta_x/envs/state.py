@@ -55,6 +55,14 @@ class StateVar:
         # mypy does not recognize default_if_none
     )
 
+    #: Should the state log of this episode be added to state_log_longtime? (default: True).
+    add_to_state_log: bool = field(
+        kw_only=True,
+        default=True,
+        converter=converters.pipe(converters.default_if_none(True), bool)  # type: ignore
+        # mypy does not recognize default_if_none
+    )
+
     #: Name or identifier (order) of the variable in the external interaction model
     #: (e.g.: environment or FMU) (default: None).
     ext_id: str | int | None = field(kw_only=True, default=None, validator=validators.optional(_valid_id))
@@ -169,6 +177,7 @@ class StateVar:
         name = _map.pop("name", None)
         is_agent_action = _map.pop("is_agent_action", None)
         is_agent_observation = _map.pop("is_agent_observation", None)
+        add_to_state_log = _map.pop("add_to_state_log", None)
         ext_id = _map.pop("ext_id", None)
         is_ext_input = _map.pop("is_ext_input", None)
         is_ext_output = _map.pop("is_ext_output", None)
@@ -195,6 +204,7 @@ class StateVar:
             name,
             is_agent_action=is_agent_action,
             is_agent_observation=is_agent_observation,
+            add_to_state_log=add_to_state_log,
             ext_id=ext_id,
             is_ext_input=is_ext_input,
             is_ext_output=is_ext_output,
@@ -239,6 +249,8 @@ class StateConfig:
         self.actions: list[str] = []
         #: List of variables that are agent observations.
         self.observations: list[str] = []
+        #: Set of variables that should be logged.
+        self.add_to_state_log: set[str] = set()
 
         #: List of variables that should be provided to an external source (such as an FMU).
         self.ext_inputs: list[str] = []
@@ -302,6 +314,9 @@ class StateConfig:
             self.actions.append(var.name)
         if var.is_agent_observation:
             self.observations.append(var.name)
+
+        if var.add_to_state_log:
+            self.add_to_state_log.add(var.name)
 
         if var.abort_condition_min is not None:
             self.abort_conditions_min.append(var.name)
