@@ -562,7 +562,7 @@ class ConfigOptSettings:
 
 
 @define(frozen=True, kw_only=True)
-class ConfigOptRun:  # type: ignore  # MyPy does not understand the type of "description".
+class ConfigOptRun:
     """Configuration for an optimization run, including the series and run names descriptions and paths
     for the run.
     """
@@ -572,8 +572,8 @@ class ConfigOptRun:  # type: ignore  # MyPy does not understand the type of "des
     #: Name of an optimization run.
     name: str = field(validator=validators.instance_of(str))
     #: Description of an optimization run.
-    description: str = field(  # type: ignore
-        converter=lambda s: "" if s is None else s,
+    description: str = field(
+        converter=converters.default_if_none(""),  # type: ignore
         validator=validators.instance_of(str),
     )
     #: Root path of the framework run.
