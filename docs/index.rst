@@ -16,10 +16,10 @@ Please read the development guide before starting development on *eta_utility*: 
     :hidden:
     :caption: Guide
 
-    /guide/install
-    /guide/faq
-    /guide/development
     /guide/python_install
+    /guide/install
+    /guide/development
+    /guide/faq
     /examples/examples
 
 .. toctree::
