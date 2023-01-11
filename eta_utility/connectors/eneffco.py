@@ -43,6 +43,11 @@ class EnEffCoConnection(BaseSeriesConnection):
         self._api_token: str = api_token
         super().__init__(url, usr, pwd, nodes=nodes)
 
+        if self.usr is None:
+            raise ValueError("Username must be provided for the EnEffCo connector.")
+        if self.pwd is None:
+            raise ValueError("Password must be provided for the EnEffCo connector.")
+
         self._node_ids: pd.DataFrame | None = None
         self._node_ids_raw: pd.DataFrame | None = None
 
@@ -381,6 +386,9 @@ class EnEffCoConnection(BaseSeriesConnection):
         :param endpoint: Endpoint for the request (server URI is added automatically).
         :param kwargs: Additional arguments for the request.
         """
+        assert self.usr is not None, "Make sure to specify a username before performing EnEffCo requests."
+        assert self.pwd is not None, "Make sure to specify a password before performing EnEffCo requests."
+
         response = requests.request(
             method, self.url + "/" + str(endpoint), auth=requests.auth.HTTPBasicAuth(self.usr, self.pwd), **kwargs
         )
