@@ -14,6 +14,7 @@ from lxml.builder import E
 
 from eta_utility import get_logger
 from eta_utility.connectors.node import NodeEntsoE
+from eta_utility.connectors.util import all_equal
 from eta_utility.timeseries import df_resample, df_time_slice
 from eta_utility.util import dict_search, round_timestamp
 
@@ -124,14 +125,12 @@ class ENTSOEConnection(BaseSeriesConnection):
         parser = etree.XMLParser(load_dtd=False, ns_clean=True, remove_pis=True)
         xml_data = etree.XML(xml_content, parser)
         ns = xml_data.nsmap
-        data = []
-        actual_generator_per_type = False
+        data: dict[str, list[pd.Series]] = {}
 
         timeseries = xml_data.findall(".//TimeSeries", namespaces=ns)
         for ts in timeseries:
             col_name = "Price"
             if ts.find(".//MktPSRType", namespaces=ns):
-                actual_generator_per_type = True
                 psr_type = ts.find(".//MktPSRType", namespaces=ns).find("psrType", namespaces=ns).text
                 col_name = dict_search(self.config.psr_types, psr_type)
 
@@ -152,14 +151,45 @@ class ENTSOEConnection(BaseSeriesConnection):
             ts_data = [point.getchildren()[-1].text for point in points]
 
             s = pd.Series(data=ts_data, index=datetime_range, name=col_name)
-            data.append(s)
 
-        if actual_generator_per_type:
-            return pd.DataFrame(data).T.astype(int)
-        return pd.concat(data).astype(float).to_frame()
+            if resolution not in data.keys():
+                data[resolution] = []
+            data[resolution].append(s)
+
+        return self._handle_resolutions(data)
+
+    def _handle_resolutions(self, data: dict[str, list[pd.Series]]) -> pd.DataFrame:
+        """Handle multiple resolution coming in request, since resolution is not a parameter for the request.
+
+        :param data: dictionary in which the keys are resolutions and the values are the data points
+        :return: dataframe with multi-index separating the multiple resolutions
+        """
+        # convert each timeseries into dataframe
+        for resolution in data.keys():
+            # if all column names are equal then each series are
+            # combined to form another series, else they are combined to
+            # create a dataframe
+            col_names = (series.name for series in data[resolution])
+            if all_equal(col_names):
+                data[resolution] = pd.concat(data[resolution]).astype(float).to_frame()
+            else:
+                data[resolution] = pd.DataFrame(data[resolution]).T.astype(int)
+            data[resolution]["datetime"] = data[resolution].index  # type: ignore
+            data[resolution]["resolution"] = resolution  # type: ignore
+
+        # concatenating the DataFrames
+        df = pd.concat(data.values())
+        df = df.set_index("datetime")
+
+        return df
 
     def read_series(
-        self, from_time: datetime, to_time: datetime, nodes: Nodes | None = None, interval: TimeStep = 1, **kwargs: Any
+        self,
+        from_time: datetime,
+        to_time: datetime,
+        nodes: Nodes | None = None,
+        interval: TimeStep = 1,
+        **kwargs: Any,
     ) -> pd.DataFrame:
         """Download timeseries data from the ENTSO-E Database
 
@@ -178,12 +208,22 @@ class ENTSOEConnection(BaseSeriesConnection):
             result = self._raw_request(params)
             df = self._handle_xml(result.content)
 
-            df_res = df_resample(df, interval, missing_data="fillna")
-            df_slice = df_time_slice(df_res, from_time, to_time)
+            list_all_res = []
+            resolutions = df["resolution"].unique()
+            for resolution in resolutions:
+                df_res = df[df["resolution"] == resolution].drop("resolution", axis=1)
+                df_res = df_resample(df_res, interval, missing_data="fillna")
+                df_res = df_time_slice(df_res, from_time, to_time)
 
-            df_slice.columns = [f"{node.name}_{col}" for col in df_slice.columns]
+                df_res.columns = [f"{node.name}_{col}" for col in df_res.columns]
+                df_res["resolution"] = resolution
 
-            return df_slice
+                list_all_res.append(df_res)
+
+            df_res_merged = pd.concat(list_all_res, axis=0, sort=False)
+            if len(resolutions) == 1:
+                return df_res_merged.drop("resolution", axis=1)
+            return df_res_merged.set_index("resolution", append=True)
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
             results = executor.map(read_node, nodes)

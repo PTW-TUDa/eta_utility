@@ -43,6 +43,7 @@ def test_entsoe_price_ahead(_local_requests):
 
     res = server.read_series(from_time=from_datetime, to_time=to_datetime)
     assert isinstance(res, pd.DataFrame)
+    assert isinstance(res.index, pd.MultiIndex)
     assert node.name in res.columns[0]
 
 
@@ -56,6 +57,7 @@ def test_entsoe_actual_generation_per_type(_local_requests):
 
     res = server.read_series(from_time=from_datetime, to_time=to_datetime)
     assert isinstance(res, pd.DataFrame)
+    assert isinstance(res.index, pd.DatetimeIndex)
     assert node.name in res.columns[0]
 
 
@@ -85,9 +87,10 @@ def test_interval(_local_requests, interval):
     to_datetime = datetime.strptime("2022-02-15T14:15:31", "%Y-%m-%dT%H:%M:%S")
 
     res = server.read_series(from_time=from_datetime, to_time=to_datetime, interval=interval)
+    number_of_resolutions = len(res.index.levels[1])
 
     total_seconds = (to_datetime - from_datetime).seconds // interval + 1  # including the last datetime point
-    assert total_seconds == res.shape[0]
+    assert total_seconds * number_of_resolutions == res.shape[0]
 
 
 class MockResponse(requests.Response):
