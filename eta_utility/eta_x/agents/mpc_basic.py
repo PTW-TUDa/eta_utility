@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 log = get_logger("eta_x.agents")
 
 
-class MPCBasic(BaseAlgorithm):
+class MathSolver(BaseAlgorithm):
     """Simple, Pyomo based MPC agent.
 
     The agent requires an environment that specifies the 'model' attribute, returning a
@@ -273,3 +273,6 @@ class MPCBasic(BaseAlgorithm):
     ) -> MPCBasic:
         """Loading a model is currently not implemented for the MPC agent."""
         raise NotImplementedError("The MPC approach cannot load a model.")
+
+
+MPCBasic = MathSolver
