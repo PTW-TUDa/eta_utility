@@ -155,7 +155,7 @@ def json_import(path: Path) -> list[Any] | dict[str, Any]:
 
     try:
         # Remove comments from the JSON file (using regular expression), then parse it into a dictionary
-        cleanup = re.compile(r"^(\s*.*?)(?=/{2}(?!.*\")|$)", re.MULTILINE)
+        cleanup = re.compile(r"^((?:(?:[^\/\"])*(?:\"[^\"]*\")*(?:\/[^\/])*)*)", re.MULTILINE)
         with path.open("r") as f:
             file = "\n".join(cleanup.findall(f.read()))
         try:
