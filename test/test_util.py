@@ -1,8 +1,10 @@
+import json
+import pathlib
 from datetime import datetime
 
 import pytest
 
-from eta_utility.util import dict_search, round_timestamp
+from eta_utility.util import dict_search, json_import, round_timestamp
 
 
 @pytest.mark.parametrize(
@@ -31,3 +33,10 @@ def test_dict_search():
 def test_dict_search_fail():
     with pytest.raises(ValueError, match=r".*not specified in specified dictionary"):
         dict_search({}, "value")
+
+
+def test_remove_comments_json():
+    with open(pathlib.Path(__file__).parent / "resources/remove_comments/removed_comments.json") as f:
+        control = json.load(f)
+
+    assert json_import(pathlib.Path(__file__).parent / "resources/remove_comments/with_comments.json") == control
