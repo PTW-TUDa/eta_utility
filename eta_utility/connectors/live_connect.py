@@ -419,9 +419,11 @@ class LiveConnect(AbstractContextManager):
 
             # Rename set_value
             if "set_value" in system and system["set_value"] is not None:
-                _set_values[system["name"]] = system["set_value"]
+                _set_values[system["name"]] = system["set_value"].copy()
                 _set_values[system["name"]]["name"] = f"{system['name']}.{system['set_value']['name']}"  # type: ignore
-                _set_values[system["name"]]["node"] = f"{system['name']}.{system['set_value']['node']}"  # type: ignore
+                _set_values[system["name"]][
+                    "node"
+                ] = f"{system['name']}.{system['set_value'].get('node', system['set_value']['name'])}"  # type: ignore
             else:
                 _set_values[system["name"]] = None
 

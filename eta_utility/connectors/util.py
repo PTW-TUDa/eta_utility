@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import struct
 from asyncio import sleep as async_sleep
+from itertools import groupby
 from time import sleep
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import Any, Callable, Sequence
+    from typing import Any, Callable, Iterable, Sequence
 
 
 class RetryWaiter:
@@ -173,3 +174,14 @@ def bitarray_to_registers(bits: list[int | bool]) -> list[int]:
         register_list[i] = int("".join([str(v) for v in _bits[start : start + 16]]), 2)
 
     return register_list
+
+
+def all_equal(iterable: Iterable[Any]) -> bool:
+    """Check if all values inside iterable are equal
+
+    :param iterable: python iterable
+    :return: True if all values are equal False elsewhere
+    """
+
+    g = groupby(iterable)
+    return bool(next(g, True)) and not bool(next(g, False))

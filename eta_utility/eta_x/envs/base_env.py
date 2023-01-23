@@ -185,85 +185,6 @@ class BaseEnv(Env, abc.ABC):
         #: Log of specific environment settings / other data, apart from state, over multiple episodes.
         self.data_log_longtime: list[list[dict[str, Any]]]
 
-    def _init_legacy(
-        self,
-        env_id: int,
-        run_name: str,
-        general_settings: dict[str, Any],
-        path_settings: dict[str, Path],
-        env_settings: dict[str, Any],
-        verbose: int,
-        callback: Callable | None = None,
-    ) -> None:
-        """Old initializer for compatibility.
-
-        .. deprecated:: 2.0.0
-            Use the new style initializer instead and clearly specify all required parameters as arguments to init.
-
-        :param env_id: Identification for the environment, useful when creating multiple environments.
-        :param run_name: Identification name for the optimization run.
-        :param general_settings: Dictionary of general settings.
-        :param path_settings: Dictionary of path settings.
-        :param env_settings: Dictionary of environment specific settings.
-        :param verbose: Verbosity setting for logging.
-        :param callback: Callback method will be called after each episode with all data within the
-                         environment class.
-        """
-        from eta_utility.eta_x import ConfigOptRun
-
-        self.path_root = pathlib.Path(path_settings["path_root"])
-        series_name = pathlib.Path(path_settings["path_series_results"]).stem
-        path_scenarios = pathlib.Path(path_settings["path_scenarios"]) if "path_scenarios" in path_settings else None
-
-        config_run = ConfigOptRun(
-            series=series_name,
-            name=run_name,
-            description="",
-            path_root=self.path_root,
-            path_results=pathlib.Path(path_settings["path_results"]),
-            path_scenarios=path_scenarios,
-        )
-
-        if "seed" in env_settings:
-            seed = env_settings["seed"]
-            del env_settings["seed"]
-        else:
-            seed = None
-
-        if "verbose" in env_settings:
-            del env_settings["verbose"]
-
-        if "episode_duration" in env_settings:
-            del env_settings["episode_duration"]
-        episode_duration = general_settings["episode_duration"]
-
-        if "sampling_time" in env_settings:
-            del env_settings["sampling_time"]
-        sampling_time = general_settings["sampling_time"]
-
-        scenario_time_begin = env_settings["scenario_time_begin"]
-        del env_settings["scenario_time_begin"]
-        scenario_time_end = env_settings["scenario_time_end"]
-        del env_settings["scenario_time_end"]
-
-        super(self.__class__, self).__init__(
-            env_id,
-            config_run,
-            seed,
-            verbose,
-            callback,
-            scenario_time_begin=scenario_time_begin,
-            scenario_time_end=scenario_time_end,
-            episode_duration=episode_duration,
-            sampling_time=sampling_time,
-            **env_settings,
-        )
-
-        self.env_settings = env_settings.copy()
-        self.env_settings.update({"scenario_time_begin": datetime.strptime(scenario_time_begin, "%Y-%m-%d %H:%M")})
-        self.env_settings.update({"scenario_time_end": datetime.strptime(scenario_time_end, "%Y-%m-%d %H:%M")})
-        self.path_settings = path_settings.copy()
-
     def _init_state_space(self) -> StateConfig:
         """Initialize the StateConfig object from a dataframe stored in self.state_config. Also provide a deprecated
         structure of variables, which includes the self.names mapping and multiple other maps.
@@ -472,15 +393,31 @@ class BaseEnv(Env, abc.ABC):
         """
         raise NotImplementedError("Cannot reset an abstract Environment.")
 
+    def _reduce_state_log(self) -> list[dict[str, float]]:
+        """Removes unwanted parameters from state_log before storing in state_log_longtime
+
+        :return: The return value is a list of dictionaries,
+         where the parameters that should not be stored were removed
+        """
+
+        assert self.state_config is not None, "Set state_config before calling reduced_state_log."
+
+        dataframe = pd.DataFrame(self.state_log)
+        return dataframe.drop(columns=list(set(dataframe.keys()) - self.state_config.add_to_state_log)).to_dict(
+            "records"
+        )
+
     def _reset_state(self) -> None:
-        """Store episode statistics and reset episode counters"""
+        """Store episode statistics and reset episode counters."""
         if self.n_steps > 0:
             if self.callback is not None:
                 self.callback(self)
 
             # Store some logging data
             self.n_episodes += 1
-            self.state_log_longtime.append(self.state_log)
+
+            # store reduced_state_log in state_log_longtime
+            self.state_log_longtime.append(self._reduce_state_log())
             self.n_steps_longtime += self.n_steps
 
             # Reset episode variables

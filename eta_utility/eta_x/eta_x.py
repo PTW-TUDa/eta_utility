@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import inspect
 import os
 import pathlib
 from contextlib import contextmanager
@@ -9,7 +8,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 from stable_baselines3.common.callbacks import CheckpointCallback
-from stable_baselines3.common.vec_env import VecMonitor, VecNormalize
+from stable_baselines3.common.vec_env import VecNormalize
 
 from eta_utility import get_logger
 from eta_utility.eta_x import ConfigOpt, ConfigOptRun
@@ -177,40 +176,22 @@ class ETAx:
         env_class = self.config.setup.environment_class
         self.config_run.set_env_info(env_class)
 
-        legacy_signature = {
-            "env_id",
-            "run_name",
-            "general_settings",
-            "path_settings",
-            "env_settings",
-            "verbose",
-            "callback",
-        }
-
-        # Check whether the environment uses old style initialization and replace vectorize function accordingly
-        env_params = inspect.signature(env_class.__init__).parameters
-        if legacy_signature <= set(env_params):
-            log.warning(
-                f"Environment {env_class.__name__} uses a deprecated __init__ format. " f"Please consider updating."
-            )
-            self.environments = self._vectorize_legacy_environments("env", training)
-        else:
-            callback = CallbackEnvironment(self.config.settings.plot_interval)
-            # Vectorize the environments
-            self.environments = vectorize_environment(
-                env_class,
-                self.config_run,
-                self.config.settings.environment,
-                callback,
-                self.config.settings.seed,
-                self.config.settings.verbose,
-                self.config.setup.vectorizer_class,
-                self.config.settings.n_environments,
-                training=training,
-                monitor_wrapper=self.config.setup.monitor_wrapper,
-                norm_wrapper_obs=self.config.setup.norm_wrapper_obs,
-                norm_wrapper_reward=self.config.setup.norm_wrapper_reward,
-            )
+        callback = CallbackEnvironment(self.config.settings.plot_interval)
+        # Vectorize the environments
+        self.environments = vectorize_environment(
+            env_class,
+            self.config_run,
+            self.config.settings.environment,
+            callback,
+            self.config.settings.seed,
+            self.config.settings.verbose,
+            self.config.setup.vectorizer_class,
+            self.config.settings.n_environments,
+            training=training,
+            monitor_wrapper=self.config.setup.monitor_wrapper,
+            norm_wrapper_obs=self.config.setup.norm_wrapper_obs,
+            norm_wrapper_reward=self.config.setup.norm_wrapper_reward,
+        )
 
         if self.config.settings.interact_with_env:
             # Perform some checks to ensure the interaction environment is configured correctly.
@@ -225,121 +206,16 @@ class ETAx:
             interaction_env_class = self.config.setup.interaction_env_class
             self.config_run.set_interaction_env_info(interaction_env_class)
 
-            # Check whether the interaction environment uses old style initialization and replace vectorize
-            # function accordingly
-            env_params = inspect.signature(interaction_env_class.__init__).parameters
-            if legacy_signature == set(env_params):
-                log.warning(
-                    f"Environment {interaction_env_class.__class__.__name__} uses a deprecated __init__ format. "
-                    f"Please consider updating."
-                )
-                self.interaction_env = self._vectorize_legacy_environments("interaction")
-            else:
-                callback = CallbackEnvironment(self.config.settings.plot_interval)
-                # Vectorize the environment
-                self.interaction_env = vectorize_environment(
-                    interaction_env_class,
-                    self.config_run,
-                    self.config.settings.interaction_env,
-                    callback,
-                    self.config.settings.seed,
-                    self.config.settings.verbose,
-                    training=training,
-                )
-
-    def _vectorize_legacy_environments(self, typ: str = "env", training: bool = False) -> VecNormalize | VecEnv:
-        """Vectorize the environment and automatically apply normalization wrappers if configured. If the
-        environment is initialized as an interaction_env it will not have normalization wrappers and use the
-        appropriate configuration automatically.
-
-        .. deprecated:: v2.0.0
-            Use the new style environment initialization instead, by explicitly specifying environment parameters in
-            the init function of the environment.
-
-        :param typ: Requested type of environment (normal: 'env' or interaction environment: 'interaction').
-        :param training: Flag to identify whether the environment should be initialized for training or playing.
-                         It true, it will be initialized for training.
-        """
-        assert self.config_run is not None, (
-            "Set the config_run attribute before trying to initialize the environments "
-            "(for example by calling prepare_run)."
-        )
-        # Create the vectorized environment
-        log.debug(
-            "Trying to vectorize the environment with the legacy initializer " "(consider updating to new style init)."
-        )
-
-        # Ensure n is 1 if the DummyVecEnv is used (it doesn't support more than one) or if typ is 'interaction'.
-        if (
-            self.config.setup.environment_class.__class__.__name__ == "DummyVecEnv"
-            and self.config.settings.n_environments != 1
-        ) or typ == "interaction":
-            n = 1
-            log.warning("Setting number of environments to 1 because DummyVecEnv (default) is used.")
-        else:
-            n = self.config.settings.n_environments
-
-        # Prepare the requested type of environment (interaction or normal env).
-        if typ == "env":
-            env = self.config.setup.environment_class
-            env_settings = self.config.settings.environment
-        elif typ == "interaction":
-            assert (
-                self.config.setup.interaction_env_class is not None
-            ), "If 'interact_with_env' is specified, an interaction env class must be specified as well."
-            assert (
-                self.config.settings.interaction_env is not None
-            ), "If 'interact_with_env' is specified, an interaction env settings must be specified as well."
-            env = self.config.setup.interaction_env_class
-            env_settings = self.config.settings.interaction_env
-        else:
-            raise ValueError(f"The environment type must be either 'env' or 'interaction', '{typ}' given.")
-
-        vectorizer = self.config.setup.vectorizer_class
-
-        callback = CallbackEnvironment(self.config.settings.plot_interval)
-        # Create the vectorized environments
-        envs: VecEnv | VecNormalize
-        envs = vectorizer(
-            [
-                lambda env_id=i + 1: env(  # type: ignore  # using legacy instantiation not recognized correctly.
-                    env_id=env_id,
-                    run_name=self.config_run.name,
-                    general_settings=self.config.settings,
-                    path_settings=self.config_run.paths,
-                    env_settings=env_settings,
-                    verbose=self.config.settings.verbose,
-                    callback=callback,
-                )
-                for i in range(n)
-            ]
-        )
-
-        if not typ == "interaction" and self.config.setup.monitor_wrapper:
-            envs = VecMonitor(envs)
-
-        # Automatically normalize the input features if type isn't an interaction env.
-        if not typ == "interaction" and (self.config.setup.norm_wrapper_obs or self.config.setup.norm_wrapper_reward):
-            # check if normalization data are available; then load
-            if self.config_run.path_vec_normalize.is_file():
-                log.info(
-                    f"Normalization data detected. Loading running averages into normalization wrapper: \n"
-                    f"\t {self.config_run.path_vec_normalize}"
-                )
-                envs = VecNormalize.load(str(self.config_run.path_vec_normalize), envs)
-                envs.training = training
-                envs.norm_obs = self.config.setup.norm_wrapper_obs
-                envs.norm_reward = self.config.setup.norm_wrapper_reward
-            else:
-                log.info("No Normalization data detected.")
-                envs = VecNormalize(
-                    envs,
-                    training=training,
-                    norm_obs=self.config.setup.norm_wrapper_obs,
-                    norm_reward=self.config.setup.norm_wrapper_reward,
-                )
-
-        return envs
+            # Vectorize the environment
+            self.interaction_env = vectorize_environment(
+                interaction_env_class,
+                self.config_run,
+                self.config.settings.interaction_env,
+                callback,
+                self.config.settings.seed,
+                self.config.settings.verbose,
+                training=training,
+            )
 
     def learn(
         self,
