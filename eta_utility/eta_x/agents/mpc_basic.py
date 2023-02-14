@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pyomo.environ as pyo
 from pyomo import opt
-from stable_baselines3 import __version__ as sb3_version
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.vec_env import VecEnv, VecNormalize
 
@@ -58,11 +57,6 @@ class MathSolver(BaseAlgorithm):
 
         # Set default values for superclass arguments
         kwargs.setdefault("learning_rate", 0)
-
-        # Prior to version 1.6 stable_baselines3 requires the policy_base parameter.
-        _sb3_versions = sb3_version.split(".")
-        if int(_sb3_versions[0]) <= 1 and int(_sb3_versions[1]) < 6:
-            kwargs.setdefault("policy_base", None)
 
         for key in kwargs.keys():
             # Find arguments which are meant for the BaseAlgorithm class and extract them into super_args
@@ -184,7 +178,7 @@ class MathSolver(BaseAlgorithm):
 
     def predict(
         self,
-        observation: np.ndarray,
+        observation: np.ndarray | dict[str, np.ndarray],
         state: tuple[np.ndarray, ...] | None = None,
         episode_start: np.ndarray | None = None,
         deterministic: bool = False,
@@ -239,15 +233,19 @@ class MathSolver(BaseAlgorithm):
         callback: MaybeCallback = None,
         log_interval: int = 100,
         tb_log_name: str = "run",
-        eval_env: GymEnv | None = None,
-        eval_freq: int = -1,
-        n_eval_episodes: int = 5,
-        eval_log_path: str | None = None,
         reset_num_timesteps: bool = True,
         progress_bar: bool = False,
     ) -> MPCBasic:
         """The MPC approach cannot learn a new model. Specify the model attribute as a pyomo Concrete model instead,
         to use the prediction function of this agent.
+
+        :param total_timesteps: The total number of samples (env steps) to train on
+        :param callback: callback(s) called at every step with state of the algorithm.
+        :param log_interval: The number of timesteps before logging.
+        :param tb_log_name: the name of the run for TensorBoard logging
+        :param reset_num_timesteps: whether or not to reset the current timestep number (used in logging)
+        :param progress_bar: Display a progress bar using tqdm and rich.
+        :return: The trained model.
         """
         raise NotImplementedError("The MPC_simple approach does not need to learn a model.")
 
