@@ -1,5 +1,6 @@
 [build-system]
-requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+# higher versions of setuptools are incompatible with gym==0.21, required by stable_baselines3
+requires = ["setuptools>=45<67", "wheel", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
