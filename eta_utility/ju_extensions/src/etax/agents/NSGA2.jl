@@ -620,14 +620,15 @@ function sort_nondominated(algo::Algorithm, generation::Generation, generationpa
     for i in 1:length_population
         # Compare solutions and assign domination values
         sol1 = population_idx(generation, generationparent, i)
-        for j in (i+1):length_population
+        for j in 1:length_population
+            if i == j
+                continue
+            end
             sol2 = population_idx(generation, generationparent, j)
             if comp_first(sol1, sol2)
-                sol2.dominatedby += 1
                 push!(sol1.dominates, j)
             elseif comp_second(sol1, sol2)
                 sol1.dominatedby += 1
-                push!(sol2.dominates, i)
             end
         end
 
@@ -650,9 +651,7 @@ function sort_nondominated(algo::Algorithm, generation::Generation, generationpa
     # Sort solutions into fronts
     leftsolutions = length_population - frontlengths[1]
     while leftsolutions > 0
-        if length(frontlengths) == 1 && frontlengths[end] != 0
-            push!(frontlengths, frontlengths[end])
-        elseif frontlengths[end] != frontlengths[end-1]
+        if (length(frontlengths) == 1 && frontlengths[end] != 0) || frontlengths[end] != frontlengths[end-1]
             push!(frontlengths, frontlengths[end])
         end
 
