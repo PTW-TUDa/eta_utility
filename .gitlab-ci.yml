@@ -57,7 +57,7 @@ default:
     - python3 -m venv venv
     - source venv/bin/activate
     - pip install --upgrade pip
-    - pip install --upgrade setuptools
+    - pip install --upgrade setuptools<67   # higher versions are incompatible with gym==0.21 (required by stable_baselines)
     - pip install .[develop]
   cache: &global_cache
     key: $CI_COMMIT_REF_SLUG
@@ -79,7 +79,7 @@ create_cache:
     - python3 -m venv venv --clear
     - source venv/bin/activate
     - pip install --upgrade pip
-    - pip install --upgrade setuptools
+    - pip install --upgrade setuptools<67   # higher versions are incompatible with gym==0.21 (required by stable_baselines)
     - pip install .[develop]
     - pip install flake8-json
   cache:
