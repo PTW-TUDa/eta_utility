@@ -81,7 +81,7 @@ eta_utility = ["test", "docs", "examples"]
 "ETA_X" = [
     "gym",
     "torch",
-    "stable_baselines3<1.7", # Many breaking changes in 1.7
+    "stable_baselines3>=1.7",
     "tensorboard",
     # The MPCBasic agent currently does not support pyomo version 6:
     "pyomo>=6"
@@ -98,7 +98,7 @@ eta_utility = ["test", "docs", "examples"]
     # Repeat requirements from ETA_X
     "gym",
     "torch",
-    "stable_baselines3<1.7", # Many breaking changes in 1.7
+    "stable_baselines3>=1.7", # Many breaking changes in 1.7
     "tensorboard",
     "pyomo>=6",
     # Repeat requirements for the examples

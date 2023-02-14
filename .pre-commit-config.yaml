@@ -66,7 +66,7 @@ repos:
           - types-python-dateutil
           - types-requests
           - attrs
-          - stable_baselines3
+          - stable_baselines3>=1.7
           - pygame
           - importlib_metadata
           - cryptography
