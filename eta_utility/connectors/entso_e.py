@@ -173,7 +173,7 @@ class ENTSOEConnection(BaseSeriesConnection):
             if all_equal(col_names):
                 data[resolution] = pd.concat(data[resolution]).astype(float).to_frame()
             else:
-                data[resolution] = pd.DataFrame(data[resolution]).T.astype(int)
+                data[resolution] = pd.DataFrame(data[resolution]).T.astype("Int64")
             data[resolution]["datetime"] = data[resolution].index  # type: ignore
             data[resolution]["resolution"] = resolution  # type: ignore
 
