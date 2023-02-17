@@ -115,12 +115,12 @@ eta_utility = ["test", "docs", "examples"]
     "sphinx",
     "sphinx_rtd_theme",
     "pre-commit",
-    "black==22.10.0",
-    "blacken-docs==1.12.1",
-    "isort==5.10.1",
-    "pyupgrade==3.2.2",
+    "black==23.1.0",
+    "blacken-docs==1.13.0",
+    "isort==5.12.0",
+    "pyupgrade==3.3.1",
     # MyPy requirements and typing packages
-    "mypy==0.991",
+    "mypy==1.0.0",
     "types-python-dateutil",
     "types-requests",
     # Linting / Flake8 requirements and linting packages

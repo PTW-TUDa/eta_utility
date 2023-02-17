@@ -213,8 +213,8 @@ class PendulumEnv(BaseEnv, GymPendulum):
         if self.do_render:
             state = self.state.copy()
             self.state = [self.state["th"], self.state["th_dot"]]  # type: ignore
-            super().render(mode)
+            GymPendulum.render(self, mode)
             self.state = state
 
     def close(self) -> None:
-        super(GymPendulum, self).close()
+        GymPendulum.close(self)
