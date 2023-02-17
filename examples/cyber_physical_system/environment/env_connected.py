@@ -52,7 +52,6 @@ class CleaningMachineConnected(BaseEnvLive):
         sampling_time: TimeStep | str,
         **kwargs: Any,
     ):
-
         # Instantiate BaseEnvSim
         super().__init__(
             env_id=env_id,

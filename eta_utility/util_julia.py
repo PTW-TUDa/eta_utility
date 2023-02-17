@@ -104,7 +104,6 @@ def install_julia() -> None:
     try:
         import julia  # noqa: I900
     except ImportError:
-
         subprocess.check_call([sys.executable, "-m", "pip", "install", "julia"])
 
         import julia  # noqa: I900

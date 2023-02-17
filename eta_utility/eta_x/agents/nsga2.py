@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING
 import numpy as np
 from attrs import define
 from gym import spaces
-from stable_baselines3 import __version__ as sb3_version
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.utils import safe_mean, set_random_seed
 from stable_baselines3.common.vec_env import VecNormalize
@@ -142,11 +141,6 @@ class Nsga2(BaseAlgorithm):
         self.policy: BasePolicy  # type: ignore
 
         # Set default values for superclass arguments
-        # Prior to version 1.6 stable_baselines3 requires the policy_base parameter.
-        _sb3_versions = sb3_version.split(".")
-        if int(_sb3_versions[0]) <= 1 and int(_sb3_versions[1]) < 6:
-            kwargs.setdefault("policy_base", None)
-
         super().__init__(
             policy=policy,
             env=env,
@@ -348,10 +342,6 @@ class Nsga2(BaseAlgorithm):
         callback: MaybeCallback = None,
         log_interval: int = 1,
         tb_log_name: str = "run",
-        eval_env: GymEnv = None,
-        eval_freq: int = -1,
-        n_eval_episodes: int = 5,
-        eval_log_path: str | None = None,
         reset_num_timesteps: bool = True,
         progress_bar: bool = False,
     ) -> Nsga2:
@@ -365,10 +355,6 @@ class Nsga2(BaseAlgorithm):
         :param callback: callback(s) called at every step with state of the algorithm.
         :param log_interval: The number of timesteps before logging.
         :param tb_log_name: the name of the run for TensorBoard logging
-        :param eval_env: Environment that will be used to evaluate the agent
-        :param eval_freq: Evaluate the agent every ``eval_freq`` timesteps (this may vary a little)
-        :param n_eval_episodes: Number of episode to evaluate the agent
-        :param eval_log_path: Path to a folder where the evaluations will be saved
         :param reset_num_timesteps: whether to reset the current timestep number (used in logging)
         :param progress_bar: Parameter to show progress bar, used by stable_baselines (currently unused!)
         :return: the trained model
@@ -383,11 +369,7 @@ class Nsga2(BaseAlgorithm):
         iteration = 0
         total_timesteps, callback = self._setup_learn(
             total_timesteps,
-            eval_env,
             callback,
-            eval_freq,
-            n_eval_episodes,
-            eval_log_path,
             reset_num_timesteps,
             tb_log_name,
         )
@@ -562,8 +544,6 @@ class Nsga2(BaseAlgorithm):
 
         if self.env is not None:
             self.env.seed(seed)
-        if self.eval_env is not None:
-            self.eval_env.seed(seed)
 
     def _excluded_save_params(self) -> list[str]:
         """

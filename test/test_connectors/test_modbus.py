@@ -341,7 +341,6 @@ class TestConnectorSubscriptions:
         async def write_loop(server, local_nodes, values):
             i = 0
             while True:
-
                 if i == 3:
                     server.stop()
                 elif 3 < i < 6:

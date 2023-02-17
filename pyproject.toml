@@ -1,5 +1,6 @@
 [build-system]
-requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+# higher versions of setuptools are incompatible with gym==0.21, required by stable_baselines3
+requires = ["setuptools>=45<67", "wheel", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -80,7 +81,7 @@ eta_utility = ["test", "docs", "examples"]
 "ETA_X" = [
     "gym",
     "torch",
-    "stable_baselines3<1.7", # Many breaking changes in 1.7
+    "stable_baselines3>=1.7",
     "tensorboard",
     # The MPCBasic agent currently does not support pyomo version 6:
     "pyomo>=6"
@@ -97,7 +98,7 @@ eta_utility = ["test", "docs", "examples"]
     # Repeat requirements from ETA_X
     "gym",
     "torch",
-    "stable_baselines3<1.7", # Many breaking changes in 1.7
+    "stable_baselines3>=1.7", # Many breaking changes in 1.7
     "tensorboard",
     "pyomo>=6",
     # Repeat requirements for the examples
@@ -114,12 +115,12 @@ eta_utility = ["test", "docs", "examples"]
     "sphinx",
     "sphinx_rtd_theme",
     "pre-commit",
-    "black==22.10.0",
-    "blacken-docs==1.12.1",
-    "isort==5.10.1",
-    "pyupgrade==3.2.2",
+    "black==23.1.0",
+    "blacken-docs==1.13.0",
+    "isort==5.12.0",
+    "pyupgrade==3.3.1",
     # MyPy requirements and typing packages
-    "mypy==0.991",
+    "mypy==1.0.0",
     "types-python-dateutil",
     "types-requests",
     # Linting / Flake8 requirements and linting packages

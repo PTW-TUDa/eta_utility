@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pathlib
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -79,7 +80,7 @@ class JuliaEnv(BaseEnv):
         scenario_time_end: datetime | str,
         episode_duration: TimeStep | str,
         sampling_time: TimeStep | str,
-        julia_env_file: str,
+        julia_env_file: pathlib.Path | str,
         **kwargs: Any,
     ) -> None:
         super().__init__(
@@ -97,7 +98,11 @@ class JuliaEnv(BaseEnv):
         for key, value in kwargs.items():
             setattr(self, key, value)
 
-        self.__jl = import_jl_file(julia_env_file)
+        julia_env_path = julia_env_file if isinstance(julia_env_file, pathlib.Path) else pathlib.Path(julia_env_file)
+        if not julia_env_path.is_absolute():
+            julia_env_path = config_run.path_root / julia_env_path
+
+        self.__jl = import_jl_file(julia_env_path)
 
         # Make sure that all required functions are implemented in julia.
         for func in {"Environment", "step!", "reset!", "close!", "render", "seed!"}:
