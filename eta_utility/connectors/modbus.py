@@ -238,7 +238,7 @@ class ModbusConnection(BaseConnection):
                     raise ConnectionError(f"Could not establish connection to host {self.url}")
         except (socket.herror, socket.gaierror) as e:
             raise ConnectionError(f"Host not found: {self.url}") from e
-        except (socket.timeout) as e:
+        except socket.timeout as e:
             raise ConnectionError(f"Host timeout: {self.url}") from e
         except (RuntimeError, ConnectionError) as e:
             raise ConnectionError(f"Connection Error: {self.url}, Error: {str(e)}") from e

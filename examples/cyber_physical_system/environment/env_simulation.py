@@ -56,7 +56,6 @@ class CleaningMachineSimulation(BaseEnvSim):
         scenario_files: Sequence[Mapping[str, Any]],
         **kwargs: Any,
     ):
-
         # Instantiate BaseEnvSim
         super().__init__(
             env_id=env_id,

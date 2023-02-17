@@ -23,7 +23,7 @@
         "save_model_every_x_episodes": 100,
         "n_episodes_learn": 1000,
         "n_episodes_play": 5,
-        "n_environments": 1
+        "n_environments": 4
     },
     "environment_specific": {
         "scenario_time_begin": "2022-01-04 12:12",

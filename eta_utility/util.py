@@ -422,7 +422,6 @@ class SelfsignedKeyCertPair(KeyCertPair):
         city: str | None = None,
         organization: str | None = None,
     ) -> None:
-
         super().__init__(*self.generate_cert(common_name, country, province, city, organization))
 
         self._key_tempfile: _TemporaryFileWrapper[bytes] | None = None

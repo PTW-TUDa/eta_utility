@@ -31,7 +31,11 @@ class TestPendulumExample:
 
     def test_learning(self, experiment_path):
         ex_pendulum_learning(
-            experiment_path, {"settings": {"n_episodes_learn": 2}, "environment_specific": {"do_render": False}}
+            experiment_path,
+            {
+                "settings": {"n_episodes_learn": 4, "save_model_every_x_episodes": 2, "n_environments": 2},
+                "environment_specific": {"do_render": False},
+            },
         )
 
 

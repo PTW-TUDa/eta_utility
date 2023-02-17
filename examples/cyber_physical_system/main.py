@@ -79,4 +79,8 @@ def get_path() -> pathlib.Path:
 
 
 if __name__ == "__main__":
+    import sys
+
+    sys.path.append(pathlib.Path(__file__).parent.parent.parent.as_posix())
+
     main()

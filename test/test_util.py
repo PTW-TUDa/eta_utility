@@ -26,7 +26,6 @@ def test_round_timestamp(datetime_str, interval, expected):
 
 
 def test_dict_search():
-
     assert dict_search({"key": "value"}, "value") == "key"
 
 

@@ -60,7 +60,6 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         prediction_scope: TimeStep | str | None = None,
         **kwargs: Any,
     ) -> None:
-
         super().__init__(
             env_id,
             config_run,

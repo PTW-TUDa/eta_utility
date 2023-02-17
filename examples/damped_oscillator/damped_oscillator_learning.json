@@ -22,7 +22,7 @@
         "sim_steps_per_sample": 5,
         "n_episodes_play": 1,
         "n_episodes_learn": 2000,
-        "n_environments": 8,
+        "n_environments": 4,
         "verbose": 2,
         "seed": 6437698,
         "plot_interval": 50

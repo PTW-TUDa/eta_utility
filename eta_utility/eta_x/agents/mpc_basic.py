@@ -50,7 +50,6 @@ class MathSolver(BaseAlgorithm):
         action_index: int = 0,
         **kwargs: Any,
     ) -> None:
-
         # Prepare kwargs to be sent to the super class and to the solver.
         super_args = {}
         solver_args = {}
