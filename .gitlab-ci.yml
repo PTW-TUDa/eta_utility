@@ -168,7 +168,7 @@ typecheck:
   script:
     - mypy -V
     - mypy --config-file pyproject.toml
-
+    
 # build the sources
 build:
   stage: deploy

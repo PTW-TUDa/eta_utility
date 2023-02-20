@@ -562,7 +562,7 @@ class ConfigOptSettings:
 
 
 @define(frozen=True, kw_only=True)
-class ConfigOptRun:
+class ConfigOptRun:  # type: ignore  # MyPy does not understand the type of "description".
     """Configuration for an optimization run, including the series and run names descriptions and paths
     for the run.
     """
