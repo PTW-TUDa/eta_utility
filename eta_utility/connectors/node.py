@@ -152,7 +152,7 @@ class Node(metaclass=NodeMeta):
 
         For local nodes no additional fields are required.
 
-        For Modbus nodes the following additional fiels are required:
+        For Modbus nodes the following additional fields are required:
 
             * ModbusRegisterType (or mb_register), ModbusSlave (or mb_slave), ModbusChannel (or mb_channel).
 
@@ -178,7 +178,7 @@ class Node(metaclass=NodeMeta):
             try:
                 protocol = cls._read_dict_protocol(node)
             except KeyError as e:
-                text = f"Error reading node data in row {idx+1}: {e}"
+                text = f"Error reading node protocol in row {idx + 1}: {e}."
                 if fail:
                     raise KeyError(text)
                 else:
@@ -188,7 +188,7 @@ class Node(metaclass=NodeMeta):
             try:
                 node_class = cls._registry[protocol.strip().lower()]
             except KeyError:
-                text = f"Specified an unsupported protocol in row {idx+1}: {protocol}."
+                text = f"Specified an unsupported protocol in row {idx + 1}: {protocol}."
                 if fail:
                     raise ValueError(text)
                 else:
@@ -198,7 +198,7 @@ class Node(metaclass=NodeMeta):
             try:
                 nodes.append(node_class._from_dict(node))
             except (TypeError, KeyError) as e:
-                text = f"Error while parsing data for node in row {idx+1}: {e}"
+                text = f"Error while reading the configuration data for node in row {idx + 1}: {e}."
                 if fail:
                     raise TypeError(text)
                 else:
@@ -246,19 +246,24 @@ class Node(metaclass=NodeMeta):
 
     @staticmethod
     def _try_dict_get_any(dikt: dict[str, Any], *names: str) -> Any:
-        """Get any of the specified items from dictionary, if any are available. The function will return
+        """Get any of the specified items from the node, if any are available. The function will return
         the first value it finds, even if there are multiple matches.
 
         This function will output sensible error messages, when the values are not found.
 
-        :param dikt: Dictionary to get values from.
+        :param dikt: Dictionary of the node to get values from.
         :param names: Item names to look for.
         :return: Value from dictionary.
         """
         try:
             value = dict_get_any(dikt, *names, fail=True)
         except KeyError:
-            raise KeyError(f"At least one of the following fields is required for a node: {names}.")
+            log.error(f"For the node, the field '{names[0]}' must be specified or check the correct spelling.")
+            raise KeyError(
+                "The required parameter for the node configuration was not found (see log). "
+                "Could not load config "
+                "file. "
+            )
 
         return value
 
@@ -269,7 +274,7 @@ class Node(metaclass=NodeMeta):
 
             * Code, IP, Port, Protocol (modbus or opcua or eneffco).
 
-        For Modbus nodes the following additional fiels are required:
+        For Modbus nodes the following additional fields are required:
 
             * ModbusRegisterType, ModbusByte, ModbusChannel.
 
@@ -388,12 +393,19 @@ class NodeModbus(Node, protocol="modbus"):
         name, pwd, url, usr = cls._read_dict_info(dikt)
 
         # Initialize node if protocol is 'modbus'
-        mb_register = cls._try_dict_get_any(dikt, "mb_register", "modbusregistertype")
-        mb_channel = cls._try_dict_get_any(dikt, "mb_channel", "modbuschannel")
-        mb_byteorder = cls._try_dict_get_any(dikt, "mb_byteorder", "modbusbyteorder")
-        mb_slave = dict_get_any(dikt, "mb_slave", "modbusslave", fail=False, default=32)
-        mb_bit_length = dict_get_any(dikt, "mb_bit_length", "mb_bitlength", fail=False, default=32)
-        dtype = dict_get_any(dikt, "dtype", "datentyp", fail=False)
+        try:
+            mb_register = cls._try_dict_get_any(dikt, "mb_register", "modbusregistertype")
+            mb_channel = cls._try_dict_get_any(dikt, "mb_channel", "modbuschannel")
+            mb_byteorder = cls._try_dict_get_any(dikt, "mb_byteorder", "modbusbyteorder")
+            mb_slave = dict_get_any(dikt, "mb_slave", "modbusslave", fail=False, default=32)
+            mb_bit_length = dict_get_any(dikt, "mb_bit_length", "mb_bitlength", fail=False, default=32)
+            dtype = dict_get_any(dikt, "dtype", "datentyp", fail=False)
+        except KeyError:
+            raise KeyError(
+                f"The required parameter for the node configuration was not found (see log). The node {name} could "
+                f"not load."
+            )
+
         try:
             return cls(
                 name,
@@ -524,12 +536,18 @@ class NodeOpcUa(Node, protocol="opcua"):
                     dtype=dtype,
                 )
             except (TypeError, AttributeError):
-                raise TypeError(f"Could not convert all types for node {name}")
+                raise TypeError(
+                    f"Could not convert all types for node {name}. Either the 'node_id' or the 'opc_ns' "
+                    f"and 'opc_path' must be specified."
+                )
         else:
             try:
                 return cls(name, url, "opcua", usr=usr, pwd=pwd, opc_id=opc_id, dtype=dtype)
             except (TypeError, AttributeError):
-                raise TypeError(f"Could not convert all types for node {name}")
+                raise TypeError(
+                    f"Could not convert all types for node {name}. Either the 'node_id' or the 'opc_ns' "
+                    f"and 'opc_path' must be specified."
+                )
 
 
 class NodeEnEffCo(Node, protocol="eneffco"):
@@ -550,7 +568,13 @@ class NodeEnEffCo(Node, protocol="eneffco"):
         :return: NodeEnEffCo object.
         """
         name, pwd, url, usr = cls._read_dict_info(dikt)
-        code = cls._try_dict_get_any(dikt, "code", "eneffco_code")
+        try:
+            code = cls._try_dict_get_any(dikt, "code", "eneffco_code")
+        except KeyError:
+            raise KeyError(
+                f"The required parameter for the node configuration was not found (see log). The node {name} could "
+                f"not load."
+            )
 
         try:
             return cls(name, url, "eneffco", usr=usr, pwd=pwd, eneffco_code=code)
@@ -611,8 +635,14 @@ class NodeEntsoE(Node, protocol="entsoe"):
         """
         name, pwd, url, usr = cls._read_dict_info(dikt)
 
-        endpoint = cls._try_dict_get_any(dikt, "endpoint")
-        bidding_zone = cls._try_dict_get_any(dikt, "bidding zone", "bidding_zone", "zone")
+        try:
+            endpoint = cls._try_dict_get_any(dikt, "endpoint")
+            bidding_zone = cls._try_dict_get_any(dikt, "bidding zone", "bidding_zone", "zone")
+        except KeyError:
+            raise KeyError(
+                f"The required parameter for the node configuration was not found (see log). The node {name} could "
+                f"not load."
+            )
 
         try:
             return cls(name, url, "entsoe", usr=usr, pwd=pwd, endpoint=endpoint, bidding_zone=bidding_zone)

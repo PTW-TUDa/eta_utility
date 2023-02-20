@@ -1,4 +1,4 @@
-from .mpc_basic import MPCBasic
+from .mpc_basic import MathSolver, MPCBasic
 from .rule_based import RuleBased
 
 # Import Nsga2 algorithm if julia is available and ignore errors otherwise.

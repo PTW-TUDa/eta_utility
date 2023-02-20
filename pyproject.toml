@@ -15,7 +15,7 @@ keywords = [
 license = {file = "LICENSE"}
 # We're using some functionality from python 3.7 (therefore this is the minimum)
 # and pytorch does not support Versions >3.10 (therefore this is the maximum).
-requires-python = ">=3.7, <=3.10"
+requires-python = ">=3.7, <3.11"
 classifiers = [
     "License :: OSI Approved :: BSD License",
     "Development Status :: 4 - Beta",
@@ -29,6 +29,7 @@ classifiers = [
     "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10"
 ]
 dynamic = ["version", "readme"]
 dependencies = [
