@@ -271,16 +271,5 @@ class MathSolver(BaseAlgorithm):
         """Loading a model is currently not implemented for the MPC agent."""
         raise NotImplementedError("The MPC approach cannot load a model.")
 
-    def get_parameter_list(self) -> list:
-        """
-        Get tensorflow Variables of model's parameters.
 
-        This includes all variables necessary for continuing training (saving / loading).
-
-        :return: List of tensorflow Variables.
-        """
-        pass
-
-    def _get_pretrain_placeholders(self) -> None:
-        """Pretaining is not implemented for the MPC agent."""
-        raise NotImplementedError("The MILP Optimizer does not need to be pre-trained.")
+MPCBasic = MathSolver
