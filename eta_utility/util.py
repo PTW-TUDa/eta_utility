@@ -214,7 +214,10 @@ def dict_get_any(dikt: dict[str, Any], *names: str, fail: bool = True, default: 
             return dikt[name]
 
     if fail is True:
-        raise KeyError(f"Did not find one of the required keys in the configuration: {names}")
+        raise KeyError(
+            f"Did not find one of the required keys in the configuration: {names}. Possibly Check the "
+            f"correct spelling"
+        )
     else:
         return default
 
