@@ -141,8 +141,9 @@ secret_detection:
   rules:
     - !reference [.default_rules, rules]
 
-test3.7:
+test3.8:
   stage: test
+  image: python:3.8
   interruptible: true
   script:
     - pip install pytest pytest-cov
@@ -154,6 +155,17 @@ test3.7:
 test3.9:
   stage: test
   image: python:3.9
+  interruptible: true
+  script:
+    - pip install pytest pytest-cov
+    - pytest --cov
+  retry:
+    max: 1
+    when: script_failure
+
+test3.10:
+  stage: test
+  image: python:3.10
   interruptible: true
   script:
     - pip install pytest pytest-cov
