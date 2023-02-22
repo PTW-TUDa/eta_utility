@@ -53,7 +53,7 @@ default:
   image: python:3.8
   before_script:
     - apt-get update
-    - python -V  # Print out python version for debugging
+    - python3 -V  # Print out python version for debugging
     - python3 -m venv venv
     - source venv/bin/activate
     - pip install --upgrade pip
@@ -180,7 +180,21 @@ typecheck:
   script:
     - mypy -V
     - mypy --config-file pyproject.toml
-    
+
+test-julia:
+  stage: test
+  image: git-reg.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility:latest
+  interruptible: true
+  script:
+    - install-julia
+    - julia -e '
+      ENV["PYTHON"] = Sys.which("python");
+      ENV["PYCALL_JL_RUNTIME_PYTHON"] = Sys.which("python");
+      using Pkg; 
+      Pkg.activate("eta_utility/ju_extensions");
+      Pkg.instantiate();
+      Pkg.test()'
+
 # build the sources
 build:
   stage: deploy
