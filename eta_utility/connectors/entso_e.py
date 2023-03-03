@@ -4,7 +4,7 @@ does not have the ability to write data.
 from __future__ import annotations
 
 import concurrent.futures
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Sized
 
 import pandas as pd
@@ -156,7 +156,10 @@ class ENTSOEConnection(BaseSeriesConnection):
                 data[resolution] = []
             data[resolution].append(s)
 
-        return self._handle_resolutions(data)
+        df = self._handle_resolutions(data)
+        df = df.set_index("datetime")
+        df.index = df.index.tz_localize(tz="UTC")  # ENTSO-E returns always UTC
+        return df
 
     def _handle_resolutions(self, data: dict[str, list[pd.Series]]) -> pd.DataFrame:
         """Handle multiple resolution coming in request, since resolution is not a parameter for the request.
@@ -164,6 +167,7 @@ class ENTSOEConnection(BaseSeriesConnection):
         :param data: dictionary in which the keys are resolutions and the values are the data points
         :return: dataframe with multi-index separating the multiple resolutions
         """
+
         # convert each timeseries into dataframe
         for resolution in data.keys():
             # if all column names are equal then each series are
@@ -179,8 +183,6 @@ class ENTSOEConnection(BaseSeriesConnection):
 
         # concatenating the DataFrames
         df = pd.concat(data.values())
-        df = df.set_index("datetime")
-
         return df
 
     def read_series(
@@ -202,11 +204,21 @@ class ENTSOEConnection(BaseSeriesConnection):
         nodes = self._validate_nodes(nodes)
         interval = interval if isinstance(interval, timedelta) else timedelta(seconds=interval)
 
+        from_time = self._assert_tz_awareness(from_time)
+        to_time = self._assert_tz_awareness(to_time)
+
+        if from_time.tzinfo != to_time.tzinfo:
+            log.warning(
+                f"Timezone of from_time and to_time are different. Using from_time timezone: {from_time.tzinfo}"
+            )
+
         def read_node(node: NodeEntsoE) -> pd.DataFrame:
             params = self.config.create_params(node, from_time, to_time)
 
             result = self._raw_request(params)
             df = self._handle_xml(result.content)
+            # entsoe always returns a dataframe in UTC time, convert to same time zone as given from_time
+            df.index = df.index.tz_convert(tz=from_time.tzinfo)
 
             list_all_res = []
             resolutions = df["resolution"].unique()
@@ -576,16 +588,20 @@ class _ConnectionConfiguration:
             params["ProcessType"] = "Day ahead"
             params["In_Domain"] = node.bidding_zone
             params["Out_Domain"] = node.bidding_zone
-            resolution = 60  # 1 hour interval data
+            resolution = 15  # use smallest interval because entsoe returns both: 15 and 60 minutes
 
         else:
             raise NotImplementedError(f"Endpoint not available: {node.endpoint}")
 
-        rounded_from_time = round_timestamp(from_time, interval=resolution * 60, ensure_tz=False)
-        rounded_to_time = round_timestamp(to_time, interval=resolution * 60, ensure_tz=False)
+        rounded_from_time = round_timestamp(from_time, interval=resolution * 60, ensure_tz=True)
+        rounded_to_time = round_timestamp(to_time, interval=resolution * 60, ensure_tz=True)
+
+        rounded_from_time_utc = rounded_from_time.astimezone(timezone.utc)
+        rounded_to_time_utc = rounded_to_time.astimezone(timezone.utc)
+
         params["TimeInterval"] = (
-            f"{rounded_from_time.isoformat(sep='T', timespec='minutes')}Z/"
-            f"{rounded_to_time.isoformat(sep='T', timespec='minutes')}Z"
+            f"{rounded_from_time_utc.strftime('%Y-%m-%dT%H:%M:%SZ')}/"
+            f"{rounded_to_time_utc.strftime('%Y-%m-%dT%H:%M:%SZ')}"
         )
         return params
 
