@@ -191,8 +191,8 @@ class ENTSOEConnection(BaseSeriesConnection):
         nodes = self._validate_nodes(nodes)
         interval = interval if isinstance(interval, timedelta) else timedelta(seconds=interval)
 
-        from_time = self._assert_tz_awareness(from_time)
-        to_time = self._assert_tz_awareness(to_time)
+        from_time = round_timestamp(from_time, interval.total_seconds())
+        to_time = round_timestamp(to_time, interval.total_seconds())
 
         if from_time.tzinfo != to_time.tzinfo:
             log.warning(
@@ -567,22 +567,19 @@ class _ConnectionConfiguration:
         if node.endpoint == "ActualGenerationPerType":
             params["ProcessType"] = "Realised"
             params["In_Domain"] = node.bidding_zone
-            resolution = 15  # 15 minutes interval data
 
         elif node.endpoint == "Price":
             params["ProcessType"] = "Day ahead"
             params["In_Domain"] = node.bidding_zone
             params["Out_Domain"] = node.bidding_zone
-            resolution = 15  # use smallest interval because entsoe returns both: 15 and 60 minutes
 
         else:
             raise NotImplementedError(f"Endpoint not available: {node.endpoint}")
 
-        rounded_from_time = round_timestamp(from_time, interval=resolution * 60, ensure_tz=True)
-        rounded_to_time = round_timestamp(to_time, interval=resolution * 60, ensure_tz=True)
-
-        rounded_from_time_utc = rounded_from_time.astimezone(timezone.utc)
-        rounded_to_time_utc = rounded_to_time.astimezone(timezone.utc)
+        # Round down at from_time and up at to_time to receive all necessary values from entsoe
+        # entsoe uses always a full hour
+        rounded_from_time_utc = round_timestamp(from_time.astimezone(timezone.utc), 3600) - timedelta(hours=1)
+        rounded_to_time_utc = round_timestamp(to_time.astimezone(timezone.utc), 3600)
 
         params["TimeInterval"] = (
             f"{rounded_from_time_utc.strftime('%Y-%m-%dT%H:%M:%SZ')}/"

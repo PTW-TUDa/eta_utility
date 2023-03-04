@@ -1,5 +1,5 @@
 import pathlib
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 import pytest
@@ -8,12 +8,12 @@ from lxml import etree
 
 from eta_utility.connectors import ENTSOEConnection, Node
 from eta_utility.connectors.entso_e import _ConnectionConfiguration
-from eta_utility.util import dict_search
+from eta_utility.util import dict_search, round_timestamp
 
 ENTSOE_TOKEN = ""
 
 
-def create_node(endpoint: str, name: str = "CH1.Elek_U.L1-N") -> Node:
+def create_node(endpoint: str, name: str = "Node1") -> Node:
     return Node(
         name,
         "https://web-api.tp.entsoe.eu/",
@@ -65,6 +65,30 @@ def test_entsoe_actual_generation_per_type(_local_requests):
     assert node.name in res.columns.get_level_values(0)[0]
 
 
+def test_entsoe_timezone(_local_requests):
+    node = create_node("Price", "Node1")
+
+    server = ENTSOEConnection.from_node(node, api_token=ENTSOE_TOKEN)
+
+    from_datetime = datetime(2022, 2, 15, 13, 18, 12, tzinfo=timezone.utc)
+    to_datetime = datetime(2022, 2, 15, 14, 15, 31, tzinfo=timezone.utc)
+    res = server.read_series(from_time=from_datetime, to_time=to_datetime)
+    # Compare with correct reference values from entso-e
+    assert res.iloc[0, 0] == 126.93
+    assert res.iloc[-1, 0] == 158.61
+    assert res.iloc[0, 1] == 149.28
+    assert res.iloc[-1, 1] == 157.27
+
+    from_datetime = datetime(2022, 2, 15, 13, 18, 12, tzinfo=timezone(timedelta(hours=-12)))  # 16.02 01:18:12 UTC
+    to_datetime = datetime(2022, 2, 15, 14, 15, 31, tzinfo=timezone(timedelta(hours=-12)))  # 16.02 02:15:31 UTC
+    res = server.read_series(from_time=from_datetime, to_time=to_datetime)
+    # Compare with correct reference values from entso-e
+    assert res.iloc[0, 0] == 71.91
+    assert res.iloc[-1, 0] == 83.85
+    assert res.iloc[0, 1] == 99.45
+    assert res.iloc[-1, 1] == 106.67
+
+
 @pytest.mark.parametrize(("nodes", "number_of_columns_per_node"), multiple_nodes_expected)
 def test_multiple_nodes(_local_requests, nodes, number_of_columns_per_node):
     "Check if multiple nodes return a dataframe with all nodes concatenated"
@@ -96,11 +120,13 @@ def test_interval(_local_requests, interval):
     res = server.read_series(from_time=from_datetime, to_time=to_datetime, interval=interval)
     number_of_resolutions = len(res.columns.levels[1])
 
-    total_seconds = (to_datetime - from_datetime).total_seconds() // interval + 1  # including the last datetime point
-    assert total_seconds * number_of_resolutions == res.shape[0] * res.shape[1]
+    total_timestamps = (
+        round_timestamp(to_datetime, interval) - round_timestamp(from_datetime, interval)
+    ).total_seconds() // interval + 1
+    assert total_timestamps * number_of_resolutions == res.shape[0] * res.shape[1]
 
 
-@pytest.mark.parametrize("end_time", ["2022-02-15T23:30:00", "2022-02-16T23:00:00", "2022-02-17T22:59:00"])
+@pytest.mark.parametrize("end_time", ["2022-02-15T23:30:00", "2022-02-16T23:00:00", "2022-02-16T22:59:00"])
 def test_multiple_days(_local_requests, end_time):
     """Entsoe delivers multiple days in different TimeSeries-tags.
     Check if these timeseries are concatenated correctly.
@@ -116,7 +142,9 @@ def test_multiple_days(_local_requests, end_time):
     res = server.read_series(from_time=from_datetime, to_time=to_datetime, interval=interval)
     number_of_resolutions = len(res.columns.levels[1])
 
-    total_timestamps = (to_datetime - from_datetime).total_seconds() // interval + 1
+    total_timestamps = (
+        round_timestamp(to_datetime, interval) - round_timestamp(from_datetime, interval)
+    ).total_seconds() // interval + 1
     assert total_timestamps * number_of_resolutions == res.shape[0] * res.shape[1]
 
 
