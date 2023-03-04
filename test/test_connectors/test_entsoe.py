@@ -25,7 +25,8 @@ def create_node(endpoint: str, name: str = "CH1.Elek_U.L1-N") -> Node:
 
 @pytest.fixture()
 def _local_requests(monkeypatch, config_entsoe):
-    monkeypatch.setattr(requests, "post", Postable(config_entsoe["path"]))
+    if ENTSOE_TOKEN == "":
+        monkeypatch.setattr(requests, "post", Postable(config_entsoe["path"]))
 
 
 multiple_nodes_expected = [
