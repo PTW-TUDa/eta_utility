@@ -16,7 +16,7 @@ ENTSOE_TOKEN = ""
 def create_node(endpoint: str, name: str = "CH1.Elek_U.L1-N") -> Node:
     return Node(
         name,
-        "https://transparency.entsoe.eu/",
+        "https://web-api.tp.entsoe.eu/",
         "entsoe",
         endpoint=endpoint,
         bidding_zone="DEU-LUX",

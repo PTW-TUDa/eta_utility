@@ -32,7 +32,7 @@ class ENTSOEConnection(BaseSeriesConnection):
     ENTSOEConnection is a class to download and upload multiple features from and to the ENTSO-E transparency platform
     database as timeseries. The platform contains data about the european electricity markets.
 
-    :param url: Url of the server with scheme (https://transparency.entsoe.eu/)
+    :param url: Url of the server with scheme (https://web-api.tp.entsoe.eu/)
     :param usr: Username for login to the platform (usually not required - default: None)
     :param pwd: Password for login to the platform (usually not required - default: None)
     :param api_token: Token for API authentication
@@ -44,7 +44,7 @@ class ENTSOEConnection(BaseSeriesConnection):
 
     def __init__(
         self,
-        url: str = "https://transparency.entsoe.eu/",
+        url: str = "https://web-api.tp.entsoe.eu/",
         *,
         api_token: str,
         nodes: Nodes | None = None,
