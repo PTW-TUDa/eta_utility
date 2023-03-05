@@ -200,7 +200,7 @@ class ENTSOEConnection(BaseSeriesConnection):
             # All resolutions are resampled separatly and concatenated to one dataframe in the end
             for resolution in data.keys():
                 data_resolution = {
-                    f"{column}_{node.name}": pd.concat(series) for column, series in data[resolution].items()
+                    f"{node.name}_{column}": pd.concat(series) for column, series in data[resolution].items()
                 }
                 df_resolution = pd.DataFrame.from_dict(data_resolution, orient="columns")
                 df_resolution = df_resample(df_resolution, interval, missing_data="fillna")
