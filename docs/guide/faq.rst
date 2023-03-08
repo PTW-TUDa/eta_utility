@@ -111,3 +111,26 @@ First, find the path to your sphinx installation, then add it via the terminal o
     :alt: how add to PATH
 
     Adding sphinx scripts to PATH
+
+.. _julia_not_found:
+
+I want to install Julia, but the Julia executable cannot be found
+------------------------------------------------------------------
+If you receive the following error message, when you want to install the Julia executable:
+
+.. code-block:: console
+
+    $> Exception: Julia executable cannot be found. If you have installed Julia, make sure Julia executable is in the system path. If you have not installed Julia, download from https://julialang.org/downloads/ and install it.
+
+Add the path from Julia to Windows as described in :ref:`install_julia` and restart eta-utility.
+
+.. _packages_error:
+
+I want to start eta- utility, but in some external packages there were changes
+----------------------------------------------------------------------------------
+If you want to use eta- utility, but you get errors in some Python packages, because there were changes in the source \
+code, update eta-utility with the following command:
+
+.. code-block:: console
+
+    $> pip install --upgrade --upgrade-strategy=only-if-needed -e .[develop]

@@ -190,7 +190,7 @@ test-julia:
     - julia -e '
       ENV["PYTHON"] = Sys.which("python");
       ENV["PYCALL_JL_RUNTIME_PYTHON"] = Sys.which("python");
-      using Pkg; 
+      using Pkg;
       Pkg.activate("eta_utility/ju_extensions");
       Pkg.instantiate();
       Pkg.test()'
