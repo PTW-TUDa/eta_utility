@@ -29,11 +29,22 @@ The optional requirements can be installed using pip. For example:
 
    $> pip install eta_utility[eta_x]
 
+.. _install_julia:
+
 Using Julia Extensions
 -------------------------------------
 
 First, it is necessary to have julia available in your system, the recommended version
 is the latest stable version but minimum v.1.8 (`download julia <https://julialang.org/downloads/>`_).
+
+Next, it's important, that you include Julia to the operating system path. For windows 10 do the following steps:
+
+- **1st step**: Open run (Windows Key + R) and write ``rundll32 sysdm.cpl,EditEnvironmentVariables`` .
+- **2nd step**: Under either "User Variables" or "System Variables", the row "Path" add with "edit" the Julia path. The Julia
+  path should have the following schema: ``C:Users\User\AppData\Local\Programs\Julia-1.8.5\bin``.
+- **3rd step**: Click OK and restart eta-utility.
+
+If you are using a different operating system, look here: (`path julia <https://julialang.org/downloads/platform/#windows/>`_)
 
 The next step is to activate your virtual environment for the eta-utility
 and inside the eta-utility directory execute the following command:
