@@ -28,19 +28,20 @@ read data from the specified data point. Each data point has its own node, not j
 that we are connecting to. Therefore, *Nodes* are the easiest way to instantiate connections, however they can
 be a bit unwieldy to work with when trying to read many different data points from the same device.
 
+.. _connection instantiation:
 
 There are multiple ways to instantiate connections, depending on the use case:
 
 - When only a single connection is needed, the connection can be instantiated directly. This is possible
   with or without specifying nodes. *Node* objects do have to be created however, to be able to tell the
   connection where (which data points) to read data from or write data to.
-- If you already have the *Node* objects and want to quickly create a single connection, all connections have the
-  *from_nodes* classmethod which requires less duplicate information than direct instantiation.
+- If you already have the *Node* object(s) and want to create connection(s), you should use the *from_node* method of
+  the *BaseConnection* class. It requires less duplicate information than direct instantiation. If a single node is
+  passed, the method returns the connection for that node. When multiple connections to different devices are needed, it
+  is usually easiest to create all of the *Node* objects first and pass them in a list. Then, *from_node* returns a
+  dictionary of connections and automatically selects the correct nodes for each connection.
 - When a single connection is needed and access to the *Node* objects is not required, many (not all) connectors
   offer a *from_ids* classmethod which returns the Connection object and creates the *Nodes* only internally.
-- When multiple connections to different devices are needed, it is usually easiest to create all of the *Node*
-  objects first and use the :py:class:`eta_utility.connectors.common.connections_from_nodes` function to
-  get an array of connections. The function will automatically select the correct nodes for each connection.
 
 Nodes
 ----------
@@ -52,11 +53,16 @@ information to correctly identify the data points.
 The URL may contain the username and password (``schema://username:password@hostname:port/path``). This is handled
 automatically by the connectors and the username and password will be removed before creating a connection.
 
+The *Node* class should always be used to instantiate nodes. The type of the node can be specified using the
+*protocol* parameter.
+
 .. autoclass:: eta_utility.connectors::Node
     :noindex:
 
-The following are there to document the required parameters for each type of node - always use the *Node* class and
-specify the protocol to instantiate nodes.
+The following classes are there to document the required parameters for each type of node.
+
+ .. note::
+     Always use the *Node* class to instantiate nodes! (not its subclasses)
 
 .. autoclass:: eta_utility.connectors.node::NodeLocal
     :inherited-members:
@@ -85,13 +91,17 @@ specify the protocol to instantiate nodes.
 
 Connection Instantiation
 ----------------------------
-Connections can be instantiated using different methods as described above. The three most common methods are described
-here, they are instantiation of a connection *from_ids*, the instantiation of a connection *from_nodes* and
-instantiation of multiple connections using *connections_from_nodes*.
+Connections can be instantiated using different methods as described :ref:`above <connection instantiation>`. The two most common methods are described
+here, they are instantiation of a connection *from_ids* and the instantiation of a single or multiple connection(s)
+using *from_node*.
 
-Instantiation from node(s) is useful if you already have created some nodes and would like to create a connection
-from them. The following is the from_node function of the base class. Specific implementations may differ regarding
-the accepted keyword arguments.
+Instantiation *from_node* in BaseConnection is useful if you already have created some node(s) and would like to create connection(s)
+from them. Each connection class also has its own *_from_node* method, since the necessary/accepted keywords might differ. To create connections, a password
+and a username are often required. For setting these the following prioritization applies:
+
+- If a password is given in the node, take it.
+- If there is no password there, take as "default" a password from the arguments.
+- If there is neither, the username and password are empty.
 
 .. autofunction:: eta_utility.connectors.base_classes::BaseConnection.from_node
     :noindex:
@@ -105,9 +115,4 @@ connection.
     method exists and which parameters are required.
 
 .. autofunction:: eta_utility.connectors::EnEffCoConnection.from_ids
-    :noindex:
-
-The *connections_from_nodes* function is useful for the creation of multiple connections at once.
-
-.. autofunction:: eta_utility.connectors::connections_from_nodes
     :noindex:

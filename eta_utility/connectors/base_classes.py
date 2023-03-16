@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Iterable
 
 import pandas as pd
+from attr import field
 from dateutil import tz
 
 from eta_utility import url_parse
@@ -121,8 +122,17 @@ class BaseConnection(ABC):
     :param nodes: List of nodes to select as a standard case.
     """
 
-    #: Protocol of the connection. Value can be used to check if nodes correspond to the connection
-    _PROTOCOL = ""
+    _registry = {}  # type: ignore
+    _PROTOCOL: str = field(repr=False, eq=False, order=False)
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        """Store subclass definitions to instantiate based on protocol."""
+        protocol = kwargs.pop("protocol", None)
+        if protocol:
+            cls._PROTOCOL = protocol
+            cls._registry[protocol] = cls
+
+        return super().__init_subclass__(**kwargs)
 
     def __init__(self, url: str, usr: str | None = None, pwd: str | None = None, *, nodes: Nodes | None = None) -> None:
         #: URL of the server to connect to
@@ -169,8 +179,51 @@ class BaseConnection(ABC):
         self.exc: BaseException | None = None
 
     @classmethod
+    def from_node(cls, node: Nodes, **kwargs: Any) -> BaseConnection | dict[str, Any]:
+        """Initialize the connection object from a node object. If multiple nodes are passed,
+         a list of connections is returned.
+
+        :param node: Node(s) to initialize from.
+        :param kwargs: Other arguments are ignored.
+        :return: BaseConnection object or dictionary of BaseConnections
+        """
+        # Make sure nodes is always a set of nodes
+        nodes = {node} if not isinstance(node, Iterable) else set(node)
+        connections: dict[str, Any] = {}
+
+        username = kwargs.pop("usr", None)
+        password = kwargs.pop("pwd", None)
+
+        for node in nodes:
+            # Create connection if it does not exist
+            if node.url_parsed.hostname is not None and node.url_parsed.hostname not in connections:
+                if node.protocol in cls._registry.keys():
+                    # set the username and password
+                    usr = node.usr or username
+                    pwd = node.pwd or password
+
+                    connections[node.url_parsed.hostname] = cls._registry[node.protocol]._from_node(
+                        node, usr=usr, pwd=pwd, **kwargs
+                    )
+
+                else:
+                    raise ValueError(
+                        f"Node {node.name} does not specify a recognized protocol for initializing a"
+                        f" connection.({node.protocol}) "
+                    )
+
+            elif node.url_parsed.hostname is not None:
+                # Otherwise, just mark the node as selected
+                connections[node.url_parsed.hostname].selected_nodes.add(node)
+
+        if len(connections) == 1:
+            return list(connections.values())[0]
+        else:
+            return connections
+
+    @classmethod
     @abstractmethod
-    def from_node(cls, node: AnyNode, **kwargs: Any) -> BaseConnection:
+    def _from_node(cls, node: AnyNode, **kwargs: Any) -> BaseConnection:
         """Initialize the object from a node with corresponding protocol
 
         :return: Initialized connection object.
