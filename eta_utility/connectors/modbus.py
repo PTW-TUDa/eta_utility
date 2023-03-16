@@ -30,7 +30,7 @@ from .base_classes import BaseConnection, SubscriptionHandler
 log = get_logger("connectors.modbus")
 
 
-class ModbusConnection(BaseConnection):
+class ModbusConnection(BaseConnection, protocol="modbus"):
     """The Modbus Connection class allows reading and writing from and to Modbus servers and clients. Additionally,
     it implements a subscription service, which reads continuously in a specified interval.
 
@@ -39,8 +39,6 @@ class ModbusConnection(BaseConnection):
     :param pwd: No login supported, only here to satisfy the interface
     :param nodes: List of nodes to use for all operations.
     """
-
-    _PROTOCOL = "modbus"
 
     def __init__(self, url: str, usr: str | None = None, pwd: str | None = None, *, nodes: Nodes | None = None) -> None:
         super().__init__(url, usr, pwd, nodes=nodes)
@@ -57,16 +55,17 @@ class ModbusConnection(BaseConnection):
         self._retry = RetryWaiter()
 
     @classmethod
-    def from_node(cls, node: AnyNode, **kwargs: Any) -> ModbusConnection:
+    def _from_node(
+        cls, node: AnyNode, usr: str | None = None, pwd: str | None = None, **kwargs: Any
+    ) -> ModbusConnection:
         """Initialize the connection object from a modbus protocol node object.
 
         :param node: Node to initialize from.
+        :param usr: Username to use.
+        :param pwd: Password to use.
         :param kwargs: Other arguments are ignored.
         :return: ModbusConnection object.
         """
-        usr = kwargs.get("usr", None)
-        pwd = kwargs.get("pwd", None)
-
         if node.protocol == "modbus" and isinstance(node, NodeModbus):
             return cls(node.url, usr, pwd, nodes=[node])
 

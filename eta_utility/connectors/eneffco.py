@@ -23,7 +23,7 @@ from .base_classes import BaseSeriesConnection, SubscriptionHandler
 log = get_logger("connectors.eneffco")
 
 
-class EnEffCoConnection(BaseSeriesConnection):
+class EnEffCoConnection(BaseSeriesConnection, protocol="eneffco"):
     """
     EnEffCoConnection is a class to download and upload multiple features from and to the EnEffCo database as
     timeseries.
@@ -35,10 +35,11 @@ class EnEffCoConnection(BaseSeriesConnection):
     :param nodes: Nodes to select in connection.
     """
 
-    _PROTOCOL = "eneffco"
     API_PATH: str = "/API/v1.0"
 
-    def __init__(self, url: str, usr: str, pwd: str, *, api_token: str, nodes: Nodes | None = None) -> None:
+    def __init__(
+        self, url: str, usr: str | None, pwd: str | None, *, api_token: str, nodes: Nodes | None = None
+    ) -> None:
         url = url + self.API_PATH
         self._api_token: str = api_token
         super().__init__(url, usr, pwd, nodes=nodes)
@@ -56,26 +57,20 @@ class EnEffCoConnection(BaseSeriesConnection):
         self._subscription_open: bool = False
 
     @classmethod
-    def from_node(cls, node: AnyNode, **kwargs: Any) -> EnEffCoConnection:
+    def _from_node(
+        cls, node: AnyNode, usr: str | None = None, pwd: str | None = None, **kwargs: Any
+    ) -> EnEffCoConnection:
         """Initialize the connection object from an EnEffCo protocol node object
 
         :param node: Node to initialize from.
-        :param usr: Username for EnEffCo login (default: None, uses usr from Node).
-        :param pwd: Password for EnEffCo login.
-        :param api_token: Token for API authentication.
+        :param usr: Username to use.
+        :param pwd: Password to use.
+        :param kwargs: Keyword arguments for API authentication, where "api_token" is required
         :return: EnEffCoConnection object.
         """
         if "api_token" not in kwargs:
             raise AttributeError("Keyword parameter 'api_token' is missing.")
         api_token = kwargs["api_token"]
-
-        usr = node.usr if node.usr is not None else kwargs.get("usr", None)
-        pwd = node.pwd if node.pwd is not None else kwargs.get("pwd", None)
-        if usr is None or pwd is None:
-            raise ValueError(
-                "The node used for instantiation does not contain a username or password. "
-                "Please provide 'usr' and 'pwd' keyword arguments."
-            )
 
         if node.protocol == "eneffco" and isinstance(node, NodeEnEffCo):
             return cls(node.url, usr, pwd, api_token=api_token, nodes=[node])

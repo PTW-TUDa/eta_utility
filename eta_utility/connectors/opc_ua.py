@@ -32,7 +32,7 @@ from .base_classes import BaseConnection, SubscriptionHandler
 log = get_logger("connectors.opcua")
 
 
-class OpcUaConnection(BaseConnection):
+class OpcUaConnection(BaseConnection, protocol="opcua"):
     """The OPC UA Connection class allows reading and writing from and to OPC UA servers. Additionally,
     it implements a subscription method, which reads continuously in a specified interval.
 
@@ -42,8 +42,6 @@ class OpcUaConnection(BaseConnection):
     :param nodes: List of nodes to use for all operations.
     """
 
-    _PROTOCOL = "opcua"
-
     def __init__(
         self,
         url: str,
@@ -52,6 +50,7 @@ class OpcUaConnection(BaseConnection):
         *,
         nodes: Nodes | None = None,
         key_cert: KeyCertPair | None = None,
+        **kwargs: Any,
     ) -> None:
         super().__init__(url, usr, pwd, nodes=nodes)
 
@@ -73,17 +72,17 @@ class OpcUaConnection(BaseConnection):
         self._try_secure_connect = True
 
     @classmethod
-    def from_node(cls, node: AnyNode, **kwargs: Any) -> OpcUaConnection:
-        """Initialize the connection object from an EnEffCo protocol Node object.
+    def _from_node(
+        cls, node: AnyNode, usr: str | None = None, pwd: str | None = None, **kwargs: Any
+    ) -> OpcUaConnection:
+        """Initialize the connection object from an OpcUa protocol Node object.
 
         :param node: Node to initialize from.
-        :param usr: Username for OPC UA login.
-        :param pwd: Password for OPC UA login.
+        :param usr: Username to use.
+        :param pwd: Password to use.
         :param kwargs: Other arguments are ignored.
         :return: OpcUaConnection object.
         """
-        usr = kwargs.pop("usr", None)
-        pwd = kwargs.pop("pwd", None)
 
         if node.protocol == "opcua" and isinstance(node, NodeOpcUa):
             return cls(node.url, usr=usr, pwd=pwd, nodes=[node], **kwargs)

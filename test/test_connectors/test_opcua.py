@@ -90,7 +90,7 @@ init_nodes = (
             opc_id="ns=6;s=.Test_Namespace.Node.Drehzahl",
         ),
         {"usr": "another", "pwd": "pwd"},
-        {"url": "opc.tcp://someurl:48050", "usr": "another", "pwd": "pwd"},
+        {"url": "opc.tcp://someurl:48050", "usr": "auser", "pwd": "apassword"},
     ),
     (
         Node(
