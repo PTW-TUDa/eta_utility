@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import concurrent.futures
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Sized
+from typing import TYPE_CHECKING
 
 import pandas as pd
 import requests
@@ -26,7 +26,7 @@ from .base_classes import BaseSeriesConnection, SubscriptionHandler
 log = get_logger("connectors.entso-e")
 
 
-class ENTSOEConnection(BaseSeriesConnection):
+class ENTSOEConnection(BaseSeriesConnection, protocol="entsoe"):
     """
     ENTSOEConnection is a class to download and upload multiple features from and to the ENTSO-E transparency platform
     database as timeseries. The platform contains data about the european electricity markets.
@@ -38,7 +38,6 @@ class ENTSOEConnection(BaseSeriesConnection):
     :param nodes: Nodes to select in connection
     """
 
-    _PROTOCOL: str = "entsoe"
     API_PATH: str = "/api"
 
     def __init__(
@@ -56,32 +55,24 @@ class ENTSOEConnection(BaseSeriesConnection):
         self.config = _ConnectionConfiguration()
 
     @classmethod
-    def from_node(
-        cls, node: Nodes, *, usr: str | None = None, pwd: str | None = None, **kwargs: Any
-    ) -> ENTSOEConnection:
+    def _from_node(cls, node: AnyNode, **kwargs: Any) -> ENTSOEConnection:
         """Initialize the connection object from an entso-e protocol node object
 
         :param node: Node to initialize from
-        :param usr: Username for login to the platform (usually not required - default: None)
-        :param pwd: Password for login to the platform (usually not required - default: None)
-        :param api_token: Token for API authentication
+        :param kwargs: Keyword arguments for API authentication, where "api_token" is required
         :return: ENTSOEConnection object
         """
         if "api_token" not in kwargs:
             raise AttributeError("Missing required function parameter api_token.")
         api_token = kwargs["api_token"]
 
-        # Make sure nodes is always a set of nodes
-        nodes = {node} if not isinstance(node, Sized) else set(node)
-
-        for n in nodes:
-            if n.protocol != cls._PROTOCOL:
-                raise ValueError(
-                    "Tried to initialize ENTSO-E connection with a node that does not specify entso-e as its"
-                    "protocol: {}.".format(n.name)
-                )
-
-        return cls(next(iter(nodes)).url, api_token=api_token, nodes=node)
+        if node.protocol == "entsoe" and isinstance(node, NodeEntsoE):
+            return cls(node.url, api_token=api_token, nodes=[node])
+        else:
+            raise ValueError(
+                "Tried to initialize ENTSOEConnection from a node that does not specify entso-e as its"
+                "protocol: {}.".format(node.name)
+            )
 
     def read(self, nodes: Nodes | None = None) -> pd.DataFrame:
         """
