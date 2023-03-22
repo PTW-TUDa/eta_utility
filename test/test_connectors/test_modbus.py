@@ -96,7 +96,7 @@ init_nodes = (
             mb_byteorder="big",
         ),
         {"usr": "another", "pwd": "pwd"},
-        {"url": "modbus.tcp://someurl:48050", "usr": "another", "pwd": "pwd"},
+        {"url": "modbus.tcp://someurl:48050", "usr": "auser", "pwd": "apassword"},
     ),
     (
         Node(

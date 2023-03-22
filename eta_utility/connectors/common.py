@@ -5,9 +5,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Sized
 
-from eta_utility.connectors.eneffco import EnEffCoConnection
-from eta_utility.connectors.modbus import ModbusConnection
-from eta_utility.connectors.opc_ua import OpcUaConnection
+from eta_utility.connectors.base_classes import BaseConnection
 
 if TYPE_CHECKING:
     from typing import Any
@@ -23,10 +21,10 @@ def connections_from_nodes(
     eneffco_api_token: str | None = None,
     key_cert: KeyCertPair | None = None,
 ) -> dict[str, Any]:
-    """Take a list of nodes and return a list of connections.
+    """The functionality of this function is outdated,
+    instead use directly the from_node function of BaseConnection
 
-    .. versionchanged:: v2.0.0
-        Removed eneffco_usr and eneffco_pwd - specify the parameters in the node instead.
+    Take a list of nodes and return a list of connections.
 
     :param nodes: List of nodes defining servers to connect to.
     :param usr: Username to use in case a Node does not specify any.
@@ -36,35 +34,13 @@ def connections_from_nodes(
     :return: Dictionary of connection objects {hostname: connection}.
     """
 
-    connections: dict[str, Any] = {}
+    connections = BaseConnection.from_node(nodes, usr=usr, pwd=pwd, api_token=eneffco_api_token, key_cert=key_cert)
 
-    if not isinstance(nodes, Sized):
-        nodes = {nodes}
-
-    for node in nodes:
-        # Create connection if it does not exist
-        if node.url_parsed.hostname is not None and node.url_parsed.hostname not in connections:
-            if node.protocol == "modbus":
-                connections[node.url_parsed.hostname] = ModbusConnection.from_node(node, usr=usr, pwd=pwd)
-            elif node.protocol == "opcua":
-                connections[node.url_parsed.hostname] = OpcUaConnection.from_node(
-                    node, usr=usr, pwd=pwd, key_cert=key_cert
-                )
-            elif node.protocol == "eneffco":
-                if eneffco_api_token is None:
-                    raise ValueError("Specify API token for EnEffco access.")
-                connections[node.url_parsed.hostname] = EnEffCoConnection.from_node(
-                    node, usr=usr, pwd=pwd, api_token=eneffco_api_token
-                )
-            else:
-                raise ValueError(
-                    f"Node {node.name} does not specify a recognized protocol for initializing a connection."
-                )
-        elif node.url_parsed.hostname is not None:
-            # Otherwise, just mark the node as selected
-            connections[node.url_parsed.hostname].selected_nodes.add(node)
-
-    return connections
+    if not isinstance(connections, dict):
+        node = nodes[0] if isinstance(nodes, list) else nodes
+        return {node.url_parsed.hostname: connections}
+    else:
+        return connections
 
 
 def name_map_from_node_sequence(nodes: Nodes) -> dict[str, AnyNode]:
