@@ -10,3 +10,7 @@ to publish values directly.
 .. autoclass:: eta_utility.servers::OpcUaServer
     :members:
     :noindex:
+
+.. autoclass:: eta_utility.servers::ModbusServer
+    :members:
+    :noindex:
