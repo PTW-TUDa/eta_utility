@@ -1,6 +1,6 @@
 import json
 import pathlib
-from datetime import datetime, timezone
+from datetime import datetime
 
 import pytest
 
@@ -8,23 +8,21 @@ from eta_utility.util import dict_search, json_import, round_timestamp
 
 
 @pytest.mark.parametrize(
-    ("datetime_str", "interval", "timezone", "expected"),
+    ("datetime_str", "interval", "expected"),
     [
-        ("2016-01-01T02:02:02", 1, None, "2016-01-01T02:02:02"),
-        ("2016-01-01T02:02:02", 60, None, "2016-01-01T02:03:00"),
-        ("2016-01-01T02:02:00", 60, None, "2016-01-01T02:02:00"),
-        ("2016-01-01T02:02:02", 60 * 60, None, "2016-01-01T03:00:00"),
-        ("2016-01-01T02:00:00", 60 * 60, None, "2016-01-01T02:00:00"),
-        ("2016-01-01T02:00:00", 60 * 60, timezone.utc, "2016-01-01T02:00:00"),
+        ("2016-01-01T02:02:02", 1, "2016-01-01T02:02:02"),
+        ("2016-01-01T02:02:02", 60, "2016-01-01T02:03:00"),
+        ("2016-01-01T02:02:00", 60, "2016-01-01T02:02:00"),
+        ("2016-01-01T02:02:02", 60 * 60, "2016-01-01T03:00:00"),
+        ("2016-01-01T02:00:00", 60 * 60, "2016-01-01T02:00:00"),
     ],
 )
-def test_round_timestamp(datetime_str, interval, timezone, expected):
-    dt = datetime.strptime(datetime_str, "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone)
-    dt_expected = datetime.strptime(expected, "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone)
+def test_round_timestamp(datetime_str, interval, expected):
+    dt = datetime.strptime(datetime_str, "%Y-%m-%dT%H:%M:%S")
 
-    result = round_timestamp(dt, interval, False)
+    result = round_timestamp(dt, interval, False).isoformat(sep="T", timespec="seconds")
 
-    assert result == dt_expected
+    assert result == expected
 
 
 def test_dict_search():

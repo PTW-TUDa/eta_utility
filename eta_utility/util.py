@@ -362,7 +362,7 @@ def round_timestamp(dt_value: datetime, interval: float = 1, ensure_tz: bool = T
         dt_value = ensure_timezone(dt_value)
     timezone_store = dt_value.tzinfo
 
-    rounded_timestamp = math.ceil(dt_value.replace(tzinfo=tz.tzlocal()).timestamp() / interval) * interval
+    rounded_timestamp = math.ceil(dt_value.timestamp() / interval) * interval
 
     return datetime.fromtimestamp(rounded_timestamp).replace(tzinfo=timezone_store)
 
