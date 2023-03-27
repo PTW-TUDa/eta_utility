@@ -48,7 +48,7 @@ Please read the development guide before starting development on *eta_utility*: 
     :hidden:
     :caption: Servers
 
-    /servers/opcua
+    /servers/servers
 
 .. toctree::
     :maxdepth: 1
