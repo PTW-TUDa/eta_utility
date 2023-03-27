@@ -8,3 +8,12 @@ for users of the library as well.
 .. automodule:: eta_utility.util
     :members:
     :noindex:
+
+Additional Utilities Julia Extension
+---------------------------------------
+The *util_julia* module provides some useful utilities which are utilized within *eta_utility* but might be useful
+for users of the library as well.
+
+.. automodule:: eta_utility.util_julia
+    :members:
+    :noindex:
