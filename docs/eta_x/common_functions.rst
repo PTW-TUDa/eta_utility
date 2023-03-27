@@ -54,6 +54,6 @@ the network architecture.
 Other helpful functions
 -----------------------------
 .. automodule:: eta_utility.eta_x.common
-    :members:
+    :members: is_vectorized_env, is_env_closed, episode_results_path, episode_name_string
     :exclude-members: vectorize_environment, CallbackEnvironment, initialize_model, load_model, log_run_info, log_net_arch
     :noindex:
