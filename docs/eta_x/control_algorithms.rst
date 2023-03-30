@@ -13,16 +13,16 @@ however, that some agents do not implement all methods which would be required b
 The currently available agents are listed here. Note that you need to specify the parameters required for
 instantiation in the *agent_specific* section of the *eta_x* configuration file.
 
-Model Predictive Control (MPC) Agent
+Math Solver Agent
 ---------------------------------------
-The MPC agent implements a model predictive controller. It can be used to execute mathematical models in conjunction
+The MathSolver agent implements a model predictive controller. It can be used to execute mathematical models in conjunction
 with mathematical solvers such as cplex or glpk and it relies on the *pyomo* library to achieve this.
 
 You can provide additional arguments in *kwargs* to the agent. These will be interpreted first as arguments for
-the base class and then for the solver. Meaning that arguments which are passed to MPCBasic and not recognized
+the base class and then for the solver. Meaning that arguments which are passed to MathSolver and not recognized
 by *BaseAlgorithm* will be passed on to the solver. This allows free configuration of all solver options.
 
-.. autoclass:: eta_utility.eta_x.agents::MPCBasic
+.. autoclass:: eta_utility.eta_x.agents::MathSolver
     :noindex:
 
 Rule Based Agent (Base Class)

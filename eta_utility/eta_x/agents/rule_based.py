@@ -7,12 +7,11 @@ import numpy as np
 from stable_baselines3.common.base_class import BaseAlgorithm
 
 from eta_utility import get_logger
-from eta_utility.eta_x.common import NoPolicy
 
 if TYPE_CHECKING:
     import io
     import pathlib
-    from typing import Any, Iterable
+    from typing import Any
 
     import torch as th
     from stable_baselines3.common.policies import BasePolicy
@@ -34,12 +33,23 @@ class RuleBased(BaseAlgorithm, abc.ABC):
     :param kwargs: Additional arguments as specified in stable_baselins3.commom.base_class.
     """
 
-    def __init__(self, policy: type[BasePolicy], env: VecEnv, verbose: int = 4, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        policy: type[BasePolicy],
+        env: VecEnv,
+        verbose: int = 4,
+        _init_setup_model: bool = True,
+        **kwargs: Any,
+    ) -> None:
         # Ensure that arguments required by super class are always present
         super().__init__(policy=policy, env=env, verbose=verbose, learning_rate=0, **kwargs)
 
         #: Last / initial State of the agent.
         self.state: np.ndarray | None = np.zeros(self.action_space.shape) if self.action_space is not None else None
+
+        self.policy_class: type[BasePolicy]
+        if _init_setup_model:
+            self._setup_model()
 
     @abc.abstractmethod
     def control_rules(self, observation: np.ndarray) -> np.ndarray:
@@ -83,9 +93,12 @@ class RuleBased(BaseAlgorithm, abc.ABC):
         custom_objects: dict[str, Any] | None = None,
         print_system_info: bool = False,
         force_reset: bool = True,
+        _init_setup_model: bool = False,
         **kwargs: Any,
     ) -> RuleBased:
-        """Load model. This is not implemented for the rule based agent.
+        """
+        Load the model from a zip-file.
+        Warning: ``load`` re-creates the model from scratch, it does not update it in-place!
 
         :param path: path to the file (or a file-like) where to
             load the agent from.
@@ -105,25 +118,11 @@ class RuleBased(BaseAlgorithm, abc.ABC):
             See https://github.com/DLR-RM/stable-baselines3/issues/597
         :param kwargs: extra arguments to change the model when loading.
         """
-        log.info("Rule based agents cannot load data. Loading will be ignored - using standard initialization.")
         if env is None:
             raise ValueError("Parameter env must be specified.")
+        model: RuleBased = super().load(path, env, device, custom_objects, print_system_info, force_reset, **kwargs)
 
-        return cls(policy=NoPolicy, env=env)
-
-    def save(
-        self,
-        path: str | pathlib.Path | io.BufferedIOBase,
-        exclude: Iterable[str] | None = None,
-        include: Iterable[str] | None = None,
-    ) -> None:
-        """Save model after training. Not implemented for the rule based agent.
-
-        :param path: Path to the file where the rl agent should be saved.
-        :param exclude: Name of parameters that should be excluded in addition to the default ones.
-        :param include: Name of parameters that might be excluded but should be included anyway.
-        """
-        log.info("Rule based agents cannot save data. Saving will be ignored.")
+        return model
 
     def _get_pretrain_placeholders(self) -> None:
         """Getting tensorflow pretrain placeholders is not implemented for the rule based agent."""
@@ -152,11 +151,15 @@ class RuleBased(BaseAlgorithm, abc.ABC):
         :param progress_bar: Display a progress bar using tqdm and rich.
         :return: The trained model.
         """
-        raise NotImplementedError("The rule based agent cannot learn a model.")
+
+        return self
 
     def _setup_model(self) -> None:
-        """Setup model is not required for the rule based agent."""
-        pass
+        if self.policy_class is not None:
+            self.policy: type[BasePolicy] = self.policy_class(  # type: ignore
+                self.observation_space,
+                self.action_space,
+            )
 
     def action_probability(
         self,

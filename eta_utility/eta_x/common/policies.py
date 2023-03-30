@@ -45,3 +45,16 @@ class NoPolicy(policies.BasePolicy):
         :return: Dictionary with the module/policy state.
         """
         return {}
+
+    # type ignored because mypy doesn't seem to think the following is equivalent to the super class...
+    def load_state_dict(self, state_dict: dict[str, Any] | None = None, strict=True) -> None:  # type: ignore
+        """Loads the state dictionary. Since the dictionary is always empty, this method doesn't do anything in
+        NoPolicy.
+
+        state_dict (dict): a dict containing parameters and
+                persistent buffers.
+        strict (bool, optional): whether to strictly enforce that the keys
+                in :attr:`state_dict` match the keys returned by this module's
+                :meth:`~torch.nn.Module.state_dict` function. Default: ``True``
+        """
+        pass
