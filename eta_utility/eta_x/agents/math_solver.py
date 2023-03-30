@@ -14,7 +14,7 @@ from eta_utility import get_logger
 if TYPE_CHECKING:
     import io
     import pathlib
-    from typing import Any, Iterable, Sequence
+    from typing import Any, Sequence
 
     import torch as th
     from stable_baselines3.common.policies import BasePolicy
@@ -48,6 +48,7 @@ class MathSolver(BaseAlgorithm):
         *,
         solver_name: str = "cplex",
         action_index: int = 0,
+        _init_setup_model: bool = True,
         **kwargs: Any,
     ) -> None:
         # Prepare kwargs to be sent to the super class and to the solver.
@@ -102,7 +103,10 @@ class MathSolver(BaseAlgorithm):
 
         self.model: pyo.ConcreteModel  #: Pyomo optimization model as specified by the environment.
         self.actions_order: Sequence[str]  #: Specification of the order in which action values should be returned.
-        self._setup_model()
+
+        self.policy_class: type[BasePolicy]
+        if _init_setup_model:
+            self._setup_model()
 
         #: Index of the solution value to be used as action (if this is 0, the first value in a list
         #: of solution values will be used).
@@ -112,6 +116,11 @@ class MathSolver(BaseAlgorithm):
         """Load the MILP model from the environment."""
         assert self.env is not None, "The MPC agent needs a specific environment to work. Cannot use env = None."
         self.model, self.actions_order = self.env.get_attr("model", 0)[0]
+        if self.policy_class is not None:
+            self.policy: type[BasePolicy] = self.policy_class(  # type: ignore
+                self.observation_space,
+                self.action_space,
+            )
 
     def solve(self) -> pyo.ConcreteModel:
         """Solve the current pyomo model instance with given parameters. This could also be used separately to solve
@@ -246,16 +255,8 @@ class MathSolver(BaseAlgorithm):
         :param progress_bar: Display a progress bar using tqdm and rich.
         :return: The trained model.
         """
-        raise NotImplementedError("The MPC_simple approach does not need to learn a model.")
 
-    def save(
-        self,
-        path: str | pathlib.Path | io.BufferedIOBase,
-        exclude: Iterable[str] | None = None,
-        include: Iterable[str] | None = None,
-    ) -> None:
-        """Saving is currently not implemented for the MPC agent."""
-        raise NotImplementedError("The MPC approach creates no savable model.")
+        return self
 
     @classmethod
     def load(
@@ -268,8 +269,28 @@ class MathSolver(BaseAlgorithm):
         force_reset: bool = True,
         **kwargs: Any,
     ) -> MPCBasic:
-        """Loading a model is currently not implemented for the MPC agent."""
-        raise NotImplementedError("The MPC approach cannot load a model.")
+        """
+        Load the model from a zip-file.
+        Warning: ``load`` re-creates the model from scratch, it does not update it in-place!
+
+        :param path: path to the file (or a file-like) where to load the agent from
+        :param env: the new environment to run the loaded model on
+            (can be None if you only need prediction from a trained model) has priority over any saved environment
+        :param device: Device on which the code should run.
+        :param custom_objects: Dictionary of objects to replace upon loading. If a variable is present in
+            this dictionary as a key, it will not be deserialized and the corresponding item will be used instead.
+        :param print_system_info: Whether to print system info from the saved model and the current system info
+            (useful to debug loading issues)
+        :param force_reset: Force call to ``reset()`` before training to avoid unexpected behavior.
+        :param kwargs: extra arguments to change the model when loading
+        :return: new model instance with loaded parameters
+        """
+        if env is None:
+            raise ValueError("Parameter env must be specified.")
+        model: MPCBasic = super().load(path, env, device, custom_objects, print_system_info, force_reset, **kwargs)
+
+        return model
 
 
+# Keep compatibility with old name MPCBasic
 MPCBasic = MathSolver

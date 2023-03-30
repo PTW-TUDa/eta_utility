@@ -109,7 +109,7 @@ class SubscriptionHandler(ABC):
         pass
 
 
-class BaseConnection(ABC):
+class Connection(ABC):
     """Base class with a common interface for all connection objects
 
     The URL may contain the username and password (schema://username:password@hostname:port/path). In this case, the
@@ -295,6 +295,10 @@ class BaseConnection(ABC):
             )
 
         return _nodes
+
+
+# Keep compatibility with old name BaseConnection
+BaseConnection = Connection
 
 
 class BaseSeriesConnection(BaseConnection, ABC):

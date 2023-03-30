@@ -18,7 +18,6 @@ if TYPE_CHECKING:
 
     from eta_utility.type_hints import Path
 
-
 log = get_logger("eta_x.envs")
 
 
@@ -146,9 +145,19 @@ class StateVar:
     )
 
     #: Lowest possible value of the state variable (default: None).
-    low_value: float | None = field(kw_only=True, default=np.nan, converter=converters.optional(float))
+    low_value: float | None = field(
+        kw_only=True,
+        default=np.nan,
+        converter=converters.pipe(converters.default_if_none(np.nan), np.float32)  # type: ignore
+        # mypy does not recognize default_if_none
+    )
     #: Highest possible value of the state variable (default: None).
-    high_value: float | None = field(kw_only=True, default=np.nan, converter=converters.optional(float))
+    high_value: float | None = field(
+        kw_only=True,
+        default=np.nan,
+        converter=converters.pipe(converters.default_if_none(np.nan), np.float32)  # type: ignore
+        # mypy does not recognize default_if_none
+    )
     #: If the value of the variable dips below this, the episode should be aborted (default: None).
     abort_condition_min: float | None = field(kw_only=True, default=None, converter=converters.optional(float))
     #: If the value of the variable rises above this, the episode should be aborted (default: None).
@@ -391,11 +400,11 @@ class StateConfig:
         :return: Action space.
         """
         action_low = np.fromiter(
-            (var.low_value for var in self.vars.values() if var.is_agent_action and var.low_value is not None),
+            (var.low_value for var in self.vars.values() if var.is_agent_action and var.low_value is not np.nan),
             dtype=np.float32,
         )
         action_high = np.fromiter(
-            (var.high_value for var in self.vars.values() if var.is_agent_action and var.high_value is not None),
+            (var.high_value for var in self.vars.values() if var.is_agent_action and var.high_value is not np.nan),
             dtype=np.float32,
         )
 
@@ -408,12 +417,12 @@ class StateConfig:
         :return: Observation Space.
         """
         obs_low = np.fromiter(
-            (var.low_value for var in self.vars.values() if var.is_agent_observation and var.low_value is not None),
+            (var.low_value for var in self.vars.values() if var.is_agent_observation and var.low_value is not np.nan),
             dtype=np.float32,
         )
 
         obs_high = np.fromiter(
-            (var.high_value for var in self.vars.values() if var.is_agent_observation and var.high_value is not None),
+            (var.high_value for var in self.vars.values() if var.is_agent_observation and var.high_value is not np.nan),
             dtype=np.float32,
         )
 
