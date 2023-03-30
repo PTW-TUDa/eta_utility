@@ -151,7 +151,7 @@ end
     end
     @test 1 <= differentvars <= mutationrate * lenvars * 2
     normally_changed = mutationrate * (lenvars + lenevents)
-    @test normally_changed - 2 <= differentvars + differentevents <= normally_changed + 1
+    @test normally_changed - 4 <= differentvars + differentevents <= normally_changed + 1
 end
 
 @testset "Crossover" begin

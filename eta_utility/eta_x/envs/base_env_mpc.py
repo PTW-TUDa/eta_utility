@@ -26,7 +26,7 @@ log = get_logger("eta_x.envs")
 
 
 class BaseEnvMPC(BaseEnv, abc.ABC):
-    """Base class for mathematical MPC models. This class can be used in conjunction with the MPCBasic agent.
+    """Base class for mathematical MPC models. This class can be used in conjunction with the MathSolver agent.
     You need to implement the *_model* method in a subclass and return a *pyomo.AbstractModel* from it.
 
     :param env_id: Identification for the environment, useful when creating multiple environments.

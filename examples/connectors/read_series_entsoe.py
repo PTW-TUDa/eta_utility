@@ -32,7 +32,10 @@ def read_series() -> pd.DataFrame:
 
     # read_series will request data from specified connection and time interval
     # The DataFrame will have index with time delta of the specified interval in seconds
-    df = server.read_series(from_time=from_datetime, to_time=to_datetime, interval=1)
+    if type(server) == ENTSOEConnection:
+        df = server.read_series(from_time=from_datetime, to_time=to_datetime, interval=1)
+    else:
+        raise TypeError("The connection must be an ENTSOEConnection, to be able to call read_series.")
     # --end_entsoe_doc_example--
 
     return df

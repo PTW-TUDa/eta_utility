@@ -1,5 +1,4 @@
 stages:
-  - setup
   - check
   - test
   - deploy
@@ -37,9 +36,6 @@ include:
 
 # Setup pip cache so that it can be reused between jobs
 variables:
-  # Caching and cleanup setup
-  PIP_CACHE_DIR: '$CI_PROJECT_DIR/.pip_cache'
-  GIT_CLEAN_FLAGS: '-x -f -e .pip_cache/** -e venv/**'
   # Always use python version 3 for imported jobs
   ASDF_PYTHON_VERSION: 3
   # Deploy using upload token
@@ -50,59 +46,30 @@ default:
   tags:
     - python
     - docker
-  image: python:3.8
-  before_script:
-    - apt-get update
-    - python -V  # Print out python version for debugging
-    - python3 -m venv venv
-    - source venv/bin/activate
-    - pip install --upgrade pip
-    - pip install --upgrade "setuptools<67"   # higher versions are incompatible with gym==0.21 (required by stable_baselines)
-    - pip install .[develop]
-  cache: &global_cache
-    key: $CI_COMMIT_REF_SLUG
-    paths:
-      - .pip_cache
-      - venv
-    policy: pull
-
-create_cache:
-  stage: setup
   interruptible: true
+  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/python_env:3.8
   before_script:
     - apt-get update
-  script:
-    - rm -rf venv .venv .cache .pip_cache .pytest_cache .mypy_cache dist doc eta_utility.egg-info build public
+    - python -V
+    - rm -rf .cache .pip_cache .pytest_cache .mypy_cache dist doc eta_utility.egg-info build
     - rm -rf docs/_build docs/_stubs
     - ls -la
-    - python -V
-    - python3 -m venv venv --clear
-    - source venv/bin/activate
-    - pip install --upgrade pip
-    - pip install --upgrade "setuptools<67"   # higher versions are incompatible with gym==0.21 (required by stable_baselines)
-    - pip install .[develop]
-    - pip install flake8-json
-  cache:
-    <<: *global_cache
-    policy: push
+    - pip install .[develop] # set correct version
 
 isort:
   stage: check
-  interruptible: true
   script:
     - pip install isort
     - isort -c -v .
 
 black:
   stage: check
-  interruptible: true
   script:
     - pip install black
     - black --check --config pyproject.toml eta_utility/ test/
 
 flake8:
   stage: check
-  interruptible: true
   script:
     - pip install flake8-json
     - flake8 --version
@@ -111,10 +78,15 @@ flake8:
     reports:
       codequality: flake8.json
 
+mypy:
+  stage: check
+  script:
+    - mypy -V
+    - mypy --config-file pyproject.toml
+
 check-julia:
   stage: check
   image: julia:1.7.2
-  interruptible: true
   before_script: []
   script:
     - julia -e '
@@ -128,22 +100,18 @@ check-julia:
 
 license_scanning:
   stage: check
-  interruptible: true
-  needs: []
   before_script: []
   rules:
     - !reference [.default_rules, rules]
 
 secret_detection:
   stage: check
-  interruptible: true
   before_script: []
   rules:
     - !reference [.default_rules, rules]
 
-test3.7:
+test3.8:
   stage: test
-  interruptible: true
   script:
     - pip install pytest pytest-cov
     - pytest --cov
@@ -153,8 +121,7 @@ test3.7:
 
 test3.9:
   stage: test
-  image: python:3.9
-  interruptible: true
+  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/python_env:3.9
   script:
     - pip install pytest pytest-cov
     - pytest --cov
@@ -162,13 +129,48 @@ test3.9:
     max: 1
     when: script_failure
 
-typecheck:
+test3.10:
   stage: test
-  interruptible: true
+  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/python_env:3.10
   script:
-    - mypy -V
-    - mypy --config-file pyproject.toml
-    
+    - pip install pytest pytest-cov
+    - pytest --cov
+  retry:
+    max: 1
+    when: script_failure
+
+test3.10_updated_deps:
+  stage: test
+  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/python_env:3.10
+  script:
+    - pip install --upgrade .[develop] --upgrade-strategy=only-if-needed
+    - pip install pytest pytest-cov
+    - pytest --cov
+  allow_failure: true
+  retry:
+    max: 1
+    when: script_failure
+
+test-julia:
+  stage: test
+  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/pyjulia_env:latest
+  before_script:
+    - rm -rf .cache .pip_cache .pytest_cache .mypy_cache dist doc eta_utility.egg-info build
+    - source /usr/src/app/venv/bin/activate
+    - python -V
+    - pip install .[develop] # set correct version
+  script:
+    - julia -e '
+      ENV["PYTHON"] = Sys.which("python");
+      ENV["PYCALL_JL_RUNTIME_PYTHON"] = Sys.which("python");
+      using Pkg;
+      Pkg.activate("eta_utility/ju_extensions");
+      Pkg.instantiate();
+      Pkg.test()'
+  retry:
+    max: 1
+    when: script_failure
+
 # build the sources
 build:
   stage: deploy
