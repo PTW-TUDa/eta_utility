@@ -364,7 +364,7 @@ def round_timestamp(dt_value: datetime, interval: float = 1, ensure_tz: bool = T
 
     rounded_timestamp = math.ceil(dt_value.timestamp() / interval) * interval
 
-    return datetime.fromtimestamp(rounded_timestamp).replace(tzinfo=timezone_store)
+    return datetime.fromtimestamp(rounded_timestamp, tz=timezone_store)
 
 
 class KeyCertPair(ABC):

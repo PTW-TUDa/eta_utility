@@ -4,7 +4,7 @@ does not have the ability to write data.
 from __future__ import annotations
 
 import concurrent.futures
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
 import pandas as pd
@@ -14,7 +14,6 @@ from lxml.builder import E
 
 from eta_utility import get_logger
 from eta_utility.connectors.node import NodeEntsoE
-from eta_utility.connectors.util import all_equal
 from eta_utility.timeseries import df_resample, df_time_slice
 from eta_utility.util import dict_search, round_timestamp
 
@@ -32,7 +31,7 @@ class ENTSOEConnection(BaseSeriesConnection, protocol="entsoe"):
     ENTSOEConnection is a class to download and upload multiple features from and to the ENTSO-E transparency platform
     database as timeseries. The platform contains data about the european electricity markets.
 
-    :param url: Url of the server with scheme (https://transparency.entsoe.eu/)
+    :param url: Url of the server with scheme (https://web-api.tp.entsoe.eu/)
     :param usr: Username for login to the platform (usually not required - default: None)
     :param pwd: Password for login to the platform (usually not required - default: None)
     :param api_token: Token for API authentication
@@ -43,7 +42,7 @@ class ENTSOEConnection(BaseSeriesConnection, protocol="entsoe"):
 
     def __init__(
         self,
-        url: str = "https://transparency.entsoe.eu/",
+        url: str = "https://web-api.tp.entsoe.eu/",
         *,
         api_token: str,
         nodes: Nodes | None = None,
@@ -107,23 +106,33 @@ class ENTSOEConnection(BaseSeriesConnection, protocol="entsoe"):
         """
         self.subscribe_series(handler=handler, req_interval=1, nodes=nodes, interval=interval, data_interval=interval)
 
-    def _handle_xml(self, xml_content: bytes) -> pd.DataFrame:
-        """Transform XML data from request response into DataFrame.
+    def _handle_xml(self, xml_content: bytes) -> dict[str, dict[str, list[pd.Series]]]:
+        """Transform XML data from request response into dictionary containig resolutions and time series for the node.
 
         :param xml_content: XML data
-        :return: DataFrame
+        :return: Dictionary with resolutions and time series data
         """
         parser = etree.XMLParser(load_dtd=False, ns_clean=True, remove_pis=True)
         xml_data = etree.XML(xml_content, parser)
         ns = xml_data.nsmap
-        data: dict[str, list[pd.Series]] = {}
+        data: dict[str, dict[str, list[pd.Series]]] = {}
+        request_type = xml_data.find(".//type", namespaces=ns).text
 
         timeseries = xml_data.findall(".//TimeSeries", namespaces=ns)
         for ts in timeseries:
-            col_name = "Price"
-            if ts.find(".//MktPSRType", namespaces=ns):
+            # Day-Ahead Price
+            if request_type == "A44":
+                col_name = "Price"
+
+            # Actual Generation per Type
+            if request_type == "A75":
                 psr_type = ts.find(".//MktPSRType", namespaces=ns).find("psrType", namespaces=ns).text
                 col_name = dict_search(self.config.psr_types, psr_type)
+
+                if ts.find(".//inBiddingZone_Domain.mRID", namespaces=ns) is not None:
+                    col_name = col_name + "_Generation"
+                elif ts.find(".//outBiddingZone_Domain.mRID", namespaces=ns) is not None:
+                    col_name = col_name + "_Consumption"
 
             # contains the data points
             period = ts.find(".//Period", namespaces=ns)
@@ -142,37 +151,17 @@ class ENTSOEConnection(BaseSeriesConnection, protocol="entsoe"):
             ts_data = [point.getchildren()[-1].text for point in points]
 
             s = pd.Series(data=ts_data, index=datetime_range, name=col_name)
+            s.index = s.index.tz_localize(tz="UTC")  # ENTSO-E returns always UTC
 
             if resolution not in data.keys():
-                data[resolution] = []
-            data[resolution].append(s)
+                data[resolution] = {}
 
-        return self._handle_resolutions(data)
+            if col_name not in data[resolution].keys():
+                data[resolution][col_name] = []
 
-    def _handle_resolutions(self, data: dict[str, list[pd.Series]]) -> pd.DataFrame:
-        """Handle multiple resolution coming in request, since resolution is not a parameter for the request.
+            data[resolution][col_name].append(s.astype(float))
 
-        :param data: dictionary in which the keys are resolutions and the values are the data points
-        :return: dataframe with multi-index separating the multiple resolutions
-        """
-        # convert each timeseries into dataframe
-        for resolution in data.keys():
-            # if all column names are equal then each series are
-            # combined to form another series, else they are combined to
-            # create a dataframe
-            col_names = (series.name for series in data[resolution])
-            if all_equal(col_names):
-                data[resolution] = pd.concat(data[resolution]).astype(float).to_frame()
-            else:
-                data[resolution] = pd.DataFrame(data[resolution]).T.astype("Int64")
-            data[resolution]["datetime"] = data[resolution].index  # type: ignore
-            data[resolution]["resolution"] = resolution  # type: ignore
-
-        # concatenating the DataFrames
-        df = pd.concat(data.values())
-        df = df.set_index("datetime")
-
-        return df
+        return data
 
     def read_series(
         self,
@@ -193,28 +182,36 @@ class ENTSOEConnection(BaseSeriesConnection, protocol="entsoe"):
         nodes = self._validate_nodes(nodes)
         interval = interval if isinstance(interval, timedelta) else timedelta(seconds=interval)
 
+        from_time = round_timestamp(from_time, interval.total_seconds())
+        to_time = round_timestamp(to_time, interval.total_seconds())
+
+        if from_time.tzinfo != to_time.tzinfo:
+            log.warning(
+                f"Timezone of from_time and to_time are different. Using from_time timezone: {from_time.tzinfo}"
+            )
+
         def read_node(node: NodeEntsoE) -> pd.DataFrame:
             params = self.config.create_params(node, from_time, to_time)
 
             result = self._raw_request(params)
-            df = self._handle_xml(result.content)
+            data = self._handle_xml(result.content)
 
-            list_all_res = []
-            resolutions = df["resolution"].unique()
-            for resolution in resolutions:
-                df_res = df[df["resolution"] == resolution].drop("resolution", axis=1)
-                df_res = df_resample(df_res, interval, missing_data="fillna")
-                df_res = df_time_slice(df_res, from_time, to_time)
+            df_dict = {}
+            # All resolutions are resampled separatly and concatenated to one dataframe in the end
+            for resolution in data.keys():
+                data_resolution = {
+                    f"{node.name}_{column}": pd.concat(series) for column, series in data[resolution].items()
+                }
+                df_resolution = pd.DataFrame.from_dict(data_resolution, orient="columns")
+                # entsoe always returns a dataframe in UTC time, convert to same time zone as given from_time
+                df_resolution.index = df_resolution.index.tz_convert(tz=from_time.tzinfo)
+                df_resolution = df_resample(df_resolution, interval, missing_data="fillna")
+                df_resolution = df_time_slice(df_resolution, from_time, to_time)
+                df_dict[resolution] = df_resolution
 
-                df_res.columns = [f"{node.name}_{col}" for col in df_res.columns]
-                df_res["resolution"] = resolution
-
-                list_all_res.append(df_res)
-
-            df_res_merged = pd.concat(list_all_res, axis=0, sort=False)
-            if len(resolutions) == 1:
-                return df_res_merged.drop("resolution", axis=1)
-            return df_res_merged.set_index("resolution", append=True)
+            df = pd.concat(df_dict.values(), axis=1, keys=df_dict.keys())
+            df = df.swaplevel(axis=1)
+            return df
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
             results = executor.map(read_node, nodes)
@@ -561,22 +558,23 @@ class _ConnectionConfiguration:
         if node.endpoint == "ActualGenerationPerType":
             params["ProcessType"] = "Realised"
             params["In_Domain"] = node.bidding_zone
-            resolution = 15  # 15 minutes interval data
 
         elif node.endpoint == "Price":
             params["ProcessType"] = "Day ahead"
             params["In_Domain"] = node.bidding_zone
             params["Out_Domain"] = node.bidding_zone
-            resolution = 60  # 1 hour interval data
 
         else:
             raise NotImplementedError(f"Endpoint not available: {node.endpoint}")
 
-        rounded_from_time = round_timestamp(from_time, interval=resolution * 60, ensure_tz=False)
-        rounded_to_time = round_timestamp(to_time, interval=resolution * 60, ensure_tz=False)
+        # Round down at from_time and up at to_time to receive all necessary values from entsoe
+        # entsoe uses always a full hour
+        rounded_from_time_utc = round_timestamp(from_time.astimezone(timezone.utc), 3600) - timedelta(hours=1)
+        rounded_to_time_utc = round_timestamp(to_time.astimezone(timezone.utc), 3600)
+
         params["TimeInterval"] = (
-            f"{rounded_from_time.isoformat(sep='T', timespec='minutes')}Z/"
-            f"{rounded_to_time.isoformat(sep='T', timespec='minutes')}Z"
+            f"{rounded_from_time_utc.strftime('%Y-%m-%dT%H:%M:%SZ')}/"
+            f"{rounded_to_time_utc.strftime('%Y-%m-%dT%H:%M:%SZ')}"
         )
         return params
 
