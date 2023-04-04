@@ -136,7 +136,18 @@ class JuliaEnv(BaseEnv):
         self._actions_valid(action)
         self.n_steps += 1
 
-        return self.__jl.step_b(self._jlenv, action)
+        observations, reward, done, info = self.__jl.step_b(self._jlenv, action)
+        self.state_log.append(observations)
+
+        return observations, reward, done, info
+
+    def _reduce_state_log(self) -> list[dict[str, float]]:
+        """Removes unwanted parameters from state_log before storing in state_log_longtime
+
+        :return: The return value is a list of dictionaries, where the parameters that
+                 should not be stored were removed
+        """
+        return self.state_log
 
     def reset(self) -> np.ndarray:
         """Reset the environment. This is called after each episode is completed and should be used to reset the
@@ -149,6 +160,7 @@ class JuliaEnv(BaseEnv):
                  step is performed.
         """
         self._reset_state()
+
         return self.__jl.reset_b(self._jlenv)
 
     def close(self) -> None:
