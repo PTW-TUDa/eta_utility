@@ -5,7 +5,7 @@ WORKDIR $APP_PATH
 
 RUN \
     apt-get -y update && \
-    apt-get -y install --no-install-recommends git make
+    apt-get -y install --no-install-recommends git make curl
 
 # setuptools<67 because higher versions are incompatible with gym==0.21 (required by stable_baselines)
 RUN \
