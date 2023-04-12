@@ -255,7 +255,8 @@ class LiveConnect(AbstractContextManager):
         if values is not None:
             for key, sys_val in values.items():
                 if isinstance(sys_val, Mapping) and flatten:
-                    _vals.update({k: v for k, v in sys_val.items()})
+                    for k, v in sys_val.items():
+                        _vals[k] = v
                 elif sys_val is not None:
                     _vals[key] = sys_val
 

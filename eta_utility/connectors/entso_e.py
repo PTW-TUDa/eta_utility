@@ -144,7 +144,7 @@ class ENTSOEConnection(BaseSeriesConnection, protocol="entsoe"):
                 datetime.strptime(time_interval[0].text, "%Y-%m-%dT%H:%MZ"),
                 datetime.strptime(time_interval[1].text, "%Y-%m-%dT%H:%MZ"),
                 freq=resolution + "min",
-                closed="left",
+                inclusive="left",
             )
 
             points = period.findall(".//Point", namespaces=ns)
