@@ -91,15 +91,13 @@ class SubscriptionHandler(ABC):
             # If value is multidimensional, an Exception will be raised by pandas.
 
         # Round index to self._write_interval
-        # todo resample instead of rounding the index, but this could not work if intervals between data points are of
-        # different size
         value.index = value.index.round(str(self._write_interval) + "S")
 
         return value
 
     @abstractmethod
     def push(self, node: AnyNode, value: Any, timestamp: datetime | None = None) -> None:
-        """Receive data from a subcription. THis should contain the node that was requested, a value and a timestemp
+        """Receive data from a subcription. This should contain the node that was requested, a value and a timestamp
         when data was received. If the timestamp is not provided, current time will be used.
 
         :param node: Node object the data belongs to.

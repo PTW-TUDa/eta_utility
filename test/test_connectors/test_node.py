@@ -103,8 +103,18 @@ nodes = (
         },
     ),
     (
-        {"name": "Serv.NodeName", "url": "https://some_url.de/path", "protocol": "eneffco", "eneffco_code": "A_Code"},
-        {"name": "Serv.NodeName", "url": "https://some_url.de/path", "protocol": "eneffco", "eneffco_code": "A_Code"},
+        {
+            "name": "Serv.NodeName",
+            "url": "https://some_url.de/path",
+            "protocol": "eneffco",
+            "eneffco_code": "A_Code",
+        },
+        {
+            "name": "Serv.NodeName",
+            "url": "https://some_url.de/path",
+            "protocol": "eneffco",
+            "eneffco_code": "A_Code",
+        },
     ),
     (
         {
@@ -191,6 +201,68 @@ nodes = (
         },
         {"protocol": "opcua", "opc_id": "ns=4;s=.Some_Namespace.Node3"},
     ),
+    (
+        {
+            "name": "Serv.NodeName",
+            "url": "some_url.de/path",
+            "protocol": "opcua",
+            "opc_id": "NS=4;S=.Some_Namespace.Node3",
+            "interval": "42",
+        },
+        {"protocol": "opcua", "opc_id": "ns=4;s=.Some_Namespace.Node3", "interval": 42},
+    ),
+    (
+        {
+            "name": "Serv.NodeName",
+            "url": "some_url.de/path",
+            "usr": "someperson",
+            "pwd": "somepwd",
+            "protocol": "eneffco",
+            "eneffco_code": "A_Code",
+            "interval": 42,
+        },
+        {"url": "https://some_url.de/path", "usr": "someperson", "protocol": "eneffco", "interval": 42},
+    ),
+    (
+        {
+            "name": "Serv.NodeName",
+            "url": "10.0.0.1:502",
+            "protocol": "modbus",
+            "mb_channel": 3861,
+            "mb_register": "Holding",
+            "mb_slave": 32,
+            "mb_byteorder": "big",
+            "interval": "42",
+        },
+        {
+            "url": "modbus.tcp://10.0.0.1:502",
+            "interval": 42,
+            "mb_slave": 32,
+        },
+    ),
+    (
+        {
+            "name": "Serv.NodeName",
+            "url": "https://some_url.de/path",
+            "protocol": "entsoe",
+            "interval": "42",
+            "endpoint": "A_Code",
+            "bidding_zone": "DE-LU-AT",
+        },
+        {
+            "name": "Serv.NodeName",
+            "url": "https://some_url.de/path",
+            "protocol": "entsoe",
+            "interval": 42,
+        },
+    ),
+    (
+        {"name": "Serv.NodeName", "url": None, "interval": 42, "protocol": "local"},
+        {
+            "name": "Serv.NodeName",
+            "interval": 42,
+        },
+    ),
 )
 
 
@@ -218,7 +290,12 @@ nodes_from_dict = (
         {"url": "modbus.tcp://10.0.0.1:502"},
     ),
     (
-        {"name": "Serv.NodeName", "ip": "10.0.0.1", "protocol": "opcua", "opc_id": "ns=6;s=.Some_Namespace.Node1"},
+        {
+            "name": "Serv.NodeName",
+            "ip": "10.0.0.1",
+            "protocol": "opcua",
+            "opc_id": "ns=6;s=.Some_Namespace.Node1",
+        },
         {"url": "opc.tcp://10.0.0.1:4840"},
     ),
     (

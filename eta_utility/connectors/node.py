@@ -95,6 +95,10 @@ class Node(metaclass=NodeMeta):
     usr: str | None = field(default=None, kw_only=True, repr=False, eq=False, order=False)
     #: Password for login to the connection (default: None).
     pwd: str | None = field(default=None, kw_only=True, repr=False, eq=False, order=False)
+    #: Interval
+    interval: str | None = field(
+        default=None, converter=converters.optional(float), kw_only=True, repr=False, eq=False, order=False
+    )
     #: Data type of the node (for value conversion). Note that strings will be interpreted as utf-8 encoded. If you
     #: do not want this behaviour, use 'bytes'.
     dtype: Callable | None = field(
@@ -207,7 +211,7 @@ class Node(metaclass=NodeMeta):
         return nodes
 
     @staticmethod
-    def _read_dict_info(node: dict[str, Any]) -> tuple[str, str, str, str]:
+    def _read_dict_info(node: dict[str, Any]) -> tuple[str, str, str, str, int]:
         """Read general info about a node from a dictionary.
 
         :param node: dictionary containing node information.
@@ -231,7 +235,8 @@ class Node(metaclass=NodeMeta):
             url = None
         usr = dict_get_any(node, "username", "user", "usr", fail=False)
         pwd = dict_get_any(node, "password", "pwd", "pw", fail=False)
-        return name, pwd, url, usr
+        interval = dict_get_any(node, "interval", fail=False)
+        return name, pwd, url, usr, interval
 
     @staticmethod
     def _read_dict_protocol(node: dict[str, Any]) -> str:
@@ -329,9 +334,9 @@ class NodeLocal(Node, protocol="local"):
         :param dikt: dictionary with node information.
         :return: NodeLocal object.
         """
-        name, pwd, url, usr = cls._read_dict_info(dikt)
+        name, pwd, url, usr, interval = cls._read_dict_info(dikt)
         try:
-            return cls(name, url, "local", usr=usr, pwd=pwd)
+            return cls(name, url, "local", usr=usr, pwd=pwd, interval=interval)
         except (TypeError, AttributeError):
             raise TypeError(f"Could not convert all types for node {name}")
 
@@ -390,7 +395,7 @@ class NodeModbus(Node, protocol="modbus"):
         :param dikt: dictionary with node information.
         :return: NodeModbus object.
         """
-        name, pwd, url, usr = cls._read_dict_info(dikt)
+        name, pwd, url, usr, interval = cls._read_dict_info(dikt)
 
         # Initialize node if protocol is 'modbus'
         try:
@@ -419,6 +424,7 @@ class NodeModbus(Node, protocol="modbus"):
                 mb_bit_length=mb_bit_length,
                 mb_byteorder=mb_byteorder,
                 dtype=dtype,
+                interval=interval,
             )
         except (TypeError, AttributeError):
             raise TypeError(f"Could not convert all types for node {name}.")
@@ -516,7 +522,7 @@ class NodeOpcUa(Node, protocol="opcua"):
         :param dikt: dictionary with node information.
         :return: NodeOpcUa object.
         """
-        name, pwd, url, usr = cls._read_dict_info(dikt)
+        name, pwd, url, usr, interval = cls._read_dict_info(dikt)
 
         opc_id = dict_get_any(dikt, "opc_id", "identifier", "identifier", fail=False)
         dtype = dict_get_any(dikt, "dtype", "datentyp", fail=False)
@@ -534,6 +540,7 @@ class NodeOpcUa(Node, protocol="opcua"):
                     opc_ns=opc_ns,
                     opc_path_str=opc_path_str,
                     dtype=dtype,
+                    interval=interval,
                 )
             except (TypeError, AttributeError):
                 raise TypeError(
@@ -542,7 +549,7 @@ class NodeOpcUa(Node, protocol="opcua"):
                 )
         else:
             try:
-                return cls(name, url, "opcua", usr=usr, pwd=pwd, opc_id=opc_id, dtype=dtype)
+                return cls(name, url, "opcua", usr=usr, pwd=pwd, opc_id=opc_id, dtype=dtype, interval=interval)
             except (TypeError, AttributeError):
                 raise TypeError(
                     f"Could not convert all types for node {name}. Either the 'node_id' or the 'opc_ns' "
@@ -567,7 +574,7 @@ class NodeEnEffCo(Node, protocol="eneffco"):
         :param dikt: dictionary with node information.
         :return: NodeEnEffCo object.
         """
-        name, pwd, url, usr = cls._read_dict_info(dikt)
+        name, pwd, url, usr, interval = cls._read_dict_info(dikt)
         try:
             code = cls._try_dict_get_any(dikt, "code", "eneffco_code")
         except KeyError:
@@ -577,7 +584,7 @@ class NodeEnEffCo(Node, protocol="eneffco"):
             )
 
         try:
-            return cls(name, url, "eneffco", usr=usr, pwd=pwd, eneffco_code=code)
+            return cls(name, url, "eneffco", usr=usr, pwd=pwd, eneffco_code=code, interval=interval)
         except (TypeError, AttributeError):
             raise TypeError(f"Could not convert all types for node {name}.")
 
@@ -633,7 +640,7 @@ class NodeEntsoE(Node, protocol="entsoe"):
         :param dikt: dictionary with node information.
         :return: NodeEntsoE object.
         """
-        name, pwd, url, usr = cls._read_dict_info(dikt)
+        name, pwd, url, usr, interval = cls._read_dict_info(dikt)
 
         try:
             endpoint = cls._try_dict_get_any(dikt, "endpoint")
@@ -645,6 +652,8 @@ class NodeEntsoE(Node, protocol="entsoe"):
             )
 
         try:
-            return cls(name, url, "entsoe", usr=usr, pwd=pwd, endpoint=endpoint, bidding_zone=bidding_zone)
+            return cls(
+                name, url, "entsoe", usr=usr, pwd=pwd, endpoint=endpoint, bidding_zone=bidding_zone, interval=interval
+            )
         except (TypeError, AttributeError):
             raise TypeError(f"Could not convert all types for node {name}.")

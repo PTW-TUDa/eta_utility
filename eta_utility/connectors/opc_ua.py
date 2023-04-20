@@ -20,7 +20,7 @@ from opcua.ua import SecurityPolicy, uaerrors
 from eta_utility import KeyCertPair, Suppressor, get_logger
 from eta_utility.connectors.node import Node, NodeOpcUa
 
-from .util import RetryWaiter
+from .util import IntervalChecker, RetryWaiter
 
 if TYPE_CHECKING:
     from typing import Any, Generator, Mapping, Sequence
@@ -60,6 +60,7 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
         self.connection: Client = Client(self.url)
         self._connected = False
         self._retry = RetryWaiter()
+        self._retry_interval_checker = RetryWaiter()
         self._conn_check_interval = 1
 
         self._sub: Subscription
@@ -67,6 +68,8 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
         self._sub_task: asyncio.Task
         self._subscription_open: bool = False
         self._subscription_nodes: set[NodeOpcUa] = set()
+
+        self.connection_interval_checker = IntervalChecker()
 
         self._key_cert: KeyCertPair | None = key_cert
         self._try_secure_connect = True
@@ -249,8 +252,9 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
                     raise ConnectionError(str(e)) from e
 
     def subscribe(self, handler: SubscriptionHandler, nodes: Nodes | None = None, interval: TimeStep = 1) -> None:
-        """Subscribe to nodes and call handler when new data is available. This function works asnychonously.
-        Subscriptions must always be closed using the close_sub function (use try, finally!).
+        """Subscribe to nodes and call handler when new data is available. Basic architecture of the subscription is
+        the client- server communication via subscription notify. This function works asynchronously. Subscriptions
+        must always be closed using the close_sub function (use try, finally!).
 
         :param nodes: Identifiers for the nodes to subscribe to.
         :param handler: SubscriptionHandler object with a push method that accepts node, value pairs.
@@ -270,7 +274,10 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
 
         loop = asyncio.get_event_loop()
         self._sub_task = loop.create_task(
-            self._subscription_loop(_OPCSubHandler(handler), float(interval.total_seconds()))
+            self._subscription_loop(
+                _OPCSubHandler(handler=handler, interval_check_handler=self.connection_interval_checker),
+                float(interval.total_seconds()),
+            )
         )
 
     async def _subscription_loop(self, handler: _OPCSubHandler, interval: float) -> None:
@@ -279,6 +286,7 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
         :param handler: Handler object with a push function to receive data.
         :param interval: Interval for requesting data in seconds.
         """
+
         subscribed = False
         while self._subscription_open:
             try:
@@ -310,9 +318,27 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
                             )
                         except RuntimeError as e:
                             log.warning(f"Could not subscribe to node '{node.name}' on server {self.url}, error: {e}")
-
-            except (TimeoutError, ConCancelledError, ConnectionAbortedError, ConnectionResetError) as e:
-                log.debug(f"Handling exception ({e}) for server {self.url}.")
+            except (ConnectionAbortedError, ConnectionResetError) as e:
+                log.error(f"Handling exception ({e}) for server {self.url}.")
+                log.info(
+                    f"Subscription to the OPC UA server {self.url} is unexpectedly terminated. Trying to reconnect."
+                )
+                subscribed = False
+                self._connected = False
+            except TimeoutError as e:
+                log.error(f"Handling exception ({e}) for server {self.url}.")
+                log.info(
+                    f"OPC UA client for server {self.url} doesn't receive a response from the server. Trying to "
+                    f"reconnect."
+                )
+                subscribed = False
+                self._connected = False
+            except ConCancelledError as e:
+                log.error(f"Handling exception ({e}) for server {self.url}.")
+                log.info(
+                    f"Connection to OPC UA-Server {self.url} was terminated during connection establishment or "
+                    f"maintenance. Trying to reconnect."
+                )
                 subscribed = False
                 self._connected = False
             except BaseException as e:
@@ -321,9 +347,26 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
                 self._connected = False
 
             # Exit point in case the connection operates normally.
-            await asyncio.sleep(self._conn_check_interval)
             if not self._check_connection():
                 subscribed = False
+                self._connected = False
+                self._disconnect()
+            elif self._connected and subscribed:
+                _changed_within_interval = self.connection_interval_checker.check_interval_connection()
+
+                if not _changed_within_interval:
+                    subscribed = False
+                    self._connected = False
+                    log.warning(
+                        f"The subscription connection for {self.url} doesn't change the values "
+                        "anymore. Trying to reconnect."
+                    )
+                    self._disconnect()
+                    self._retry_interval_checker.tried()
+                    await self._retry_interval_checker.wait_async()
+                else:
+                    self._retry_interval_checker.success()
+                    await asyncio.sleep(self._conn_check_interval)
 
     def close_sub(self) -> None:
         """Close an open subscription."""
@@ -460,9 +503,10 @@ class _OPCSubHandler:
     :param handler: *eta_utility* style subscription handler.
     """
 
-    def __init__(self, handler: SubscriptionHandler) -> None:
+    def __init__(self, handler: SubscriptionHandler, interval_check_handler: IntervalChecker) -> None:
         self.handler = handler
         self._sub_nodes: dict[str | int, NodeOpcUa] = {}
+        self._node_interval_to_check = interval_check_handler
 
     def add_node(self, opc_id: str | int, node: NodeOpcUa) -> None:
         """Add a node to the subscription. This is necessary to translate between formats."""
@@ -478,4 +522,8 @@ class _OPCSubHandler:
         :param data: Raw data of OPC UA (not used).
         """
 
-        self.handler.push(self._sub_nodes[str(node)], val, self.handler._assert_tz_awareness(datetime.now()))
+        _time = self.handler._assert_tz_awareness(datetime.now())
+
+        self.handler.push(self._sub_nodes[str(node)], val, _time)
+
+        self._node_interval_to_check.push(node=self._sub_nodes[str(node)], value=val, timestamp=_time)
