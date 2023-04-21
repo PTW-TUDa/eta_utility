@@ -1,6 +1,6 @@
 import pytest
 
-from eta_utility.connectors.util import encode_bits
+from eta_utility.connectors.util import RetryWaiter, encode_bits
 
 modbus_values = (
     (5, "big", 8, bytes([0x05])),
@@ -21,3 +21,17 @@ def test_encode_modbus_value(value, byteorder, bitlength, expected):
     result = encode_bits(value, byteorder, bitlength)
 
     assert int("".join(str(v) for v in result), 2).to_bytes(bitlength // 8, "big") == expected
+
+
+def test_retry_waiter():
+    """Test using Retry Waiter"""
+
+    i = 0
+    retry_waiter = RetryWaiter()
+
+    while i <= 2:
+        retry_waiter.wait()
+        retry_waiter.tried()
+        i += 1
+
+    assert retry_waiter.counter == 3

@@ -383,3 +383,102 @@ class TestConnectorSubscriptions:
                 messages_found += 1
 
         assert messages_found >= 2, "Error while interrupting the connection, test could not be executed reliably."
+
+
+nodes_interval_to_check = (
+    {
+        "name": "Serv.NodeName",
+        "protocol": "modbus",
+        "mb_channel": 3200,
+        "mb_register": "Holding",
+        "mb_byteorder": "big",
+        "dtype": "float",
+        "interval": 2,
+    },
+    {
+        "name": "Serv.NodeName2",
+        "protocol": "modbus",
+        "mb_channel": 3232,
+        "mb_register": "Holding",
+        "mb_byteorder": "big",
+        "dtype": "int",
+        "interval": 2,
+    },
+    {
+        "name": "Serv.NodeName4",
+        "protocol": "modbus",
+        "mb_channel": 3264,
+        "mb_register": "Holding",
+        "mb_byteorder": "big",
+        "mb_bitlength": 80,
+        "dtype": "str",
+        "interval": 2,
+    },
+)
+
+
+@pytest.fixture(scope="class")
+def local_nodes_interval_checking():
+    _nodes = []
+    for node in nodes_interval_to_check:
+        _nodes.extend(Node.from_dict({**node, "ip": socket.gethostbyname(socket.gethostname())}))
+
+    return _nodes
+
+
+class TestConnectorSubscriptionsIntervalChecker:
+    values = {
+        "Serv.NodeName": (1.5, 2, 4.5),
+        "Serv.NodeName2": (5, 3, 6),
+        "Serv.NodeName4": (
+            " something",
+            " thething1",
+            " another23",
+        ),
+    }
+
+    @pytest.fixture(scope="class", autouse=True)
+    def server(self, local_nodes_interval_checking):
+        with ModbusServer(ip=socket.gethostbyname(socket.gethostname())) as server:
+            yield server
+
+    @pytest.fixture()
+    def _write_nodes_interval_checking(self, server, local_nodes_interval_checking):
+        async def write_loop(server, local_nodes_interval_checking, values):
+            i = 0
+            while True:
+                if i <= 3:
+                    server.write({node: values[node.name][0] for node in local_nodes_interval_checking})
+                else:
+                    server.write({node: values[node.name][1] for node in local_nodes_interval_checking})
+
+                i += 1
+                await asyncio.sleep(1)
+
+        asyncio.get_event_loop().create_task(write_loop(server, local_nodes_interval_checking, self.values))
+
+    def test_subscribe_interval_checking(self, local_nodes_interval_checking, _write_nodes_interval_checking, caplog):
+        log = get_logger()
+        log.propagate = True
+
+        connection = ModbusConnection.from_node(local_nodes_interval_checking[0], usr="admin", pwd="0")
+        handler = DFSubHandler(write_interval=1)
+        connection.subscribe(handler, nodes=local_nodes_interval_checking, interval=1)
+
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(stop_execution(10))
+        connection.close_sub()
+
+        for node, values in self.values.items():
+            # Don't check floating point values in this case because it is hard to deal with precision problems here.
+            if handler.data[node].dtype == "float":
+                continue
+            assert set(handler.data[node]) <= set(values)
+
+        # Check if interval checker was actually raised a warning message during the test.
+        messages_found = 0
+        for message in caplog.messages:
+            if "The subscription connection for" in message:
+                messages_found += 1
+
+        assert messages_found >= 3, "Error while testing the interval checker, test could not be executed reliably."

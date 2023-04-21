@@ -141,7 +141,7 @@ GitLab - CI/CD
 --------------------------------------
 
 Your contribution via pull request can only be merged if the steps from the CI/CD are approved.
-The stages are: 
+The stages are:
 
 - *check*: verify the check-style
 - *test*: check all tests
@@ -152,8 +152,8 @@ All the CI/CD instructions are listed in the *.gitlab-ci.yml* file.
 GitLab - Docker containers
 -----------------------------
 
-The directory *.gitlab* contains the dockerfiles which defines the images that the jobs 
-of the CI/CD run on. Currently there are two main dockerfiles, one to describe python-julia 
+The directory *.gitlab* contains the dockerfiles which defines the images that the jobs
+of the CI/CD run on. Currently there are two main dockerfiles, one to describe python-julia
 environment and another just for python.
 
 All the dockerfiles contains an correspondent image stored in **Packages & Registries > Container Registry**.
@@ -172,12 +172,11 @@ Then you build the image from the dockerfile.
 
     $> docker build -t git-reg.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility/<image-name>:<tag> <directory-of-dockerfile>
 
-Using tags for the images is a good practice to differentiate image versions, in case it's not used it's automatic labeled as *latest*. 
-Currently there are three images for python environments called *python_env*, with python versions differentiated by tags (3.8, 3.9 and 3.10). 
+Using tags for the images is a good practice to differentiate image versions, in case it's not used it's automatic labeled as *latest*.
+Currently there are three images for python environments called *python_env*, with python versions differentiated by tags (3.8, 3.9 and 3.10).
 
 The last step is to upload the images to the docker.
 
 .. code-block:: console
 
     $> docker push git-reg.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility/<image-name>:<tag>
-

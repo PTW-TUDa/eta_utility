@@ -169,25 +169,51 @@ def test_init_fail(args, kwargs, expected):
 
 read = (
     (
-        (Node("Serv.NodeName", "opc.tcp://127.0.0.1:4840", "opcua", opc_id="ns=6;s=.Some_Namespace.Node1"),),
+        (
+            Node(
+                "Serv.NodeName",
+                "opc.tcp://127.0.0.1:4840",
+                "opcua",
+                opc_id="ns=6;s=.Some_Namespace.Node1",
+            ),
+        ),
         pd.DataFrame(data={"Serv.NodeName": 2858.00000}, index=[datetime.datetime.now()]),
     ),
     (
         (
-            Node("Serv.NodeName", "opc.tcp://127.0.0.1:4840", "opcua", opc_id="ns=6;s=.Some_Namespace.Node1"),
-            Node("Serv.NodeName2", "opc.tcp://127.0.0.1:4840", "opcua", opc_id="ns=6;s=.Some_Namespace.Node1"),
+            Node(
+                "Serv.NodeName",
+                "opc.tcp://127.0.0.1:4840",
+                "opcua",
+                opc_id="ns=6;s=.Some_Namespace.Node1",
+            ),
+            Node(
+                "Serv.NodeName2",
+                "opc.tcp://127.0.0.1:4840",
+                "opcua",
+                opc_id="ns=6;s=.Some_Namespace.Node1",
+            ),
         ),
         pd.DataFrame(data={"Serv.NodeName": 2858.00000, "Serv.NodeName2": 2858.00000}, index=[datetime.datetime.now()]),
     ),
     (
         (
-            Node("Serv.NodeName", "opc.tcp://127.0.0.1:4840", "opcua", opc_id="ns=6;s=.Some_Namespace.Node1"),
-            Node("Serv.NodeName2", "opc.tcp://10.10.0.1:4840", "opcua", opc_id="ns=6;s=.Some_Namespace.Node1"),
+            Node(
+                "Serv.NodeName",
+                "opc.tcp://127.0.0.1:4840",
+                "opcua",
+                opc_id="ns=6;s=.Some_Namespace.Node1",
+            ),
+            Node(
+                "Serv.NodeName2",
+                "opc.tcp://10.10.0.1:4840",
+                "opcua",
+                opc_id="ns=6;s=.Some_Namespace.Node1",
+            ),
         ),
         pd.DataFrame(data={"Serv.NodeName": 2858.00000}, index=[datetime.datetime.now()]),
     ),
 )
-
 
 nodes = (
     {
@@ -377,3 +403,101 @@ class TestConnectorSubscriptions:
                 messages_found += 1
 
         assert messages_found >= 2, "Error while interrupting the connection, test could not be executed reliably."
+
+
+nodes_interval_to_check = (
+    {
+        "name": "Serv.NodeName",
+        "port": 4840,
+        "protocol": "opcua",
+        "opc_id": "ns=6;s=.Some_Namespace.NodeFloat",
+        "dtype": "float",
+        "interval": 2,
+    },
+    {
+        "name": "Serv.NodeName2",
+        "port": 4840,
+        "protocol": "opcua",
+        "opc_id": "ns=6;s=.Some_Namespace.NodeInt",
+        "dtype": "int",
+        "interval": 2,
+    },
+    {
+        "name": "Serv.NodeName4",
+        "port": 4840,
+        "protocol": "opcua",
+        "opc_id": "ns=6;s=.Some_Namespace.NodeStr",
+        "dtype": "str",
+        "interval": 2,
+    },
+)
+
+
+@pytest.fixture(scope="module")
+def local_nodes_interval_checking():
+    _nodes = []
+    for node in nodes_interval_to_check:
+        _nodes.extend(Node.from_dict({**node, "ip": socket.gethostbyname(socket.gethostname())}))
+
+    return _nodes
+
+
+class TestConnectorSubscriptionsIntervalChecker:
+    values = {
+        "Serv.NodeName": (
+            1.5,
+            2,
+            2.5,
+        ),
+        "Serv.NodeName2": (
+            5,
+            3,
+            4,
+        ),
+        "Serv.NodeName4": (
+            "something",
+            "some1",
+            "some2",
+        ),
+    }
+
+    @pytest.fixture(scope="class", autouse=True)
+    def server(self, local_nodes_interval_checking):
+        with OpcUaServer(5, ip=socket.gethostbyname(socket.gethostname())) as server:
+            server.create_nodes(local_nodes_interval_checking)
+            yield server
+
+    @pytest.fixture()
+    def _write_nodes_interval_checking(self, server, local_nodes_interval_checking):
+        async def write_loop(server, local_nodes_interval_checking, values):
+            i = 0
+            while True:
+                if i <= 2:
+                    server.write({node: values[node.name][0] for node in local_nodes_interval_checking})
+                else:
+                    server.write({node: values[node.name][1] for node in local_nodes_interval_checking})
+
+                i += 1
+                await asyncio.sleep(1)
+
+        asyncio.get_event_loop().create_task(write_loop(server, local_nodes_interval_checking, self.values))
+
+    def test_subscribe_interval_checking(self, local_nodes_interval_checking, _write_nodes_interval_checking, caplog):
+        connection = OpcUaConnection.from_node(local_nodes_interval_checking[0], usr="admin", pwd="0")
+        handler = DFSubHandler(write_interval=1)
+        connection.subscribe(handler, nodes=local_nodes_interval_checking, interval=1)
+
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(stop_execution(10))
+        connection.close_sub()
+
+        for node, values in self.values.items():
+            assert set(handler.data[node]) <= set(values)
+
+        # Check if interval checker was actually raised a warning message during the test.
+        messages_found = 0
+        for message in caplog.messages:
+            if "The subscription connection for" in message:
+                messages_found += 1
+
+        assert messages_found >= 3, "Error while testing the interval checker, test could not be executed reliably."
