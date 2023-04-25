@@ -451,7 +451,10 @@ class SelfsignedKeyCertPair(KeyCertPair):
         """
         # Set some default values for the parameters
         if country is None:
-            country = locale.setlocale(locale.LC_ALL, locale.getdefaultlocale()[0]).split("_")[-1]
+            # use the user's default locale
+            locale.setlocale(locale.LC_ALL,"")
+            # extract country
+            country = locale.getlocale()[0].split("_")[-1]
 
         if province is None:
             province = ""
