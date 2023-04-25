@@ -15,6 +15,7 @@ from pyModbusTCP.client import ModbusClient  # noqa: I900
 from eta_utility import get_logger
 from eta_utility.connectors.node import NodeModbus
 from eta_utility.connectors.util import (
+    IntervalChecker,
     RetryWaiter,
     bitarray_to_registers,
     decode_modbus_value,
@@ -53,6 +54,9 @@ class ModbusConnection(BaseConnection, protocol="modbus"):
         self._sub: asyncio.Task
 
         self._retry = RetryWaiter()
+        self._retry_interval_checker = RetryWaiter()
+
+        self._connection_interval_checker = IntervalChecker()
 
     @classmethod
     def _from_node(
@@ -114,7 +118,8 @@ class ModbusConnection(BaseConnection, protocol="modbus"):
                 self._write_mb_value(node, bits)
 
     def subscribe(self, handler: SubscriptionHandler, nodes: Nodes | None = None, interval: TimeStep = 1) -> None:
-        """Subscribe to nodes and call handler when new data is available.
+        """Subscribe to nodes and call handler when new data is available. Basic architecture of the subscription is
+        the client- server communication. This function works asynchronously.
 
         :param nodes: Identifiers for the nodes to subscribe to.
         :param handler: SubscriptionHandler object with a push method that accepts node, value pairs.
@@ -166,19 +171,39 @@ class ModbusConnection(BaseConnection, protocol="modbus"):
                     self._connect()
                 except ConnectionError as e:
                     log.warning(str(e))
+                    continue
 
                 for node in self._subscription_nodes:
                     result = None
                     try:
                         result = self._read_mb_value(node)
-                    except (ValueError, ConnectionError) as e:
+                    except ValueError as e:
                         log.warning(str(e))
+                    except ConnectionError:
+                        break
 
                     if result is not None:
                         _result = decode_modbus_value(result, node.mb_byteorder, node.dtype)
-                        handler.push(node, _result, self._assert_tz_awareness(datetime.now()))
 
-                await asyncio.sleep(interval)
+                        time = self._assert_tz_awareness(datetime.now())
+
+                        handler.push(node, _result, time)
+
+                        self._connection_interval_checker.push(node=node, value=_result, timestamp=time)
+
+                if self.connection.is_open:
+                    _changed_within_interval = self._connection_interval_checker.check_interval_connection()
+
+                    if not _changed_within_interval:
+                        log.warning(
+                            f"The subscription connection for {self.url} doesn't change the values "
+                            "anymore. Trying to reconnect."
+                        )
+                        self._retry_interval_checker.tried()
+                        await self._retry_interval_checker.wait_async()
+                    else:
+                        self._retry_interval_checker.success()
+                        await asyncio.sleep(interval)
         except BaseException as e:
             self.exc = e
 
@@ -200,7 +225,7 @@ class ModbusConnection(BaseConnection, protocol="modbus"):
         elif node.mb_register == "input":
             result = self.connection.read_input_registers(node.mb_channel, node.mb_bit_length // 16)
         else:
-            raise ValueError(f"The specified register type is not supported: {node.mb_register}")
+            raise ValueError(f"The specified register type for '{node.name}' is not supported: {node.mb_register}")
 
         if result is None:
             self._handle_mb_error()
@@ -242,7 +267,10 @@ class ModbusConnection(BaseConnection, protocol="modbus"):
         except (RuntimeError, ConnectionError) as e:
             raise ConnectionError(f"Connection Error: {self.url}, Error: {str(e)}") from e
         else:
-            self._retry.success()
+            if self.connection.is_open:
+                self._retry.success()
+            else:
+                raise ConnectionError(f"Could not establish connection to host {self.url}")
 
     def _disconnect(self) -> None:
         """Disconnect from server."""

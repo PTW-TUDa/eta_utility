@@ -258,8 +258,6 @@ class EnEffCoConnection(BaseSeriesConnection, protocol="eneffco"):
         :param kwargs: Other, ignored parameters.
         """
 
-        # todo umbenennen: req_interval = data_interval, data_interval = resolution; take these attributes from node;
-        #  same in subscribe
         nodes = self._validate_nodes(nodes)
 
         interval = interval if isinstance(interval, timedelta) else timedelta(seconds=interval)
@@ -329,7 +327,6 @@ class EnEffCoConnection(BaseSeriesConnection, protocol="eneffco"):
                 to_time = from_time + req_interval
 
                 values = self.read_series(from_time, to_time, self._subscription_nodes, interval=data_interval)
-
                 for node in self._subscription_nodes:
                     handler.push(node, values[node.name])
 

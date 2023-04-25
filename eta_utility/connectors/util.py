@@ -2,12 +2,19 @@ from __future__ import annotations
 
 import struct
 from asyncio import sleep as async_sleep
+from datetime import datetime
 from itertools import groupby
 from time import sleep
 from typing import TYPE_CHECKING
 
+import pandas as pd
+
+from eta_utility.util import ensure_timezone
+
 if TYPE_CHECKING:
     from typing import Any, Callable, Iterable, Sequence
+
+    from eta_utility.type_hints import AnyNode, TimeStep
 
 
 class RetryWaiter:
@@ -185,3 +192,63 @@ def all_equal(iterable: Iterable[Any]) -> bool:
 
     g = groupby(iterable)
     return bool(next(g, True)) and not bool(next(g, False))
+
+
+class IntervalChecker:
+    """Class for the subscription interval checking."""
+
+    def __init__(self) -> None:
+        #: Dictionary that stores the value and the time for checking changes and the time interval
+        self.node_latest_values: dict[AnyNode, list] = {}
+
+        #: :py:func:`eta_utility.util.ensure_timezone`
+        self._assert_tz_awareness = ensure_timezone
+
+    def push(
+        self,
+        node: AnyNode,
+        value: Any | pd.Series | Sequence[Any],
+        timestamp: datetime | pd.DatetimeIndex | TimeStep | None = None,
+    ) -> None:
+        """Push value and time in dictionary for a node. If the value doesn't change compared to the previous
+        timestamp, the push is skipped.
+
+        :param node: Node to check.
+        :param value: Value from the subscription.
+        :param timestamp: Time of the incoming value of the node.
+        """
+
+        if node in self.node_latest_values:
+            if value != self.node_latest_values[node][0]:
+                self.node_latest_values[node] = [value, timestamp]
+        elif node.interval is not None:
+            self.node_latest_values[node] = [value, timestamp]
+
+    def check_interval_connection(self) -> bool | None:
+        """Check the interval between old and new value. If no interval has been defined, the check interval is skipped.
+
+        :return: Boolean for the interval check.
+        """
+
+        # Get the current time to compare the interval
+        time = self._assert_tz_awareness(datetime.now())
+
+        if len(self.node_latest_values) > 0:
+            for node in self.node_latest_values:
+                _time_since_last_check = (
+                    (time - self.node_latest_values[node][1]).total_seconds()
+                    if node in self.node_latest_values
+                    else None
+                )
+                if node in self.node_latest_values and _time_since_last_check is not None:
+                    if _time_since_last_check <= float(node.interval):  # type: ignore
+                        _changed_within_interval = True
+                    else:
+                        _changed_within_interval = False
+                        break
+                else:
+                    _changed_within_interval = True
+        else:
+            _changed_within_interval = True
+
+        return _changed_within_interval
