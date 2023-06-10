@@ -92,7 +92,7 @@ struct Actions{T}
     end
 end
 
-function getindex(actions::Actions{T}, i)::T where {T}
+@inline function getindex(actions::Actions{T}, i)::T where {T}
     1 <= i <= actions.count || throw(BoundsError(actions, i))
     if i <= actions.lenevents
         return actions.solution.events[i]
@@ -199,6 +199,7 @@ function distribute_rates(rng::AbstractRNG, nevents, nvariables, probability)
     ratevariables = max((1 - distribution) * probability * 2, 0.0)
     return rateevents, ratevariables
 end
+
 """
 Mutate values of the chromosomes. Returns a new genetic solution and does not modify the current solution.
 
@@ -223,10 +224,8 @@ function mutate!(
     # Mutate events
     nsamples = floor(Int, nevents * rateevents)
     samples = StatsBase.sample(rng, 1:nevents, ceil(Int, nsamples * 2), replace=false)
-    # Copy all values that were not sampled.
-    solution.events[:] = parent.events[:]
 
-    # Copy and interchange the sampled values
+    # Copy and interchange the sampled events
     for i in 1:nsamples
         solution.events[samples[i]], solution.events[samples[nsamples+i]] =
             parent.events[samples[nsamples+i]], parent.events[samples[i]]
@@ -234,14 +233,8 @@ function mutate!(
 
     # Mutate variables
     samples = StatsBase.sample(rng, 1:nvariables, ceil(Int, nvariables * ratevariables), replace=false, ordered=true)
-    advance = 1
-    for i in eachindex(solution.variables)
-        if advance <= length(samples) && i == samples[advance]
-            solution.variables[i] = randvar(rng, variable_params[i])
-            advance += 1
-        else
-            solution.variables[i] = parent.variables[i]
-        end
+    for i in samples
+        solution.variables[i] = randvar(rng, variable_params[i])
     end
 end
 
@@ -312,7 +305,40 @@ load_generation(events::PyArray, variables::PyArray, max_value::Float64) =
     collect(Solution(events[i, :], variables[i, :], max_value) for i in 1:size(events)[1])
 
 # ----- Algorithm
-mutable struct Algorithm
+struct ComparisonFunctions
+    first::Function
+    second::Function
+    check::Function
+
+    function ComparisonFunctions(sense::String)
+        # Determine comparison functions for reward evaluation.
+        smaller(sol1, sol2) = all(sol1.reward .<= sol2.reward) && any(sol1.reward .< sol2.reward)
+        greater(sol1, sol2) = all(sol1.reward .>= sol2.reward) && any(sol1.reward .> sol2.reward)
+
+        checkmin(status, reward, idx) = reward[idx] < status.currentminima[idx]
+        checkmax(status, reward, idx) = reward[idx] > status.currentminima[idx]
+
+        # Determine which functions to use for comparisons, depending on the optimization sense
+        # of the algorith (minimize vs. maximize).
+        if sense == "minimize"
+            return new(smaller, greater, checkmin)
+        elseif sense == "maximize"
+            return new(greater, smaller, checkmax)
+        else
+            error("Unsupported algorithm optimization sense: $sense. Use either 'minimize' or 'maximize'.")
+        end
+    end
+end
+
+mutable struct AlgorithmStatus
+    seensolutions::Vector{UInt64}
+    minima_initialized::Bool
+    currentminima::Vector{Float64}
+
+    AlgorithmStatus() = new(UInt64[], false, Float64[])
+end
+
+struct Algorithm
     population::Int
     mutations::Float64
     crossovers::Float64
@@ -323,11 +349,12 @@ mutable struct Algorithm
     max_reward::Float64
     sense::String
 
+    comparisons::ComparisonFunctions
     seed::UInt64
     rng::Xoshiro
 
-    seensolutions::Vector{UInt64}
-    currentminima::Vector{Float64}
+    status::AlgorithmStatus
+
     function Algorithm(
         population,
         mutations,
@@ -353,10 +380,10 @@ mutable struct Algorithm
             variable_params,
             max_reward,
             sense,
+            ComparisonFunctions(sense),
             seed,
             rng,
-            UInt64[],
-            Float64[],
+            AlgorithmStatus(),
         )
     end
 end
@@ -380,6 +407,21 @@ create_generation(algo::Algorithm, empty) =
     collect(Solution(algo.events, algo.variable_params, algo.max_reward, empty) for _ in 1:algo.population)
 
 """
+Create a new offspring generation from a parent generation.
+
+:param generationparent: Parent generation
+:return: A generation of Solution objects.
+"""
+function create_offspring(algo::Algorithm, generationparent::Generation)
+    generation = create_generation(algo, true)
+    for i in eachindex(generationparent)
+        generation[i].events[:] = generationparent[i].events[:]
+        generation[i].variables[:] = generationparent[i].variables[:]
+    end
+    return generation
+end
+
+"""
 Check whether the solution has been seen before (hash is in seen solutions).
 
 :param algo: The algorithm.
@@ -387,8 +429,8 @@ Check whether the solution has been seen before (hash is in seen solutions).
 """
 function seensolution(algo::Algorithm, solution::Solution)
     _hash = hash(solution)
-    if !(_hash in algo.seensolutions)
-        push!(algo.seensolutions, _hash)
+    if !(_hash in algo.status.seensolutions)
+        push!(algo.status.seensolutions, _hash)
         return false
     end
 
@@ -520,7 +562,7 @@ as if they were concatenated to [generation; generationparent].
 :param idx: Index to fetch.
 :return: Value of the concatenated array at the given index.
 """
-function population_idx(generation::Generation, generationparent::Generation, idx::Int)
+@inline function population_idx(generation::Generation, generationparent::Generation, idx::Int)
     if idx > length(generation)
         return generationparent[idx-length(generation)]
     else
@@ -573,7 +615,7 @@ function evaluate!(algo::Algorithm, generation::Generation, generationparent::Ge
         offspring[i] = population_idx(generation, generationparent, fronts[i])
     end
 
-    return algo.currentminima, length(algo.seensolutions)
+    return algo.status.currentminima, length(algo.status.seensolutions)
 end
 
 """
@@ -587,56 +629,37 @@ generation. Calculating all the other fronts is unnecessary because they are dis
 function sort_nondominated(algo::Algorithm, generation::Generation, generationparent::Generation)
     # If current minimima have never been written, just set them to the reward of the first
     # solution to initialize them.
-    if length(algo.currentminima) == 0
-        algo.currentminima = generationparent[1].reward
+    if !algo.status.minima_initialized
+        algo.status.currentminima = generationparent[1].reward
+        algo.status.minima_initialized = true
     end
 
     reset_sorting_values!(generationparent)
 
     # Index directly into the two generation objects instead of concatenating them
-    length_generation = length(generation)
-    length_population::Int = length_generation * 2
-    # Determine comparison functions for reward evaluation.
-    smaller(sol1, sol2) = all(sol1.reward .<= sol2.reward) && any(sol1.reward .< sol2.reward)
-    greater(sol1, sol2) = all(sol1.reward .>= sol2.reward) && any(sol1.reward .> sol2.reward)
+    length_population::Int = algo.population * 2
 
-    checkmin(reward, idx) = reward[idx] < algo.currentminima[idx]
-    checkmax(reward, idx) = reward[idx] > algo.currentminima[idx]
-
-    # Determine which functions to use for comparisons, depending on the optimization sense
-    # of the algorith (minimize vs. maximize).
-    if algo.sense == "minimize"
-        comp_first = smaller
-        comp_second = greater
-        check = checkmin
-    else
-        comp_first = greater
-        comp_second = smaller
-        check = checkmax
-    end
-
-    fronts = Array{Int}(undef, length_population)
+    fronts = Vector{Int}(undef, length_population)
     frontlengths = Int[0]
     for i in 1:length_population
         # Compare solutions and assign domination values
         sol1 = population_idx(generation, generationparent, i)
-        for j in 1:length_population
-            if i == j
-                continue
-            end
+        for j in i+1:length_population
             sol2 = population_idx(generation, generationparent, j)
-            if comp_first(sol1, sol2)
+            if algo.comparisons.first(sol1, sol2)
                 push!(sol1.dominates, j)
-            elseif comp_second(sol1, sol2)
+                sol2.dominatedby += 1
+            elseif algo.comparisons.second(sol1, sol2)
                 sol1.dominatedby += 1
+                push!(sol2.dominates, i)
             end
         end
 
         # Figure out the current minimum/maximum values and store them.
         if sol1.dominatedby == 0
             for r in eachindex(sol1.reward)
-                if check(sol1.reward, r)
-                    algo.currentminima[r] = sol1.reward[r]
+                if algo.comparisons.check(algo.status, sol1.reward, r)
+                    algo.status.currentminima[r] = sol1.reward[r]
                 end
             end
 
@@ -650,7 +673,7 @@ function sort_nondominated(algo::Algorithm, generation::Generation, generationpa
 
     # Sort solutions into fronts
     leftsolutions = length_population - frontlengths[1]
-    while leftsolutions > 0
+    while leftsolutions > 0 && frontlengths[end] < algo.population
         if (length(frontlengths) == 1 && frontlengths[end] != 0) || frontlengths[end] != frontlengths[end-1]
             push!(frontlengths, frontlengths[end])
         end
@@ -673,7 +696,7 @@ function sort_nondominated(algo::Algorithm, generation::Generation, generationpa
         leftsolutions = length_population - frontlengths[end]
     end
 
-    return fronts, frontlengths
+    return fronts[1:frontlengths[end]], frontlengths
 end
 
 """

@@ -150,6 +150,20 @@ class ETAx:
 
         :param training: Should preparation be done for training (alternative: playing)?
         """
+        # If the agents specifies the population parameter, the number of environments usually has to be
+        # equal to that value as well. See NSGA-II agent.
+        if (
+            "population" in self.config.settings.agent
+            and self.config.settings.n_environments != self.config.settings.agent["population"]
+        ):
+            if self.config.settings.n_environments != 1:
+                log.warning(
+                    f"Agent specifies 'population' parameter but the number of environments "
+                    f"({self.config.settings.n_environments}) is not equal to the population. "
+                    f"Setting 'n_environments' to {self.config.settings.agent['population']}"
+                )
+            self.config.settings.n_environments = self.config.settings.agent["population"]
+
         try:
             self._prepare_environments(training)
             yield

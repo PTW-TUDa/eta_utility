@@ -230,6 +230,7 @@ class Nsga2(BaseAlgorithm):
             ")"
         )
         self._jl_create_generation = Jl.eval("pyfunctionret(Nsga2.create_generation, Any, PyAny, Bool)")
+        self._jl_create_offspring = Jl.eval("pyfunctionret(Nsga2.create_offspring, Any, PyAny, PyAny)")
         self._jl_initialize_rnd = Jl.eval("pyfunctionret(Nsga2.initialize_rnd!, Int, PyAny, PyAny)")
         self._jl_reinitialize_rnd = Jl.eval("pyfunctionret(Nsga2.initialize_rnd!, Int, PyAny, PyAny, Vector{Int})")
         self._jl_evolve = Jl.eval("pyfunctionret(Nsga2.evolve!, Int, PyAny, PyAny, PyAny, Float64)")
@@ -437,7 +438,7 @@ class Nsga2(BaseAlgorithm):
 
             # Create empty offspring generation
             log.debug("Initializing offspring generation and performing evolution.")
-            self.generation_offspr = self._jl_create_generation(self.__jl_agent, True)
+            self.generation_offspr = self._jl_create_offspring(self.__jl_agent, self.generation_parent)
             retries = self._jl_evolve(
                 self.__jl_agent, self.generation_offspr, self.generation_parent, self._current_learning_rate
             )
@@ -559,6 +560,7 @@ class Nsga2(BaseAlgorithm):
                 "_Nsga2__jl_agent",
                 "_jl_Algorithm",
                 "_jl_create_generation",
+                "_jl_create_offspring",
                 "_jl_initialize_rnd",
                 "_jl_reinitialize_rnd",
                 "_jl_evolve",
@@ -601,6 +603,8 @@ class Nsga2(BaseAlgorithm):
         """
         model: Nsga2 = super().load(path, env, device, custom_objects, print_system_info, force_reset, **kwargs)
 
+        log.setLevel(int(model.verbose * 10))
+
         model._setup_jl_agent()
         model._load_generation()
 
@@ -611,3 +615,4 @@ class Nsga2(BaseAlgorithm):
         self.generation_parent = setup_generation(
             self.ep_actions_buffer[-1]["events"], self.ep_actions_buffer[-1]["variables"], self._max_value
         )
+        self._evaluate(self.generation_parent)
