@@ -134,3 +134,13 @@ code, update eta-utility with the following command:
 .. code-block:: console
 
     $> pip install --upgrade --upgrade-strategy=only-if-needed -e .[develop]
+
+I want to start a julia experiment, but the following error occurs:
+-------------------------------------------------------------------
+If you receive the following error message, when you want to start a julia experiment:
+
+.. code-block:: console
+
+    $> Exception: AttributeError: module 'eta_utility.eta_x.agents' has no attribute 'Nsga2'.
+
+Make sure PyJulia is installed in the correct virtual environment as described in :ref:`install_julia`.
