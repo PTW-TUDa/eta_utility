@@ -738,7 +738,7 @@ function sort_crowding_distance(generation::Generation, generationparent::Genera
     end
 
     # Sort solutions by crowdingdistance
-    sort!(fronts[frontlengths[end-1]:frontlengths[end]], by=x -> getsolution(x).crowdingdistance, rev=true)
+    sort!(fronts[beginning:frontlengths[end]], by=x -> getsolution(x).crowdingdistance, rev=true)
     return fronts
 end
 end
