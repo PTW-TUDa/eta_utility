@@ -105,13 +105,33 @@ class JuliaEnv(BaseEnv):
         self.__jl = import_jl_file(julia_env_path)
 
         # Make sure that all required functions are implemented in julia.
-        for func in {"Environment", "step!", "reset!", "close!", "render", "seed!"}:
+        for func in {"Environment", "step!", "reset!", "close!", "render", "seed!", "first_update!", "update!"}:
             if not hasattr(self.__jl, func):
                 raise NotImplementedError(
-                    f"Implementation of abstract method {func} missing from julia implmentation of JuliaEnv."
+                    f"Implementation of abstract method {func} missing from julia implementation of JuliaEnv."
                 )
 
         self._jlenv = self.__jl.Environment(self)
+
+    def first_update(self, observations: np.ndarray) -> np.ndarray:
+        """Perform the first update and set values in simulation model to the observed values.
+
+        :param observations: Observations of another environment.
+        :return: Full array of observations.
+        """
+        observations = self.__jl.first_update_b(observations)
+
+        return observations
+
+    def update(self, observations: np.ndarray) -> np.ndarray:
+        """Update the optimization model with observations from another environment.
+
+        :param observations: Observations from another environment
+        :return: Full array of current observations
+        """
+        observations = self.__jl.update_b(observations)
+
+        return observations
 
     def step(self, action: np.ndarray) -> StepResult:
         """Perform one time step and return its results. This is called for every event or for every time step during

@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 
     import torch as th
     from julia import _jlwrapper  # noqa: I900
+    from stable_baselines3.common.callbacks import BaseCallback
     from stable_baselines3.common.policies import BasePolicy
     from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
     from stable_baselines3.common.vec_env import VecEnv
@@ -122,14 +123,15 @@ class Nsga2(BaseAlgorithm):
         learning_rate: float | Schedule = 1.0,
         verbose: int = 2,
         *,
-        population: int | None = None,
-        mutations: float | None = None,
-        crossovers: float | None = None,
-        n_generations: int | None = None,
+        population: int = 100,
+        mutations: float = 0.05,
+        crossovers: float = 0.1,
+        n_generations: int = 100,
         max_cross_len: float = 1,
         max_retries: int = 100000,
         sense: str = "minimize",
-        seed: int | None = None,
+        predict_learn_steps: int = 5,
+        seed: int = 42,
         tensorboard_log: str | None = None,
         _init_setup_model: bool = True,
         **kwargs: Any,
@@ -163,8 +165,6 @@ class Nsga2(BaseAlgorithm):
 
         log.setLevel(int(verbose * 10))
 
-        if not 0 <= max_cross_len <= 1:
-            raise ValueError("The maximum crossover length must be between 0 and 1 (proportion of total length).")
         if self.env is None:
             raise ValueError("The NSGA2 agent needs a specific environment to work correctly. Cannot use env = None.")
         if isinstance(self.env, VecNormalize):
@@ -174,11 +174,11 @@ class Nsga2(BaseAlgorithm):
             raise ValueError(f"The optimization sense must be one of 'minimize' or 'maximize', got {sense}.")
 
         #: Maximum number of parallel solutions (>= 2).
-        self.population: int | None = population
+        self.population: int = population
         #: Chance for mutations in existing solutions (between 0 and 1).
-        self.mutations: float | None = mutations
+        self.mutations: float = mutations
         #: Chance for crossovers between solutions (between 0 and 1).
-        self.crossovers: float | None = crossovers
+        self.crossovers: float = crossovers
         #: Maximum number of genes (as a proportion of total elements) to cross over between solutions
         #: (between 0 and 1) (default 1).
         self.max_cross_len: float = max_cross_len
@@ -188,7 +188,7 @@ class Nsga2(BaseAlgorithm):
         #: Sense of the optimization (maximize or minimize).
         self.sense: str = sense
         #: Maximum number of generations to run for.
-        self.n_generations: int | None = n_generations
+        self.n_generations: int = n_generations
         #: Maximum value of the reward (positive or negative infinity, depending on the optimization sense).
         self._max_value = np.inf if sense == "minimize" else -np.inf
 
@@ -203,6 +203,8 @@ class Nsga2(BaseAlgorithm):
         self.generation_parent: _jlwrapper = []
         #: Offspring generation of solutions.
         self.generation_offspr: _jlwrapper = []
+        #: First front length
+        self.front_lengths: _jlwrapper = []
         #: Current learning rate of the algorithm.
         self._current_learning_rate: float = 1.0
 
@@ -217,6 +219,11 @@ class Nsga2(BaseAlgorithm):
         self.ep_actions_buffer: deque = deque(maxlen=100)
         #: Buffer for rewards
         self.ep_reward_buffer: deque = deque(maxlen=100)
+        #: Buffer for training infos
+        self.training_infos_buffer: dict = {}
+
+        #: Number of learning steps for predict function
+        self.predict_learn_steps: int = predict_learn_steps
 
         self._setup_lr_schedule()
         self._update_learning_rate()
@@ -235,7 +242,7 @@ class Nsga2(BaseAlgorithm):
         self._jl_reinitialize_rnd = Jl.eval("pyfunctionret(Nsga2.initialize_rnd!, Int, PyAny, PyAny, Vector{Int})")
         self._jl_evolve = Jl.eval("pyfunctionret(Nsga2.evolve!, Int, PyAny, PyAny, PyAny, Float64)")
         self._jl_evaluate_solutions = Jl.eval(
-            "pyfunctionret(" "Nsga2.evaluate!, Tuple{Vector{Float64}, Int}, PyAny, PyAny, PyAny, PyAny" ")"
+            "pyfunctionret(" "Nsga2.evaluate!, Tuple{Vector{Float64}, Int, Vector{Int}}, PyAny, PyAny, PyAny, PyAny" ")"
         )
         self._jl_store_reward = Jl.eval("pyfunctionret(Nsga2.py_store_reward, nothing, PyAny, PyArray)")
         self._jl_get_actions = Jl.eval("pyfunctionret(Nsga2.py_actions, PyObject, PyAny)")
@@ -247,6 +254,8 @@ class Nsga2(BaseAlgorithm):
             f"Agent initialized with parameters population:{self.population}, mutations: {self.mutations}, "
             f"crossovers: {self.crossovers}."
         )
+
+        self._check_learn_config()
 
     def _event_and_variable_params(self) -> tuple[int, list[_VariableParameters]]:
         """Read event parameters and variable parameters from the action space.
@@ -336,6 +345,8 @@ class Nsga2(BaseAlgorithm):
             raise ValueError(
                 "The crossover rate must be between 0 and 0.5 (cannot cross more than half of population)."
             )
+        if not 0 <= self.max_cross_len <= 1:
+            raise ValueError("The maximum crossover length must be between 0 and 1 (proportion of total length).")
 
     def learn(
         self,
@@ -360,22 +371,42 @@ class Nsga2(BaseAlgorithm):
         :param progress_bar: Parameter to show progress bar, used by stable_baselines (currently unused!)
         :return: the trained model
         """
-        self._check_learn_config()
-        assert self.crossovers is not None, "Set the crossover rate before starting to learn."
-        assert self.mutations is not None, "Set the mutation rate before starting to learn."
 
         if self.n_generations is not None and total_timesteps > self.n_generations:
             total_timesteps = self.n_generations
 
-        iteration = 0
         total_timesteps, callback = self._setup_learn(
             total_timesteps,
             callback,
             reset_num_timesteps,
             tb_log_name,
+            progress_bar,
         )
-        assert self.ep_info_buffer is not None, "Make sure that ep_info_buffer is exists before starting to learn."
-        assert self.start_time is not None, "Make sure that start_time is set before starting to learn."
+
+        # Reset training results infos
+        self._reset_training_infos()
+
+        # Initialize the parent generation in case it is empty (usually when the algorithm is first initialized)
+        self._initialize_parent_generation_if_empty()
+
+        # Train agent
+        self._train(total_timesteps, callback, log_interval)
+
+        return self
+
+    def _train(
+        self,
+        total_timesteps: int,
+        callback: BaseCallback,
+        log_interval: int = 1,
+    ) -> None:
+        """
+        Train the agent for the given number of timesteps.
+
+        :param total_timesteps: The total number of samples (env steps) to train on
+        :param callback: callback(s) called at every step with state of the algorithm.
+        :param log_interval: The number of timesteps before logging.
+        """
         callback.on_training_start(locals(), globals())
 
         log.info(
@@ -383,90 +414,116 @@ class Nsga2(BaseAlgorithm):
             f"crossover rate: {self.crossovers}, mutation rate: {self.mutations}, population: {self.population}."
         )
 
-        iteration_time = time.time()
-        evolve_time = iteration_time
-        eval_time = iteration_time
-        sorting_time = iteration_time
-        retries = 0
-        invalid_sol = 0
-
-        # Initialize the parent generation in case it is empty (usually when the algorithm is first initialized)
-        if Jl.length(self.generation_parent) == 0:
-            log.debug("Initializing parent generation.")
-            self.generation_parent = self._jl_create_generation(self.__jl_agent, False)
-            retries = self._jl_initialize_rnd(self.__jl_agent, self.generation_parent)
-            evolve_time = time.time()
-            self.total_retries += retries
-
-            log.debug("Evaluating parent generation.")
-            self.generation_parent, invalid_sol = self._evaluate(self.generation_parent)
-            eval_time = time.time()
-            sorting_time = time.time()  # No sorting during first step.
-
-            log.info(f"Successfully initialized first parent generation with {self.population} solutions.")
-
         # Enter time step loop (each loop is one generation of solutions)
+        self._set_training_infos(iteration=0)
         while self.num_timesteps < total_timesteps:
             self.num_timesteps += 1
             self._update_current_progress_remaining(self.num_timesteps, total_timesteps)
 
             # Display training infos
-            if log_interval is not None and iteration % log_interval == 0:
-                self.logger.record("time/iterations", iteration, exclude="tensorboard")
-                if len(self.ep_info_buffer) > 0 and len(self.ep_info_buffer[0]) > 0:
-                    self.logger.record(
-                        "general/ep_rew_mean", safe_mean([ep_info["r"] for ep_info in self.ep_info_buffer])
-                    )
-                self.logger.record("time/total", time.time() - self.start_time / 1000000000, exclude="tensorboard")
-                self.logger.record("time/iteration", time.time() - iteration_time)
-                self.logger.record("time/evolve", evolve_time - iteration_time)
-                self.logger.record("time/evaluate", eval_time - evolve_time)
-                self.logger.record("time/sort", sorting_time - eval_time)
-                self.logger.record("train/retries", retries)
-                self.logger.record("train/total_retries", self.total_retries)
-                self.logger.record("train/learning_rate", self._current_learning_rate)
-                self.logger.record("train/mutation_rate", self.mutations * self._current_learning_rate)
-                self.logger.record("train/crossover_rate", self.crossovers * self._current_learning_rate)
-                self.logger.record("train/seensolutions", self.seen_solutions)
-                self.logger.record("evaluate/invalid", invalid_sol)
-                for idx, val in enumerate(self.current_minima):
-                    self.logger.record(f"evaluate/minimum_{idx}", val)
-                self.logger.dump(step=self.num_timesteps)
+            if log_interval is not None and self.training_infos_buffer["iteration"] % log_interval == 0:
+                self._display_training_infos()
 
-            iteration_time = time.time()
+            self._set_training_infos(iteration_time=time.time())
             self._update_learning_rate()
 
             # Create empty offspring generation
             log.debug("Initializing offspring generation and performing evolution.")
             self.generation_offspr = self._jl_create_offspring(self.__jl_agent, self.generation_parent)
-            retries = self._jl_evolve(
+            self.training_infos_buffer["retries"] = self._jl_evolve(
                 self.__jl_agent, self.generation_offspr, self.generation_parent, self._current_learning_rate
             )
-            evolve_time = time.time()
-            self.total_retries += retries
+            self._set_training_infos(evolve_time=time.time())
+            self.total_retries += self.training_infos_buffer["retries"]
 
             log.debug("Evaluating offspring generation.")
-            self.generation_offspr, retries = self._evaluate(self.generation_offspr)
-            self.total_retries += retries
-            eval_time = time.time()
+            self.generation_offspr, self.training_infos_buffer["retries"] = self._evaluate(self.generation_offspr)
+            self.total_retries += self.training_infos_buffer["retries"]
+            self._set_training_infos(eval_time=time.time())
 
             log.debug("Performing non-dominated sort with parent and offspring")
             new_generation_parent = self._jl_create_generation(self.__jl_agent, True)
-            self.current_minima, self.seen_solutions = self._jl_evaluate_solutions(
+            self.current_minima, self.seen_solutions, self.front_lengths = self._jl_evaluate_solutions(
                 self.__jl_agent, self.generation_offspr, self.generation_parent, new_generation_parent
             )
             self.generation_parent = new_generation_parent
-            sorting_time = time.time()
+            self._set_training_infos(sorting_time=time.time())
 
             log.debug(f"Successfully created and evaluated offspring generation with {self.population} solutions.")
-            iteration += 1
+            self.training_infos_buffer["iteration"] += 1
 
             if not callback.on_step():
                 break
 
         callback.on_training_end()
 
-        return self
+    def _initialize_parent_generation_if_empty(self) -> None:
+        """
+        Initialize parent generation if generation_parent is empty
+        """
+        if Jl.length(self.generation_parent) == 0:
+            log.debug("Initializing parent generation.")
+            self.generation_parent = self._jl_create_generation(self.__jl_agent, False)
+            self.training_infos_buffer["retries"] = self._jl_initialize_rnd(self.__jl_agent, self.generation_parent)
+
+            # update training infos
+            self._set_training_infos(evolve_time=time.time())
+            self.total_retries += self.training_infos_buffer["retries"]
+
+            log.debug("Evaluating parent generation.")
+            self.generation_parent, self.training_infos_buffer["invalid_sol"] = self._evaluate(self.generation_parent)
+
+            # Update training infos
+            self._set_training_infos(eval_time=time.time(), sorting_time=time.time())  # No sorting during first step.
+
+            log.info(f"Successfully initialized first parent generation with {self.population} solutions.")
+
+    def _display_training_infos(self) -> None:
+        """
+        Display training infos.
+        """
+        assert self.ep_info_buffer is not None, "Make sure that ep_info_buffer is exists before starting to learn."
+        assert self.start_time is not None, "Make sure that start_time is set before starting to learn."
+
+        self.logger.record("time/iterations", self.training_infos_buffer["iteration"], exclude="tensorboard")
+        if len(self.ep_info_buffer) > 0 and len(self.ep_info_buffer[0]) > 0:
+            self.logger.record("general/ep_rew_mean", safe_mean([ep_info["r"] for ep_info in self.ep_info_buffer]))
+        self.logger.record("time/total", time.time() - self.start_time / 1000000000, exclude="tensorboard")
+        self.logger.record("time/iteration", time.time() - self.training_infos_buffer["iteration_time"])
+        self.logger.record(
+            "time/evolve", self.training_infos_buffer["evolve_time"] - self.training_infos_buffer["iteration_time"]
+        )
+        self.logger.record(
+            "time/evaluate", self.training_infos_buffer["eval_time"] - self.training_infos_buffer["evolve_time"]
+        )
+        self.logger.record(
+            "time/sort", self.training_infos_buffer["sorting_time"] - self.training_infos_buffer["eval_time"]
+        )
+        self.logger.record("train/retries", self.training_infos_buffer["retries"])
+        self.logger.record("train/total_retries", self.total_retries)
+        self.logger.record("train/learning_rate", self._current_learning_rate)
+        self.logger.record("train/mutation_rate", self.mutations * self._current_learning_rate)
+        self.logger.record("train/crossover_rate", self.crossovers * self._current_learning_rate)
+        self.logger.record("train/seensolutions", self.seen_solutions)
+        self.logger.record("evaluate/invalid", self.training_infos_buffer["invalid_sol"])
+        for idx, val in enumerate(self.current_minima):
+            self.logger.record(f"evaluate/minimum_{idx}", val)
+        self.logger.dump(step=self.num_timesteps)
+
+    def _set_training_infos(self, **kwargs: Any) -> None:
+        """Update the training infos buffer with the given values."""
+        self.training_infos_buffer.update(kwargs)
+
+    def _reset_training_infos(self) -> None:
+        """Reset training infos."""
+        self._set_training_infos(
+            iteration_time=time.time(),
+            evolve_time=time.time(),
+            eval_time=time.time(),
+            sorting_time=time.time(),
+            retries=0,
+            invalid_sol=0,
+        )
 
     def _evaluate(self, generation: _jlwrapper) -> tuple[_jlwrapper, int]:
         """Evaluate all solutions in the generation and store rewards
@@ -475,7 +532,6 @@ class Nsga2(BaseAlgorithm):
         :return: Sequence of evaluated solutions
         """
         assert self.env is not None, "The agent needs to know the environment to evaluate solutions."
-        assert self.population is not None, "The agent needs to know the population size to evaluate solutions."
 
         rewards = None
         retries = 0
@@ -616,3 +672,40 @@ class Nsga2(BaseAlgorithm):
             self.ep_actions_buffer[-1]["events"], self.ep_actions_buffer[-1]["variables"], self._max_value
         )
         self._evaluate(self.generation_parent)
+
+    def predict(
+        self,
+        observation: np.ndarray | dict[str, np.ndarray],
+        state: tuple[np.ndarray, ...] | None = None,
+        episode_start: np.ndarray | None = None,
+        deterministic: bool = False,
+    ) -> tuple[np.ndarray, tuple[np.ndarray, ...] | None]:
+        """Predict function return actions from the best solution.
+
+        :param observation: Observation from the environment.
+        :param state: State from the environment. Not relevant here.
+        :param episode_start: Whether the episode has just started. Not relevant here.
+        :param deterministic: Whether to use deterministic actions. Not relevant here.
+        :return: actions from the best solution
+        """
+        # Reset training infos
+        self._reset_training_infos()
+
+        # Set crossover to zero
+        ju_NSGA2.updateAlgorithmParameters_b(self.__jl_agent, 0.0)
+
+        # Setup learning
+        total_timesteps, callback = self._setup_learn(
+            total_timesteps=self.predict_learn_steps,
+            callback=None,
+            reset_num_timesteps=True,
+            tb_log_name="predict",
+            progress_bar=False,
+        )
+        # train from generation parent
+        self._train(total_timesteps, callback)
+
+        # select first solution of the first front
+        best_solution = self._jl_get_actions(self.generation_parent)[: self.front_lengths[0]][0]
+
+        return best_solution, None  # no states

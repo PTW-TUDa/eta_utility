@@ -53,3 +53,8 @@ def config_live_connect():
 def config_fmu():
     """Test configuration for FMU simulator."""
     return {"file": pathlib.Path(__file__).parent / "resources/damped_oscillator/damped_oscillator.fmu"}
+
+
+@pytest.fixture(scope="session")
+def config_etax_resources_path():
+    return pathlib.Path(__file__).parent / "resources" / "agents"
