@@ -241,11 +241,18 @@ def df_resample(
     else:
         interpolation_method = op.methodcaller(missing_data)
 
+    if not df.index.is_unique:
+        log.warning(
+            f"Index has non-unique values. Dropping duplicates: "
+            f"{df.index[df.index.duplicated(keep='first')].to_list()}."
+        )
+        df = df[~df.index.duplicated(keep="first")]
+
     if len(periods_deltas) == 1:
         delta = str(
             periods_deltas[0].total_seconds() if isinstance(periods_deltas[0], timedelta) else periods_deltas[0]
         )
-        new_df = interpolation_method(interpolation_method(df.resample(str(delta) + "S")))
+        new_df = interpolation_method(df.resample(str(delta) + "S"))
     else:
         new_df = pd.DataFrame()
         total_periods = 0
@@ -259,11 +266,15 @@ def df_resample(
             new_df = pd.concat(
                 df,
                 interpolation_method(
-                    interpolation_method(
-                        df.iloc[total_periods : periods_deltas[key]].resample(str(delta) + "S")  # type: ignore
-                    )
+                    df.iloc[total_periods : periods_deltas[key]].resample(str(delta) + "S")  # type: ignore
                 ),
             )
             total_periods += periods_deltas[key]  # type: ignore
+
+    if df.isna().values.any():
+        log.warning(
+            "Resampled Dataframe has missing values. Before using this data, ensure you deal with the missing values. "
+            "For example, you could interpolate(), fillna() or dropna()."
+        )
 
     return new_df
