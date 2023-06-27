@@ -1,6 +1,6 @@
 [build-system]
 # higher versions of setuptools are incompatible with gym==0.21, required by stable_baselines3
-requires = ["setuptools>=45<67", "wheel", "setuptools_scm[toml]>=6.2"]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -80,7 +80,7 @@ eta_utility = ["test", "docs", "examples"]
 
 [project.optional-dependencies]
 "ETA_X" = [
-    "gym",
+    "gym@git+https://github.com/rlberry-py/gym_fix_021",
     "torch",
     "stable_baselines3>=1.7",
     "tensorboard",
@@ -97,7 +97,7 @@ eta_utility = ["test", "docs", "examples"]
 ]
 "DEVELOP" = [
     # Repeat requirements from ETA_X
-    "gym",
+    "gym@git+https://github.com/rlberry-py/gym_fix_021",
     "torch",
     "stable_baselines3>=1.7", # Many breaking changes in 1.7
     "tensorboard",
