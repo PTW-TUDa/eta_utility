@@ -146,10 +146,10 @@ def check_ju_extensions_installed() -> bool:
         return False
 
     try:
-        import julia  # noqa: I900
+        import julia  # noqa: I900 F401
+        from julia.ju_extensions.Agents import Nsga2  # noqa: I900 F401
 
-        nsga2 = julia.ju_extensions.Agents.Nsga2  # noqa: F841
-    except ImportError:
+    except (ModuleNotFoundError, ImportError, AttributeError):
         return False
 
     return True
