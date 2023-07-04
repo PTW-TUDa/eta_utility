@@ -16,6 +16,7 @@ from eta_utility.util_julia import check_julia_package
 
 if check_julia_package():
     from julia import Main as Jl  # noqa: I900
+    from julia import ju_extensions  # noqa: I900
     from julia.ju_extensions.Agents import Nsga2 as ju_NSGA2  # noqa: I900
 
 if TYPE_CHECKING:
@@ -164,6 +165,7 @@ class Nsga2(BaseAlgorithm):
             self.policy = self.policy_class(self.observation_space, self.action_space, **self.policy_kwargs)
 
         log.setLevel(int(verbose * 10))
+        ju_extensions.set_logger(log.level)
 
         if self.env is None:
             raise ValueError("The NSGA2 agent needs a specific environment to work correctly. Cannot use env = None.")

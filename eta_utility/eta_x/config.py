@@ -36,7 +36,7 @@ def _get_class(instance: ConfigOptSetup, attrib: Attribute, new_value: str | Non
             cls = getattr(importlib.import_module(module), cls_name)
         except ModuleNotFoundError as e:
             raise ModuleNotFoundError(
-                f"Could not find module '{e.name}'. " f"While importing class '{cls_name}' from '{attrib.name}' value."
+                f"Could not find module '{e.name}'. While importing class '{cls_name}' from '{attrib.name}' value."
             )
 
         cls_attr_name = f"{attrib.name.rsplit('_', 1)[0]}_class"
@@ -329,7 +329,7 @@ class ConfigOptSetup:
 
         if errors:
             raise ValueError(
-                "Not all required values were found in setup section (see log). " "Could not load config file."
+                "Not all required values were found in setup section (see log). Could not load config file."
             )
 
         return ConfigOptSetup(
