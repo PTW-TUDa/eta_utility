@@ -8,6 +8,9 @@
 !eneffco_sample_data.json
 *_version.py
 
+# results of example run
+examples/*/results
+
 # Development environment
 .idea/
 .fleet/
