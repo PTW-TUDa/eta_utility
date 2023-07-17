@@ -26,7 +26,6 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10"
@@ -80,9 +79,9 @@ eta_utility = ["test", "docs", "examples"]
 
 [project.optional-dependencies]
 "ETA_X" = [
-    "gym@git+https://github.com/rlberry-py/gym_fix_021",
+    "gym@git+https://github.com/rlberry-py/gym_fix_021", # Fixed to 0.21 because of stable_baselines
     "torch",
-    "stable_baselines3>=1.7",
+    "stable_baselines3>=1.7,<2.0",
     "tensorboard",
     # The MPCBasic agent currently does not support pyomo version 6:
     "pyomo>=6"
@@ -99,7 +98,7 @@ eta_utility = ["test", "docs", "examples"]
     # Repeat requirements from ETA_X
     "gym@git+https://github.com/rlberry-py/gym_fix_021",
     "torch",
-    "stable_baselines3>=1.7", # Many breaking changes in 1.7
+    "stable_baselines3>=1.7,<2.0", # Many breaking changes in 1.7 and switched gym to gymnasium in 2.0
     "tensorboard",
     "pyomo>=6",
     # Repeat requirements for the examples
@@ -184,7 +183,8 @@ module = [
     "importlib.metadata.*",
     "keyboard.*",
     "onnxruntime.*",
-    "matplotlib.*"
+    "matplotlib.*",
+    "torch.ao.nn.*"
 ]
 ignore_missing_imports = true
 
