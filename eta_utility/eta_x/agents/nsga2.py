@@ -205,8 +205,6 @@ class Nsga2(BaseAlgorithm):
         self.generation_parent: _jlwrapper = []
         #: Offspring generation of solutions.
         self.generation_offspr: _jlwrapper = []
-        #: First front length
-        self.front_lengths: _jlwrapper = []
         #: Current learning rate of the algorithm.
         self._current_learning_rate: float = 1.0
 
@@ -221,6 +219,10 @@ class Nsga2(BaseAlgorithm):
         self.ep_actions_buffer: deque = deque(maxlen=100)
         #: Buffer for rewards
         self.ep_reward_buffer: deque = deque(maxlen=100)
+        #: Sorted sets of solutions
+        self._fronts: deque = deque(maxlen=100)
+        #: Number of solutions in each front
+        self._front_lengths: deque = deque(maxlen=100)
         #: Buffer for training infos
         self.training_infos_buffer: dict = {}
 
@@ -244,10 +246,18 @@ class Nsga2(BaseAlgorithm):
         self._jl_reinitialize_rnd = Jl.eval("pyfunctionret(Nsga2.initialize_rnd!, Int, PyAny, PyAny, Vector{Int})")
         self._jl_evolve = Jl.eval("pyfunctionret(Nsga2.evolve!, Int, PyAny, PyAny, PyAny, Float64)")
         self._jl_evaluate_solutions = Jl.eval(
-            "pyfunctionret(" "Nsga2.evaluate!, Tuple{Vector{Float64}, Int, Vector{Int}}, PyAny, PyAny, PyAny, PyAny" ")"
+            "pyfunctionret("
+            "    Nsga2.evaluate!,"
+            "    Tuple{Vector{Float64}, Int, Vector{Int}, Vector{Int}},"
+            "    PyAny,"
+            "    PyAny,"
+            "    PyAny,"
+            "    PyAny"
+            ")"
         )
         self._jl_store_reward = Jl.eval("pyfunctionret(Nsga2.py_store_reward, nothing, PyAny, PyArray)")
         self._jl_get_actions = Jl.eval("pyfunctionret(Nsga2.py_actions, PyObject, PyAny)")
+        self._jl_setup_generation = Jl.eval("pyfunctionret(Nsga2.load_generation, Any, PyArray, PyArray, Float64)")
 
         if _init_setup_model:
             self._setup_model()
@@ -258,6 +268,29 @@ class Nsga2(BaseAlgorithm):
         )
 
         self._check_learn_config()
+
+    @property
+    def last_evaluation_actions(self) -> np.ndarray | None:
+        if len(self.ep_actions_buffer) >= 1:
+            return self.ep_actions_buffer[-1]
+        else:
+            return None
+
+    @property
+    def last_evaluation_rewards(self) -> Any | None:
+        if len(self.ep_reward_buffer) >= 1:
+            return self.ep_reward_buffer[-1]
+        else:
+            return None
+
+    @property
+    def last_evaluation_fronts(self) -> list:
+        fronts = []
+        beginning = 0
+        for frontend in self._front_lengths[-1]:
+            fronts.append([s - 1 for s in self._fronts[-1][beginning:frontend]])
+            beginning = frontend
+        return fronts
 
     def _event_and_variable_params(self) -> tuple[int, list[_VariableParameters]]:
         """Read event parameters and variable parameters from the action space.
@@ -384,9 +417,16 @@ class Nsga2(BaseAlgorithm):
             tb_log_name,
             progress_bar,
         )
-
         # Reset training results infos
+        self._set_training_infos(iteration=0)
         self._reset_training_infos()
+
+        callback.on_training_start(locals(), globals())
+
+        log.info(
+            f"Starting optimization for {total_timesteps} generations with parameters: "
+            f"crossover rate: {self.crossovers}, mutation rate: {self.mutations}, population: {self.population}."
+        )
 
         # Initialize the parent generation in case it is empty (usually when the algorithm is first initialized)
         self._initialize_parent_generation_if_empty()
@@ -409,15 +449,7 @@ class Nsga2(BaseAlgorithm):
         :param callback: callback(s) called at every step with state of the algorithm.
         :param log_interval: The number of timesteps before logging.
         """
-        callback.on_training_start(locals(), globals())
-
-        log.info(
-            f"Starting optimization for {total_timesteps} generations with parameters: "
-            f"crossover rate: {self.crossovers}, mutation rate: {self.mutations}, population: {self.population}."
-        )
-
         # Enter time step loop (each loop is one generation of solutions)
-        self._set_training_infos(iteration=0)
         while self.num_timesteps < total_timesteps:
             self.num_timesteps += 1
             self._update_current_progress_remaining(self.num_timesteps, total_timesteps)
@@ -445,9 +477,21 @@ class Nsga2(BaseAlgorithm):
 
             log.debug("Performing non-dominated sort with parent and offspring")
             new_generation_parent = self._jl_create_generation(self.__jl_agent, True)
-            self.current_minima, self.seen_solutions, self.front_lengths = self._jl_evaluate_solutions(
+            self.current_minima, self.seen_solutions, fronts, front_lengths = self._jl_evaluate_solutions(
                 self.__jl_agent, self.generation_offspr, self.generation_parent, new_generation_parent
             )
+            self._fronts.append(fronts)
+            self._front_lengths.append(front_lengths)
+
+            self.ep_reward_buffer.append(
+                np.vstack(
+                    ([sol.reward for sol in self.generation_offspr], [sol.reward for sol in self.generation_parent])
+                )
+            )
+            self.ep_actions_buffer.append(
+                np.hstack((self._jl_get_actions(self.generation_offspr), self._jl_get_actions(self.generation_parent)))
+            )
+
             self.generation_parent = new_generation_parent
             self._set_training_infos(sorting_time=time.time())
 
@@ -538,7 +582,7 @@ class Nsga2(BaseAlgorithm):
         rewards = None
         retries = 0
         while retries < self.max_retries:
-            observations, rewards, dones, infos = self.env.step(self._get_actions(generation))
+            observations, rewards, dones, infos = self.env.step(self._jl_get_actions(generation))
             self._update_info_buffer(infos, dones)
 
             # Ensure that there are always multiple rewards for every solution.
@@ -562,26 +606,8 @@ class Nsga2(BaseAlgorithm):
                 )
 
         assert rewards is not None
-        self._store_reward(generation, rewards)
-        return generation, retries
-
-    def _get_actions(self, generation: _jlwrapper) -> np.ndarray:
-        """Convert and retrieve actions from the julia agent. This also stores the actions in self.ep_actions_buffer.
-
-        :param generation: Generation object to get actions from.
-        :return: Numpy array of the actions.
-        """
-        self.ep_actions_buffer.append(self._jl_get_actions(generation))
-        return self.ep_actions_buffer[-1]
-
-    def _store_reward(self, generation: _jlwrapper, rewards: np.ndarray) -> None:
-        """Store reward in the generation object and in self.ep_reward_buffer.
-
-        :param generation: Generation object to store rewards in.
-        :param rewards: Array of rewards to store.
-        """
-        self.ep_reward_buffer.append(rewards)
         self._jl_store_reward(generation, rewards)
+        return generation, retries
 
     def set_random_seed(self, seed: int | None = None) -> None:
         """
@@ -625,6 +651,7 @@ class Nsga2(BaseAlgorithm):
                 "_jl_evaluate_solutions",
                 "_jl_store_reward",
                 "_jl_get_actions",
+                "_jl_setup_generation",
                 "generation_parent",
                 "generation_offspr",
             ]
@@ -669,9 +696,17 @@ class Nsga2(BaseAlgorithm):
         return model
 
     def _load_generation(self) -> None:
-        setup_generation = Jl.eval("pyfunctionret(Nsga2.load_generation, Any, PyArray, PyArray, Float64)")
-        self.generation_parent = setup_generation(
-            self.ep_actions_buffer[-1]["events"], self.ep_actions_buffer[-1]["variables"], self._max_value
+        self.generation_offspr = self._jl_setup_generation(
+            self.ep_actions_buffer[-1][: self.population]["events"],
+            self.ep_actions_buffer[-1][: self.population]["variables"],
+            self._max_value,
+        )
+        self._evaluate(self.generation_offspr)
+
+        self.generation_parent = self._jl_setup_generation(
+            self.ep_actions_buffer[-1][self.population :]["events"],
+            self.ep_actions_buffer[-1][self.population :]["variables"],
+            self._max_value,
         )
         self._evaluate(self.generation_parent)
 
@@ -700,7 +735,7 @@ class Nsga2(BaseAlgorithm):
         total_timesteps, callback = self._setup_learn(
             total_timesteps=self.predict_learn_steps,
             callback=None,
-            reset_num_timesteps=True,
+            reset_num_timesteps=False,
             tb_log_name="predict",
             progress_bar=False,
         )
@@ -708,6 +743,6 @@ class Nsga2(BaseAlgorithm):
         self._train(total_timesteps, callback)
 
         # select first solution of the first front
-        best_solution = self._jl_get_actions(self.generation_parent)[: self.front_lengths[0]][0]
+        best_solution = self.ep_actions_buffer[-1][self._fronts[-1][: self._front_lengths[-1][0]]][0]
 
         return best_solution, None  # no states

@@ -1,4 +1,3 @@
-__precompile__()
 module Nsga2
 
 import Base: length, iterate, getindex, firstindex, lastindex, eltype, hash
@@ -153,7 +152,6 @@ not guarantee that is a new solution.
 :param variable_params: Parameters to describe properties of the variables.
 """
 function randomize!(rng::AbstractRNG, solution::Solution, variable_params::VariableParameters)
-    @debug "Randomizing solution!"
     # randomize events
     shuffle!(rng, solution.events)
 
@@ -425,7 +423,7 @@ Create a new offspring generation from a parent generation.
 """
 function create_offspring(algo::Algorithm, generationparent::Generation)
     generation = create_generation(algo, true)
-    for i in eachindex(generationparent)
+    for i in eachindex(generation)
         generation[i].events[:] = generationparent[i].events[:]
         generation[i].variables[:] = generationparent[i].variables[:]
     end
@@ -458,7 +456,7 @@ Initialize a generation with random values.
 """
 function initialize_rnd!(algo::Algorithm, generation::Generation)
     # Make sure that each of the new solutions is unique and has not been seen before.
-    @debug "Checking whether any solutions have been seen before."
+    @debug "Randomly initializing generation. Checking whether any solutions have been seen before."
     retries = 0
     for solution in generation
         randomize!(algo.rng, solution, algo.variable_params)
@@ -480,7 +478,7 @@ end
 
 function initialize_rnd!(algo::Algorithm, generation::Generation, solutions::Vector{Int})
     # Make sure that each of the new solutions is unique and has not been seen before.
-    @debug "Checking whether any solutions have been seen before."
+    @debug "Randomly initializing generation. Checking whether any solutions have been seen before."
     retries = 0
     for s in solutions
         randomize!(algo.rng, generation[s], algo.variable_params)
@@ -520,18 +518,16 @@ function evolve!(algo::Algorithm, generation::Generation, generationparent::Gene
     lengenome = length(generation[1].events) + length(generation[1].variables)
 
     # Perform mutation for the entire generation and store the results in the offspring generation.
-    @debug "Mutating generation."
     # Number of solutions to be mutated such that each mutated solution has at least two mutations.
     nsolutions = min(floor(Int, population * lengenome * mutations / 2), population)
     adjustedrate = population * lengenome * mutations / (nsolutions * lengenome)
     mutatesolutions = StatsBase.sample(algo.rng, 1:population, nsolutions, replace=false)
-
+    @info "Mutating generation with $nsolutions of $population solutions mutated."
     for i in mutatesolutions
         mutate!(generation[i], generationparent[i], algo.rng, adjustedrate, algo.variable_params)
     end
 
     # Perform crossover for the entire generation and store the results in the offspring generation.
-    @debug "Perfoming crossover for generation."
     matchesfrom = StatsBase.sample(algo.rng, 1:population, ceil(Int, population * crossovers), replace=false)
     matchesto = StatsBase.sample(
         algo.rng,
@@ -539,14 +535,13 @@ function evolve!(algo::Algorithm, generation::Generation, generationparent::Gene
         ceil(Int, population * crossovers),
         replace=false,
     )
-
+    @info "Perfoming crossover for generation with $(length(matchesfrom)) of $population solutions crossed."
     adjustedrate = population * lengenome * crossovers / (length(matchesfrom) * lengenome)
     for i in eachindex(matchesfrom)
         crossover!(generation[matchesto[i]], generation[matchesfrom[i]], algo.rng, adjustedrate, algo.maxcrosslen)
     end
 
     # Make sure that each of the new solutions is unique and has not been seen before.
-    @debug "Checking whether any solutions have been seen before."
     retries = 0
     for solution in generation
         while retries <= algo.maxretries
@@ -561,6 +556,7 @@ function evolve!(algo::Algorithm, generation::Generation, generationparent::Gene
             error("There were too many retries due to equivalent solutions.")
         end
     end
+    @debug "Retried and randomized $retries solutions because they had been seen before."
     return retries
 end
 
@@ -616,6 +612,7 @@ function evaluate!(algo::Algorithm, generation::Generation, generationparent::Ge
             break
         end
     end
+    @info "Solutions sorted into $(length(frontlengths)) fronts by nondominated sort."
 
     # Sort the last front by its crowding distance
     if frontlengths[end] > length(generation)
@@ -627,7 +624,7 @@ function evaluate!(algo::Algorithm, generation::Generation, generationparent::Ge
         offspring[i] = population_idx(generation, generationparent, fronts[i])
     end
 
-    return algo.status.currentminima, length(algo.status.seensolutions), frontlengths
+    return algo.status.currentminima, length(algo.status.seensolutions), fronts, frontlengths
 end
 
 """
@@ -642,7 +639,7 @@ function sort_nondominated(algo::Algorithm, generation::Generation, generationpa
     # If current minimima have never been written, just set them to the reward of the first
     # solution to initialize them.
     if !algo.status.minima_initialized
-        algo.status.currentminima = generationparent[1].reward
+        algo.status.currentminima = copy(generationparent[1].reward)
         algo.status.minima_initialized = true
     end
 
@@ -731,6 +728,7 @@ function sort_crowding_distance(generation::Generation, generationparent::Genera
 
     # Perform the sort and crowding distance assignment for each objective
     beginning = length(frontlengths) > 1 ? frontlengths[end-1] : 1
+    @info "Sorting solutions by crowding distance. Number of solutions in this front: $(frontlengths[end] - beginning)."
     for i in eachindex(generation[1].reward)
         sorted = sort(fronts[beginning:frontlengths[end]], by=x -> getreward(x, i))
 

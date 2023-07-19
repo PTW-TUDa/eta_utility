@@ -169,7 +169,8 @@ class TestNSGA2:
 
         events, variables = action
 
-        assert isinstance(action, np.record)
+        assert len(action["events"] == 60)
+        assert len(action["variables"] == 60)
         assert state is None
         assert isinstance(events, np.ndarray)
         assert events.shape == (60,)

@@ -19,7 +19,7 @@ mutable struct Environment
             PyObject,
             0,
             PyObject(numpy.inf);
-            shape = (1,),
+            shape=(60,),
             dtype = PyObject(numpy.float32),
         )
         env.pyenv."action_space" = pycall(
@@ -28,7 +28,7 @@ mutable struct Environment
             Dict(
                 "events" => pycall(spaces.Discrete, PyObject, env.events_length),
                 "variables" =>
-                    pycall(spaces.MultiDiscrete, PyObject, fill(3, env.events_length)),
+                    pycall(spaces.MultiDiscrete, PyObject, fill(7, env.events_length)),
             ),
         )
         return env

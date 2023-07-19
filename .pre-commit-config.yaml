@@ -67,7 +67,7 @@ repos:
           - types-requests
           - attrs
           - gym@git+https://github.com/rlberry-py/gym_fix_021
-          - stable_baselines3>=1.7,<2.0
+          - stable_baselines3==1.7
           - pygame
           - importlib_metadata
           - cryptography
