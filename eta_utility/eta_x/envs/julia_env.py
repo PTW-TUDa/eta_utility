@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pathlib
 from datetime import datetime
+from functools import partial
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -189,7 +190,7 @@ class JuliaEnv(BaseEnv):
         """
         return self.__jl.close_b(self._jlenv)
 
-    def render(self, mode: str = "human") -> None:
+    def render(self, mode: str = "human", **kwargs: Any) -> None:
         """Render the environment
 
         The set of supported modes varies per environment. Some environments do not support rendering at
@@ -203,7 +204,7 @@ class JuliaEnv(BaseEnv):
 
         :param mode: Rendering mode.
         """
-        self.__jl.render(self._jlenv, mode)
+        self.__jl.render(self._jlenv, mode, **kwargs)
 
     def seed(self, seed: int | None = None) -> tuple[np.random.Generator, int]:
         """Set random seed for the random generator of the environment
@@ -223,17 +224,22 @@ class JuliaEnv(BaseEnv):
         # Return the item if it is set on the python object
         try:
             return super().__getattribute__(name)
-        except AttributeError as e:
-            err = e
+        except AttributeError:
+            pass
 
         # If the item isn't set on the python object, check whether _jlenv exists and has the item
         if "_jlenv" in self.__dict__:
             try:
                 return getattr(self._jlenv, name)
             except Exception:
-                raise AttributeError(f"Could not get {name} from python or julia environment.")
+                pass
 
-        raise err
+            try:
+                return partial(getattr(self.__jl, name), self._jlenv)
+            except Exception:
+                pass
+
+        raise AttributeError(f"Could not get {name} from python or julia environment.")
 
     def __setattr__(self, name: str, value: Any) -> None:
         # Try to set on _jlenv
