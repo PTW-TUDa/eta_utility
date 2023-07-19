@@ -2,6 +2,7 @@ from test.resources.agents.mpc_basic_env import MPCBasicEnv
 from test.resources.agents.rule_based import RuleBasedController
 
 import gym
+import numpy as np
 import pytest
 from stable_baselines3.common.vec_env import DummyVecEnv
 
@@ -9,6 +10,12 @@ from eta_utility import get_logger
 from eta_utility.eta_x import ConfigOptRun
 from eta_utility.eta_x.agents.math_solver import MathSolver
 from eta_utility.eta_x.common import NoPolicy
+from eta_utility.eta_x.envs import NoVecEnv
+from eta_utility.util_julia import check_ju_extensions_installed
+
+if check_ju_extensions_installed():
+    from eta_utility.eta_x.agents.nsga2 import Nsga2
+    from eta_utility.eta_x.envs.julia_env import JuliaEnv
 
 
 class TestRuleBased:
@@ -54,7 +61,7 @@ class TestMathSolver:
             name="test_mpc_basic",
             description="",
             path_root=temp_dir / "root",
-            path_results=temp_dir / "reults",
+            path_results=temp_dir / "results",
         )
 
         # Create the environment
@@ -95,3 +102,108 @@ class TestMathSolver:
     def test_mpc_learn(self, mpc_agent):
         assert mpc_agent.learn(total_timesteps=5) is not None
         assert isinstance(mpc_agent, MathSolver)
+
+
+@pytest.mark.skipif(not check_ju_extensions_installed(), reason="PyJulia installation required!")
+class TestNSGA2:
+    @pytest.fixture(scope="class")
+    def julia_env(self, config_etax_resources_path, temp_dir):
+        config_run = ConfigOptRun(
+            series="Nsga2_test_2023",
+            name="test_nsga2",
+            description="",
+            path_root=temp_dir / "root",
+            path_results=temp_dir / "results",
+        )
+
+        env = JuliaEnv(
+            env_id=1,
+            config_run=config_run,
+            scenario_time_begin="2017-01-24 00:01",
+            scenario_time_end="2017-01-24 23:59",
+            episode_duration=1800,
+            sampling_time=1,
+            julia_env_file=config_etax_resources_path / "Nsga2Env.jl",
+            is_multithreaded=True,
+        )
+        no_vec_env = NoVecEnv([lambda: env])
+        yield no_vec_env
+        no_vec_env.close()
+
+    @pytest.fixture(scope="class")
+    def loaded_agent(self, config_etax_resources_path, julia_env):
+        path = config_etax_resources_path / "test_nsga2_agent.zip"
+        agent = Nsga2.load(path=path, env=julia_env)
+        return agent
+
+    @pytest.fixture(scope="class")
+    def default_agent(self, julia_env):
+        agent = Nsga2(env=julia_env, policy=NoPolicy)
+        return agent
+
+    def test_load_agent_setup(self, loaded_agent):
+        assert isinstance(loaded_agent, Nsga2)
+        assert isinstance(loaded_agent.env, DummyVecEnv)
+
+    @pytest.mark.parametrize(
+        ("attr", "value"),
+        [
+            ("population", 1000),
+            ("mutations", 0.05),
+            ("crossovers", 0.3),
+            ("n_generations", 2),
+            ("max_cross_len", 1),
+            ("max_retries", 1000000),
+            ("predict_learn_steps", 10),
+            ("seed", 2139846),
+            ("tensorboard_log", None),
+            ("event_params", 60),
+        ],
+    )
+    def test_load_agent_attributes(self, attr, value, loaded_agent):
+        assert getattr(loaded_agent, attr) == value
+
+    def test_predict(self, loaded_agent):
+        observations = loaded_agent.env.reset()
+        action, state = loaded_agent.predict(observations)
+
+        events, variables = action
+
+        assert len(action["events"] == 60)
+        assert len(action["variables"] == 60)
+        assert state is None
+        assert isinstance(events, np.ndarray)
+        assert events.shape == (60,)
+        assert isinstance(variables, np.ndarray)
+        assert variables.shape == (60,)
+
+    @pytest.mark.parametrize(
+        ("attr", "value"),
+        [
+            ("population", 100),
+            ("mutations", 0.05),
+            ("crossovers", 0.1),
+            ("n_generations", 100),
+            ("max_cross_len", 1),
+            ("max_retries", 100000),
+            ("predict_learn_steps", 5),
+            ("seed", 42),
+        ],
+    )
+    def test_default_agent_attributes(self, attr, value, default_agent):
+        assert getattr(default_agent, attr) == value
+
+    def test_setup_learn(self, default_agent):
+        init_total_timesteps = 10
+        total_timesteps, callback = default_agent._setup_learn(
+            total_timesteps=init_total_timesteps,
+            callback=None,
+            reset_num_timesteps=True,
+            tb_log_name="predict",
+            progress_bar=False,
+        )
+        assert total_timesteps == init_total_timesteps
+        assert callback is not None
+        assert default_agent.num_timesteps == 0
+        assert default_agent.ep_info_buffer is not None
+        assert default_agent.start_time is not None

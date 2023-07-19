@@ -87,6 +87,17 @@ def get_logger(
 
     if level is not None:
         log.setLevel(int(level * 10))
+
+        from eta_utility.util_julia import check_ju_extensions_installed
+
+        if check_ju_extensions_installed():
+            from julia import ju_extensions  # noqa: I900
+
+            if format is not None:
+                ju_extensions.set_logger(log.level, format)
+            else:
+                ju_extensions.set_logger(log.level, "simple")
+
     return log
 
 

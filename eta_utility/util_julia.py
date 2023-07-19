@@ -135,3 +135,21 @@ def check_julia_package() -> bool:
             "Inside the python virtual environment where eta-utility is installed."
         )
     return True
+
+
+def check_ju_extensions_installed() -> bool:
+    """Check if PyJulia is correctly installed and ju_extensions is available as a julia package.
+
+    :returns: True if is correctly installed return False if not
+    """
+    if which("julia") is None:
+        return False
+
+    try:
+        import julia  # noqa: I900 F401
+        from julia.ju_extensions.Agents import Nsga2  # noqa: I900 F401
+
+    except (ModuleNotFoundError, ImportError, AttributeError):
+        return False
+
+    return True

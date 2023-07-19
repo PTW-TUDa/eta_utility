@@ -49,7 +49,7 @@ repos:
           - flake8-requirements==1.7.7
           - pep8-naming==0.13.3
           - flake8-rst-docstrings==0.3.0
-        args: [ "--config", "setup.cfg"]
+        args: [ "--config", "setup.cfg", "--show-source"]
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: 'v1.0.0'
     hooks:
@@ -61,12 +61,13 @@ repos:
                 _version.py|
           )$
         additional_dependencies:
-          - setuptools<67
+          - setuptools>=45
           - tokenize-rt==3.2.0
           - types-python-dateutil
           - types-requests
           - attrs
-          - stable_baselines3>=1.7
+          - gym@git+https://github.com/rlberry-py/gym_fix_021
+          - stable_baselines3==1.7
           - pygame
           - importlib_metadata
           - cryptography
