@@ -128,9 +128,13 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         step_inputs = []
         for key in self.state_config.ext_inputs:
             try:
-                step_inputs.append(
-                    state[key] / self.state_config.ext_scale[key]["multiply"] - self.state_config.ext_scale[key]["add"]
-                )
+                if type(state[key]) is bool:
+                    step_inputs.append(state[key])
+                else:
+                    step_inputs.append(
+                        state[key] / self.state_config.ext_scale[key]["multiply"]
+                        - self.state_config.ext_scale[key]["add"]
+                    )
             except KeyError as e:
                 raise KeyError(f"{str(e)} is unavailable in environment state.") from e
 
