@@ -17,7 +17,14 @@ if TYPE_CHECKING:
 
     from eta_utility.type_hints import Path
 
-default_schemes = {"modbus": "modbus.tcp", "opcua": "opc.tcp", "eneffco": "https", "local": "https", "entsoe": "https"}
+default_schemes = {
+    "modbus": "modbus.tcp",
+    "opcua": "opc.tcp",
+    "eneffco": "https",
+    "local": "https",
+    "entsoe": "https",
+    "cumulocity": "https",
+}
 
 log = get_logger("connectors")
 
@@ -654,6 +661,55 @@ class NodeEntsoE(Node, protocol="entsoe"):
         try:
             return cls(
                 name, url, "entsoe", usr=usr, pwd=pwd, endpoint=endpoint, bidding_zone=bidding_zone, interval=interval
+            )
+        except (TypeError, AttributeError):
+            raise TypeError(f"Could not convert all types for node {name}.")
+
+
+class NodeCumulocity(Node, protocol="cumulocity"):
+    """Node for the Cumulocity API."""
+
+    measurement_id: str = field(kw_only=True, converter=str)
+    value_fragment_series: str = field(kw_only=True, converter=str)
+
+    def __attrs_post_init__(self) -> None:
+        """Ensure username and password are processed correctly."""
+        super().__attrs_post_init__()
+
+    @classmethod
+    def _from_dict(cls, dikt: dict[str, Any]) -> NodeCumulocity:
+        """Create a Cumulocity node from a dictionary of node information.
+
+        :param dikt: dictionary with node information.
+        :return: NodeCumulocity object.
+        """
+        name, pwd, url, usr, interval = cls._read_dict_info(dikt)
+        try:
+            measurement_id = cls._try_dict_get_any(dikt, "id", "measurement_id")
+        except KeyError:
+            raise KeyError(
+                f"The required parameter for the node configuration was not found (see log). The node {name} could "
+                f"not load."
+            )
+        try:
+            value_fragment_series = cls._try_dict_get_any(
+                dikt, "series", "Series", "valueFragmentSeries", "valuefragmentseries"
+            )
+        except KeyError:
+            raise KeyError(
+                f"The required parameter for the node configuration was not found (see log). The node {name} could "
+                f"not load."
+            )
+
+        try:
+            return cls(
+                name,
+                url,
+                "cumulocity",
+                usr=usr,
+                pwd=pwd,
+                measurement_id=measurement_id,
+                value_fragment_series=value_fragment_series,
             )
         except (TypeError, AttributeError):
             raise TypeError(f"Could not convert all types for node {name}.")

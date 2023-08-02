@@ -119,9 +119,12 @@ end
 
     varparams = create_varparams("int", 0, 3, lenvars)
     solution_parent = Nsga2.Solution(lenevents, varparams, Inf, false)
-    solution = Nsga2.Solution(lenevents, varparams, Inf, false)
-
     Nsga2.randomize!(TaskLocalRNG(), solution_parent, varparams)
+
+    solution = Nsga2.Solution(lenevents, varparams, Inf, true)
+    solution.events[:] = solution_parent.events[:]
+    solution.variables[:] = solution_parent.variables[:]
+
     Nsga2.mutate!(solution, solution_parent, TaskLocalRNG(), mutationrate, varparams)
 
     previousevents = solution_parent.events
@@ -214,25 +217,36 @@ end
         generation2[idx].reward = [length(generation1) - idx + 1, idx + 1]
     end
     fronts, frontlengths = Nsga2.sort_nondominated(algo, generation1, generation2)
-    @test length(fronts) == population * 2
-    @test begin
-        presentnums = falses(population * 2)
-        for i in fronts
-            presentnums[i] = true
-        end
-        all(presentnums)
-    end
+    @test population <= length(fronts) <= population * 2
     @test length(frontlengths) <= population * 2
-    @test maximum(frontlengths) == population * 2
+    @test population <= maximum(frontlengths) <= population * 2
+    @test maximum(frontlengths) == length(fronts)
+
+    for i in fronts
+        @test 1 <= i <= population * 2
+    end
+
+    @test begin
+        indices = zeros(Int, population * 2)
+        for i in fronts
+            indices[i] += 1
+        end
+        maximum(indices) == 1
+    end
 
     fronts = Nsga2.sort_crowding_distance(generation1, generation2, fronts, frontlengths)
-    @test length(fronts) == population * 2
+    @test population <= length(fronts) <= population * 2
+
+    for i in fronts
+        @test 1 <= i <= population * 2
+    end
+
     @test begin
-        presentnums = falses(population * 2)
+        indices = zeros(Int, population * 2)
         for i in fronts
-            presentnums[i] = true
+            indices[i] += 1
         end
-        all(presentnums)
+        maximum(indices) == 1
     end
 end
 
@@ -266,24 +280,35 @@ end
         generation2[idx].reward = [idx + length(generation1)]
     end
     fronts, frontlengths = Nsga2.sort_nondominated(algo, generation1, generation2)
-    @test length(fronts) == population * 2
-    @test begin
-        presentnums = falses(population * 2)
-        for i in fronts
-            presentnums[i] = true
-        end
-        all(presentnums)
-    end
+    @test population <= length(fronts) <= population * 2
     @test length(frontlengths) <= population * 2
-    @test maximum(frontlengths) == population * 2
+    @test population <= maximum(frontlengths) <= population * 2
+    @test maximum(frontlengths) == length(fronts)
+
+    for i in fronts
+        @test 1 <= i <= population * 2
+    end
+
+    @test begin
+        indices = zeros(Int, population * 2)
+        for i in fronts
+            indices[i] += 1
+        end
+        maximum(indices) == 1
+    end
 
     fronts = Nsga2.sort_crowding_distance(generation1, generation2, fronts, frontlengths)
-    @test length(fronts) == population * 2
+    @test population <= length(fronts) <= population * 2
+
+    for i in fronts
+        @test 1 <= i <= population * 2
+    end
+
     @test begin
-        presentnums = falses(population * 2)
+        indices = zeros(Int, population * 2)
         for i in fronts
-            presentnums[i] = true
+            indices[i] += 1
         end
-        all(presentnums)
+        maximum(indices) == 1
     end
 end

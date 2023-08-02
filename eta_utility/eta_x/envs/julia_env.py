@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pathlib
 from datetime import datetime
+from functools import partial
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -105,13 +106,33 @@ class JuliaEnv(BaseEnv):
         self.__jl = import_jl_file(julia_env_path)
 
         # Make sure that all required functions are implemented in julia.
-        for func in {"Environment", "step!", "reset!", "close!", "render", "seed!"}:
+        for func in {"Environment", "step!", "reset!", "close!", "render", "seed!", "first_update!", "update!"}:
             if not hasattr(self.__jl, func):
                 raise NotImplementedError(
-                    f"Implementation of abstract method {func} missing from julia implmentation of JuliaEnv."
+                    f"Implementation of abstract method {func} missing from julia implementation of JuliaEnv."
                 )
 
         self._jlenv = self.__jl.Environment(self)
+
+    def first_update(self, observations: np.ndarray) -> np.ndarray:
+        """Perform the first update and set values in simulation model to the observed values.
+
+        :param observations: Observations of another environment.
+        :return: Full array of observations.
+        """
+        observations = self.__jl.first_update_b(observations)
+
+        return observations
+
+    def update(self, observations: np.ndarray) -> np.ndarray:
+        """Update the optimization model with observations from another environment.
+
+        :param observations: Observations from another environment
+        :return: Full array of current observations
+        """
+        observations = self.__jl.update_b(observations)
+
+        return observations
 
     def step(self, action: np.ndarray) -> StepResult:
         """Perform one time step and return its results. This is called for every event or for every time step during
@@ -169,7 +190,7 @@ class JuliaEnv(BaseEnv):
         """
         return self.__jl.close_b(self._jlenv)
 
-    def render(self, mode: str = "human") -> None:
+    def render(self, mode: str = "human", **kwargs: Any) -> None:
         """Render the environment
 
         The set of supported modes varies per environment. Some environments do not support rendering at
@@ -183,7 +204,7 @@ class JuliaEnv(BaseEnv):
 
         :param mode: Rendering mode.
         """
-        self.__jl.render(self._jlenv, mode)
+        self.__jl.render(self._jlenv, mode, **kwargs)
 
     def seed(self, seed: int | None = None) -> tuple[np.random.Generator, int]:
         """Set random seed for the random generator of the environment
@@ -203,17 +224,22 @@ class JuliaEnv(BaseEnv):
         # Return the item if it is set on the python object
         try:
             return super().__getattribute__(name)
-        except AttributeError as e:
-            err = e
+        except AttributeError:
+            pass
 
         # If the item isn't set on the python object, check whether _jlenv exists and has the item
         if "_jlenv" in self.__dict__:
             try:
                 return getattr(self._jlenv, name)
             except Exception:
-                raise AttributeError(f"Could not get {name} from python or julia environment.")
+                pass
 
-        raise err
+            try:
+                return partial(getattr(self.__jl, name), self._jlenv)
+            except Exception:
+                pass
+
+        raise AttributeError(f"Could not get {name} from python or julia environment.")
 
     def __setattr__(self, name: str, value: Any) -> None:
         # Try to set on _jlenv

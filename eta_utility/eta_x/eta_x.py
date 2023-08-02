@@ -70,6 +70,28 @@ class ETAx:
         #: The model or algorithm.
         self.model: BaseAlgorithm | None = None
 
+    @contextmanager
+    def prepare_environments_models(
+        self,
+        series_name: str | None,
+        run_name: str | None,
+        run_description: str = "",
+        reset: bool = False,
+        training: bool = False,
+    ) -> Generator:
+        if is_env_closed(self.environments) or self.model is None:
+            _series_name = series_name if series_name is not None else ""
+            _run_name = run_name if run_name is not None else ""
+            self.prepare_run(_series_name, _run_name, run_description)
+
+        with self.prepare_environments(training):
+            assert (
+                self.environments is not None
+            ), "Initialized environments could not be found. Call prepare_environments first."
+
+            self.prepare_model(reset)
+            yield
+
     def prepare_run(self, series_name: str, run_name: str, run_description: str = "") -> None:
         """Prepare the learn and play methods by reading configuration, creating results folders and the model.
 
@@ -150,6 +172,20 @@ class ETAx:
 
         :param training: Should preparation be done for training (alternative: playing)?
         """
+        # If the agents specifies the population parameter, the number of environments usually has to be
+        # equal to that value as well. See NSGA-II agent.
+        if (
+            "population" in self.config.settings.agent
+            and self.config.settings.n_environments != self.config.settings.agent["population"]
+        ):
+            if self.config.settings.n_environments != 1:
+                log.warning(
+                    f"Agent specifies 'population' parameter but the number of environments "
+                    f"({self.config.settings.n_environments}) is not equal to the population. "
+                    f"Setting 'n_environments' to {self.config.settings.agent['population']}"
+                )
+            self.config.settings.n_environments = self.config.settings.agent["population"]
+
         try:
             self._prepare_environments(training)
             yield
@@ -168,6 +204,20 @@ class ETAx:
 
         :param training: Should preparation be done for training (alternative: playing)?
         """
+        # If the agents specifies the population parameter, the number of environments usually has to be
+        # equal to that value as well. See NSGA-II agent.
+        if (
+            "population" in self.config.settings.agent
+            and self.config.settings.n_environments != self.config.settings.agent["population"]
+        ):
+            if self.config.settings.n_environments != 1:
+                log.warning(
+                    f"Agent specifies 'population' parameter but the number of environments "
+                    f"({self.config.settings.n_environments}) is not equal to the population. "
+                    f"Setting 'n_environments' to {self.config.settings.agent['population']}"
+                )
+            self.config.settings.n_environments = self.config.settings.agent["population"]
+
         assert self.config_run is not None, (
             "Set the config_run attribute before trying to initialize the environments "
             "(for example by calling prepare_run)."
@@ -234,19 +284,11 @@ class ETAx:
                            model exists and reset is false.
         :param callbacks: Provide additional callbacks to send to the model.learn() call.
         """
-        if is_env_closed(self.environments) or self.model is None:
-            _series_name = series_name if series_name is not None else ""
-            _run_name = run_name if run_name is not None else ""
-            self.prepare_run(_series_name, _run_name, run_description)
-
-        assert self.config_run is not None, "Run configuration could not be found. Call prepare_run first."
-
-        with self.prepare_environments(training=True):
+        with self.prepare_environments_models(series_name, run_name, run_description, reset, training=True):
+            assert self.config_run is not None, "Run configuration could not be found. Call prepare_run first."
             assert (
                 self.environments is not None
             ), "Initialized environments could not be found. Call prepare_environments first."
-
-            self.prepare_model(reset)
             assert self.model is not None, "Initialized model could not be found. Call prepare_model first."
 
             # Log some information about the model and configuration
@@ -320,19 +362,11 @@ class ETAx:
         :param run_name: Name for a specific run.
         :param run_description: Description for a specific run.
         """
-        if is_env_closed(self.environments) or self.model is None:
-            _series_name = series_name if series_name is not None else ""
-            _run_name = run_name if run_name is not None else ""
-            self.prepare_run(_series_name, _run_name, run_description)
-
-        assert self.config_run is not None, "Run configuration could not be found. Call prepare_run first."
-
-        with self.prepare_environments(training=True):
+        with self.prepare_environments_models(series_name, run_name, run_description, reset=False, training=False):
+            assert self.config_run is not None, "Run configuration could not be found. Call prepare_run first."
             assert (
                 self.environments is not None
             ), "Initialized environments could not be found. Call prepare_environments first."
-
-            self.prepare_model(reset=False)
             assert self.model is not None, "Initialized model could not be found. Call prepare_model first."
 
             if self.config.settings.n_episodes_play is None:
