@@ -148,14 +148,14 @@ write_to = "eta_utility/_version.py"
 include = "\\.pyi?$|^eta_utility/|^test/"
 exclude = "\\.xlsx?$|\\.fmu?$|test_resources/|__pycache__/|_version.py$"
 line_length = 120
-target_version = ["py37","py38","py39"]
+target_version = ["py38","py39"]
 
 [tool.isort]
 profile = "black"
 multi_line_output = 3
 
 [tool.mypy]
-python_version = 3.7
+python_version = 3.8
 files = ["eta_utility", "examples"]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
