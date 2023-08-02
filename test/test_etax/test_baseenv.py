@@ -18,7 +18,7 @@ class TestStateLog:
     def experiment_path(self):
         path = get_oscillator_path()
         yield path
-        shutil.rmtree(path / "results")
+        shutil.rmtree(path / "results", ignore_errors=True)
 
     @pytest.fixture(scope="class")
     def results_path(self, experiment_path):
