@@ -23,17 +23,19 @@ build:
   apt_packages:
     - libgl1-mesa-glx
   jobs:
-    pre_build:
+    pre_install:
       - wget https://julialang-s3.julialang.org/bin/linux/x64/1.9/julia-1.9.2-linux-x86_64.tar.gz
       - tar zxvf julia-1.9.2-linux-x86_64.tar.gz
       - ls -la
       - export PATH="$PATH:./julia-1.9.2/bin"
       - echo $PATH
       - python -m pip install setuptools==65.5 pip==21
-      - pip install sphinx-apidoc
+    post_install:
       - pip install julia
+      - python -c "import julia; julia.install()"
+      - pip install sphinx-apidoc
+    pre_build:
       - sphinx-apidoc --tocfile api -e -M -o docs/_stubs eta_utility
-      - cd docs
 
 # Build documentation in the docs/ directory with Sphinx
 sphinx:
