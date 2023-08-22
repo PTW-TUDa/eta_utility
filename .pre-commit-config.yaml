@@ -61,12 +61,12 @@ repos:
                 _version.py|
           )$
         additional_dependencies:
-          - setuptools>=45
+          - setuptools>=45,<66
           - tokenize-rt==3.2.0
           - types-python-dateutil
           - types-requests
           - attrs
-          - gym@git+https://github.com/rlberry-py/gym_fix_021
+          - gym==0.21
           - stable_baselines3==1.7
           - pygame
           - importlib_metadata

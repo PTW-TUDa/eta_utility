@@ -23,6 +23,12 @@ You can find the `source code on github <https://github.com/PTW-TUDa/eta_utility
     This is beta software. APIs and functionality might change without prior notice. Please fix the version you
     are using in your requirements to ensure your software will not be broken by changes in *eta_utility*.
 
+.. warning::
+    This version of *eta_utility* uses a deprecated version of *stable_baselines3* and OpenAI *gym*. It can only be installed 
+    with specific versions of setuptools and pip!
+    .. code-block::
+        python -m pip install setuptools==65.5 pip==21
+
 The package *eta_utility* consists of five main modules and some additional functionality:
 
 - *eta_x* is the rolling horizon optimization module which combines the functionality of the

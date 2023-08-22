@@ -61,13 +61,13 @@ You might be asked for your git login credentials.
 
     Git login window.
 
-In case you haven't updated your python installation for a while, you might update pip
-and setuptools before executing the next steps:
+Due to limitations with the versions of *stable_baselines3* and *gym* this version of *eta_utility*
+can only be installed after executing the following command to install specific versions of
+*setuptools* and *pip*:
 
 .. code-block:: console
 
-   $> python -m pip install --upgrade pip
-   $> pip install --upgrade setuptools
+   $> python -m pip install setuptools==65.5.0 pip==21
 
 After this, go to the root directory of the Git project and install the project with the
 development extension. This includes all requirements plus everything required for development
