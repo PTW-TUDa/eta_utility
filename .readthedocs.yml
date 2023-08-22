@@ -22,9 +22,13 @@ build:
     python: "3.10"
   apt_packages:
     - libgl1-mesa-glx
-    - julia
   jobs:
     pre_build:
+      - wget https://julialang-s3.julialang.org/bin/linux/x64/1.9/julia-1.9.2-linux-x86_64.tar.gz
+      - tar zxvf julia-1.9.2-linux-x86_64.tar.gz
+      - ls -la
+      - export PATH="$PATH:./julia-1.9.2/bin"
+      - echo $PATH
       - python -m pip install setuptools==65.5 pip==21
       - pip install sphinx-apidoc
       - pip install julia
