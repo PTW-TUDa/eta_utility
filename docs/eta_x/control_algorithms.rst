@@ -46,5 +46,5 @@ to instantiate the :py:class:`eta_utility.eta_x.agents.Nsga2` class and use the 
 combined with an environment to solve your optimization problem. The algorithm will find the
 optimal actions based on interactions with the environment.
 
-.. autoclass:: eta_utility.eta_x.agents:Nsga2
+.. autoclass:: eta_utility.eta_x.agents::Nsga2
     :noindex:

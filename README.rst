@@ -26,7 +26,9 @@ You can find the `source code on github <https://github.com/PTW-TUDa/eta_utility
 .. warning::
     This version of *eta_utility* uses a deprecated version of *stable_baselines3* and OpenAI *gym*. It can only be installed 
     with specific versions of setuptools and pip!
-    .. code-block::
+
+    .. code-block::console
+
         python -m pip install setuptools==65.5 pip==21
 
 The package *eta_utility* consists of five main modules and some additional functionality:

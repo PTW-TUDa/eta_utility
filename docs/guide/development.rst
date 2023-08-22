@@ -61,13 +61,14 @@ You might be asked for your git login credentials.
 
     Git login window.
 
-Due to limitations with the versions of *stable_baselines3* and *gym* this version of *eta_utility*
-can only be installed after executing the following command to install specific versions of
-*setuptools* and *pip*:
+.. warning::
+    Due to limitations with the versions of *stable_baselines3* and *gym* this version of *eta_utility*
+    can only be installed after executing the following command to install specific versions of
+    *setuptools* and *pip*:
 
-.. code-block:: console
+    .. code-block:: console
 
-   $> python -m pip install setuptools==65.5.0 pip==21
+        $> python -m pip install setuptools==65.5 pip==21
 
 After this, go to the root directory of the Git project and install the project with the
 development extension. This includes all requirements plus everything required for development
@@ -119,11 +120,11 @@ extension, sphinx should already be installed.
 You can edit the *.rst-files* in the *docs* folder. A simple text editor is sufficient for this.
 A helpful start for learning the syntax can be found `here <https://sublime-and-sphinx-guide.readthedocs.io/en/latest/index.html>`_.
 
-For test purposes, the following command can be executed in the directory of the documentation:
+For test purposes, the following command can be executed in the main package directory:
 
 .. code-block:: console
 
-    $> make html
+    $> ./docs/make html
 
 This creates a folder named *_build* (inside the *docs* folder) which allows the HTML pages to
 be previewed locally. This folder will not be committed to git. Re-execute this command each

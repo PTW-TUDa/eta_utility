@@ -10,6 +10,14 @@ the utility functions, please see the development guide :ref:`development`.
 You can install the basic package (without *eta_x*) or the entire library, both options are
 shown below.
 
+.. warning::
+   Due to limitations with the versions of *stable_baselines3* and *gym* this version of *eta_utility*
+   can only be installed after executing the following command to install specific versions of
+   *setuptools* and *pip*:
+
+   .. code-block:: console
+
+      $> python -m pip install setuptools==65.5 pip==21
 
 The installation is performed using pip:
 

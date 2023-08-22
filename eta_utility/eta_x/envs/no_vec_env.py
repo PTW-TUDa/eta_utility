@@ -39,7 +39,7 @@ class NoVecEnv(DummyVecEnv):
 
     All other functionality is directly derived from DummyVecEnv. Since there is only a single
 
-    See also: :ref:`stable_baselines.common.vec_env.DummyVecEnv`
+    See also: :ref:`stable_baselines3.common.vec_env.DummyVecEnv`
 
     :param env_fns: A list of functions that will create the environments
         (each callable returns a `Gym.Env` instance when called).
