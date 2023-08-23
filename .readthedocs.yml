@@ -27,9 +27,14 @@ build:
       - wget https://julialang-s3.julialang.org/bin/linux/x64/1.9/julia-1.9.2-linux-x86_64.tar.gz
       - tar zxvf julia-1.9.2-linux-x86_64.tar.gz
       - echo $PWD
-      - mkdir bin
-      - ln -s julia-1.9.2/bin/julia bin/julia
+      - ln -s julia-1.9.2/bin/julia ${READTHEDOCS_VIRTUALENV_PATH}/bin/julia
       - echo $PATH
+      - echo ${READTHEDOCS_VIRTUALENV_PATH}
+      - la -la ${READTHEDOCS_VIRTUALENV_PATH}/bin
+      - ls ../
+      - ls ../../
+      - ls -la /home/docs/checkouts/readthedocs.org/user_builds/eta-utility/envs/doc_test/bin
+      - ls -la /home/docs/checkouts/readthedocs.org/user_builds/eta-utility/checkouts/doc_test
       - julia
     pre_install:
       - python -m pip install setuptools==65.5 pip==21
