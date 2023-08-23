@@ -26,11 +26,11 @@ build:
       - echo $PWD
       - echo $PATH
       - echo ${READTHEDOCS_VIRTUALENV_PATH}
-      - la -la ${READTHEDOCS_VIRTUALENV_PATH}
+      - ls -la ${READTHEDOCS_VIRTUALENV_PATH}
       - ln -s julia-1.9.2/bin/julia ${READTHEDOCS_VIRTUALENV_PATH}/bin/julia
       - echo $PATH
       - echo ${READTHEDOCS_VIRTUALENV_PATH}
-      - la -la ${READTHEDOCS_VIRTUALENV_PATH}/bin
+      - ls -la ${READTHEDOCS_VIRTUALENV_PATH}/bin
       - ls ../
       - ls ../../
       - ls -la /home/docs/checkouts/readthedocs.org/user_builds/eta-utility/envs/doc_test/bin
