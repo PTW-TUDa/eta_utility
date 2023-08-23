@@ -26,8 +26,11 @@ build:
     pre_create_environment:
       - wget https://julialang-s3.julialang.org/bin/linux/x64/1.9/julia-1.9.2-linux-x86_64.tar.gz
       - tar zxvf julia-1.9.2-linux-x86_64.tar.gz
-      - ls -la ../
-      - ln -s julia-1.9.2/bin/julia ../bin/julia
+      - echo $PWD
+      - mkdir bin
+      - ln -s julia-1.9.2/bin/julia bin/julia
+      - echo $PATH
+      - julia
     pre_install:
       - python -m pip install setuptools==65.5 pip==21
       - pip install gym==0.21 stable_baselines3==1.7
