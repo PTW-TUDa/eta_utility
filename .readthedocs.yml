@@ -26,10 +26,9 @@ build:
     pre_install:
       - wget https://julialang-s3.julialang.org/bin/linux/x64/1.9/julia-1.9.2-linux-x86_64.tar.gz
       - tar zxvf julia-1.9.2-linux-x86_64.tar.gz
-      - ls -la
-      - export PATH="$PATH:./julia-1.9.2/bin"
-      - echo $PATH
+      - export PATH="$PATH:$PWD/julia-1.9.2/bin"
       - python -m pip install setuptools==65.5 pip==21
+      - pip install gym==0.21 stable_baselines3==1.7
     post_install:
       - pip install julia
       - python -c "import julia; julia.install()"
