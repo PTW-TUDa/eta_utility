@@ -37,7 +37,7 @@ build:
       - pip install gym==0.21 stable_baselines3==1.7
     post_install:
       - pip install julia
-      - python -c "import julia; julia.install(julia='$PWD/julia/bin/julia')"
+      - python -c "import julia; julia.install(julia=\"$PWD/julia/bin/julia\")"
       - pip install sphinx-apidoc
     pre_build:
       - sphinx-apidoc --tocfile api -e -M -o docs/_stubs eta_utility
