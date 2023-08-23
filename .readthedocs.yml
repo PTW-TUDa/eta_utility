@@ -5,9 +5,6 @@
 # Required
 version: 2
 
-formats:
-  - pdf
-
 python:
   install:
     - method: pip
@@ -23,10 +20,13 @@ build:
   apt_packages:
     - libgl1-mesa-glx
   jobs:
-    pre_create_environment:
+    post_create_environment:
       - wget https://julialang-s3.julialang.org/bin/linux/x64/1.9/julia-1.9.2-linux-x86_64.tar.gz
       - tar zxvf julia-1.9.2-linux-x86_64.tar.gz
       - echo $PWD
+      - echo $PATH
+      - echo ${READTHEDOCS_VIRTUALENV_PATH}
+      - la -la ${READTHEDOCS_VIRTUALENV_PATH}
       - ln -s julia-1.9.2/bin/julia ${READTHEDOCS_VIRTUALENV_PATH}/bin/julia
       - echo $PATH
       - echo ${READTHEDOCS_VIRTUALENV_PATH}
