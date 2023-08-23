@@ -26,18 +26,14 @@ build:
     pre_create_environment:
       - wget https://julialang-s3.julialang.org/bin/linux/x64/1.9/julia-1.9.2-linux-x86_64.tar.gz
       - tar zxvf julia-1.9.2-linux-x86_64.tar.gz
-      - mv julia-1.9.2 julia
-      - ls -la
-      - ls -la julia
-      - ls -la julia/bin
-      - export PATH="$PATH:$PWD/julia/bin"
-      - echo $PATH
+      - ls -la ../
+      - ln -s julia-1.9.2/bin/julia ../bin/julia
     pre_install:
       - python -m pip install setuptools==65.5 pip==21
       - pip install gym==0.21 stable_baselines3==1.7
     post_install:
       - pip install julia
-      - python -c "import julia; julia.install(julia=\"$PWD/julia/bin/julia\")"
+      - python -c "import julia; julia.install()"
     pre_build:
       - sphinx-apidoc --tocfile api -e -M -o docs/_stubs eta_utility
 
