@@ -38,7 +38,6 @@ build:
     post_install:
       - pip install julia
       - python -c "import julia; julia.install(julia=\"$PWD/julia/bin/julia\")"
-      - pip install sphinx-apidoc
     pre_build:
       - sphinx-apidoc --tocfile api -e -M -o docs/_stubs eta_utility
 
