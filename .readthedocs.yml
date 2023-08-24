@@ -21,28 +21,22 @@ build:
     - libgl1-mesa-glx
   jobs:
     post_create_environment:
+      # Install Julia 1.9.2 and create a symlink to the executable
       - wget https://julialang-s3.julialang.org/bin/linux/x64/1.9/julia-1.9.2-linux-x86_64.tar.gz
       - tar zxvf julia-1.9.2-linux-x86_64.tar.gz
-      - echo $PWD
-      - echo $PATH
-      - echo ${READTHEDOCS_VIRTUALENV_PATH}
-      - ls -la ${READTHEDOCS_VIRTUALENV_PATH}
       - ln -s ${PWD}/julia-1.9.2/bin/julia ${READTHEDOCS_VIRTUALENV_PATH}/bin/julia
-      - echo $PATH
-      - echo ${READTHEDOCS_VIRTUALENV_PATH}
-      - ls -la ${READTHEDOCS_VIRTUALENV_PATH}/bin
-      - ls ../
-      - ls ../../
-      - ls -la /home/docs/checkouts/readthedocs.org/user_builds/eta-utility/envs/doc_test/bin
-      - ls -la /home/docs/checkouts/readthedocs.org/user_builds/eta-utility/checkouts/doc_test
-      - julia
+      - julia --version
     pre_install:
+      # Install old version of setuptools and pip to ensure compatibility with gym==0.21
       - python -m pip install setuptools==65.5 pip==21
       - pip install gym==0.21 stable_baselines3==1.7
     post_install:
+      # Install pyjulia and make sure PyCall is available
       - pip install julia
       - python -c "import julia; julia.install()"
+      - install-julia
     pre_build:
+      # Build documentation stubs for the API documentation
       - sphinx-apidoc --tocfile api -e -M -o docs/_stubs eta_utility
 
 # Build documentation in the docs/ directory with Sphinx
