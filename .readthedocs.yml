@@ -27,7 +27,7 @@ build:
       - echo $PATH
       - echo ${READTHEDOCS_VIRTUALENV_PATH}
       - ls -la ${READTHEDOCS_VIRTUALENV_PATH}
-      - ln -s julia-1.9.2/bin/julia ${READTHEDOCS_VIRTUALENV_PATH}/bin/julia
+      - ln -s ${PWD}/julia-1.9.2/bin/julia ${READTHEDOCS_VIRTUALENV_PATH}/bin/julia
       - echo $PATH
       - echo ${READTHEDOCS_VIRTUALENV_PATH}
       - ls -la ${READTHEDOCS_VIRTUALENV_PATH}/bin
