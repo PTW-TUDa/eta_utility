@@ -23,8 +23,8 @@ RUN python3 -m venv venv
 
 RUN \
     . venv/bin/activate && \
-    python -m pip install --upgrade pip && \
-    pip install --upgrade "setuptools<67" --no-cache-dir && \
+    python -m pip install --upgrade pip<22 && \
+    pip install --upgrade "setuptools<66" --no-cache-dir && \
     pip install julia --no-cache-dir && \
     pip install eta_utility[develop] --no-cache-dir && \
     pip uninstall eta_utility --yes && \

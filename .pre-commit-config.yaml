@@ -7,21 +7,21 @@ repos:
       - id: isort
         args: [ "--profile", "black", "--filter-files" ]
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.3.1
+    rev: v3.10.1
     hooks:
       - id: pyupgrade
-        args: [ "--py37-plus" ]
+        args: [ "--py38-plus" ]
   - repo: https://github.com/psf/black
-    rev: 23.1.0
+    rev: 23.7.0
     hooks:
       - id: black
         language_version: python3
   - repo: https://github.com/asottile/blacken-docs
-    rev: 1.13.0
+    rev: 1.16.0
     hooks:
       - id: blacken-docs
         additional_dependencies:
-          - black==23.1.0
+          - black==23.7.0
         args: [ "--line-length", "120", "--target-version", "py37"]
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.4.0
@@ -33,44 +33,45 @@ repos:
       - id: check-added-large-files
         args: [ "--maxkb=512" ]
   - repo: https://github.com/pycqa/flake8
-    rev: 5.0.4
+    rev: 6.1.0
     hooks:
       - id: flake8
         additional_dependencies:
-          - pyflakes==2.5.0
-          - pycodestyle==2.9.1
-          - pyproject-flake8==5.0.4
-          - flake8-builtins==2.1.0
-          - flake8-eradicate==1.4.0
-          - flake8-comprehensions==3.10.1
-          - flake8-mutable==1.2.0
-          - flake8-print==5.0.0
-          - flake8-pytest-style==1.7.2
-          - flake8-requirements==1.7.7
-          - pep8-naming==0.13.3
-          - flake8-rst-docstrings==0.3.0
-        args: [ "--config", "setup.cfg", "--show-source"]
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: 'v1.0.0'
-    hooks:
-      - id: mypy
-        args: [ "--config-file", "pyproject.toml"]
-        exclude: |
-          (?x)^(setup.py|
-                test/.+|
-                _version.py|
-          )$
-        additional_dependencies:
-          - setuptools>=45
-          - tokenize-rt==3.2.0
-          - types-python-dateutil
-          - types-requests
-          - attrs
-          - gym@git+https://github.com/rlberry-py/gym_fix_021
-          - stable_baselines3==1.7
-          - pygame
-          - importlib_metadata
-          - cryptography
-          - keyboard
-          - onnxruntime
-          - matplotlib
+          - flake8-pyproject>=1.2,<1.3
+          - pyflakes>=3.1,<3.2
+          - pycodestyle>=2.11,<2.12
+          - flake8-builtins>=2.1,<2.2
+          - flake8-eradicate>=1.5,<1.6
+          - flake8-comprehensions>=3.14,<3.15
+          - flake8-mutable>=1.2,<1.3
+          - flake8-print>=5.0,<5.1
+          - flake8-pytest-style>=1.7,<1.8
+          - flake8-requirements>=1.7,<1.8
+          - pep8-naming>=0.13,<0.14
+          - flake8-rst-docstrings>=0.3,<0.4
+        args: [ "--toml-config", "pyproject.toml", "--show-source"]
+  # Removed for this version because pre-commit cannot install gym and
+  # stable_baselines3 correctly
+  # - repo: https://github.com/pre-commit/mirrors-mypy
+  #   rev: 'v1.5.1'.*
+  #   hooks:
+  #     - id: mypy
+  #       args: [ "--config-file", "pyproject.toml"]
+  #       exclude: |
+  #         (?x)^(setup.py|
+  #               test/.+|
+  #               _version.py|
+  #         )$
+  #       additional_dependencies:
+  #         - tokenize-rt==3.2.0
+  #         - types-python-dateutil
+  #         - types-requests
+  #         - attrs
+  #         - gym==0.21
+  #         - stable_baselines3==1.7
+  #         - pygame
+  #         - importlib_metadata
+  #         - cryptography
+  #         - keyboard
+  #         - onnxruntime
+  #         - matplotlib

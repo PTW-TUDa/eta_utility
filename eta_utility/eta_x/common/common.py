@@ -338,12 +338,8 @@ def log_net_arch(model: BaseAlgorithm, config_run: ConfigOptRun) -> None:
     :raises: ValueError.
     """
     # model.policy has incorrect type annotation in stable_baselines
-    if (
-        not config_run.path_net_arch.exists()
-        and model.policy is not None
-        and model.policy.__class__ is not NoPolicy  # type: ignore
-    ):
-        with open(config_run.path_net_arch, "w") as f:  # type: ignore
+    if not config_run.path_net_arch.exists() and model.policy is not None and model.policy.__class__ is not NoPolicy:
+        with open(config_run.path_net_arch, "w") as f:
             f.write(str(model.policy))
 
         log.info(f"Net arch / Policy information store successfully in: {config_run.path_net_arch}.")

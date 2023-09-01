@@ -11,9 +11,9 @@ from eta_utility.eta_x import ConfigOptRun
 from eta_utility.eta_x.agents.math_solver import MathSolver
 from eta_utility.eta_x.common import NoPolicy
 from eta_utility.eta_x.envs import NoVecEnv
-from eta_utility.util_julia import check_ju_extensions_installed
+from eta_utility.util_julia import julia_extensions_available
 
-if check_ju_extensions_installed():
+if julia_extensions_available():
     from eta_utility.eta_x.agents.nsga2 import Nsga2
     from eta_utility.eta_x.envs.julia_env import JuliaEnv
 
@@ -104,7 +104,7 @@ class TestMathSolver:
         assert isinstance(mpc_agent, MathSolver)
 
 
-@pytest.mark.skipif(not check_ju_extensions_installed(), reason="PyJulia installation required!")
+@pytest.mark.skipif(not julia_extensions_available(), reason="PyJulia installation required!")
 class TestNSGA2:
     @pytest.fixture(scope="class")
     def julia_env(self, config_etax_resources_path, temp_dir):

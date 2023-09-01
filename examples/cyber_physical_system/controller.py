@@ -34,7 +34,7 @@ class DirectControl(RuleBased):
             temp_set = 273.15 + 62
 
         # Three-point control for setting controlled variable ON/OFF of the tank heater
-        actions = np.zeros((1), dtype=bool)
+        actions: np.ndarray = np.zeros((1), dtype=bool)
         if temp_tank_sim > temp_set:
             actions[0] = [[False]]
         elif temp_tank_sim > (temp_set - 3) and temp_tank_sim < temp_set:

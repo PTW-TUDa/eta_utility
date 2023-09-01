@@ -126,14 +126,14 @@ Add the path from Julia to Windows as described in :ref:`install_julia` and rest
 
 .. _packages_error:
 
-I want to start eta- utility, but in some external packages there were changes
+I want to start *eta_utility*, but in some external packages there were changes
 ----------------------------------------------------------------------------------
-If you want to use eta- utility, but you get errors in some Python packages, because there were changes in the source \
-code, update eta-utility with the following command:
+If you want to use *eta_utility*, but you get errors in some Python packages, because there were changes in the source \
+code, update *eta_utility* with the following command (add extra requirements like `eta_x` as needed):
 
 .. code-block:: console
 
-    $> pip install --upgrade --upgrade-strategy=only-if-needed -e .[develop]
+    $> pip install --upgrade --upgrade-strategy=only-if-needed eta_utility
 
 I want to start a julia experiment, but the following error occurs:
 -------------------------------------------------------------------
