@@ -55,15 +55,23 @@ html_theme = "sphinx_rtd_theme"
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
 
-autodoc_mock_imports = ["opcua", "numpy.random", "pandas"]
+autodoc_mock_imports = ["opcua", "numpy.random", "pandas", "julia", "ju_extensions"]
 autodoc_default_options = {"undoc-members": True, "member-order": "bysource"}
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/", None),
-    "stable_baselines": ("https://stable-baselines3.readthedocs.io/en/master/", None),
+    "stable_baselines3": ("https://stable-baselines3.readthedocs.io/en/master/", None),
     "numpy": ("https://numpy.org/doc/1.22/", None),
     "pandas": ("https://pandas.pydata.org/docs/", None),
     "torch": ("https://pytorch.org/docs/stable/", None),
+    "gym": ("https://www.gymlibrary.dev/", None),
 }
 
 autosummary_generate = True
+
+linkcheck_ignore = [r"https://$", r"https://web-api.tp.entsoe.eu/"]
+linkcheck_allowed_redirects = {
+    r"https://eta-utility.readthedocs.io/": r"https://eta-utility.readthedocs.io/en/master/",
+    r"https://stable-baselines3.readthedocs.io/": r"https://stable-baselines3.readthedocs.io/en/master/",
+}
+linkcheck_anchors_ignore_for_url = (r"https://docs.python.org/",)

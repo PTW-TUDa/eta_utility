@@ -31,7 +31,7 @@ eta_x Optimization
 --------------------
 Examples for the optimization part of the framework are also provided. The *pendulum* example is the
 simplest one of them. It implements an inverse pendulum, similar to
-the `equivalent example in OpenAI gym <https://gym.openai.com/envs/Pendulum-v0/>`_.
+the `equivalent example in OpenAI gym <https://www.gymlibrary.dev/environments/classic_control/pendulum/>`_.
 The environment can be used for
 different kinds of agents and includes examples for the PPO reinforcement learning
 agent as well as a simple rule based controller.

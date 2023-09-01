@@ -88,9 +88,9 @@ def get_logger(
     if level is not None:
         log.setLevel(int(level * 10))
 
-        from eta_utility.util_julia import check_ju_extensions_installed
+        from eta_utility.util_julia import julia_extensions_available
 
-        if check_ju_extensions_installed():
+        if julia_extensions_available():
             from julia import ju_extensions  # noqa: I900
 
             if format is not None:
@@ -272,7 +272,7 @@ def dict_search(dikt: dict[str, str], val: str) -> str:
 
 
 def deep_mapping_update(
-    source: Mapping[str, str | Mapping[str, Any]], overrides: Mapping[str, str | Mapping[str, Any]]
+    source: Any, overrides: Mapping[str, str | Mapping[str, Any]]
 ) -> dict[str, str | Mapping[str, Any]]:
     """Perform a deep update of a nested dictionary or similar mapping.
 
@@ -280,10 +280,14 @@ def deep_mapping_update(
     :param overrides: Mapping with new values to integrate into the new mapping.
     :return: New Mapping with values from the source and overrides combined.
     """
-    output = dict(copy.deepcopy(source))
+    if not isinstance(source, Mapping):
+        output = {}
+    else:
+        output = dict(copy.deepcopy(source))
+
     for key, value in overrides.items():
         if isinstance(value, Mapping):
-            output[key] = deep_mapping_update(dict(source).get(key, {}), value)  # type: ignore
+            output[key] = deep_mapping_update(dict(source).get(key, {}), value)
         else:
             output[key] = value
     return output
