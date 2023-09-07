@@ -180,7 +180,8 @@ class ModbusConnection(BaseConnection, protocol="modbus"):
                     except ValueError as e:
                         log.warning(str(e))
                     except ConnectionError:
-                        break
+                        handler.push(node, pd.NA, self._assert_tz_awareness(datetime.now()))
+                        continue
 
                     if result is not None:
                         _result = decode_modbus_value(result, node.mb_byteorder, node.dtype)
@@ -231,7 +232,6 @@ class ModbusConnection(BaseConnection, protocol="modbus"):
             self._handle_mb_error()
         else:
             result = [int(x) for x in result]
-
         return result
 
     def _write_mb_value(self, node: NodeModbus, value: list[int]) -> None:

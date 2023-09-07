@@ -491,6 +491,10 @@ class DFSubHandler(SubscriptionHandler):
             for _timestamp, _value in value.items():
                 _timestamp = self._assert_tz_awareness(_timestamp)
                 self._data_lock.acquire()
+
+                # Replace NaN with -inf to distinguish between the 'real' NaN and the 'fill' NaN
+                if pd.isnull(_value):
+                    _value = -np.inf
                 self._data.loc[_timestamp, node.name] = _value
                 self._data_lock.release()
 
@@ -500,6 +504,10 @@ class DFSubHandler(SubscriptionHandler):
                 raise ValueError("Timestamp must be a datetime object or None.")
             timestamp = self._round_timestamp(timestamp if timestamp is not None else datetime.now())
             self._data_lock.acquire()
+
+            # Replace NaN with -inf to distinguish between the 'real' NaN and the 'fill' NaN
+            if pd.isnull(value):
+                value = -np.inf
             self._data.loc[timestamp, node.name] = value
             self._data_lock.release()
 
@@ -522,7 +530,7 @@ class DFSubHandler(SubscriptionHandler):
         self._data_lock.acquire()
         if self.auto_fillna:
             self._data.fillna(method="ffill", inplace=True)
-        data = self._data.copy()
+        data = self._data.replace(-np.inf, np.nan, inplace=False)
         self._data_lock.release()
         return data
 

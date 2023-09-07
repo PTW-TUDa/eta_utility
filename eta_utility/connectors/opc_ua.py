@@ -348,9 +348,13 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
 
             # Exit point in case the connection operates normally.
             if not self._check_connection():
+                # Push Nan for every node
+                for node in self._subscription_nodes:
+                    handler.handler.push(node=node, value=float("nan"), timestamp=datetime.now())
                 subscribed = False
                 self._connected = False
                 self._disconnect()
+
             elif self._connected and subscribed:
                 _changed_within_interval = self.connection_interval_checker.check_interval_connection()
 
@@ -525,5 +529,4 @@ class _OPCSubHandler:
         _time = self.handler._assert_tz_awareness(datetime.now())
 
         self.handler.push(self._sub_nodes[str(node)], val, _time)
-
         self._node_interval_to_check.push(node=self._sub_nodes[str(node)], value=val, timestamp=_time)
