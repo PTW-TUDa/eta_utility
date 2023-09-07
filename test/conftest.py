@@ -1,5 +1,6 @@
 import asyncio
 import pathlib
+import platform
 import random
 import shutil
 
@@ -23,6 +24,13 @@ def temp_dir():
 
 async def stop_execution(sleep_time):
     await asyncio.sleep(sleep_time)
+
+
+@pytest.fixture(scope="session")
+def config_modbus_port():
+    if platform.system() == "Linux" or platform.system() == "Darwin":
+        return 5050
+    return 502
 
 
 @pytest.fixture(scope="session")

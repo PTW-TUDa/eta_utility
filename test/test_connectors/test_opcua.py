@@ -394,7 +394,10 @@ class TestConnectorSubscriptions:
         connection.close_sub()
 
         for node, values in self.values.items():
-            assert set(handler.data[node]) <= set(values)
+            # Check whether Dataframe contains NaN
+            assert pd.isnull(handler.data[node]).any()
+
+            assert set(handler.data[node].dropna()) <= set(values)
 
         # Check if connection was actually interrupted during the test.
         messages_found = 0
