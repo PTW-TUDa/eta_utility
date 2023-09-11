@@ -22,7 +22,7 @@ JULIA_NOT_FOUND_MSG = (
     "Julia executable cannot be found. "
     "If you have installed Julia, make "
     "sure Julia executable is in the system path. "
-    "If you have not installe Julia, download from "
+    "If you have not installed Julia, download from "
     "https://julialang.org/downloads/ and install it. "
 )
 
@@ -99,7 +99,7 @@ def install_julia() -> None:
     Also install ju_extensions in Julia environmnent.
     """
     if which("julia") is None:
-        raise Exception(JULIA_NOT_FOUND_MSG)
+        raise ImportError(JULIA_NOT_FOUND_MSG)
 
     try:
         import julia  # noqa: I900
@@ -123,33 +123,50 @@ def install_julia() -> None:
 
 
 def check_julia_package() -> bool:
-    """Check if PyJulia package is available in python interpreter.
+    """Check if everything is available and setup correctly to execute modules depending on eta_utility
+    julia extensions. This function raises ImportError if necessary components are missing.
 
-    :returns: True if is installed return Error if not
+    :returns: True if is installed ImportError if not
     """
+    if which("julia") is None:
+        raise ImportError(JULIA_NOT_FOUND_MSG)
+
     try:
-        import julia  # noqa: I900 F401
+        import julia  # noqa: I900
     except ModuleNotFoundError:
         raise ImportError(
-            "Could not find the julia package. Please run the command: install-julia."
-            "Inside the python virtual environment where eta-utility is installed."
+            "Could not find the python julia package. Please run the command: install-julia "
+            "inside the python virtual environment where eta-utility is installed."
         )
+
+    try:
+        from julia import ju_extensions  # noqa: I900 F401
+    except julia.core.UnsupportedPythonError:
+        raise ImportError(
+            "PyCall for Julia is installed for a different python binary than you are currently "
+            "using. Please run the command: install-julia inside the python virtual environment "
+            "where eta-utility is installed."
+        )
+    except (ModuleNotFoundError, ImportError, AttributeError) as e:
+        raise ImportError(
+            "Could not find julia extension module for eta_utility (ju_extensions missing). Please "
+            "run the command: install-julia inside the python virtual environment where eta-utility "
+            "is installed."
+        ) from e
+
     return True
 
 
-def check_ju_extensions_installed() -> bool:
-    """Check if PyJulia is correctly installed and ju_extensions is available as a julia package.
+def julia_extensions_available() -> bool:
+    """Check if everything is available and setup correctly to execute modules depending on eta_utility
+    julia extensions. This function returns false if necessary components are missing. It does not
+    provide any indications what is missing.
 
-    :returns: True if is correctly installed return False if not
+    :return: True if julia extensions are correctly installed, false if not.
     """
-    if which("julia") is None:
-        return False
-
     try:
-        import julia  # noqa: I900 F401
-        from julia.ju_extensions.Agents import Nsga2  # noqa: I900 F401
-
-    except (ModuleNotFoundError, ImportError, AttributeError):
+        check_julia_package()
+    except ImportError:
         return False
 
     return True

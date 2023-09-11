@@ -349,8 +349,11 @@ class FMUSimulator:
         simulator = cls(0, fmu_path, start_time, stop_time, step_size, init_values=init_values)
 
         dt = np.dtype([(name, float) for name in simulator.read_values()])
+        # mypy does not recognize the return type of floor division...
         result = np.rec.array(
-            None, shape=((simulator.stop_time - simulator.start_time) // simulator.step_size + 1,), dtype=dt
+            None,
+            shape=((simulator.stop_time - simulator.start_time) // simulator.step_size + 1,),  # type: ignore
+            dtype=dt,
         )
         assert result.dtype.names is not None, "There must be some output variables specified for the simulator."
 

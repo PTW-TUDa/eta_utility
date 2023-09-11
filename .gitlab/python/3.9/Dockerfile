@@ -9,7 +9,7 @@ RUN \
 
 # setuptools<67 because higher versions are incompatible with gym==0.21 (required by stable_baselines)
 RUN \
-    python -m pip install --upgrade pip && \
-    pip install --upgrade "setuptools<67" --no-cache-dir && \
+    python -m pip install --upgrade pip<22 && \
+    pip install --upgrade "setuptools<66" --no-cache-dir && \
     pip install eta_utility[develop] --no-cache-dir && \
     pip uninstall eta_utility --yes

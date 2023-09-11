@@ -399,12 +399,20 @@ class StateConfig:
 
         :return: Action space.
         """
-        action_low = np.fromiter(
-            (var.low_value for var in self.vars.values() if var.is_agent_action and var.low_value is not np.nan),
+        action_low: np.ndarray = np.fromiter(
+            (
+                var.low_value
+                for var in self.vars.values()
+                if var.is_agent_action and var.low_value is not None and not np.isnan(var.low_value)
+            ),
             dtype=np.float32,
         )
-        action_high = np.fromiter(
-            (var.high_value for var in self.vars.values() if var.is_agent_action and var.high_value is not np.nan),
+        action_high: np.ndarray = np.fromiter(
+            (
+                var.high_value
+                for var in self.vars.values()
+                if var.is_agent_action and var.high_value is not None and not np.isnan(var.high_value)
+            ),
             dtype=np.float32,
         )
 
@@ -416,13 +424,21 @@ class StateConfig:
 
         :return: Observation Space.
         """
-        obs_low = np.fromiter(
-            (var.low_value for var in self.vars.values() if var.is_agent_observation and var.low_value is not np.nan),
+        obs_low: np.ndarray = np.fromiter(
+            (
+                var.low_value
+                for var in self.vars.values()
+                if var.is_agent_observation and var.low_value is not None and not np.isnan(var.low_value)
+            ),
             dtype=np.float32,
         )
 
-        obs_high = np.fromiter(
-            (var.high_value for var in self.vars.values() if var.is_agent_observation and var.high_value is not np.nan),
+        obs_high: np.ndarray = np.fromiter(
+            (
+                var.high_value
+                for var in self.vars.values()
+                if var.is_agent_observation and var.high_value is not None and not np.isnan(var.high_value)
+            ),
             dtype=np.float32,
         )
 

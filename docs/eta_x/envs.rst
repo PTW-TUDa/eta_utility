@@ -3,7 +3,7 @@
 Environments
 ===============
 The environments implemented in *eta_x* are subclasses `OpenAI gym environments
-<https://gym.openai.com/docs/#environments>`_. The *eta_x* environments are provided as abstract classes which
+<https://www.gymlibrary.dev/content/environment_creation/>`_. The *eta_x* environments are provided as abstract classes which
 must be subclassed to create useful implementations. For the specific use cases they are intended for, these
 base classes make the creation of new environments much easier.
 
@@ -11,7 +11,7 @@ The most important concept to understand when working with the *eta_x* environme
 of the environment state. The state is represented by StateVar objects which each correspond to one variable of the
 environment. All StateVar objects of an environment are combined into the StateConfig object. From the StateConfig
 object we can determine most other aspects of the environment, such as for example the observation space and action
-space. The OpenAI documentation provides more information about `Spaces <https://gym.openai.com/docs/#spaces>`_.
+space. The OpenAI documentation provides more information about `Spaces <https://www.gymlibrary.dev/api/spaces/>`_.
 
 When using the *ETAx* class for your optimization runs, the parameters required for environment instantiation must
 be configured in the *environment_specific* section of the configuration. *ETAx* (the class) also supports the

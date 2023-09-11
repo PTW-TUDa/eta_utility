@@ -10,6 +10,14 @@ the utility functions, please see the development guide :ref:`development`.
 You can install the basic package (without *eta_x*) or the entire library, both options are
 shown below.
 
+.. warning::
+   Due to limitations with the versions of *stable_baselines3* and *gym* this version of *eta_utility*
+   can only be installed after executing the following command to install specific versions of
+   *setuptools* and *pip*:
+
+   .. code-block:: console
+
+      $> python -m pip install setuptools==65.5 pip==21
 
 The installation is performed using pip:
 
@@ -44,7 +52,7 @@ Next, it's important, that you include Julia to the operating system path. For w
   path should have the following schema: ``C:Users\User\AppData\Local\Programs\Julia-1.8.5\bin``.
 - **3rd step**: Click OK and restart eta-utility.
 
-If you are using a different operating system, look here: (`path julia <https://julialang.org/downloads/platform/#windows/>`_)
+If you are using a different operating system, look here: (`path julia <https://julialang.org/downloads/platform/#windows>`_)
 
 The next step is to activate your virtual environment for the eta-utility
 and inside the eta-utility directory execute the following command:

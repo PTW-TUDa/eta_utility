@@ -1,6 +1,7 @@
 import asyncio
 import pathlib
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
@@ -21,11 +22,18 @@ sample_series_nan = pd.Series(
 )
 
 
-class TestCSVSubHandler:
-    async def push_values(self, handler: CsvSubHandler):
-        test_node = Node(name="FirstNode", url="", protocol="local")
-        test_node2 = Node(name="SecondNode", url="", protocol="local")
+@pytest.fixture(scope="module")
+def test_node():
+    return Node(name="FirstNode", url="", protocol="local")
 
+
+@pytest.fixture(scope="module")
+def test_node2():
+    return Node(name="SecondNode", url="", protocol="local")
+
+
+class TestCSVSubHandler:
+    async def push_values(self, handler: CsvSubHandler, test_node, test_node2):
         try:
             for num in range(6):
                 idx = num // 2 if num > 1 else 0
@@ -39,14 +47,14 @@ class TestCSVSubHandler:
             except AttributeError:
                 pass
 
-    def test_push_timeseries_to_csv(self, temp_dir):
+    def test_push_timeseries_to_csv(self, temp_dir, test_node, test_node2):
         file = temp_dir / "csv_test_output.csv"
         handler = CsvSubHandler(file, 0.5)
 
         executor = ThreadPoolExecutor(max_workers=3)
         loop = asyncio.get_event_loop()
         loop.set_default_executor(executor)
-        loop.run_until_complete(self.push_values(handler))
+        loop.run_until_complete(self.push_values(handler, test_node, test_node2))
         executor.shutdown()
 
         with pathlib.Path(file).open("r") as f:
@@ -69,43 +77,48 @@ class TestCSVSubHandler:
 
 class TestDFSubHandler:
     @pytest.mark.parametrize(("value", "timestamp"), [(sample_series.values, sample_series.index)])
-    def test_push_timeseries_to_df(self, value, timestamp):
+    def test_push_timeseries_to_df(self, value, timestamp, test_node):
         """Test pushing a Series all at once"""
         handler = DFSubHandler(write_interval=1)
-        test_node = Node(name="FirstNode", url="", protocol="local")
         handler.push(test_node, value, timestamp)
         data = handler.data
 
         assert (data["FirstNode"].values == value).all()
 
-    def test_housekeeping(self):
+    def test_housekeeping(self, test_node):
         """Test keeping the internal data of DFSubHandler short"""
         keep_data_rows = 2
         handler = DFSubHandler(write_interval=1, size_limit=keep_data_rows)
-        test_node = Node(name="FirstNode", url="", protocol="local")
         handler.push(test_node, sample_series.values, sample_series.index)
-        data = handler.data
 
-        assert len(data) <= keep_data_rows
+        assert len(handler.data) <= keep_data_rows
 
-    def test_get_latest(self):
+    def test_get_latest(self, test_node):
         handler = DFSubHandler(write_interval=1)
-        test_node = Node(name="Test-node", url="", protocol="local")
         handler.push(test_node, sample_series.values, sample_series.index)
         data = handler.get_latest()
 
         assert (data.values == sample_series.values[-1]).all()
 
-    def test_auto_fillna(self):
+    async def push_loop_fillna(self, handler, test_node, test_node2):
+        for i in range(0, 3):
+            time1 = datetime.now()
+            handler.push(test_node, i, time1)
+            handler.push(test_node2, 2 * i + 10, time1)
+            await asyncio.sleep(1)
+            time2 = datetime.now()
+            handler.push(test_node2, 2 * i + 11, time2)
+            await asyncio.sleep(1)
+
+    def test_auto_fillna(self, test_node, test_node2):
         # First test default behavior: nans are filled
         handler = DFSubHandler(write_interval=1)
-        test_node = Node(name="Test-node", url="", protocol="local")
-        handler.push(test_node, sample_series_nan)
-        data = handler.data
-        assert data.notna().all().all()
+        asyncio.get_event_loop().run_until_complete(self.push_loop_fillna(handler, test_node, test_node2))
+
+        assert handler.data.notna().all().all()
 
         # Next test auto_fillna = False
         handler = DFSubHandler(write_interval=1, auto_fillna=False)
-        handler.push(test_node, sample_series_nan)
-        data = handler.data
-        assert data.isna().any().any()
+        asyncio.get_event_loop().run_until_complete(self.push_loop_fillna(handler, test_node, test_node2))
+
+        assert handler.data.isna().any().any()

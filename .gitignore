@@ -6,6 +6,9 @@
 !*/resources/**/*.xls
 *_version.py
 
+# results of example run
+examples/*/results
+
 # Development environment
 .idea/
 .fleet/

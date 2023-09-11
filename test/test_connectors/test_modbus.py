@@ -1,6 +1,7 @@
 import asyncio
 import socket
 
+import pandas as pd
 import pytest
 
 from eta_utility import get_logger
@@ -200,18 +201,20 @@ nodes = (
 
 
 @pytest.fixture(scope="class")
-def local_nodes():
+def local_nodes(config_modbus_port):
     _nodes = []
     for node in nodes:
-        _nodes.extend(Node.from_dict({**node, "ip": socket.gethostbyname(socket.gethostname())}))
+        _nodes.extend(
+            Node.from_dict({**node, "ip": socket.gethostbyname(socket.gethostname()), "port": config_modbus_port})
+        )
 
     return _nodes
 
 
 class TestConnectorOperations:
     @pytest.fixture(scope="class", autouse=True)
-    def server(self):
-        with ModbusServer(ip=socket.gethostbyname(socket.gethostname())) as server:
+    def server(self, config_modbus_port):
+        with ModbusServer(ip=socket.gethostbyname(socket.gethostname()), port=config_modbus_port) as server:
             yield server
 
     @pytest.fixture(scope="class")
@@ -251,18 +254,27 @@ class TestConnectorOperations:
 
 class TestConnectorOperationsLittleEndian:
     @pytest.fixture(scope="class")
-    def local_nodes(self):
+    def local_nodes(self, config_modbus_port):
         _nodes = []
         for node in nodes:
             _nodes.extend(
-                Node.from_dict({**node, "ip": socket.gethostbyname(socket.gethostname()), "mb_byteorder": "little"})
+                Node.from_dict(
+                    {
+                        **node,
+                        "ip": socket.gethostbyname(socket.gethostname()),
+                        "port": config_modbus_port,
+                        "mb_byteorder": "little",
+                    }
+                )
             )
 
         return _nodes
 
     @pytest.fixture(scope="class", autouse=True)
-    def server(self):
-        with ModbusServer(ip=socket.gethostbyname(socket.gethostname()), big_endian=False) as server:
+    def server(self, config_modbus_port):
+        with ModbusServer(
+            ip=socket.gethostbyname(socket.gethostname()), big_endian=False, port=config_modbus_port
+        ) as server:
             yield server
 
     @pytest.fixture(scope="class")
@@ -303,8 +315,8 @@ class TestConnectorSubscriptions:
     }
 
     @pytest.fixture(scope="class", autouse=True)
-    def server(self, local_nodes):
-        with ModbusServer(ip=socket.gethostbyname(socket.gethostname())) as server:
+    def server(self, local_nodes, config_modbus_port):
+        with ModbusServer(ip=socket.gethostbyname(socket.gethostname()), port=config_modbus_port) as server:
             yield server
 
     @pytest.fixture()
@@ -371,10 +383,13 @@ class TestConnectorSubscriptions:
         connection.close_sub()
 
         for node, values in self.values.items():
+            # Check whether Dataframe contains NaN
+            assert pd.isnull(handler.data[node]).any()
+
             # Don't check floating point values in this case because it is hard to deal with precision problems here.
             if handler.data[node].dtype == "float":
                 continue
-            assert set(handler.data[node]) <= set(values)
+            assert set(handler.data[node].dropna()) <= set(values)
 
         # Check if connection was actually interrupted during the test.
         messages_found = 0
@@ -418,10 +433,12 @@ nodes_interval_to_check = (
 
 
 @pytest.fixture(scope="class")
-def local_nodes_interval_checking():
+def local_nodes_interval_checking(config_modbus_port):
     _nodes = []
     for node in nodes_interval_to_check:
-        _nodes.extend(Node.from_dict({**node, "ip": socket.gethostbyname(socket.gethostname())}))
+        _nodes.extend(
+            Node.from_dict({**node, "ip": socket.gethostbyname(socket.gethostname()), "port": config_modbus_port})
+        )
 
     return _nodes
 
@@ -438,8 +455,8 @@ class TestConnectorSubscriptionsIntervalChecker:
     }
 
     @pytest.fixture(scope="class", autouse=True)
-    def server(self, local_nodes_interval_checking):
-        with ModbusServer(ip=socket.gethostbyname(socket.gethostname())) as server:
+    def server(self, local_nodes_interval_checking, config_modbus_port):
+        with ModbusServer(ip=socket.gethostbyname(socket.gethostname()), port=config_modbus_port) as server:
             yield server
 
     @pytest.fixture()

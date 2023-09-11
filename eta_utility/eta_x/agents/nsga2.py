@@ -141,7 +141,7 @@ class Nsga2(BaseAlgorithm):
         self.start_time: float | None  # type: ignore
         self.lr_schedule: Callable
         self.policy_class: type[BasePolicy]
-        self.policy: BasePolicy  # type: ignore
+        self.policy: BasePolicy
 
         # Set default values for superclass arguments
         super().__init__(

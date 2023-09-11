@@ -126,14 +126,14 @@ Add the path from Julia to Windows as described in :ref:`install_julia` and rest
 
 .. _packages_error:
 
-I want to start eta- utility, but in some external packages there were changes
+I want to start *eta_utility*, but in some external packages there were changes
 ----------------------------------------------------------------------------------
-If you want to use eta- utility, but you get errors in some Python packages, because there were changes in the source \
-code, update eta-utility with the following command:
+If you want to use *eta_utility*, but you get errors in some Python packages, because there were changes in the source \
+code, update *eta_utility* with the following command (add extra requirements like `eta_x` as needed):
 
 .. code-block:: console
 
-    $> pip install --upgrade --upgrade-strategy=only-if-needed -e .[develop]
+    $> pip install --upgrade --upgrade-strategy=only-if-needed eta_utility
 
 I want to start a julia experiment, but the following error occurs:
 -------------------------------------------------------------------
@@ -144,3 +144,82 @@ If you receive the following error message, when you want to start a julia exper
     $> Exception: AttributeError: module 'eta_utility.eta_x.agents' has no attribute 'Nsga2'.
 
 Make sure PyJulia is installed in the correct virtual environment as described in :ref:`install_julia`.
+
+Resolve FMPy compilation issue on macOS (x64)
+-----------------------------------------------
+If you start developing on macOS, you might encounter errors when compiling FMPy, should the pre-complied binaries not be available for your system.
+
+The error message might look like this:
+
+.. code-block:: console
+
+    $> clang: error: unsupported option '-fopenmp'
+    $> error: command 'clang' failed with exit status 1
+
+Here's how you can manually compile the FMU. Make sure to replace all occurrences of "fmu_file" with the actual name of the FMU:
+
+1. Install the `zip` package using Homebrew:
+
+.. code-block:: console
+
+   $> brew install zip
+
+
+2. Create a folder where the FMU can be extracted and extract the FMU:
+
+.. code-block:: console
+
+   $> [ ! -d fmu_extract ] && mkdir fmu_extract
+   $> unzip -u path/to/fmu_file.fmu -d fmu_extract
+
+
+3. If you encounter an error with compiling the `ModelicaInternal.c` file, insert a function declaration before the call in `/sources/ModelicaInternal.c`, add the following declaration:
+
+.. code-block:: console
+
+   $> int creat(const char *path, mode_t mode) __DARWIN_ALIAS_C(creat);
+
+
+4. Switch to the `sources` folder:
+
+.. code-block:: console
+
+   $> cd fmu_extract/sources
+
+
+5. Run the following Clang compiler command with the `-w` flags to clear the output of warnings (replace `/path/to/fmpy/` with the actual path to your fmpy installation):
+
+.. code-block:: console
+
+   $> clang -w -c -arch x86_64 -arch arm64 -I. -I/path/to/fmpy/c-code all.c && clang -w -shared -arch x86_64 -arch arm64 -ofmu_file.dylib *.o -lm
+
+
+6. Move the output to the `darwin64` folder:
+
+.. code-block:: console
+
+   $> [ ! -d ../binaries/darwin64 ] && mkdir ../binaries/darwin64
+   $> mv out.so ../binaries/darwin64/fmu_file.dylib
+
+
+7. Pack the new FMU, which contains the compiled files:
+
+.. code-block:: console
+
+   $> cd ..
+   $> zip -r ../fmu_file.fmu *
+
+
+8. Clean up:
+
+.. code-block:: console
+
+   $> cd ..
+   $> rm -rf fmu_extract
+
+
+After following these steps, you should have a new FMU file that contains the compiled files and can be used on macOS systems.
+
+This resolution has been tested on macOS Ventura 13.4.1 (xarm64: M1).
+See also:
+https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility/-/issues/200

@@ -388,9 +388,12 @@ class EnEffCoConnection(BaseSeriesConnection, protocol="eneffco"):
         # Check for request errors
         if response.status_code not in [200, 204]:  # Status 200 for GET requests, 204 for POST requests
             error = f"EnEffco Error {response.status_code}"
-            if hasattr(response, "json") and "Message" in response.json():
-                error = f"{error}: {response.json()['Message']}"
-            elif response.status_code == 401:
+            try:
+                if hasattr(response, "json") and "Message" in response.json():
+                    error = f"{error}: {response.json()['Message']}"
+            except ValueError:
+                pass
+            if response.status_code == 401:
                 error = f"{error}: Access Forbidden, Invalid login info"
             elif response.status_code == 404:
                 error = f"{error}: Endpoint not found '{self.url + str(endpoint)}'"
