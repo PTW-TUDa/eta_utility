@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import pathlib
 import time
+from concurrent.futures import TimeoutError as ConTimeoutError
 from contextlib import AbstractContextManager
 from datetime import timedelta
 from typing import TYPE_CHECKING, Mapping, Sequence
@@ -564,7 +565,7 @@ class LiveConnect(AbstractContextManager):
                 if writes[connection]:
                     self._connections[connection].write(writes[connection])
                     self.error_count[idx] = 0
-            except ConnectionError as e:
+            except (ConnectionError, ConTimeoutError) as e:
                 if self.error_count[idx] < self.max_error_count:
                     self.error_count[idx] += 1
                     log.error(e)
@@ -590,7 +591,7 @@ class LiveConnect(AbstractContextManager):
                 if reads[connection]:
                     result.update(self._connections[connection].read(reads[connection]).iloc[0].to_dict())
                     self.error_count[idx] = 0
-            except ConnectionError as e:
+            except (ConnectionError, ConTimeoutError) as e:
                 if self.error_count[idx] < self.max_error_count:
                     self.error_count[idx] += 1
                     result.update({name.name: np.nan for name in reads[connection]})

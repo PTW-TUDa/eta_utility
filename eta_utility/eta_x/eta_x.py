@@ -404,7 +404,10 @@ class ETAx:
                     log.error(
                         "Exception occurred during an environment step. Aborting and trying to reset environments."
                     )
-                    observations = self._reset_envs()
+                    try:
+                        observations = self._reset_envs()
+                    except BaseException as followup_exception:
+                        raise e from followup_exception
                     log.debug("Environment reset successful - re-raising exception")
                     raise e
 
