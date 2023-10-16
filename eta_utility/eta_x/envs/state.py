@@ -145,14 +145,14 @@ class StateVar:
     )
 
     #: Lowest possible value of the state variable (default: None).
-    low_value: float | None = field(
+    low_value: float = field(
         kw_only=True,
         default=np.nan,
         converter=converters.pipe(converters.default_if_none(np.nan), np.float32)  # type: ignore
         # mypy does not recognize default_if_none
     )
     #: Highest possible value of the state variable (default: None).
-    high_value: float | None = field(
+    high_value: float = field(
         kw_only=True,
         default=np.nan,
         converter=converters.pipe(converters.default_if_none(np.nan), np.float32)  # type: ignore
@@ -399,20 +399,12 @@ class StateConfig:
 
         :return: Action space.
         """
-        action_low: np.ndarray = np.fromiter(
-            (
-                var.low_value
-                for var in self.vars.values()
-                if var.is_agent_action and var.low_value is not None and not np.isnan(var.low_value)
-            ),
+        action_low: np.ndarray = np.array(
+            [np.nan_to_num(var.low_value, nan=-np.inf) for var in self.vars.values() if var.is_agent_action],
             dtype=np.float32,
         )
-        action_high: np.ndarray = np.fromiter(
-            (
-                var.high_value
-                for var in self.vars.values()
-                if var.is_agent_action and var.high_value is not None and not np.isnan(var.high_value)
-            ),
+        action_high: np.ndarray = np.array(
+            [np.nan_to_num(var.high_value, nan=np.inf) for var in self.vars.values() if var.is_agent_action],
             dtype=np.float32,
         )
 
@@ -424,25 +416,19 @@ class StateConfig:
 
         :return: Observation Space.
         """
-        obs_low: np.ndarray = np.fromiter(
-            (
-                var.low_value
-                for var in self.vars.values()
-                if var.is_agent_observation and var.low_value is not None and not np.isnan(var.low_value)
-            ),
+        # thank you gpt :-)
+        observation_low: np.ndarray = np.array(
+            [np.nan_to_num(var.low_value, nan=-np.inf) for var in self.vars.values() if var.is_agent_observation],
             dtype=np.float32,
         )
-
-        obs_high: np.ndarray = np.fromiter(
-            (
-                var.high_value
-                for var in self.vars.values()
-                if var.is_agent_observation and var.high_value is not None and not np.isnan(var.high_value)
-            ),
+        observation_high: np.ndarray = np.array(
+            [np.nan_to_num(var.high_value, nan=np.inf) for var in self.vars.values() if var.is_agent_observation],
             dtype=np.float32,
         )
+        return spaces.Box(observation_low, observation_high, dtype=np.float32)
 
-        return spaces.Box(obs_low, obs_high, dtype=np.float32)
+    def continuous_observation_space(self) -> spaces.Box:
+        return self.continuous_obs_space()
 
     def continuous_spaces(self) -> tuple[spaces.Box, spaces.Box]:
         """Generate continuous action and observation spaces according to the OpenAI specification.
