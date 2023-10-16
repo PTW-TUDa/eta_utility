@@ -8,6 +8,7 @@
 
 # results of example run
 examples/*/results
+tmp*/
 
 # Development environment
 .idea/
