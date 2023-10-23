@@ -90,7 +90,7 @@ eta_utility = ["test", "docs", "examples"]
     "matplotlib",
     "keyboard",
     "pygame",
-    "pyglet",
+    "pyglet<2",
     "onnxruntime"
 ]
 "DEVELOP" = [
