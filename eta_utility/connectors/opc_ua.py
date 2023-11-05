@@ -13,9 +13,10 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pandas as pd
-from opcua import Client, Subscription, ua
-from opcua.crypto.security_policies import SecurityPolicyBasic256Sha256
-from opcua.ua import SecurityPolicy, uaerrors
+from asyncua.common.subscription import Subscription
+from asyncua import Client, ua
+from asyncua.crypto.security_policies import SecurityPolicyBasic256Sha256
+from asyncua.ua import SecurityPolicy, uaerrors
 
 from eta_utility import KeyCertPair, Suppressor, get_logger
 from eta_utility.connectors.node import Node, NodeOpcUa
@@ -24,7 +25,7 @@ from .util import IntervalChecker, RetryWaiter
 
 if TYPE_CHECKING:
     from typing import Any, Generator, Mapping, Sequence
-    from opcua import Node as OpcNode
+    from asyncua import Node as OpcNode
     from eta_utility.type_hints import AnyNode, Nodes, TimeStep
 
 from .base_classes import BaseConnection, SubscriptionHandler

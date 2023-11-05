@@ -5,8 +5,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Sized
 
 import pandas as pd
-from opcua import Server, ua
-from opcua.ua import uaerrors
+from asyncua import Server, ua
+from asyncua.ua import uaerrors
 
 from eta_utility import ensure_timezone, get_logger, url_parse
 from eta_utility.connectors.node import NodeOpcUa
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     import types
     from typing import Any, Mapping
 
-    from opcua import Node as OpcNode
+    from asyncua import Node as OpcNode
 
     from eta_utility.type_hints import AnyNode, Nodes
 

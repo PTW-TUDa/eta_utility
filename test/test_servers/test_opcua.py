@@ -1,6 +1,6 @@
 import socket
 
-import opcua
+import asyncua as opcua
 import pytest
 
 from eta_utility.connectors import Node
