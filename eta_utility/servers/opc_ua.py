@@ -8,6 +8,7 @@ import pandas as pd
 # Sync import
 from asyncua.sync import Server
 # Async import
+import asyncua.sync
 from asyncua import Server as asyncServer, ua
 from asyncua.ua import uaerrors
 
@@ -19,9 +20,9 @@ if TYPE_CHECKING:
     from typing import Any, Mapping
 
     # Sync import
-    from asyncua.sync import SyncNode as OpcNode
+    from asyncua.sync import SyncNode as SyncOpcNode
     # Async import
-    from asyncua import Node as asyncOpcNode
+    from asyncua import Node as asyncSyncOpcNode
 
     from eta_utility.type_hints import AnyNode, Nodes
 
@@ -100,23 +101,25 @@ class OpcUaServer:
         :param nodes: List or set of nodes to create.
         """
 
-        def create_object(parent: OpcNode, child: NodeOpcUa) -> OpcNode:
-            children = parent.get_children()
+        def create_object(parent: SyncOpcNode, child: NodeOpcUa) -> SyncOpcNode:
+            children: list[SyncOpcNode] = asyncua.sync._to_sync(parent.tloop, parent.get_children())
             for obj in children:
                 ident = obj.nodeid.Identifier if type(obj.nodeid.Identifier) is str else obj.nodeid.Identifier
                 if child.opc_path_str == ident:
                     return obj
             else:
-                return parent.add_object(child.opc_id, child.opc_name)
+                return asyncua.sync._to_sync(parent.tloop, parent.add_object(child.opc_id, child.opc_name))
 
         _nodes = self._validate_nodes(nodes)
 
         for node in _nodes:
             try:
                 if len(node.opc_path) == 0:
-                    last_obj = self._server.get_objects_node()
+                    last_obj = asyncua.sync._to_sync(self._server.tloop, self._server.aio_obj.get_objects_node())
                 else:
-                    last_obj = create_object(self._server.aio_obj.get_objects_node(), node.opc_path[0])
+                    # Create SyncNode from asyncNode
+                    sync_node = asyncua.sync._to_sync(self._server.tloop, self._server.aio_obj.get_objects_node())
+                    last_obj = create_object(sync_node, node.opc_path[0])
 
                 for key in range(1, len(node.opc_path)):
                     last_obj = create_object(last_obj, node.opc_path[key])
@@ -146,7 +149,7 @@ class OpcUaServer:
         :param nodes: List or set of nodes to be deleted.
         """
 
-        def delete_node_parents(node: OpcNode, depth: int = 20) -> None:
+        def delete_node_parents(node: SyncOpcNode, depth: int = 20) -> None:
             parents = node.get_references(direction=ua.BrowseDirection.Inverse)
             if not node.get_children():
                 node.delete(delete_references=True)
