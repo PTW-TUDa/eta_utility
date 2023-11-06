@@ -257,7 +257,7 @@ class TestConnectorOperations:
 
     @pytest.fixture(scope="class")
     def connection(self, local_nodes):
-        connection = OpcUaConnection.from_node(local_nodes[0], usr="admin", pwd="0")
+        connection: OpcUaConnection = OpcUaConnection.from_node(local_nodes[0], usr="admin", pwd="0")
         return connection
 
     def test_create_nodes(self, server: OpcUaServer, connection: OpcUaConnection, local_nodes):
