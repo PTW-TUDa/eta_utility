@@ -5,7 +5,10 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Sized
 
 import pandas as pd
-from asyncua import Server, ua
+# Sync import
+from asyncua.sync import Server
+# Async import
+from asyncua import Server as asyncServer, ua
 from asyncua.ua import uaerrors
 
 from eta_utility import ensure_timezone, get_logger, url_parse
@@ -40,7 +43,7 @@ class OpcUaServer:
         log.info(f"Server Address is {self.url}")
 
         self._url, _, _ = url_parse(self.url)
-
+        
         self._server: Server = Server()
         self._server.set_endpoint(self.url)
 

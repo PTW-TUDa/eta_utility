@@ -13,8 +13,11 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pandas as pd
-from asyncua.common.subscription import Subscription
-from asyncua import Client, ua
+# Synchronous imports
+from asyncua.sync import Client, Subscription
+# Asynchronous imports
+from asyncua.common.subscription import Subscription as asyncSubscription
+from asyncua import Client as asyncClient, ua
 from asyncua.crypto.security_policies import SecurityPolicyBasic256Sha256
 from asyncua.ua import SecurityPolicy, uaerrors
 
@@ -25,7 +28,8 @@ from .util import IntervalChecker, RetryWaiter
 
 if TYPE_CHECKING:
     from typing import Any, Generator, Mapping, Sequence
-    from asyncua import Node as OpcNode
+    from asyncua.sync import SyncNode as OpcNode
+    from asyncua import Node as asyncOpcNode
     from eta_utility.type_hints import AnyNode, Nodes, TimeStep
 
 from .base_classes import BaseConnection, SubscriptionHandler
