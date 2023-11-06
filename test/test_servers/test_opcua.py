@@ -80,7 +80,7 @@ class TestServerOperations:
         for node in local_nodes:
             server._server.get_node(node.opc_id).get_value()
 
-    def test_create_node_with_missing_dot(self, server, local_nodes):
+    def test_create_node_with_missing_dot(self, server: OpcUaServer, local_nodes):
         node = local_nodes[0]
         missing_node = Node(
             node.name, node.url, node.protocol, usr=node.usr, pwd=node.pwd, opc_id="ns=6;s=thermal_power"
@@ -93,19 +93,19 @@ class TestServerOperations:
     values = ((0, 1.5), (1, 5), (2, "something"))
 
     @pytest.mark.parametrize(("index", "value"), values)
-    def test_write_node(self, server, local_nodes, index, value):
+    def test_write_node(self, server: OpcUaServer, local_nodes, index, value):
         server.write({local_nodes[index]: value})
 
         assert server._server.get_node(local_nodes[index].opc_id).get_value() == value
 
     @pytest.mark.parametrize(("index", "expected"), values)
-    def test_read_node(self, server, local_nodes, index, expected):
+    def test_read_node(self, server: OpcUaServer, local_nodes, index, expected):
         val = server.read({local_nodes[index]})
 
         assert val.iloc[0, 0] == expected
         assert val.columns[0] == local_nodes[index].name
 
-    def test_delete_nodes(self, server, local_nodes):
+    def test_delete_nodes(self, server: OpcUaServer, local_nodes):
         server.delete_nodes(local_nodes)
 
         with pytest.raises(RuntimeError, match=".*BadNodeIdUnknown.*"):

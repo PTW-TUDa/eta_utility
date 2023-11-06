@@ -18,7 +18,10 @@ if TYPE_CHECKING:
     import types
     from typing import Any, Mapping
 
-    from asyncua import Node as OpcNode
+    # Sync import
+    from asyncua.sync import SyncNode as OpcNode
+    # Async import
+    from asyncua import Node as asyncOpcNode
 
     from eta_utility.type_hints import AnyNode, Nodes
 
@@ -98,7 +101,8 @@ class OpcUaServer:
         """
 
         def create_object(parent: OpcNode, child: NodeOpcUa) -> OpcNode:
-            for obj in parent.get_children():
+            children = parent.get_children()
+            for obj in children:
                 ident = obj.nodeid.Identifier if type(obj.nodeid.Identifier) is str else obj.nodeid.Identifier
                 if child.opc_path_str == ident:
                     return obj
@@ -112,7 +116,7 @@ class OpcUaServer:
                 if len(node.opc_path) == 0:
                     last_obj = self._server.get_objects_node()
                 else:
-                    last_obj = create_object(self._server.get_objects_node(), node.opc_path[0])
+                    last_obj = create_object(self._server.aio_obj.get_objects_node(), node.opc_path[0])
 
                 for key in range(1, len(node.opc_path)):
                     last_obj = create_object(last_obj, node.opc_path[key])
@@ -172,7 +176,7 @@ class OpcUaServer:
 
     @property
     def active(self) -> bool:
-        return self._server.bserver._server._serving
+        return self._server.aio_obj.bserver._server._serving
 
     def allow_remote_admin(self, allow: bool) -> None:
         """Allow remote administration of the server.
