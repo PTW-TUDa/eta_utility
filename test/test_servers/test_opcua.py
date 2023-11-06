@@ -43,20 +43,20 @@ def local_nodes():
 def test_init():
     try:
         server = OpcUaServer(5, ip="127.0.0.1")
-        assert server._server.bserver._server._serving is True  # Check session can be created
+        assert server._server.aio_obj.bserver._server._serving is True  # Check session can be created
     finally:
         server.stop()
 
     # Check session is closed
-    assert server._server.bserver._server._serving is False
+    assert server._server.aio_obj.bserver._server._serving is False
 
 
 def test_init_with():
     with OpcUaServer(5, ip="127.0.0.1") as server:
-        assert server._server.bserver._server._serving is True  # Check session can be created
+        assert server._server.aio_obj.bserver._server._serving is True  # Check session can be created
 
     # Check session is closed
-    assert server._server.bserver._server._serving is False
+    assert server._server.aio_obj.bserver._server._serving is False
 
 
 class TestServerOperations:
@@ -65,16 +65,16 @@ class TestServerOperations:
         with OpcUaServer(5, ip=socket.gethostbyname(socket.gethostname())) as server:
             yield server
 
-    def test_active(self, server):
+    def test_active(self, server: OpcUaServer):
         assert server.active is True
 
-    def test_get_invalid_node(self, server):
+    def test_get_invalid_node(self, server: OpcUaServer):
         with pytest.raises(
             opcua.ua.uaerrors.BadNodeIdUnknown, match="The node id refers to a node that does not exist"
         ):
             server._server.get_node("s=something").get_value()
 
-    def test_create_nodes(self, server, local_nodes):
+    def test_create_nodes(self, server: OpcUaServer, local_nodes):
         server.create_nodes(local_nodes)
 
         for node in local_nodes:
