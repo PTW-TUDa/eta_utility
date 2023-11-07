@@ -4,12 +4,13 @@ import socket
 from datetime import datetime
 from typing import TYPE_CHECKING, Sized
 
-import pandas as pd
-# Sync import
-from asyncua.sync import Server
 # Async import
 import asyncua.sync
-from asyncua import Server as asyncServer, ua
+import pandas as pd
+from asyncua import ua  # , Server as asyncServer
+
+# Sync import
+from asyncua.sync import Server
 from asyncua.ua import uaerrors
 
 from eta_utility import ensure_timezone, get_logger, url_parse
@@ -21,9 +22,9 @@ if TYPE_CHECKING:
 
     # Sync import
     from asyncua.sync import SyncNode as SyncOpcNode
-    # Async import
-    from asyncua import Node as asyncSyncOpcNode
 
+    # Async import
+    # FIXME: add async import: from asyncua import Node as asyncSyncOpcNode
     from eta_utility.type_hints import AnyNode, Nodes
 
 log = get_logger("servers.opcua")
@@ -47,7 +48,7 @@ class OpcUaServer:
         log.info(f"Server Address is {self.url}")
 
         self._url, _, _ = url_parse(self.url)
-        
+
         self._server: Server = Server()
         self._server.set_endpoint(self.url)
 

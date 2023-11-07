@@ -12,14 +12,17 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
+import asyncua.sync
 import pandas as pd
+
+# FIXME: add async import: from asyncua import Client as asyncClient
+from asyncua import ua
+
+# FIXME: add async import: from asyncua.common.subscription import Subscription as asyncSubscription
+from asyncua.crypto.security_policies import SecurityPolicyBasic256Sha256
+
 # Synchronous imports
 from asyncua.sync import Client, Subscription
-# Asynchronous imports
-import asyncua.sync
-from asyncua.common.subscription import Subscription as asyncSubscription
-from asyncua import Client as asyncClient, ua
-from asyncua.crypto.security_policies import SecurityPolicyBasic256Sha256
 from asyncua.ua import SecurityPolicy, uaerrors
 
 from eta_utility import KeyCertPair, Suppressor, get_logger
@@ -32,8 +35,9 @@ if TYPE_CHECKING:
 
     # Sync import
     from asyncua.sync import SyncNode as SyncOpcNode
+
     # Async import
-    from asyncua import Node as asyncSyncOpcNode
+    # FIXME: add async import: from asyncua import Node as asyncSyncOpcNode
 
     from eta_utility.type_hints import AnyNode, Nodes, TimeStep
 
@@ -204,9 +208,13 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
             for node in _nodes:
                 try:
                     if len(node.opc_path) == 0:
-                        last_obj = asyncua.sync._to_sync(self.connection.tloop, self.connection.aio_obj.get_objects_node())
+                        last_obj = asyncua.sync._to_sync(
+                            self.connection.tloop, self.connection.aio_obj.get_objects_node()
+                        )
                     else:
-                        sync_node = asyncua.sync._to_sync(self.connection.tloop, self.connection.aio_obj.get_objects_node())
+                        sync_node = asyncua.sync._to_sync(
+                            self.connection.tloop, self.connection.aio_obj.get_objects_node()
+                        )
                         last_obj = create_object(sync_node, node.opc_path[0])
 
                     for key in range(1, len(node.opc_path)):
@@ -443,13 +451,18 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
             except (TimeoutError, ConTimeoutError):
                 self._try_secure_connect = False
                 raise ConnectionError("Host timeout during secure connect")
+
         try:
-            # Run the Syncwrapper's loop if it is not running / has been closed 
+            # Run the Syncwrapper's loop if it is not running / has been closed
             if not self.connection.tloop.loop or not self.connection.tloop.loop.is_running():
-                self.connection.tloop.run()
-        except:
-            raise ConnectionError(f"Could not run the Syncwrapper's loop {self.connection.tloop} for server {self.url}.")
-        
+                self.connection.tloop = asyncua.sync.ThreadLoop()
+                self.connection.tloop.start()
+                self.connection.close_tloop = True
+        except Exception as e:
+            raise ConnectionError(
+                f"Could not run the Syncwrapper's loop {self.connection.tloop} for server {self.url}."
+            ) from e
+
         try:
             if self._key_cert is not None and self._try_secure_connect:
                 _connect_secure()
