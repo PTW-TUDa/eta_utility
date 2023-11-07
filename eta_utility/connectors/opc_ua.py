@@ -16,6 +16,7 @@ import pandas as pd
 # Synchronous imports
 from asyncua.sync import Client, Subscription
 # Asynchronous imports
+import asyncua.sync
 from asyncua.common.subscription import Subscription as asyncSubscription
 from asyncua import Client as asyncClient, ua
 from asyncua.crypto.security_policies import SecurityPolicyBasic256Sha256
@@ -28,8 +29,12 @@ from .util import IntervalChecker, RetryWaiter
 
 if TYPE_CHECKING:
     from typing import Any, Generator, Mapping, Sequence
-    from asyncua.sync import SyncNode as OpcNode
-    from asyncua import Node as asyncOpcNode
+
+    # Sync import
+    from asyncua.sync import SyncNode as SyncOpcNode
+    # Async import
+    from asyncua import Node as asyncSyncOpcNode
+
     from eta_utility.type_hints import AnyNode, Nodes, TimeStep
 
 from .base_classes import BaseConnection, SubscriptionHandler
@@ -184,13 +189,14 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
         :raises ConnectionError: When an error occurs during node creation.
         """
 
-        def create_object(parent: OpcNode, child: NodeOpcUa) -> OpcNode:
-            for obj in parent.get_children():
+        def create_object(parent: SyncOpcNode, child: NodeOpcUa) -> SyncOpcNode:
+            children: list[SyncOpcNode] = asyncua.sync._to_sync(parent.tloop, parent.get_children())
+            for obj in children:
                 ident = obj.nodeid.Identifier if type(obj.nodeid.Identifier) is str else obj.nodeid.Identifier
                 if child.opc_path_str == ident:
                     return obj
             else:
-                return parent.add_object(child.opc_id, child.opc_name)
+                return asyncua.sync._to_sync(parent.tloop, parent.add_object(child.opc_id, child.opc_name))
 
         _nodes = self._validate_nodes(nodes)
 
@@ -198,9 +204,10 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
             for node in _nodes:
                 try:
                     if len(node.opc_path) == 0:
-                        last_obj = self.connection.get_objects_node()
+                        last_obj = asyncua.sync._to_sync(self.connection.tloop, self.connection.aio_obj.get_objects_node())
                     else:
-                        last_obj = create_object(self.connection.get_objects_node(), node.opc_path[0])
+                        sync_node = asyncua.sync._to_sync(self.connection.tloop, self.connection.aio_obj.get_objects_node())
+                        last_obj = create_object(sync_node, node.opc_path[0])
 
                     for key in range(1, len(node.opc_path)):
                         last_obj = create_object(last_obj, node.opc_path[key])
@@ -231,7 +238,7 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
         :raises ConnectionError: If deletion of nodes fails.
         """
 
-        def delete_node_parents(node: OpcNode, depth: int = 20) -> None:
+        def delete_node_parents(node: SyncOpcNode, depth: int = 20) -> None:
             parents = node.get_references(direction=ua.BrowseDirection.Inverse)
             if not node.get_children():
                 node.delete(delete_references=True)
@@ -412,8 +419,8 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
         self._retry.tried()
 
         def _connect_insecure() -> None:
-            self.connection.security_policy = SecurityPolicy()
-            self.connection.uaclient.set_security(self.connection.security_policy)
+            self.connection.aio_obj.security_policy = SecurityPolicy()
+            self.connection.aio_obj.uaclient.set_security(self.connection.aio_obj.security_policy)
             self.connection.connect()
 
         def _connect_secure() -> None:
