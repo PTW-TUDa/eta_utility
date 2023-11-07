@@ -444,10 +444,11 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
                 self._try_secure_connect = False
                 raise ConnectionError("Host timeout during secure connect")
         try:
+            # Run the Syncwrapper's loop if it is not running / has been closed 
             if not self.connection.tloop.loop or not self.connection.tloop.loop.is_running():
                 self.connection.tloop.run()
         except:
-            raise ConnectionError(f"Connection to OPC UA server {self.url} failed.")
+            raise ConnectionError(f"Could not run the Syncwrapper's loop {self.connection.tloop} for server {self.url}.")
         
         try:
             if self._key_cert is not None and self._try_secure_connect:
