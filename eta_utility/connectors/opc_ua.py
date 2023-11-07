@@ -443,7 +443,12 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
             except (TimeoutError, ConTimeoutError):
                 self._try_secure_connect = False
                 raise ConnectionError("Host timeout during secure connect")
-
+        try:
+            if not self.connection.tloop.loop or not self.connection.tloop.loop.is_running():
+                self.connection.tloop.run()
+        except:
+            raise ConnectionError(f"Connection to OPC UA server {self.url} failed.")
+        
         try:
             if self._key_cert is not None and self._try_secure_connect:
                 _connect_secure()
