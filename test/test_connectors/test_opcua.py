@@ -311,11 +311,20 @@ class TestConnectorOperations:
         n = local_nodes[0]
         connection = OpcUaConnection.from_node(n, usr="another", pwd="something")
 
-        # make server reject everything
+        # DEPRECATED: make server reject everything
         def um(s, u, p):
             return False
 
-        server._server.user_manager.user_manager = um
+        from asyncua.server.user_managers import UserManager
+
+        # Create a new user manager that rejects all users
+        class BadUserManager(UserManager):
+            # Reject all users and return None instead of a user object
+            def get_user(self, iserver, username=None, password=None, certificate=None):
+                return None
+
+        # Set the user manager
+        server._server.aio_obj.iserver.set_user_manager(user_manager=BadUserManager())
 
         with pytest.raises(ConnectionError, match=".*BadUserAccessDenied.*"):
             connection.read(n)
@@ -336,7 +345,7 @@ class TestConnectorSubscriptions:
 
     @pytest.fixture()
     def _write_nodes_normal(self, server: OpcUaServer, local_nodes):
-        async def write_loop(server, local_nodes, values):
+        async def write_loop(server: OpcUaServer, local_nodes, values):
             i = 0
             while True:
                 server.write({node: values[node.name][i] for node in local_nodes})
@@ -361,7 +370,7 @@ class TestConnectorSubscriptions:
 
     @pytest.fixture()
     def _write_nodes_interrupt(self, server: OpcUaServer, local_nodes):
-        async def write_loop(server, local_nodes, values):
+        async def write_loop(server: OpcUaServer, local_nodes, values):
             i = 0
             while True:
                 if i == 3:
