@@ -481,7 +481,7 @@ class TestConnectorSubscriptionsIntervalChecker:
 
     @pytest.fixture()
     def _write_nodes_interval_checking(self, server: OpcUaServer, local_nodes_interval_checking):
-        async def write_loop(server, local_nodes_interval_checking, values):
+        async def write_loop(server: OpcUaServer, local_nodes_interval_checking, values):
             i = 0
             while True:
                 if i <= 2:
