@@ -495,7 +495,7 @@ class TestConnectorSubscriptionsIntervalChecker:
         asyncio.get_event_loop().create_task(write_loop(server, local_nodes_interval_checking, self.values))
 
     def test_subscribe_interval_checking(self, local_nodes_interval_checking, _write_nodes_interval_checking, caplog):
-        connection = OpcUaConnection.from_node(local_nodes_interval_checking[0], usr="admin", pwd="0")
+        connection: OpcUaConnection = OpcUaConnection.from_node(local_nodes_interval_checking[0], usr="admin", pwd="0")
         handler = DFSubHandler(write_interval=1)
         connection.subscribe(handler, nodes=local_nodes_interval_checking, interval=1)
 
