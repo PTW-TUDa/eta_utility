@@ -19,7 +19,7 @@ from .policies import NoPolicy
 if TYPE_CHECKING:
     from typing import Any, Callable, Mapping, Sequence
 
-    from gym import Env
+    from gymnasium import Env
     from stable_baselines3.common.base_class import BaseAlgorithm, BasePolicy
     from stable_baselines3.common.vec_env import VecEnv
 
@@ -35,7 +35,6 @@ def vectorize_environment(
     config_run: ConfigOptRun,
     env_settings: EnvSettings,
     callback: Callable[[BaseEnv], None],
-    seed: int | None = None,
     verbose: int = 2,
     vectorizer: type[DummyVecEnv] = DummyVecEnv,
     n: int = 1,
@@ -53,7 +52,6 @@ def vectorize_environment(
     :param config_run: Configuration for a specific optimization run.
     :param env_settings: Configuration settings dictionary for the environment which is being initialized.
     :param callback: Callback to call with an environment instance.
-    :param seed: Random seed for the environment.
     :param verbose: Logging verbosity to use in the environment.
     :param vectorizer: Vectorizer class to use for vectorizing the environments.
     :param n: Number of vectorized environments to create.
@@ -70,11 +68,6 @@ def vectorize_environment(
         n = 1
         log.warning("Setting number of environments to 1 because DummyVecEnv (default) is used.")
 
-    if "seed" in env_settings and env_settings["seed"] is not None:
-        seed = env_settings.pop("seed")
-    else:
-        seed = seed
-
     if "verbose" in env_settings and env_settings["verbose"] is not None:
         verbose = env_settings.pop("verbose")
     else:
@@ -83,7 +76,7 @@ def vectorize_environment(
     # Create the vectorized environment
     def create_env(env_id: int) -> Env:
         env_id += 1
-        return env(env_id, config_run, seed, verbose, callback, **env_settings)
+        return env(env_id, config_run, verbose, callback, **env_settings)
 
     envs: VecEnv | VecNormalize
     envs = vectorizer([partial(create_env, i) for i in range(n)])
@@ -337,7 +330,6 @@ def log_net_arch(model: BaseAlgorithm, config_run: ConfigOptRun) -> None:
     :param config_run: Optimization run configuration (which contains info about the file to store info in).
     :raises: ValueError.
     """
-    # model.policy has incorrect type annotation in stable_baselines
     if not config_run.path_net_arch.exists() and model.policy is not None and model.policy.__class__ is not NoPolicy:
         with open(config_run.path_net_arch, "w") as f:
             f.write(str(model.policy))

@@ -29,7 +29,7 @@ class PendulumControl(RuleBased):
         super().__init__(policy=policy, env=env, verbose=verbose, **kwargs)
         assert self.action_space is not None, "action_space not initialized correctly."
         # set initial state
-        self.initial_state = np.zeros(self.action_space.shape)
+        self.initial_state = np.zeros(self.action_space.shape)  # type: ignore
 
     def control_rules(self, observation: np.ndarray) -> np.ndarray:
         """This function is abstract and should be used to implement control rules which determine actions from

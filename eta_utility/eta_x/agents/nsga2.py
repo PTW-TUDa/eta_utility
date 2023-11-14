@@ -6,9 +6,9 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 from attrs import define
-from gym import spaces
+from gymnasium import spaces
 from stable_baselines3.common.base_class import BaseAlgorithm
-from stable_baselines3.common.utils import safe_mean, set_random_seed
+from stable_baselines3.common.utils import safe_mean
 from stable_baselines3.common.vec_env import VecNormalize
 
 from eta_utility import get_logger
@@ -49,9 +49,9 @@ class _VariableParameters:
 
     @classmethod
     def from_space(cls, space: spaces.Space) -> list[_VariableParameters]:
-        """Create _VariableParameters from a gym space object.
+        """Create _VariableParameters from a gymnasium space object.
 
-        :param space: Gym space description object.
+        :param space: Gymnasium space description object.
         :return: List of _VariableParameters objects (one object for each variable).
         """
         if isinstance(space, spaces.Box):
@@ -62,7 +62,7 @@ class _VariableParameters:
             return [cls("int", minimum=0, maximum=int(dim)) for dim in space.nvec]
 
         elif isinstance(space, spaces.MultiBinary):
-            return [cls(dtype="int", minimum=0, maximum=1) for _ in range(space.n)]
+            return [cls(dtype="int", minimum=0, maximum=1) for _ in range(space.n)]  # type: ignore
 
         elif isinstance(space, spaces.Discrete):
             return [cls(dtype="int", minimum=0, maximum=int(space.n))]
@@ -310,7 +310,7 @@ class Nsga2(BaseAlgorithm):
                         f"Events must be specified as a discrete space. Received {type(self.action_space['events'])}."
                     )
 
-                event_params = self.action_space.spaces["events"].n
+                event_params = self.action_space.spaces["events"].n  # type: ignore
 
             # Extract variables spaces.
             if "variables" in self.action_space.spaces:
@@ -612,23 +612,14 @@ class Nsga2(BaseAlgorithm):
     def set_random_seed(self, seed: int | None = None) -> None:
         """
         Set the seed of the pseudo-random generators
-        (python, numpy, pytorch, gym, julia)
-
-        .. note::
-            action_space is currently not seeded because the gym version stable_baselines3 relies on has broken
-            seeding for space.Dict. Seeding is fixed in gym==0.26. This can be updated once stable_baselines3 supports
-            newer versions of gym.
+        (python, numpy, pytorch, gymnasium, julia)
 
         :param seed: Seet for the
         """
         if seed is None:
             return
-        set_random_seed(seed)
 
         ju_NSGA2.seed_b(self.__jl_agent, seed)
-
-        if self.env is not None:
-            self.env.seed(seed)
 
     def _excluded_save_params(self) -> list[str]:
         """

@@ -45,7 +45,6 @@ class CleaningMachineSimulation(BaseEnvSim):
         self,
         env_id: int,
         config_run: ConfigOptRun,
-        seed: int | None = 123,
         verbose: int = 2,
         callback: Callable | None = None,
         *,
@@ -60,7 +59,6 @@ class CleaningMachineSimulation(BaseEnvSim):
         super().__init__(
             env_id=env_id,
             config_run=config_run,
-            seed=seed,
             verbose=verbose,
             callback=callback,
             scenario_time_begin=scenario_time_begin,

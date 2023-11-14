@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from gym.spaces.box import Box
+from gymnasium.spaces.box import Box
 
 from eta_utility.eta_x.envs.state import StateConfig, StateVar
 
