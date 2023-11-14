@@ -34,44 +34,36 @@ include:
   - template: Security/Secret-Detection.gitlab-ci.yml
   - template: Security/License-Scanning.gitlab-ci.yml
 
-# Setup pip cache so that it can be reused between jobs
-variables:
-  # Always use python version 3 for imported jobs
-  ASDF_PYTHON_VERSION: '3.10'
-  # Deploy using upload token
-  TWINE_PASSWORD: '${PYPI_UPLOAD_TOKEN}'
-  TWINE_USERNAME: '__token__'
 
 default:
   tags:
     - python
     - docker
   interruptible: true
-  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/python_env:3.8
+  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/pyjulia:py3.9-jl1.9-gym
   before_script:
     - apt-get update
-    - python -V
+    - python --version
     - rm -rf .cache .pip_cache .pytest_cache .mypy_cache dist doc eta_utility.egg-info build
     - rm -rf docs/_build docs/_stubs
     - ls -la
-    - pip install .[develop] # set correct version
 
 isort:
   stage: check
   script:
-    - pip install isort
+    - isort --version
     - isort -c -v .
 
 black:
   stage: check
   script:
-    - pip install black
+    - black --version
     - black --check --config pyproject.toml eta_utility/ test/
 
 flake8:
   stage: check
   script:
-    - pip install flake8-json
+    - pip install flake8-json  # Necessary to output codeclimate format
     - flake8 --version
     - flake8 --toml-config=pyproject.toml --format=codeclimate --tee --output-file=flake8.json eta_utility examples test
   artifacts:
@@ -81,8 +73,7 @@ flake8:
 mypy:
   stage: check
   script:
-    - pip install "stable_baselines3>=1.8,<1.9"
-    - mypy -V
+    - mypy --version
     - mypy --config-file pyproject.toml
 
 check-julia:
@@ -91,13 +82,21 @@ check-julia:
   before_script: []
   script:
     - julia -e '
-      using Pkg;
-      Pkg.add("JuliaFormatter");
-      using JuliaFormatter;
-      if !format("eta_utility/ju_extensions", verbose=true) & !format("test/resources/")
-      @error "Some files have not been formatted !!!";
-      exit(1);
-      end'
+        using Pkg;
+        Pkg.add("JuliaFormatter");
+        using JuliaFormatter;
+        if !format("eta_utility/ju_extensions", verbose=true) & !format("test/resources/")
+        @error "Some files have not been formatted !!!";
+        exit(1);
+        end'
+  # only run this job if there are changes in the julia files
+  only:
+    refs:
+      - development
+      - master
+    changes:
+      - eta_utility/ju_extensions/*
+      - test/resources/*
 
 license_scanning:
   stage: check
@@ -113,6 +112,7 @@ secret_detection:
 
 test3.8:
   stage: test
+  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/python:py3.8
   script:
     - pip install pytest pytest-cov
     - pytest --cov
@@ -122,7 +122,7 @@ test3.8:
 
 test3.9:
   stage: test
-  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/python_env:3.9
+  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/python:py3.9
   script:
     - pip install pytest pytest-cov
     - pytest --cov
@@ -132,7 +132,7 @@ test3.9:
 
 test3.10:
   stage: test
-  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/python_env:3.10
+  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/python:py3.10
   script:
     - pip install pytest pytest-cov
     - pytest --cov
@@ -142,7 +142,7 @@ test3.10:
 
 test3.10_updated_deps:
   stage: test
-  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/python_env:3.10
+  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/python:py3.10
   script:
     - pip install --upgrade .[develop] --upgrade-strategy=only-if-needed
     - pip install pytest pytest-cov
@@ -154,33 +154,18 @@ test3.10_updated_deps:
 
 test-julia:
   stage: test
-  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/pyjulia_env:latest
-  before_script:
-    - rm -rf .cache .pip_cache .pytest_cache .mypy_cache dist doc eta_utility.egg-info build
-    - source /usr/src/app/venv/bin/activate
-    - python -V
-    - pip install .[develop] # set correct version
   script:
     - julia -e '
-      ENV["PYTHON"] = Sys.which("python");
-      ENV["PYCALL_JL_RUNTIME_PYTHON"] = Sys.which("python");
-      using Pkg;
-      Pkg.activate("eta_utility/ju_extensions");
-      Pkg.instantiate();
-      Pkg.test()'
+        using Pkg;
+        Pkg.activate("eta_utility/ju_extensions");
+        Pkg.instantiate();
+        Pkg.test()'
   retry:
     max: 1
     when: script_failure
 
 test-pyjulia:
   stage: test
-  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/pyjulia_env:latest
-  before_script:
-    - rm -rf .cache .pip_cache .pytest_cache .mypy_cache dist doc eta_utility.egg-info build
-    - source /usr/src/app/venv/bin/activate
-    - python -V
-    - pip install .[develop] # set correct version
-    - install-julia
   script:
     - python-jl -m pytest test/test_etax/test_agents.py::TestNSGA2
   retry:
@@ -189,16 +174,8 @@ test-pyjulia:
 
 linkcheck-docs:
   stage: test
-  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/pyjulia_env:latest
-  before_script:
-    - rm -rf .cache .pip_cache .pytest_cache .mypy_cache dist doc eta_utility.egg-info build
-    - source /usr/src/app/venv/bin/activate
-    - python -V
-    - pip install .[develop] # set correct version
-    - install-julia
   script:
-    - apt-get --yes install libgl1-mesa-glx
-    - pip install sphinx sphinx-rtd-theme
+    - pip install sphinx sphinx-rtd-theme sphinx_copybutton
     - rm -rf docs/_build docs/_stubs
     - cd docs
     - python -m sphinx -b linkcheck . _build/linkcheck
@@ -208,28 +185,31 @@ linkcheck-docs:
 
 build_local:
   stage: deploy
+  # Credentials for local repository
   variables:
-    TWINE_PASSWORD: '${CI_JOB_TOKEN}'
-    TWINE_USERNAME: 'gitlab-ci-token'
+    PASSWORD: '${CI_JOB_TOKEN}'
+    USERNAME: 'gitlab-ci-token'
   script:
     - rm -rf dist build
-    - pip install build twine
-    - python -m build --sdist --wheel
-    - twine check dist/* && twine upload --verbose --repository-url https://$CI_SERVER_HOST/api/v4/projects/$CI_PROJECT_ID/packages/pypi dist/*
+    - poetry config repositories.eta-fabrik https://$CI_SERVER_HOST/api/v4/projects/$CI_PROJECT_ID/packages/pypi
+    - poetry publish --build --username $USERNAME --password $PASSWORD --repository eta-fabrik
   rules:
     - !reference [.on_version_tag_rule, rules]
 
 # build the sources
 build:
   stage: deploy
+  # Credentials for pypi repository
+  variables:
+    PASSWORD: '${PYPI_UPLOAD_TOKEN}'
+    USERNAME: '__token__'
   needs:
     - pages
     - build_local
   script:
     - rm -rf dist
-    - pip install build twine
-    - python -m build --sdist --wheel
-    - twine check dist/* && twine upload --verbose --repository pypi dist/*
+    - pip install poetry
+    - poetry publish --build --username $USERNAME --password $PASSWORD --repository pypi
   artifacts:
     name: "eta_utility-build-$CI_COMMIT_REF_NAME-$CI_JOB_STATUS"
     paths:
@@ -240,23 +220,11 @@ build:
 
 pages:
   stage: deploy
-  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/pyjulia_env:latest
-  before_script:
-    - apt-get -y install --no-install-recommends git make curl 
-    - rm -rf .cache .pip_cache .pytest_cache .mypy_cache dist doc eta_utility.egg-info build
-    - source /usr/src/app/venv/bin/activate
-    - python -V
-    - pip install .[develop] # set correct version
-    - install-julia
   script:
-    - apt-get --yes install libgl1-mesa-glx
-    - pip install sphinx sphinx-rtd-theme
-    - rm -rf docs/_build docs/_stubs
+    - sphinx-build --version && sphinx-apidoc --version
+    - rm -rf docs/_build docs/_stubs public/html/*
     - cd docs
     - make html
-    - ls
-    - ls _build
-    - rm -rf ../public/html/*
     - mv _build/html ../public
   artifacts:
     name: "eta_utility-docs-$CI_COMMIT_REF_NAME"

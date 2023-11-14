@@ -9,15 +9,14 @@ If you have already set this up, you can go to the :ref:`install` section.
 Installation of Python
 ------------------------
 
-If you do not already have it, install Python (64 Bit) on your device. We recommend a version between
-3.7 and 3.9. Depending on the used modules newer versions will also work. If you are using the
-*eta_x* module, the version is limited by what is supported by *pytorch*.
+If you do not already have it, install Python (64 Bit) on your device. ETA_utility supports Python versions between
+**3.8** and **3.10**.
 
-Below, the installation is illustrated using Python 3.7, 64 Bit. You can install Python for
+Below, the installation is illustrated using Python 3.10.10, 64 Bit. You can install Python for
 Windows from `python.org <https://www.python.org/downloads/windows/>`_
 
 .. figure:: figures/1_DownloadFiles.png
-   :scale: 35 %
+   :scale: 80 %
    :alt: Picture of possible download files from python.org.
 
    Selection of download files from python.org.
@@ -49,11 +48,6 @@ figures.
     Using **Anaconda** is not supported and can lead to weird errors. Especially Anaconda should
     not be combined with a version of CPython on the same machine.
 
-
-.. note::
-    It is recommended to install to a **virtual environment** so that the installed package
-    versions do not conflict with other python projects on the computer.
-
 .. _install_git:
 
 Installation of Git
@@ -65,7 +59,11 @@ possible to use GUIs (Graphical User Interfaces) for git such as SourceTree or `
 
 .. _create_virtual_environment:
 
-Creating a virtual environment (recommended)
+.. note::
+    It is recommended to install to a **virtual environment** so that the installed package
+    versions do not conflict with other python projects on the computer.
+
+Creating a virtual environment
 -----------------------------------------------------
 
 A **virtual environment** is a Python environment which isolates the Python interpreter, libraries,
@@ -79,13 +77,13 @@ following commands.
 
 .. code-block:: console
 
-    $> Python -m venv <Any folder>/venv
+    $> python -m venv <Any folder>/.venv
 
 Navigate to your chosen directory, then activate the virtual environment:
 
 .. code-block:: console
 
-    $> venv/scripts/activate
+    $> .venv/scripts/activate
 
 The creation and activation of the environment are shown in the following figure.
 
@@ -95,11 +93,11 @@ The creation and activation of the environment are shown in the following figure
 
    Create and activate virtual environment.
 
-When the virtual environment is activated, *(venv)* is prefixed to the console line.
+When the virtual environment is activated, *(.venv)* is prefixed to the console line.
 The commands in the following chapters can be executed in the virtual environment without
 any adjustments.
 
 .. note::
 
-    Some IDEs (Integrated Development Environments) such as PyCharm will automate the following process
-    for you.
+   Some IDEs (Integrated Development Environments) such as PyCharm or Code Editors like VSCode
+   will automate the activation of the virtual environment for you.

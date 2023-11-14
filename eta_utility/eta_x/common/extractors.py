@@ -13,7 +13,7 @@ from .common import deserialize_net_arch
 if TYPE_CHECKING:
     from typing import Any
 
-    import gym
+    import gymnasium
 
 log = get_logger("eta_x")
 
@@ -24,7 +24,7 @@ class CustomExtractor(BaseFeaturesExtractor):
     of the layers defined in `torch.nn <https://pytorch.org/docs/stable/nn.html>`_. The net_arch parameter will
     be interpreted by the function :py:func:`eta_utility.eta_x.common.common.deserialize_net_arch`.
 
-    :param observation_space: gym space.
+    :param observation_space: gymnasium space.
     :param net_arch: The architecture of the Advanced Feature Extractor. See
         :py:func:`eta_utility.eta_x.common.deserialize_net_arch` for syntax.
     :param device: Torch device for training.
@@ -32,13 +32,13 @@ class CustomExtractor(BaseFeaturesExtractor):
 
     def __init__(
         self,
-        observation_space: gym.Space,
+        observation_space: gymnasium.Space,
         *,
         net_arch: Sequence[Mapping[str, Any]],
         device: th.device | str = "auto",
     ):
         device = get_device(device)
-        network = deserialize_net_arch(net_arch, in_features=observation_space.shape[0], device=device)
+        network = deserialize_net_arch(net_arch, in_features=observation_space.shape[0], device=device)  # type: ignore
 
         # Check output dimension of the network
         with th.no_grad():

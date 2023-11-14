@@ -29,8 +29,10 @@ log = get_logger("eta_x.envs")
 
 
 class JuliaEnv(BaseEnv):
-    """Abstract environment definition, providing some basic functionality for concrete environments to use.
-    The class implements and adapts functions from gym.Env. It provides additional functionality as required by
+    """
+    TODO: UPDATE DOCUMENTATION!
+    Abstract environment definition, providing some basic functionality for concrete environments to use.
+    The class implements and adapts functions from gymnasium.Env. It provides additional functionality as required by
     the ETA-X framework and should be used as the starting point for new environments.
 
     The initialization of this superclass performs many of the necessary tasks, required to specify a concrete
@@ -43,10 +45,10 @@ class JuliaEnv(BaseEnv):
 
         - **version**: Version number of the environment.
         - **description**: Short description string of the environment.
-        - **action_space**: The action space of the environment (see also gym.spaces for options).
-        - **observation_space**: The observation space of the environment (see also gym.spaces for options).
+        - **action_space**: The action space of the environment (see also gymnasium.spaces for options).
+        - **observation_space**: The observation space of the environment (see also gymnasium.spaces for options).
 
-    The gym interface requires the following methods for the environment to work correctly within the framework.
+    The gymnasium interface requires the following methods for the environment to work correctly within the framework.
     Consult the documentation of each method for more detail.
 
         - **step()**
@@ -73,7 +75,6 @@ class JuliaEnv(BaseEnv):
         self,
         env_id: int,
         config_run: ConfigOptRun,
-        seed: int | None = None,
         verbose: int = 2,
         callback: Callable | None = None,
         *,
@@ -87,7 +88,6 @@ class JuliaEnv(BaseEnv):
         super().__init__(
             env_id,
             config_run,
-            seed,
             verbose,
             callback,
             scenario_time_begin=scenario_time_begin,
@@ -106,7 +106,7 @@ class JuliaEnv(BaseEnv):
         self.__jl = import_jl_file(julia_env_path)
 
         # Make sure that all required functions are implemented in julia.
-        for func in {"Environment", "step!", "reset!", "close!", "render", "seed!", "first_update!", "update!"}:
+        for func in {"Environment", "step!", "reset!", "close!", "render", "first_update!", "update!"}:
             if not hasattr(self.__jl, func):
                 raise NotImplementedError(
                     f"Implementation of abstract method {func} missing from julia implementation of JuliaEnv."
@@ -148,8 +148,12 @@ class JuliaEnv(BaseEnv):
             * observations: A numpy array with new observation values as defined by the observation space.
               Observations is a np.array() (numpy array) with floating point or integer values.
             * reward: The value of the reward function. This is just one floating point value.
-            * done: Boolean value specifying whether an episode has been completed. If this is set to true, the reset
-              function will automatically be called by the agent or by eta_i.
+            * terminated: Boolean value specifying whether an episode has been completed. If this is set to true,
+              the reset function will automatically be called by the agent or by eta_i.
+            * truncated: Boolean, whether the truncation condition outside the scope is satisfied.
+              Typically, this is a timelimit, but could also be used to indicate an agent physically going out of
+              bounds. Can be used to end the episode prematurely before a terminal state is reached. If true, the user
+              needs to call the `reset` function.
             * info: Provide some additional info about the state of the environment. The contents of this may be used
               for logging purposes in the future but typically do not currently serve a purpose.
 
@@ -157,10 +161,10 @@ class JuliaEnv(BaseEnv):
         self._actions_valid(action)
         self.n_steps += 1
 
-        observations, reward, done, info = self.__jl.step_b(self._jlenv, action)
+        observations, reward, terminated, truncated, info = self.__jl.step_b(self._jlenv, action)
         self.state_log.append(observations)
 
-        return observations, reward, done, info
+        return observations, reward, terminated, truncated, info
 
     def _reduce_state_log(self) -> list[dict[str, float]]:
         """Removes unwanted parameters from state_log before storing in state_log_longtime
@@ -170,19 +174,42 @@ class JuliaEnv(BaseEnv):
         """
         return self.state_log
 
-    def reset(self) -> np.ndarray:
-        """Reset the environment. This is called after each episode is completed and should be used to reset the
-        state of the environment such that simulation of a new episode can begin.
+    def reset(
+        self,
+        *,
+        seed: int | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> tuple[np.ndarray, dict[str, Any]]:
+        """Resets the environment to an initial internal state, returning an initial observation and info.
+
+        This method generates a new starting state often with some randomness to ensure that the agent explores the
+        state space and learns a generalised policy about the environment. This randomness can be controlled
+        with the ``seed`` parameter otherwise if the environment already has a random number generator and
+        :meth:`reset` is called with ``seed=None``, the RNG is not reset. When using the environment in conjunction with
+        *stable_baselines3*, the vectorized environment will take care of seeding your custom environment automatically.
+
+        For Custom environments, the first line of :meth:`reset` should be ``super().reset(seed=seed)`` which implements
+        the seeding correctly.
 
         .. note ::
             Don't forget to store and reset the episode_timer.
 
-        :return: The return value represents the observations (state) of the environment before the first
-                 step is performed.
-        """
-        self._reset_state()
+        :param seed: The seed that is used to initialize the environment's PRNG (`np_random`).
+                If the environment does not already have a PRNG and ``seed=None`` (the default option) is passed,
+                a seed will be chosen from some source of entropy (e.g. timestamp or /dev/urandom).
+                However, if the environment already has a PRNG and ``seed=None`` is passed, the PRNG will *not* be
+                reset. If you pass an integer, the PRNG will be reset even if it already exists. (default: None)
+        :param options: Additional information to specify how the environment is reset (optional,
+                depending on the specific environment) (default: None)
 
-        return self.__jl.reset_b(self._jlenv)
+        :return: Tuple of observation and info. The observation of the initial state will be an element of
+                :attr:`observation_space` (typically a numpy array) and is analogous to the observation returned by
+                :meth:`step`. Info is a dictionary containing auxiliary information complementing ``observation``. It
+                should be analogous to the ``info`` returned by :meth:`step`.
+        """
+        super().reset(seed=seed, options=options)
+
+        return self.__jl.reset_b(self._jlenv, seed, options)
 
     def close(self) -> None:
         """Close the environment. This should always be called when an entire run is finished. It should be used to
@@ -194,7 +221,7 @@ class JuliaEnv(BaseEnv):
         """Render the environment
 
         The set of supported modes varies per environment. Some environments do not support rendering at
-        all. By convention in OpenAI *gym*, if mode is:
+        all. By convention in Farama *gymnasium*, if mode is:
 
             * human: render to the current display or terminal and return nothing. Usually for human consumption.
             * rgb_array: Return a numpy.ndarray with shape (x, y, 3), representing RGB values for an x-by-y pixel image,
@@ -205,20 +232,6 @@ class JuliaEnv(BaseEnv):
         :param mode: Rendering mode.
         """
         self.__jl.render(self._jlenv, mode, **kwargs)
-
-    def seed(self, seed: int | None = None) -> tuple[np.random.Generator, int]:
-        """Set random seed for the random generator of the environment
-
-        :param seed: Seeding value.
-        :return: Tuple of the numpy random generator and the set seed value.
-        """
-        generator, seed = super().seed(seed)
-
-        # Make sure not to seed the julia environment before it exists.
-        if hasattr(self, "_JuliaEnv__jl"):
-            self.__jl.seed_b(self._jlenv, seed)
-
-        return generator, seed
 
     def __getattr__(self, name: str) -> Any:
         # Return the item if it is set on the python object
