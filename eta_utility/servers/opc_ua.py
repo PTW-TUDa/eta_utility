@@ -10,7 +10,7 @@ import pandas as pd
 from asyncua import ua  # , Server as asyncServer
 
 # Sync import
-from asyncua.sync import Server
+from asyncua.sync import Server, ThreadLoopNotRunning
 from asyncua.ua import uaerrors
 
 from eta_utility import ensure_timezone, get_logger, url_parse
@@ -68,9 +68,19 @@ class OpcUaServer:
         nodes = self._validate_nodes(set(values.keys()))
 
         for node in nodes:
-            var = self._server.get_node(node.opc_id)
-            opc_type = var.get_data_type_as_variant_type()
-            var.set_value(ua.Variant(values[node], opc_type))
+            try:
+                var = self._server.get_node(node.opc_id)
+                opc_type = var.get_data_type_as_variant_type()
+                var.set_value(ua.Variant(values[node], opc_type))
+            except ThreadLoopNotRunning:
+                # FIXME: This is a workaround for the bug in asyncua.sync It should be removed when the bug is fixed.
+                temp_loop = var.tloop
+                var.tloop = asyncua.sync.ThreadLoop()
+                var.tloop.start()
+                opc_type = var.get_data_type_as_variant_type()
+                var.set_value(ua.Variant(values[node], opc_type))
+                var.tloop.stop()
+                var.tloop = temp_loop
 
     def read(self, nodes: Nodes | None = None) -> pd.DataFrame:
         """
