@@ -394,7 +394,7 @@ class TestConnectorSubscriptions:
         log = get_logger()
         log.propagate = True
 
-        connection = OpcUaConnection.from_node(local_nodes[0], usr="admin", pwd="0")
+        connection: OpcUaConnection = OpcUaConnection.from_node(local_nodes[0], usr="admin", pwd="0")
         handler = DFSubHandler(write_interval=1)
         connection.subscribe(handler, nodes=local_nodes, interval=1)
 
