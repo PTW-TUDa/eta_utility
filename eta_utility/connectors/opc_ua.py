@@ -413,6 +413,9 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
         except AttributeError:
             # Occurs if the subscription did not exist and can be ignored.
             pass
+        except asyncua.sync.ThreadLoopNotRunning:
+            # Occurs if the subscription (and therefore the thread loop) was already closed and can be ignored.
+            pass
 
         self._disconnect()
 
@@ -451,17 +454,6 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
             except (TimeoutError, ConTimeoutError):
                 self._try_secure_connect = False
                 raise ConnectionError("Host timeout during secure connect")
-
-        try:
-            # Run the Syncwrapper's loop if it is not running / has been closed
-            if not self.connection.tloop.loop or not self.connection.tloop.loop.is_running():
-                self.connection.tloop = asyncua.sync.ThreadLoop()
-                self.connection.tloop.start()
-                self.connection.close_tloop = True
-        except Exception as e:
-            raise ConnectionError(
-                f"Could not run the Syncwrapper's loop {self.connection.tloop} for server {self.url}."
-            ) from e
 
         try:
             if self._key_cert is not None and self._try_secure_connect:
