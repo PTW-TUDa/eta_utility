@@ -553,3 +553,9 @@ class _OPCSubHandler:
 
         self.handler.push(self._sub_nodes[str(node)], val, _time)
         self._node_interval_to_check.push(node=self._sub_nodes[str(node)], value=val, timestamp=_time)
+
+    def status_change_notification(self, status: ua.StatusChangeNotification) -> None:
+        pass
+
+    def event_notification(self, event) -> None:
+        pass
