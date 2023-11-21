@@ -75,10 +75,15 @@ class OpcUaServer:
             except ThreadLoopNotRunning:
                 # FIXME: This is a workaround for the bug in asyncua.sync It should be removed when the bug is fixed.
                 temp_loop = var.tloop
+                # Initialize a new ThreadLoop and start it
                 var.tloop = asyncua.sync.ThreadLoop()
                 var.tloop.start()
+
+                # Write the value
                 opc_type = var.get_data_type_as_variant_type()
                 var.set_value(ua.Variant(values[node], opc_type))
+
+                # Stop the ThreadLoop and restore the old one
                 var.tloop.stop()
                 var.tloop = temp_loop
 
@@ -186,6 +191,9 @@ class OpcUaServer:
             self._server.stop()
         except AttributeError:
             # Occurs only if server did not exist and can be ignored.
+            pass
+        except ThreadLoopNotRunning:
+            # Occurs only if server was already stopped (and therefore the ThreadLoop as well) and can be ignored.
             pass
 
     @property
