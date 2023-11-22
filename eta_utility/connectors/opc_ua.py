@@ -531,17 +531,17 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
         initializing an OpcUaConnection
         that is not used may potentially lead to frozen threads.
 
-        To prevent such issues, the destructor invokes 'close_sub()' and '_disconnect()',
-        which implicitly terminate an instance's thread loop.
+        To prevent such issues, the destructor stops the thread loop manually,
+        if it is still running, on deletion of the instance.
+
+        NOTE: This is a workaround for the current asyncua implementation and may be replaced
+        by not supporting connection initialization outside of a context manager in the future.
 
         """
         try:
-            self.close_sub()
-        except BaseException:
-            pass
+            if self.connection.tloop.is_alive():
+                self.connection.tloop.stop()
         finally:
-            self._disconnect()
-            # Regular destructor can take care of the rest
             del self
 
 
