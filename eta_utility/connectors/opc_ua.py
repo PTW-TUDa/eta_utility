@@ -522,6 +522,28 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
 
         return _nodes
 
+    def __del__(self) -> None:
+        """Destructor for the OPC UA connection.
+
+        This destructor ensures proper cleanup of an OpcUaConnection instance.
+
+        Since the sync wrapper for the OPC UA client initializes a thread loop,
+        initializing an OpcUaConnection
+        that is not used may potentially lead to frozen threads.
+
+        To prevent such issues, the destructor invokes 'close_sub()' and '_disconnect()',
+        which implicitly terminate an instance's thread loop.
+
+        """
+        try:
+            self.close_sub()
+        except BaseException:
+            pass
+        finally:
+            self._disconnect()
+            # Regular destructor can take care of the rest
+            del self
+
 
 class _OPCSubHandler:
     """Wrapper for the OPC UA subscription. Enables the subscription to use the standardized eta_utility subscription
