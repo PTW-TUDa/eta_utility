@@ -579,5 +579,5 @@ class _OPCSubHandler:
     def status_change_notification(self, status: ua.StatusChangeNotification) -> None:
         pass
 
-    def event_notification(self, event) -> None:
+    def event_notification(self, event: ua.EventNotificationList) -> None:
         pass
