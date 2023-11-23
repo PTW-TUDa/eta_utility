@@ -130,6 +130,9 @@ examples = ["matplotlib", "keyboard", "pygame", "pyglet", "onnxruntime"]
 
 
 
+[tool.poetry.group.dev.dependencies]
+pre-commit = "^3.5.0"
+
 [tool.black]
 include = "\\.pyi?$|^eta_utility/|^test/"
 exclude = "\\.xlsx?$|\\.fmu?$|test_resources/|__pycache__/|_version.py$"
