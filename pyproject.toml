@@ -39,7 +39,7 @@ dependencies = [
     "xlrd",
     "lxml",
     "requests",
-    "asyncua",
+    "asyncua @ git+ssh://git@github.com/miki5799/opcua-asyncio.git@sync-reusable-client-1364",
     "pyModbusTCP==0.2.0",
     "cryptography",
     # Lower versions of fmpy have problems with setting parameters during initialization:
