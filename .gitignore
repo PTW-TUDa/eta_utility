@@ -1,3 +1,5 @@
+/venv*/
+
 *.xls
 *.csv
 *.json

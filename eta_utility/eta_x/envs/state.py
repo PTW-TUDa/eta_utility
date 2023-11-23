@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 from attrs import asdict, converters, define, field, fields_dict, validators
-from gym import spaces
+from gymnasium import spaces
 
 from eta_utility import get_logger
 
@@ -416,7 +416,6 @@ class StateConfig:
 
         :return: Observation Space.
         """
-        # thank you gpt :-)
         observation_low: np.ndarray = np.array(
             [np.nan_to_num(var.low_value, nan=-np.inf) for var in self.vars.values() if var.is_agent_observation],
             dtype=np.float32,

@@ -1,4 +1,4 @@
-import gym
+import gymnasium
 import numpy as np
 import pyomo.environ as pyo
 
@@ -38,7 +38,11 @@ class MPCBasicEnv(BaseEnvMPC):
         **kwargs,
     ):
         self.prediction_horizon = prediction_horizon
-        self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(self.prediction_horizon,))
+
+        # Observation Space and action space are not used in this specific case.'
+        self.observation_space = gymnasium.spaces.Box(low=-np.inf, high=np.inf, shape=(self.prediction_horizon,))
+        self.action_space = gymnasium.spaces.Box(low=-100_000, high=100_000, shape=(self.prediction_horizon,))
+
         self.state = None
 
         super().__init__(

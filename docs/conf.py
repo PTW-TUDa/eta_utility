@@ -36,6 +36,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.viewcode",
     "sphinx.ext.autosummary",
+    "sphinx_copybutton",
 ]
 
 # List of patterns, relative to source directory, that match files and
@@ -61,10 +62,10 @@ autodoc_default_options = {"undoc-members": True, "member-order": "bysource"}
 intersphinx_mapping = {
     "python": ("https://docs.python.org/", None),
     "stable_baselines3": ("https://stable-baselines3.readthedocs.io/en/master/", None),
-    "numpy": ("https://numpy.org/doc/1.22/", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
     "pandas": ("https://pandas.pydata.org/docs/", None),
     "torch": ("https://pytorch.org/docs/stable/", None),
-    "gym": ("https://www.gymlibrary.dev/", None),
+    "gymnasium": ("https://gymnasium.farama.org/", None),
 }
 
 autosummary_generate = True

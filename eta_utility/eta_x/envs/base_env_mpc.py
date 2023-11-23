@@ -48,7 +48,6 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         self,
         env_id: int,
         config_run: ConfigOptRun,
-        seed: int | None = None,
         verbose: int = 2,
         callback: Callable | None = None,
         *,
@@ -63,7 +62,6 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         super().__init__(
             env_id,
             config_run,
-            seed,
             verbose,
             callback,
             scenario_time_begin=scenario_time_begin,
@@ -190,8 +188,13 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             * observations: A numpy array with new observation values as defined by the observation space.
               Observations is a np.array() (numpy array) with floating point or integer values.
             * reward: The value of the reward function. This is just one floating point value.
-            * done: Boolean value specifying whether an episode has been completed. If this is set to true,
+            * terminated: Boolean value specifying whether an episode has been completed. If this is set to true,
               the reset function will automatically be called by the agent or by eta_i.
+            * truncated: Boolean, whether the truncation condition outside the scope is satisfied.
+            * truncated: Boolean, whether the truncation condition outside the scope is satisfied.
+                Typically, this is a timelimit, but could also be used to indicate an agent physically going out of
+                bounds. Can be used to end the episode prematurely before a terminal state is reached. If true, the
+                user needs to call the `reset` function.
             * info: Provide some additional info about the state of the environment. The contents of this may
               be used for logging purposes in the future but typically do not currently serve a purpose.
         """
@@ -215,7 +218,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         self.state_log.append(self.state)
 
         reward = pyo.value(list(self._concrete_model.component_objects(pyo.Objective))[0])
-        return observations, reward, self._done(), {}
+        return observations, reward, self._done(), False, {}
 
     def update(self, observations: Sequence[Sequence[float | int]] | None = None) -> np.ndarray:
         """Update the optimization model with observations from another environment.
@@ -328,21 +331,44 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             log.error(f"Rendering partial results failed: {str(e)}")
         self.reset()
 
-    def reset(self) -> np.ndarray:
-        """Reset the model and return initial observations. This also calls the callback, increments the episode
-        counter, resets the episode steps and appends the state_log to the longtime log.
+    def reset(
+        self,
+        *,
+        seed: int | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> tuple[np.ndarray, dict[str, Any]]:
+        """Resets the environment to an initial internal state, returning an initial observation and info.
 
-        If you want to extend this function, write your own code and call super().reset() afterwards to return
-        fresh observations. This allows you to adjust timeseries for example. If you need to manipulate the state
-        before initializing or if you want to adjust the initialization itself, overwrite the function entirely.
+        This method generates a new starting state often with some randomness to ensure that the agent explores the
+        state space and learns a generalised policy about the environment. This randomness can be controlled
+        with the ``seed`` parameter otherwise if the environment already has a random number generator and
+        :meth:`reset` is called with ``seed=None``, the RNG is not reset. When using the environment in conjunction with
+        *stable_baselines3*, the vectorized environment will take care of seeding your custom environment automatically.
 
-        :return: Initial observation.
+        For Custom environments, the first line of :meth:`reset` should be ``super().reset(seed=seed)`` which implements
+        the seeding correctly.
+
+        .. note ::
+            Don't forget to store and reset the episode_timer.
+
+        :param seed: The seed that is used to initialize the environment's PRNG (`np_random`).
+                If the environment does not already have a PRNG and ``seed=None`` (the default option) is passed,
+                a seed will be chosen from some source of entropy (e.g. timestamp or /dev/urandom).
+                However, if the environment already has a PRNG and ``seed=None`` is passed, the PRNG will *not* be
+                reset. If you pass an integer, the PRNG will be reset even if it already exists. (default: None)
+        :param options: Additional information to specify how the environment is reset (optional,
+                depending on the specific environment) (default: None)
+
+        :return: Tuple of observation and info. The observation of the initial state will be an element of
+                :attr:`observation_space` (typically a numpy array) and is analogous to the observation returned by
+                :meth:`step`. Info is a dictionary containing auxiliary information complementing ``observation``. It
+                should be analogous to the ``info`` returned by :meth:`step`.
         """
         assert self.state_config is not None, "Set state_config before calling update function."
 
         if self.n_steps > 0:
             self._concrete_model = self._model()
-        self._reset_state()
+        super().reset(seed=seed, options=options)
 
         assert self._concrete_model is not None, "Mathematical model is not initialized. Call reset another time."
 
@@ -362,7 +388,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             self.state[act] = 0
         self.state_log.append(self.state)
 
-        return np.array(observations)
+        return np.array(observations), {}
 
     def close(self) -> None:
         """Close the environment. This should always be called when an entire run is finished. It should be used to

@@ -49,7 +49,7 @@ You can force resetting the git credentials in Windows:
 
 - open "Credential Manager" in system control
 - Delete information about the git server you are trying to login to
-  (in  case of eta_utility: git.rwth-aachen.de)
+  (in  case of eta_utility: "git.ptw.maschinenbau.tu-darmstadt.de <git.ptw.maschinenbau.tu-darmstadt.de>"_).
 
 .. _dymola_license_not_found:
 
@@ -135,9 +135,9 @@ code, update *eta_utility* with the following command (add extra requirements li
 
     $> pip install --upgrade --upgrade-strategy=only-if-needed eta_utility
 
-I want to start a julia experiment, but the following error occurs:
+I want to start a julia experiment, but there is an AttributeError
 -------------------------------------------------------------------
-If you receive the following error message, when you want to start a julia experiment:
+If you receive the following (or a similar) error message, when you want to start a julia experiment:
 
 .. code-block:: console
 

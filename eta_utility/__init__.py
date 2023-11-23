@@ -1,4 +1,3 @@
-from ._version import __version__, __version_tuple__
 from .util import (
     LOG_DEBUG,
     LOG_ERROR,

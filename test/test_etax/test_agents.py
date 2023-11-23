@@ -1,7 +1,8 @@
+import pathlib
 from test.resources.agents.mpc_basic_env import MPCBasicEnv
 from test.resources.agents.rule_based import RuleBasedController
 
-import gym
+import gymnasium
 import numpy as np
 import pytest
 from stable_baselines3.common.vec_env import DummyVecEnv
@@ -21,7 +22,7 @@ if julia_extensions_available():
 class TestRuleBased:
     @pytest.fixture(scope="class")
     def vec_env(self):
-        env = DummyVecEnv([lambda: gym.make("CartPole-v1")])
+        env = DummyVecEnv([lambda: gymnasium.make("CartPole-v1")])
         yield env
         env.close()
 
@@ -106,23 +107,60 @@ class TestMathSolver:
 
 @pytest.mark.skipif(not julia_extensions_available(), reason="PyJulia installation required!")
 class TestNSGA2:
-    @pytest.fixture(scope="class")
-    def julia_env(self, config_etax_resources_path, temp_dir):
-        config_run = ConfigOptRun(
+    scenario_time_begin = "2017-01-24 00:01"
+    scenario_time_end = "2017-01-24 23:59"
+    episode_duration = 1800
+    sampling_time = 1
+
+    def config_run(self, temp_dir):
+        directory = pathlib.Path(temp_dir) if not isinstance(temp_dir, pathlib.Path) else temp_dir
+
+        return ConfigOptRun(
             series="Nsga2_test_2023",
             name="test_nsga2",
             description="",
-            path_root=temp_dir / "root",
-            path_results=temp_dir / "results",
+            path_root=directory / "root",
+            path_results=directory / "results",
         )
+
+    def create_stored_agent_file(self, path, temp_dir):
+        """Execute this function directly when necessary to refresh the stored NSGA2 agent model file. This function
+        creates a new NSGA2 model and saves the result in the given path.
+
+        ..code-block: console
+
+            python -c "import tempfile; from test.test_etax.test_agents import TestNSGA2; cls = TestNSGA2();
+            cls.create_stored_agent_file('test/resources/agents/', tempfile.TemporaryDirectory().name)"
+
+        :param path: Path where the julia environment file is located. This path is also used to store the trained
+                     model file.
+        :param temp_dir: Path to store result files during training of the model.
+        """
+        directory = pathlib.Path(path) if not isinstance(path, pathlib.Path) else path
 
         env = JuliaEnv(
             env_id=1,
-            config_run=config_run,
-            scenario_time_begin="2017-01-24 00:01",
-            scenario_time_end="2017-01-24 23:59",
-            episode_duration=1800,
-            sampling_time=1,
+            config_run=self.config_run(temp_dir),
+            scenario_time_begin=self.scenario_time_begin,
+            scenario_time_end=self.scenario_time_end,
+            episode_duration=self.episode_duration,
+            sampling_time=self.sampling_time,
+            julia_env_file=directory.absolute() / "Nsga2Env.jl",
+            is_multithreaded=True,
+        )
+        agent = Nsga2(NoPolicy, NoVecEnv([lambda: env]))
+        agent.learn(10)
+        agent.save(directory.absolute() / "test_nsga2_agent.zip")
+
+    @pytest.fixture(scope="class")
+    def julia_env(self, config_etax_resources_path, temp_dir):
+        env = JuliaEnv(
+            env_id=1,
+            config_run=self.config_run(temp_dir),
+            scenario_time_begin=self.scenario_time_begin,
+            scenario_time_end=self.scenario_time_end,
+            episode_duration=self.episode_duration,
+            sampling_time=self.sampling_time,
             julia_env_file=config_etax_resources_path / "Nsga2Env.jl",
             is_multithreaded=True,
         )

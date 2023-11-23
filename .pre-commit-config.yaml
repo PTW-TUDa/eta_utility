@@ -22,16 +22,24 @@ repos:
       - id: blacken-docs
         additional_dependencies:
           - black==23.7.0
-        args: [ "--line-length", "120", "--target-version", "py37"]
+        args: [ "--line-length", "120", "--target-version", "py38"]
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.4.0
     hooks:
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
-      - id: check-yaml
-        args: ["--unsafe"]
       - id: check-added-large-files
         args: [ "--maxkb=512" ]
+      - id: trailing-whitespace
+      - id: mixed-line-ending
+        args: ["--fix=crlf"]
+      - id: end-of-file-fixer
+      - id: fix-byte-order-marker
+      - id: fix-encoding-pragma
+        args: ["--remove"]
+      - id: detect-private-key
+      - id: check-case-conflict
+      - id: check-toml
+      - id: check-yaml
+        args: ["--unsafe"]
   - repo: https://github.com/pycqa/flake8
     rev: 6.1.0
     hooks:
@@ -50,28 +58,21 @@ repos:
           - pep8-naming>=0.13,<0.14
           - flake8-rst-docstrings>=0.3,<0.4
         args: [ "--toml-config", "pyproject.toml", "--show-source"]
-  # Removed for this version because pre-commit cannot install gym and
-  # stable_baselines3 correctly
-  # - repo: https://github.com/pre-commit/mirrors-mypy
-  #   rev: 'v1.5.1'.*
-  #   hooks:
-  #     - id: mypy
-  #       args: [ "--config-file", "pyproject.toml"]
-  #       exclude: |
-  #         (?x)^(setup.py|
-  #               test/.+|
-  #               _version.py|
-  #         )$
-  #       additional_dependencies:
-  #         - tokenize-rt==3.2.0
-  #         - types-python-dateutil
-  #         - types-requests
-  #         - attrs
-  #         - gym==0.21
-  #         - stable_baselines3==1.7
-  #         - pygame
-  #         - importlib_metadata
-  #         - cryptography
-  #         - keyboard
-  #         - onnxruntime
-  #         - matplotlib
+#  - repo: https://github.com/pre-commit/mirrors-mypy
+#    rev: 'v1.5.1'
+#    hooks:
+#      - id: mypy
+#        args: [ "--config-file", "pyproject.toml"]
+#        additional_dependencies:
+#          - tokenize-rt==3.2.0
+#          - types-python-dateutil
+#          - types-requests
+#          - attrs
+#          - gymnasium
+#          - stable_baselines3>=2.1
+#          - pygame
+#          - importlib_metadata
+#         - cryptography
+#          - keyboard
+#          - onnxruntime
+#          - matplotlib

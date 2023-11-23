@@ -11,7 +11,7 @@ from stable_baselines3.common.vec_env.util import obs_space_info
 if TYPE_CHECKING:
     from typing import Callable
 
-    import gym
+    import gymnasium
     from stable_baselines3.common.vec_env.base_vec_env import (
         VecEnvIndices,
         VecEnvObs,
@@ -42,7 +42,7 @@ class NoVecEnv(DummyVecEnv):
     See also: :py:class:`stable_baselines3.common.vec_env.DummyVecEnv`
 
     :param env_fns: A list of functions that will create the environments
-        (each callable returns a `Gym.Env` instance when called).
+        (each callable returns a `gymnasium.Env` instance when called).
     """
 
     def __init__(self, env_fns: list[Callable]) -> None:
@@ -60,8 +60,7 @@ class NoVecEnv(DummyVecEnv):
         self.buf_rews = np.zeros((self.num_envs,), dtype=np.float32)
         self.buf_infos = [{} for _ in range(self.num_envs)]
 
-        # Fix typing error in base class (should be "ndarray" and None, not just None)
-        self.actions: np.ndarray | None  # type: ignore
+        self.actions: np.ndarray
 
         # Check if the environment itself is multithreaded and raise an error if it is noz
         if not (hasattr(self.envs[0], "is_multithreaded") and self.envs[0].is_multithreaded is True):
@@ -78,11 +77,15 @@ class NoVecEnv(DummyVecEnv):
         assert self.actions is not None, "Stepping the environment is only possible when actions are set."
 
         # Re-initialize the observation buffers (necessary because the number of action sets is not known beforehand).
-        obs, self.buf_rews, self.buf_dones, self.buf_infos = self.envs[0].step(self.actions)
+        obs, self.buf_rews, _terminated, _truncated, self.buf_infos = self.envs[0].step(self.actions)  # type: ignore
+
         for idx in range(self.num_envs):
+            self.buf_dones[idx] = _terminated[idx] or _truncated[idx]  # type: ignore
+            self.buf_infos[idx]["TimeLimit.truncated"] = _truncated[idx] and not _terminated[idx]  # type: ignore
+
             if self.buf_dones[idx]:
                 self.buf_infos[idx]["terminal_observation"] = obs[idx]
-                obs[idx] = self.envs[0].reset()
+                obs[idx], _ = self.envs[0].reset()
             self._save_obs(idx, obs[idx])
 
         return self._obs_from_buf(), np.copy(self.buf_rews), np.copy(self.buf_dones), deepcopy(self.buf_infos)
@@ -93,11 +96,11 @@ class NoVecEnv(DummyVecEnv):
         :return: Observations from all sub environments.
         """
         for env_idx in range(self.num_envs):
-            obs = self.envs[0].reset()
+            obs, _ = self.envs[0].reset()
             self._save_obs(env_idx, obs)
         return self._obs_from_buf()
 
-    def _get_target_envs(self, indices: VecEnvIndices) -> list[gym.Env]:
+    def _get_target_envs(self, indices: VecEnvIndices) -> list[gymnasium.Env]:
         """Return the 0 target environment (because there can only ever be one...)
 
         :param indices: Indices of the environments. Values don't not really matter here, only length is important.

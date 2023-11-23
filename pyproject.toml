@@ -1,21 +1,23 @@
 [build-system]
-# higher versions of setuptools are incompatible with gym==0.21, required by stable_baselines3
-requires = ["setuptools==65.5", "wheel==0.40.0", "setuptools_scm[toml]>=6.2"]
-build-backend = "setuptools.build_meta"
+requires = ["poetry-core>=1.2.0"]
+build-backend = "poetry.core.masonry.api"
 
-[project]
-name = "eta_utility"
-authors = [
-    {"name" = "Technical University of Darmstadt, Institute for Production Management, Technology and Machine Tools (PTW).", "email" = "info@ptw.tu-darmstadt.de"}
-]
+[tool.poetry]
+name = "eta-utility"
+version = "v2.2.4b2"
 description = "A framework for researching energy optimization of factory operations"
+authors = [
+    "Technical University of Darmstadt, Institute for Production Management, Technology and Machine Tools (PTW). <info@ptw.tu-darmstadt.de>"
+]
+readme = ["README.rst", "LICENSE"]
+license = "BSD-2-Clause"
+
 keywords = [
     "connectors","servers","simulators","industrial energy optimization","rolling horizon optimization"
 ]
-license = {file = "LICENSE"}
-# We're using some functionality from python 3.7 (therefore this is the minimum)
-# and pytorch does not support Versions >3.10 (therefore this is the maximum).
-requires-python = ">=3.8, <3.11"
+include = [
+    {path = "*", format="sdist"}, # include all package data (for sdist)
+]
 classifiers = [
     "License :: OSI Approved :: BSD License",
     "Development Status :: 4 - Beta",
@@ -30,124 +32,109 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10"
 ]
-dynamic = ["version", "readme"]
-dependencies = [
-    "attrs",
-    "python-dateutil",
-    "numpy",
-    "pandas",
-    "xlrd",
-    "lxml",
-    "requests",
-    "asyncua @ git+https://github.com/miki5799/opcua-asyncio.git@sync-reusable-client-1364",
-    "pyModbusTCP==0.2.0",
-    "cryptography",
-    # Lower versions of fmpy have problems with setting parameters during initialization:
-    "fmpy>=0.3.5",
-]
 
-[tool.setuptools.dynamic]
-version = {attr = "eta_utility._version.__version__"}
-readme = {file = ["README.rst", "LICENSE"]}
+homepage = "https://www.ptw.tu-darmstadt.de"
+documentation = "https://eta-utility.readthedocs.io/"
+repository = "https://github.com/PTW-TUDa/eta_utility/"
 
-[project.urls]
-Homepage = "https://www.ptw.tu-darmstadt.de"
-Documentation = "https://eta-utility.readthedocs.io/"
-Source = "https://github.com/PTW-TUDa/eta_utility/"
-Issues = "https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility/-/issues"
+[tool.poetry.urls]
+"Issues" = "https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility/-/issues"
 
-[tool.setuptools.packages.find]
-include = ["eta_utility*"]
-exclude = [
-    "test*",
-    "docs*",
-    "examples*"
-]
-
-[tool.setuptools]
-include-package-data = true
-
-[tool.setuptools.package-data]
-eta_utility = ["eta_utility/py.typed", "*.jl", "EtaUtility*"]
-
-[tool.setuptools.exclude-package-data]
-eta_utility = ["test", "docs", "examples"]
-
-[project.scripts]
+[tool.poetry.scripts]
     install-julia = "eta_utility:install_julia"
 
-[project.optional-dependencies]
-"ETA_X" = [
-    "gym==0.21", # Fixed to 0.21 because of stable_baselines
-    "torch",
-    "stable_baselines3>=1.8,<1.9",
-    "tensorboard",
-    # The MPCBasic agent currently does not support pyomo version 6:
-    "pyomo>=6"
-]
-"EXAMPLES" = [
-    # Requirements for the examples
-    "matplotlib",
-    "keyboard",
-    "pygame",
-    "pyglet<2",
-    "onnxruntime"
-]
-"DEVELOP" = [
-    # Repeat requirements from ETA_X
-    "gym==0.21",
-    "torch",
-    "stable_baselines3>=1.8,<1.9", # Many breaking changes in 1.7 and switched gym to gymnasium in 2.0
-    "tensorboard",
-    "pyomo>=6",
-    # Repeat requirements for the examples
-    "matplotlib",
-    "keyboard",
-    "pygame",
-    "pyglet",
-    "onnxruntime",
-    # Specific requirements for tests
-    "pytest",
-    "pytest-cov",
-    "openpyxl",
-    # Specific requirements for development
-    "sphinx",
-    "sphinx_rtd_theme",
-    "pre-commit",
-    "black>=23.7,<23.8",
-    "blacken-docs>=1.16,<1.17",
-    "isort>=5.12,<5.13",
-    "pyupgrade>=3.10,<3.11",
-    # MyPy requirements and typing packages
-    "mypy>=1.5,<1.6",
-    "types-python-dateutil",
-    "types-requests",
-    # Linting / Flake8 requirements and linting packages
-    "flake8>=6.1,<6.2",
-    "flake8-pyproject>=1.2,<1.3",
-    "pyflakes>=3.1,<3.2",
-    "pycodestyle>=2.11,<2.12",
-    "flake8-builtins>=2.1,<2.2",
-    "flake8-eradicate>=1.5,<1.6",
-    "flake8-comprehensions>=3.14,<3.15",
-    "flake8-mutable>=1.2,<1.3",
-    "flake8-print>=5.0,<5.1",
-    "flake8-pytest-style>=1.7,<1.8",
-    "flake8-requirements>=1.7,<1.8",
-    "pep8-naming>=0.13,<0.14",
-    "flake8-rst-docstrings>=0.3,<0.4"
-    # Could be inserted as a future requirement
-    # flake8-simplify
-]
+#  '^' limits to the next major version, '~' limits to the next minor version
+# e.g. ^3.8.0: 3.8.0 <= x < 4.0.0 and ~3.8.0: 3.8.0 <= x < 3.9.0
+[tool.poetry.dependencies]
+# default dependencies of eta_utility
+python = "^3.8.0"
+attrs = "^23.1.0"
+python-dateutil = "^2.8.2"
+numpy = {version= "~1.24.0"}
+pandas = {version= "~2.0.3"}
+xlrd = "^2.0.1"
+opcua = "~0.98.13"
+lxml = "^4.9.3"
+requests = "^2.31.0"
+pymodbustcp = "==0.2.0"
+cryptography = "^41.0.4"
+fmpy = "^0.3.5"
 
-[tool.setuptools_scm]
-write_to = "eta_utility/_version.py"
+# Specific requirements for eta_x
+gym = {version = "0.26.2", optional=true}
+gymnasium =  {version = "==0.29.1", optional=true} # no SemVer
+torch = {version = "==2.0.0", python="^3.8", optional=true} # nvidia packages are not included in 2.0.1, see https://github.com/pytorch/pytorch/issues/100974
+stable-baselines3 = {version = "==2.1", optional=true} # no SemVer
+tensorboard = {version = "~2.14.0", python= "^3.8", optional=true}
+pyomo = {version = "~6.6.2", optional=true}
+Shimmy = "1.1.0"
+
+# Specific requirements for the examples
+matplotlib = {version= "~3.7.0", python= "^3.8", optional = true}
+keyboard = {version="^0.13.5", optional=true}
+pygame = {version="^2.5.2", optional=true}
+pyglet = {version="<2", optional=true}
+onnxruntime = {version="^1.16.0", optional=true}
+
+# Specific requirements for tests
+pytest = {version = "^7.4.2", optional = true}
+pytest-cov = {version = "^4.1.0", optional = true}
+openpyxl = {version = "^3.1.2", optional = true}
+# Specific requirements for development
+sphinx = {version ="^7.1.2", python = "^3.8", optional = true}
+sphinx-rtd-theme = {version = "^1.3.0", optional = true}
+sphinx-copybutton = {version = "^0.5.2", optional = true}
+pre-commit = {version = "^3.4.0", python="^3.8", optional = true}
+black = {version = "~23.7", python="^3.8", optional = true}
+blacken_docs = {version = "~1.16", python="^3.8", optional = true}
+isort = {version = "~5.12", python="^3.8", optional = true}
+pyupgrade = {version ="~3.10", python = "^3.8.2", optional = true}
+# MyPy requirements and typing packages
+mypy = {version = "~1.5", python="^3.8", optional = true}
+types-python-dateutil = {version = "^2.8.19.14", optional = true}
+types-requests = {version = "^2.31.0.4", optional = true}
+# Linting / Flake8 requirements and linting packages
+flake8 = [
+            {version ="^6.0.0", python = "^3.8.1", optional = true},
+            {version =">=5.0.0, <6.0.0", python = ">=3.8.0, <3.8.1", optional = true}
+        ]
+pyflakes = [
+            {version = ">=3.1,<3.2", python="^3.8.1", optional = true},
+            {version = ">=2.5,<3.1", python=">=3.8.0, <3.8.1", optional = true}
+            ]
+pycodestyle= [
+                {version = ">=2.11.0,<2.12.0", python="^3.8.1", optional = true},
+                {version = ">=2.9.0, <2.10.0", python=">=3.8.0, <3.8.1", optional = true}
+            ]
+flake8-pyproject= {version = "~1.2", python="^3.8", optional = true}
+flake8-builtins = {version = "~2.1", python="^3.8", optional = true}
+flake8-eradicate = {version = "~1.5", python="^3.8", optional = true}
+flake8-comprehensions= {version = "~3.14", python = "^3.8.1", optional = true}
+flake8-mutable={version = "~1.2", python="^3.8.1", optional = true}
+flake8-print={version = "^5.0", python="^3.8.1", optional = true}
+flake8-pytest-style= {version= "~1.7", python="^3.8.1", optional = true}
+flake8-requirements={version = "~1.7", python="^3.8.1", optional = true}
+flake8-rst-docstrings = {version = "^0.3.0", python="^3.8.1", optional = true}
+pep8-naming={version = "~0.13", python="^3.8.0", optional = true}
+
+[tool.poetry.extras]
+develop = ["gymnasium", "gym", "torch", "stable_baselines3", "tensorboard", "pyomo", "Shimmy",     # include eta_x
+            "matplotlib", "keyboard", "pygame", "pyglet", "onnxruntime",    # include examples
+            "pytest", "pytest-cov", "openpyxl", "sphinx", "sphinx-rtd-theme", "sphinx-copybutton", "pre-commit",
+            "black", "blacken_docs", "isort", "pyupgrade", "mypy", "types-python-dateutil",
+            "types-requests", "flake8", "pyflakes", "pycodestyle", "flake8-pyproject", "flake8-builtins",
+            "flake8-eradicate", "flake8-comprehensions", "flake8-mutable", "flake8-print",
+            "flake8-pytest-style", "flake8-requirements", "pep8-naming", "flake8-rst-docstrings"]
+eta_x = ["gymnasium", "gym","torch", "stable_baselines3", "tensorboard", "pyomo", "Shimmy"]
+examples = ["matplotlib", "keyboard", "pygame", "pyglet", "onnxruntime"]
+
+
 
 [tool.black]
 include = "\\.pyi?$|^eta_utility/|^test/"
 exclude = "\\.xlsx?$|\\.fmu?$|test_resources/|__pycache__/|_version.py$"
 line_length = 120
-target_version = ["py38","py39"]
+target_version = ["py38","py39","py310"]
 
 [tool.isort]
 profile = "black"
@@ -162,7 +149,8 @@ extend_exclude = [
     ".*/",
     "venv*/",
     ".venv*/",
-    "*.mypy*/"
+    "*.mypy*/",
+    "poetry.lock"
 ]
 max_line_length = 120
 max_complexity = 20
@@ -191,6 +179,8 @@ warn_unreachable = true
 show_column_numbers = true
 
 exclude = [
+    "docs/conf.py",
+    "setup.py",
     "^test/",
     "_version.py$"
 ]
@@ -199,8 +189,8 @@ exclude = [
 module = [
     "fmpy.*",
     "pandas.*",
-    "gym.*",
-    "asyncua.*",
+    "gymnasium.*",
+    "opcua.*",
     "pyModbusTCP.*",
     "pyomo.*",
     "lxml.*",
@@ -221,6 +211,7 @@ testpaths = [
     "test",
 ]
 
+# Configuration for pytest-cov
 [tool.coverage.run]
 source = [
     "eta_utility"

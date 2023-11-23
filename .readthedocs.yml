@@ -27,9 +27,8 @@ build:
       - ln -s ${PWD}/julia-1.9.2/bin/julia ${READTHEDOCS_VIRTUALENV_PATH}/bin/julia
       - julia --version
     pre_install:
-      # Install old version of setuptools and pip to ensure compatibility with gym==0.21
-      - python -m pip install setuptools==65.5 pip==21
-      - pip install gym==0.21 stable_baselines3==1.7
+      # Update pip
+      - python -m pip install --upgrade pip
     post_install:
       # Install pyjulia and make sure PyCall is available
       - pip install julia

@@ -357,7 +357,6 @@ def _env_defaults(instance: ConfigOptSettings, attrib: Attribute, new_value: dic
     """Set default values for the environment settings."""
     _new_value = {} if new_value is None else new_value
 
-    _new_value.setdefault("seed", instance.seed)
     _new_value.setdefault("verbose", instance.verbose)
     _new_value.setdefault("sampling_time", instance.sampling_time)
     _new_value.setdefault("episode_duration", instance.episode_duration)
