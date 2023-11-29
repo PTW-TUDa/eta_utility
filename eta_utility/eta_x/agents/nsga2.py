@@ -614,7 +614,7 @@ class Nsga2(BaseAlgorithm):
         Set the seed of the pseudo-random generators
         (python, numpy, pytorch, gymnasium, julia)
 
-        :param seed: Seet for the
+        :param seed: Seed for the pseudo random generators.
         """
         if seed is None:
             return

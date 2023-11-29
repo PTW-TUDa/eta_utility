@@ -40,7 +40,7 @@ default:
     - python
     - docker
   interruptible: true
-  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/pyjulia:py3.9-jl1.9-gym
+  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/pyjulia:py3.9-jl1.9
   before_script:
     - apt-get update
     - python --version

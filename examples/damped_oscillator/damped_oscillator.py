@@ -6,7 +6,6 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib import cm
 
 from eta_utility.eta_x.common import episode_results_path
 from eta_utility.eta_x.envs import BaseEnvSim, StateConfig, StateVar
@@ -26,8 +25,6 @@ class DampedOscillatorEnv(BaseEnvSim):
 
     :param env_id: Identification for the environment, useful when creating multiple environments
     :param config_run: Configuration of the optimization run
-    :param seed: Random seed to use for generating random numbers in this environment
-        (default: None / create random seed)
     :param verbose: Verbosity to use for logging (default: 2)
     :param callback: callback which should be called after each episode
     :param scenario_time_begin: Beginning time of the scenario
@@ -150,11 +147,11 @@ class DampedOscillatorEnv(BaseEnvSim):
         mpl.rcParams["font.size"] = "9"
         linestyles = [":", "--", "-"]
 
-        def greys(x: int) -> tuple[int]:
-            return cm.Greys(int(255 - ((255 - 100) / 3) * x))
+        def greys(x: int) -> tuple[float, ...]:
+            return tuple([(x / 4) for _ in range(3)]) + (1,)
 
         fig, ax = plt.subplots(1, 1, figsize=(7, 3.5))
-        fig.set_tight_layout(True)
+        fig.set_layout_engine("tight")
 
         data = pd.DataFrame(data=self.state_log, index=list(range(len(self.state_log))), dtype=np.float32)
         x = data.index

@@ -148,7 +148,16 @@ class TestNSGA2:
             julia_env_file=directory.absolute() / "Nsga2Env.jl",
             is_multithreaded=True,
         )
-        agent = Nsga2(NoPolicy, NoVecEnv([lambda: env]))
+        agent = Nsga2(
+            policy=NoPolicy,
+            env=NoVecEnv([lambda: env]),
+            population=1000,
+            crossovers=0.3,
+            n_generations=2,
+            max_retries=1000000,
+            predict_learn_steps=10,
+            seed=2139846,
+        )
         agent.learn(10)
         agent.save(directory.absolute() / "test_nsga2_agent.zip")
 

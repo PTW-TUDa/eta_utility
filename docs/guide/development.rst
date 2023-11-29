@@ -170,6 +170,7 @@ To list all available python versions on Windows, run:
 For more information, see the `Poetry documentation <https://python-poetry.org/docs/managing-environments>`_.
 
 
+.. _testing_your_code:
 
 Testing your code
 -------------------------------
@@ -186,6 +187,14 @@ Or if you have the virtual environment already activated:
 
     $> pytest
 
+Please always refresh the *test_nsga2_agent.zip* file when changes are made in the nsga2 agent and in julia files. The zip-file is located
+in *eta-utility/test/resources/agents* and creates a new NSGA2 model for the tests. To do this, execute the following
+comand in the terminal:
+
+.. code-block:: console
+
+    $> python -c "import tempfile; from test.test_etax.test_agents import TestNSGA2; cls = TestNSGA2(); cls.create_stored_agent_file('test/resources/agents/', tempfile.TemporaryDirectory().name)"
+
 Editing this documentation
 -----------------------------
 
@@ -196,8 +205,7 @@ extension, sphinx should already be installed.
 You can edit the *.rst-files* in the *docs* folder. A simple text editor is sufficient for this.
 A helpful start for learning the syntax can be found `here <https://sublime-and-sphinx-guide.readthedocs.io/en/latest/index.html>`_.
 
-For test purposes, the following command can be executed in the directory of the documentation (on Windows you might need
-to add '.\\' before 'make'):
+For test purposes, navigate to the *docs* folder and execute the following command:
 
 .. code-block:: console
 

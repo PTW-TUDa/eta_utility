@@ -25,8 +25,6 @@ class BaseEnvLive(BaseEnv, abc.ABC):
 
     :param env_id: Identification for the environment, useful when creating multiple environments.
     :param config_run: Configuration of the optimization run.
-    :param seed: Random seed to use for generating random numbers in this environment.
-        (default: None / create random seed).
     :param verbose: Verbosity to use for logging.
     :param callback: callback which should be called after each episode.
     :param scenario_time_begin: Beginning time of the scenario.
