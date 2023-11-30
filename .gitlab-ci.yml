@@ -34,6 +34,8 @@ include:
   - template: Security/Secret-Detection.gitlab-ci.yml
   - template: Security/License-Scanning.gitlab-ci.yml
 
+variables:
+    ASDF_PYTHON_VERSION: '3.10'
 
 default:
   tags:
@@ -114,31 +116,44 @@ test3.8:
   stage: test
   image: $CI_REGISTRY/eta-fabrik/public/eta-utility/python:py3.8
   script:
-    - pip install pytest pytest-cov
-    - pytest --cov
+    - pytest --cov --junitxml=./junit.xml
   retry:
     max: 1
     when: script_failure
+  artifacts:
+    paths:
+      - junit.xml
+    reports:
+      junit: junit.xml
+
 
 test3.9:
   stage: test
   image: $CI_REGISTRY/eta-fabrik/public/eta-utility/python:py3.9
   script:
-    - pip install pytest pytest-cov
-    - pytest --cov
+    - pytest --cov --junitxml=./junit.xml
   retry:
     max: 1
     when: script_failure
+  artifacts:
+    paths:
+      - junit.xml
+    reports:
+      junit: junit.xml
 
 test3.10:
   stage: test
   image: $CI_REGISTRY/eta-fabrik/public/eta-utility/python:py3.10
   script:
-    - pip install pytest pytest-cov
-    - pytest --cov
+    - pytest --cov --junitxml=./junit.xml
   retry:
     max: 1
     when: script_failure
+  artifacts:
+    paths:
+      - junit.xml
+    reports:
+      junit: junit.xml
 
 test3.10_updated_deps:
   stage: test
@@ -146,11 +161,16 @@ test3.10_updated_deps:
   script:
     - pip install --upgrade .[develop] --upgrade-strategy=only-if-needed
     - pip install pytest pytest-cov
-    - pytest --cov
+    - pytest --cov --junitxml=./junit.xml
   allow_failure: true
   retry:
     max: 1
     when: script_failure
+  artifacts:
+    paths:
+      - junit.xml
+    reports:
+      junit: junit.xml
 
 test-julia:
   stage: test
