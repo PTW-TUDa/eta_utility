@@ -71,7 +71,7 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
         if self._url.scheme != "opc.tcp":
             raise ValueError("Given URL is not a valid OPC url (scheme: opc.tcp).")
 
-        self.connection: Client = Client(self.url)
+        self.connection: Client
         self._connected = False
         self._retry = RetryWaiter()
         self._retry_interval_checker = RetryWaiter()
@@ -422,6 +422,9 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
     def _connect(self) -> None:
         """Connect to server. This will try to securely connect using Basic256SHA256 method
         before trying an insecure connection."""
+        if not hasattr(self, "connection"):
+            # Do not reninitialize connection if it already exists
+            self.connection = Client(self.url)
         self._connected = False
         if self.usr is not None:
             self.connection.set_user(self.usr)
@@ -521,28 +524,6 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
                 _nodes.add(node)
 
         return _nodes
-
-    def __del__(self) -> None:
-        """Destructor for the OPC UA connection.
-
-        This destructor ensures proper cleanup of an OpcUaConnection instance.
-
-        Since the sync wrapper for the OPC UA client initializes a thread loop,
-        initializing an OpcUaConnection
-        that is not used may potentially lead to frozen threads.
-
-        To prevent such issues, the destructor stops the thread loop manually,
-        if it is still running, on deletion of the instance.
-
-        NOTE: This is a workaround for the current asyncua implementation and may be replaced
-        by not supporting connection initialization outside of a context manager in the future.
-
-        """
-        try:
-            if self.connection.tloop.is_alive():
-                self.connection.tloop.stop()
-        finally:
-            del self
 
 
 class _OPCSubHandler:
