@@ -205,7 +205,7 @@ class OpcUaServer:
 
         :param allow: Set to true to enable remote administration of the server.
         """
-        self._server.allow_remote_admin(allow)
+        self._server.aio_obj.allow_remote_admin(allow)
 
     def _validate_nodes(self, nodes: Nodes | None) -> set[NodeOpcUa]:
         """Make sure that nodes are a Set of nodes and that all nodes correspond to the protocol and url
