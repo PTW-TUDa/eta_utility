@@ -9,7 +9,7 @@ description = "A framework for researching energy optimization of factory operat
 authors = [
     "Technical University of Darmstadt, Institute for Production Management, Technology and Machine Tools (PTW). <info@ptw.tu-darmstadt.de>"
 ]
-readme = ["README.rst", "LICENSE"]
+readme = "README.rst"
 license = "BSD-2-Clause"
 
 keywords = [
@@ -178,9 +178,7 @@ show_column_numbers = true
 
 exclude = [
     "docs/conf.py",
-    "setup.py",
     "^test/",
-    "_version.py$"
 ]
 
 [[tool.mypy.overrides]]

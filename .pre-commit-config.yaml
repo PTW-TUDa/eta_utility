@@ -58,21 +58,28 @@ repos:
           - pep8-naming>=0.13,<0.14
           - flake8-rst-docstrings>=0.3,<0.4
         args: [ "--toml-config", "pyproject.toml", "--show-source"]
-#  - repo: https://github.com/pre-commit/mirrors-mypy
-#    rev: 'v1.5.1'
-#    hooks:
-#      - id: mypy
-#        args: [ "--config-file", "pyproject.toml"]
-#        additional_dependencies:
-#          - tokenize-rt==3.2.0
-#          - types-python-dateutil
-#          - types-requests
-#          - attrs
-#          - gymnasium
-#          - stable_baselines3>=2.1
-#          - pygame
-#          - importlib_metadata
-#         - cryptography
-#          - keyboard
-#          - onnxruntime
-#          - matplotlib
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.5.1
+    hooks:
+      - id: mypy
+        args: [--config=pyproject.toml]
+        exclude: ^(docs/conf.py|test/) # copy from pyproject.toml
+        additional_dependencies:
+         - tokenize-rt==3.2.0
+         - types-python-dateutil
+         - types-requests
+         - attrs
+         - gymnasium
+         - stable_baselines3>=2.1
+         - pygame
+         - importlib_metadata
+         - cryptography
+         - keyboard
+         - onnxruntime
+         - matplotlib
+  -   repo: https://github.com/python-poetry/poetry
+      rev: 1.6.1
+      hooks:
+      -   id: poetry-check
+      -   id: poetry-lock
+          args: [--no-update]
