@@ -98,6 +98,12 @@ check-julia:
       - eta_utility/ju_extensions/*
       - test/resources/*
 
+check-poetry:
+  stage: check
+  script:
+    - poetry --version
+    - poetry check
+
 license_scanning:
   stage: check
   before_script: []

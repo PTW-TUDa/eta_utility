@@ -9,7 +9,7 @@ description = "A framework for researching energy optimization of factory operat
 authors = [
     "Technical University of Darmstadt, Institute for Production Management, Technology and Machine Tools (PTW). <info@ptw.tu-darmstadt.de>"
 ]
-readme = ["README.rst"]
+readme = "README.rst"
 license = "BSD-2-Clause"
 
 keywords = [
@@ -55,6 +55,7 @@ numpy = {version= "~1.24.0"}
 pandas = {version= "~2.0.3"}
 xlrd = "^2.0.1"
 opcua = "~0.98.13" # Deprecated soon
+asyncua = {git = "https://github.com/miki5799/opcua-asyncio.git", rev = "sync-reusable-client-1364"}
 lxml = "^4.9.3"
 requests = "^2.31.0"
 pymodbustcp = "==0.2.0"
@@ -62,13 +63,11 @@ cryptography = "^41.0.4"
 fmpy = "^0.3.5"
 
 # Specific requirements for eta_x
-gym = {version = "0.26.2", optional=true}
 gymnasium =  {version = "==0.29.1", optional=true} # no SemVer
 torch = {version = "==2.0.0", python="^3.8", optional=true} # nvidia packages are not included in 2.0.1, see https://github.com/pytorch/pytorch/issues/100974
 stable-baselines3 = {version = "==2.1", optional=true} # no SemVer
 tensorboard = {version = "~2.14.0", python= "^3.8", optional=true}
 pyomo = {version = "~6.6.2", optional=true}
-Shimmy = "1.1.0"
 
 # Specific requirements for the examples
 matplotlib = {version= "~3.7.0", python= "^3.8", optional = true}
@@ -117,23 +116,19 @@ flake8-pytest-style= {version= "~1.7", python="^3.8.1", optional = true}
 flake8-requirements={version = "~1.7", python="^3.8.1", optional = true}
 flake8-rst-docstrings = {version = "^0.3.0", python="^3.8.1", optional = true}
 pep8-naming={version = "~0.13", python="^3.8.0", optional = true}
-asyncua = {git = "https://github.com/miki5799/opcua-asyncio.git", rev = "sync-reusable-client-1364"}
 
 [tool.poetry.extras]
-develop = ["gymnasium", "gym", "torch", "stable_baselines3", "tensorboard", "pyomo", "Shimmy",     # include eta_x
+develop = ["gymnasium", "torch", "stable_baselines3", "tensorboard", "pyomo",     # include eta_x
             "matplotlib", "keyboard", "pygame", "pyglet", "onnxruntime",    # include examples
             "pytest", "pytest-cov", "openpyxl", "sphinx", "sphinx-rtd-theme", "sphinx-copybutton", "pre-commit",
             "black", "blacken_docs", "isort", "pyupgrade", "mypy", "types-python-dateutil",
             "types-requests", "flake8", "pyflakes", "pycodestyle", "flake8-pyproject", "flake8-builtins",
             "flake8-eradicate", "flake8-comprehensions", "flake8-mutable", "flake8-print",
             "flake8-pytest-style", "flake8-requirements", "pep8-naming", "flake8-rst-docstrings"]
-eta_x = ["gymnasium", "gym","torch", "stable_baselines3", "tensorboard", "pyomo", "Shimmy"]
+eta_x = ["gymnasium", "torch", "stable_baselines3", "tensorboard", "pyomo"]
 examples = ["matplotlib", "keyboard", "pygame", "pyglet", "onnxruntime"]
 
 
-
-[tool.poetry.group.dev.dependencies]
-pre-commit = "^3.5.0"
 
 [tool.black]
 include = "\\.pyi?$|^eta_utility/|^test/"
@@ -193,7 +188,7 @@ module = [
     "fmpy.*",
     "pandas.*",
     "gymnasium.*",
-    "asyncua.*",
+    "opcua.*",
     "pyModbusTCP.*",
     "pyomo.*",
     "lxml.*",
@@ -211,10 +206,7 @@ module = "test.*"
 ignore_errors = true
 
 [tool.pytest.ini_options]
-addopts = [
-    "--cov-config=pyproject.toml",
-    "--color=yes"
-]
+addopts = "--cov-config=pyproject.toml"
 log_cli = true
 testpaths = [
     "test",
