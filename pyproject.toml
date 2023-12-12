@@ -198,7 +198,8 @@ module = [
     "keyboard.*",
     "onnxruntime.*",
     "matplotlib.*",
-    "torch.ao.nn.*"
+    "torch.ao.nn.*",
+    "asyncua.*"
 ]
 ignore_missing_imports = true
 [[tool.mypy.overrides]]
