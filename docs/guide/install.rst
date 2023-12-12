@@ -14,7 +14,7 @@ The installation is performed using pip:
 
 .. code-block:: console
 
-   $> pip install eta_utility
+   $ pip install eta_utility
 
 There are multiple classes of optional requirements. If you would like to use some of the optional components, please install one or more of the following:
 
@@ -26,7 +26,7 @@ The optional requirements can be installed using pip. For example:
 
 .. code-block:: console
 
-   $> pip install eta_utility[eta_x]
+   $ pip install eta_utility[eta_x]
 
 .. _install_julia:
 
@@ -50,7 +50,7 @@ and inside the eta-utility directory execute the following command:
 
 .. code-block::
 
-    $> install-julia
+    $ install-julia
 
 Make sure to install julia using the same python virtual environment that you are using to execute your code.
 

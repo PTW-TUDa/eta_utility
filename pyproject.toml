@@ -42,6 +42,7 @@ repository = "https://github.com/PTW-TUDa/eta_utility/"
 
 [tool.poetry.scripts]
     install-julia = "eta_utility:install_julia"
+    update-julia-agent = "eta_utility:update_agent"
 
 #  '^' limits to the next major version, '~' limits to the next minor version
 # e.g. ^3.8.0: 3.8.0 <= x < 4.0.0 and ~3.8.0: 3.8.0 <= x < 3.9.0
@@ -199,6 +200,9 @@ module = [
     "torch.ao.nn.*"
 ]
 ignore_missing_imports = true
+[[tool.mypy.overrides]]
+module = "test.*"
+ignore_errors = true
 
 [tool.pytest.ini_options]
 addopts = "--cov-config=pyproject.toml"
