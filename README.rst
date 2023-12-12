@@ -7,7 +7,7 @@ comprehensive frameworks which combine functionality for optimization, simulatio
 devices in the factory.
 
 Therefore, we developed the *eta_utility* framework, which provides a standardized interface for the development
-of digital twins of factories or machines in a factory. The framework is based on the OpenAI gym environment
+of digital twins of factories or machines in a factory. The framework is based on the Gymnasium environment
 and follows a rolling horizon optimization approach. It provides standardized connectors for multiple
 communication protocols, including OPC UA and Modbus TCP. These facilities can be utilized to easily implement
 rolling horizon optimizations for factory systems and to directly control devices in the factory with the
@@ -27,7 +27,7 @@ check our `working repository <https://git.ptw.maschinenbau.tu-darmstadt.de/eta-
 The package *eta_utility* consists of five main modules and some additional functionality:
 
 - *eta_x* is the rolling horizon optimization module which combines the functionality of the
-  other modules. It is based on the OpenAI *gym* framework, which is now Farama *gymnasium* and utilizes
+  other modules. It is based on the *gymnasium* framework and utilizes
   algorithms and functions from the *stable_baselines3* package. *eta_x* also contains extended base classes for
   environments and additional agents (or algorithms).
 - The *connectors* module provides a standardized way to connect to machines and devices in a
@@ -65,7 +65,7 @@ Please cite this project using our publication:
 
 .. code-block::
 
-    Grosch, B., Ranzau, H., Dietrich, B., Kohne, T., Fuhrländer-Völker D., Sossenheimer, J., Lindner, M., Weigold, M.
+    Grosch, B., Ranzau, H., Dietrich, B., Kohne, T., Fuhrländer-Völker, D., Sossenheimer, J., Lindner, M., Weigold, M.
     A framework for researching energy optimization of factory operations.
     Energy Inform 5 (Suppl 1), 29 (2022). https://doi.org/10.1186/s42162-022-00207-6
 

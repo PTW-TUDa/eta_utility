@@ -94,6 +94,15 @@ def importstr_to_path(importstr: str, _stack: int = 1) -> pathlib.Path:
     return file
 
 
+def update_agent() -> None:
+    """Upadtes the NSGA2 agent model file"""
+    import tempfile
+    from test.test_etax.test_agents import TestNSGA2
+
+    cls = TestNSGA2()
+    cls.create_stored_agent_file("test/resources/agents/", tempfile.TemporaryDirectory().name)
+
+
 def install_julia() -> None:
     """Checks if Julia language is available in the system and install and configure pyjulia.
     Also install ju_extensions in Julia environmnent.

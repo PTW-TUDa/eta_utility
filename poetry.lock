@@ -71,7 +71,7 @@ typing-extensions = "*"
 type = "git"
 url = "https://github.com/miki5799/opcua-asyncio.git"
 reference = "sync-reusable-client-1364"
-resolved_reference = "5846fea346856c5a1f016565c93dc0fb8e10ef13"
+resolved_reference = "8dab330ff659915e3e90f0ff883b77f7f29b2bd7"
 
 [[package]]
 name = "attrs"

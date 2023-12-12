@@ -59,17 +59,16 @@ possible to use GUIs (Graphical User Interfaces) for git such as SourceTree or `
 
 .. _create_virtual_environment:
 
-.. note::
-    It is recommended to install to a **virtual environment** so that the installed package
-    versions do not conflict with other python projects on the computer.
 
-Creating a virtual environment
+Creating a virtual environment (recommended)
 -----------------------------------------------------
 
-A **virtual environment** is a Python environment which isolates the Python interpreter, libraries,
-and scripts installed in it from those installed in other virtual environments, and (by default)
-from any libraries installed in the "system" Python (The main Python environment installed on your
-operating system).
+A **virtual environment** is a Python environment which isolates its Python interpreter, libraries,
+and scripts installed. It's isolated from other virtual environments, and (by default)
+from any libraries installed in the "system" Python (the main Python environment installed on your
+operating system). This isolation prevents conflicting libraries or versions from affecting each other.
+
+
 
 In order to use a virtual environment, it must first be created in an arbitrary directory
 on the computer. Open a terminal (for example cmd or PowerShell on Windows) and execute the
@@ -77,13 +76,13 @@ following commands.
 
 .. code-block:: console
 
-    $> python -m venv <Any folder>/.venv
+    $ python -m venv <Any folder>/.venv
 
 Navigate to your chosen directory, then activate the virtual environment:
 
 .. code-block:: console
 
-    $> .venv/scripts/activate
+    $ .venv/scripts/activate
 
 The creation and activation of the environment are shown in the following figure.
 
@@ -99,5 +98,5 @@ any adjustments.
 
 .. note::
 
-   Some IDEs (Integrated Development Environments) such as PyCharm or Code Editors like VSCode
+   Some IDEs (Integrated Development Environments) such as PyCharm or code editors like VS Code
    will automate the activation of the virtual environment for you.
