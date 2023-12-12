@@ -7,7 +7,7 @@ Before contributing to development of *eta_utility*, please read this developmen
 guide carefully. If you are looking for instructions on how to install *eta_utility* for usage
 only, please take a look at the :ref:`install` guide.
 
-If you need help installing python or git, please consult the :ref:`python_install` guide.
+If you need help installing Python or git, please consult the :ref:`python_install` guide.
 
 The most important things
 -----------------------------
@@ -26,14 +26,14 @@ uninstall eta_utility from the other projects virtual environment and add the pa
     sys.path.append("<path to local eta_utility repository>")
 
 
-This project is being managed by `Poetry  <https://python-poetry.org/docs/#installation>`_.
-It's a tool for Python dependency management and packaging.
-In order to install the development environment, you need to install Poetry first.
-
 .. _install_poetry:
 
 Installing Poetry
 --------------------
+This project is being managed by `Poetry  <https://python-poetry.org/docs/#installation>`_.
+It's a tool for Python dependency management and packaging.
+In order to install the development environment, you need to install Poetry first.
+
 Open a terminal for the next steps (such as PowerShell)
 
  .. note::
@@ -45,14 +45,14 @@ If you don't have pipx installed, you can install it with pip:
 
 .. code-block:: console
 
-    $> python3 -m pip install pipx
-    $> python3 -m pipx ensurepath
+    $ python3 -m pip install pipx
+    $ python3 -m pipx ensurepath
 
 Then install Poetry with pipx:
 
 .. code-block:: console
 
-    $> pipx install poetry==1.6.1
+    $ pipx install poetry==1.6.1
 
 
 .. note::
@@ -77,7 +77,7 @@ execute the following command. See also :ref:`install_git`.
 
 .. code-block:: console
 
-    $> git clone https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility
+    $ git clone https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility
 
 You might be asked for your git login credentials.
 
@@ -91,7 +91,7 @@ After this, navigate to the root directory **eta-utility**
 
 .. code-block:: console
 
-   $> cd eta-utility
+   $ cd eta-utility
 
 \.. and install the project via poetry with the
 extra *develop* . This includes all requirements plus everything required for development
@@ -99,19 +99,11 @@ and continuous integration checks:
 
 .. code-block:: console
 
-   $> poetry install --extras develop --sync
+   $ poetry install --extras develop --sync
 
 .. note::
-    Poetry will uninstall all other unwanted dependencies in the virtual environment
+    Updating the project dependencies is done with the same command.
 
-The installation process (except for the installation of pre-commit) is shown in the following
-figure.
-
-.. figure:: figures/13_InstallWithVE.PNG
-    :width: 700
-    :alt: installation within a virtual environment
-
-    Installation of *eta_utility* within poetry
 
 We use pre-commit to check code before committing. Therefore, after the installation completes,
 please install pre-commit before performing the first commits to the repository.
@@ -119,7 +111,7 @@ This ensures that your commits will be checked and formatted automatically.
 
 .. code-block:: console
 
-    $> poetry run pre-commit install
+    $ poetry run pre-commit install
 
 .. figure:: figures/11_PreCommit.png
     :width: 600
@@ -131,6 +123,10 @@ This ensures that your commits will be checked and formatted automatically.
 
     When using pre-commit for the first time, it will take longer as it will install all the hooks.
 
+| When using an IDE or code editor, make sure that it uses the virtual environment managed by Poetry.
+| For PyCharm, see: https://www.jetbrains.com/help/pycharm/poetry.html#poetry-env
+| For VS Code, see: https://code.visualstudio.com/docs/python/environments
+
 .. _managinv_environments_poetry:
 
 Managing Environments with Poetry
@@ -140,34 +136,36 @@ You can run commands in the virtual environment by using the following command:
 
 .. code-block:: console
 
-    $> poetry run <command>
+    $ poetry run <command>
 
 \.. or spawn a terminal with the virtual environment activated:
 
 .. code-block:: console
 
-    $> poetry shell
+    $ poetry shell
 
 
-To check which Python version Poetry is using, execute the following command:
+To check which Python version Poetry is using and get the path of that environment,
+execute the following command:
 
 .. code-block:: console
 
-    $> poetry env info
+    $ poetry env info
 
 You can change the Python version Poetry uses with:
 
 .. code-block:: console
 
-    $> poetry env use <full python path>
+    $ poetry env use <full python path>
 
 To list all available python versions on Windows, run:
 
 .. code-block:: console
 
-    $> gcm python*
+    $ py -0p
 
-For more information, see the `Poetry documentation <https://python-poetry.org/docs/managing-environments>`_.
+
+For more information, see the `Poetry docs <https://python-poetry.org/docs/managing-environments>`_.
 
 
 .. _testing_your_code:
@@ -179,13 +177,13 @@ folder of the *eta_utility* repository and executing the following command in a 
 
 .. code-block:: console
 
-    $> poetry run pytest
+    $ poetry run pytest
 
 Or if you have the virtual environment already activated:
 
 .. code-block:: console
 
-    $> pytest
+    $ pytest
 
 Please always refresh the *test_nsga2_agent.zip* file when changes are made in the nsga2 agent and in julia files. The zip-file is located
 in *eta-utility/test/resources/agents* and creates a new NSGA2 model for the tests. To do this, execute the following
@@ -193,7 +191,7 @@ comand in the terminal:
 
 .. code-block:: console
 
-    $> python -c "import tempfile; from test.test_etax.test_agents import TestNSGA2; cls = TestNSGA2(); cls.create_stored_agent_file('test/resources/agents/', tempfile.TemporaryDirectory().name)"
+    $ poetry run update-julia-agent
 
 Editing this documentation
 -----------------------------
@@ -209,17 +207,12 @@ For test purposes, navigate to the *docs* folder and execute the following comma
 
 .. code-block:: console
 
-    $> poetry run make html
+    $ poetry run make html
 
 This creates a folder named *_build* (inside the *docs* folder) which allows the HTML pages to
 be previewed locally. This folder will not be committed to git. Re-execute this command each
-time you edit the documentation to see the changes (you have to refresh the HTML page, too).
+time you edit the documentation to see the changes (you may have to refresh the HTML page).
 
-.. figure:: figures/dev_01_HTMLbuild.PNG
-    :width: 700
-    :alt: successful documentation build
-
-    Confirmation for successful documentation build.
 
 If you have problems using sphinx see :ref:`sphinx_not_found`.
 
@@ -249,14 +242,15 @@ To update the containers first you need to login in GitLab through docker.
 
 .. code-block:: console
 
-    $> docker login git-reg.ptw.maschinenbau.tu-darmstadt.de
+    $ docker login git-reg.ptw.maschinenbau.tu-darmstadt.de
 
 
 Then you build and upload the image from the dockerfile. For example, for the pyjulia image use the following command
 inside the project folder:
+
 .. code-block:: console
 
-    $> docker build --tag git-reg.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility/pyjulia:py3.9-jl1.9 -f .gitlab/docker/pyjulia-39-19.dockerfile .
+    $ docker build -t git-reg.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility/pyjulia:py3.9-jl1.9 -f .gitlab/docker/pyjulia-39-19.dockerfile .
 
 Using tags for the images is a good practice to differentiate image versions, in case it's not used it's automatic
 labeled as *latest*. Currently there are three images for python environments called *python*, with python versions
@@ -266,4 +260,4 @@ The last step is to upload the images to the private docker registry.
 
 .. code-block:: console
 
-    $> docker push git-reg.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility/pyjulia:py3.9-jl1.9
+    $ docker push git-reg.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility/pyjulia:py3.9-jl1.9

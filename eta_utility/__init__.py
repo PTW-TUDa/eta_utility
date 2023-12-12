@@ -17,4 +17,4 @@ from .util import (
     log_add_filehandler,
     url_parse,
 )
-from .util_julia import install_julia
+from .util_julia import install_julia, update_agent

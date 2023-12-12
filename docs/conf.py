@@ -56,6 +56,10 @@ html_theme = "sphinx_rtd_theme"
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
 
+# Prevent copy button from copying prompt ($, >>>)
+copybutton_exclude = ".linenos, .gp"
+
+
 autodoc_mock_imports = ["opcua", "numpy.random", "pandas", "julia", "ju_extensions"]
 autodoc_default_options = {"undoc-members": True, "member-order": "bysource"}
 
