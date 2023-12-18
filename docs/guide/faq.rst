@@ -145,6 +145,10 @@ If you receive the following (or a similar) error message, when you want to star
 
 Make sure PyJulia is installed in the correct virtual environment as described in :ref:`install_julia`.
 
+I made changes in the NSGA2 agent and want to do a commit, but my tests are not passing
+---------------------------------------------------------------------------------------
+Make sure that you have refreshed the stored agent model as described in :ref:`testing_your_code`.
+
 Resolve FMPy compilation issue on macOS (x64)
 -----------------------------------------------
 If you start developing on macOS, you might encounter errors when compiling FMPy, should the pre-complied binaries not be available for your system.
