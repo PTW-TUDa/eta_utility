@@ -343,28 +343,35 @@ class TestConnectorSubscriptions:
             server.create_nodes(local_nodes)
             yield server
 
-    @pytest.fixture()
-    def _write_nodes_normal(self, server: OpcUaServer, local_nodes):
-        async def write_loop(server: OpcUaServer, local_nodes, values):
-            i = 0
-            while True:
-                server.write({node: values[node.name][i] for node in local_nodes})
-                # Index should fall back to one if the number of provided values is exceeded.
-                i = i + 1 if i < len(values[local_nodes[0].name]) - 1 else 0
-                await asyncio.sleep(1)
+    async def write_loop(self, server, local_nodes, values):
+        await asyncio.sleep(0.5)
+        for i in range(len(values["Serv.NodeName"])):
+            server.write({node: values[node.name][i] for node in local_nodes})
+            await asyncio.sleep(0.5)
 
-        asyncio.get_event_loop().create_task(write_loop(server, local_nodes, self.values))
-
-    def test_subscribe(self, local_nodes, _write_nodes_normal):
-        connection: OpcUaConnection = OpcUaConnection.from_node(local_nodes[0], usr="admin", pwd="0")
-        handler = DFSubHandler(write_interval=1)
-        connection.subscribe(handler, nodes=local_nodes, interval=1)
+    def test_subscribe(self, local_nodes, server):
+        connection = OpcUaConnection.from_node(local_nodes[0], usr="admin", pwd="0")
+        handler = DFSubHandler(write_interval=0.5)
+        connection.subscribe(handler, nodes=local_nodes, interval=0.5)
 
         loop = asyncio.get_event_loop()
-        loop.run_until_complete(stop_execution(5))
+        loop.run_until_complete(self.write_loop(server, local_nodes, self.values))
 
+        # How many values are allowed to be missing in the dataframe
+        max_missing_values = 2
+
+        # Remove NaN
+        data = handler.data.dropna()
+
+        # Check if all values are in the dataframe
         for node, values in self.values.items():
-            assert set(handler.data[node]) <= set(values)
+            for value in values:
+                try:
+                    assert value in data[node].array
+                except AssertionError as exception:
+                    max_missing_values -= 1
+                    if max_missing_values < 0:
+                        raise exception
 
         connection.close_sub()
 
