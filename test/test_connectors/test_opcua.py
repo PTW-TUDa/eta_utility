@@ -311,13 +311,9 @@ class TestConnectorOperations:
         n = local_nodes[0]
         connection = OpcUaConnection.from_node(n, usr="another", pwd="something")
 
-        # DEPRECATED: make server reject everything
-        def um(s, u, p):
-            return False
-
+        # Create a new user manager that rejects all users
         from asyncua.server.user_managers import UserManager
 
-        # Create a new user manager that rejects all users
         class BadUserManager(UserManager):
             # Reject all users and return None instead of a user object
             def get_user(self, iserver, username=None, password=None, certificate=None):
