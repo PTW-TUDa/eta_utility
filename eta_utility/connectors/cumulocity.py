@@ -3,9 +3,11 @@ from __future__ import annotations
 import asyncio
 import base64
 import concurrent.futures
-from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Mapping
+import json
+from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
 
+import numpy as np
 import pandas as pd
 import requests
 
@@ -31,7 +33,6 @@ class CumulocityConnection(BaseSeriesConnection, protocol="cumulocity"):
     :param pwd: Password in Cumulocity for login.
     :param tenant: Cumulocity tenant.
     :param nodes: Nodes to select in connection.
-
     """
 
     def __init__(self, url: str, usr: str | None, pwd: str | None, *, tenant: str, nodes: Nodes | None = None) -> None:
@@ -88,10 +89,59 @@ class CumulocityConnection(BaseSeriesConnection, protocol="cumulocity"):
         value = self.read_series(the_time - timedelta(minutes=base_time), the_time, nodes, base_time)
         return value[-1:]
 
-    def write(
-        self, values: Mapping[AnyNode, Any] | pd.Series[datetime, Any], time_interval: timedelta | None = None
+    def write(  # type: ignore
+        self,
+        values: pd.Series[datetime, Any],
+        measurement_type: str,
+        unit: str,
+        nodes: Nodes | None = None,
     ) -> None:
-        raise NotImplementedError("Not implemented yet.")
+        """Write values to the cumulocity Database
+
+        :param values: Pandas Series containing the data. Make sure the index is a Datetimeindex.
+                        If fragment is not specified for node,
+                        make sure the pd.Series has name since it will be used as replacement.
+        :param measurement_type: The type of the measurement to be written.
+        :param unit: The unit of the values.
+        :param nodes: List of nodes to write values to.
+        """
+        headers = self.get_auth_header()
+        nodes = self._validate_nodes(nodes)
+
+        # convert numpy values to native paython values since numpy values are not json serializable
+        def myconverter(obj: Any) -> Any:
+            if isinstance(obj, np.integer):
+                return int(obj)
+            elif isinstance(obj, np.floating):
+                return float(obj)
+            elif isinstance(obj, np.ndarray):
+                return obj.tolist()
+            elif isinstance(obj, datetime):
+                return obj.__str__()
+
+        # iterate over nodes
+        for node in nodes:
+            request_url = f"{node.url}/measurement/measurements"
+
+            # iterate over values to upload
+            for idx in values.index:
+                if node.fragment == "":
+                    fragment_name = values.name
+                else:
+                    fragment_name = node.fragment
+
+                payload = {
+                    "source": {"id": node.device_id},
+                    "time": datetime.fromisoformat(str(idx)).isoformat(),
+                    "type": measurement_type,
+                    node.measurement: {fragment_name: {"unit": unit, "value": values[idx]}},
+                }
+
+                # upload values
+                response = self._raw_request(
+                    "POST", request_url, headers, data=json.dumps(payload, default=myconverter)
+                )
+                log.info(response.text)
 
     def subscribe(self, handler: SubscriptionHandler, nodes: Nodes | None = None, interval: TimeStep = 1) -> None:
         """Subscribe to nodes and call handler when new data is available. This will return only the
@@ -122,37 +172,48 @@ class CumulocityConnection(BaseSeriesConnection, protocol="cumulocity"):
         :return: Pandas DataFrame containing the data read from the connection.
         """
 
-        # get correct utc time for cumulocity
-        from_time = from_time.astimezone(timezone.utc).replace(tzinfo=None)
-        to_time = to_time.astimezone(timezone.utc).replace(tzinfo=None)
         nodes = self._validate_nodes(nodes)
 
+        # specify read function for ThreadpoolExecutor
         def read_node(node: NodeCumulocity) -> pd.DataFrame:
-            request_url = "{}?dateFrom={}&dateTo={}&source={}&valueFragmentSeries={}&pageSize=2000".format(
+            request_url = "{}/measurement/measurements?dateFrom={}&dateTo={}&source={}&valueFragmentSeries={}&pageSize=2000".format(  # noqa
                 node.url,
                 self.timestr_from_datetime(from_time),
                 self.timestr_from_datetime(to_time),
-                node.measurement_id,
-                node.value_fragment_series,
+                node.device_id,
+                node.fragment,
             )
 
-            headers = self.get_auth_header(node)
+            headers = self.get_auth_header()
 
             data_list = []
 
+            # Sequentially retrieve the data from cumulocity database
             while True:
                 response = self._raw_request("GET", request_url, headers).json()
 
                 data_tmp = pd.DataFrame(
-                    data=(r[r["type"]][node.value_fragment_series]["value"] for r in response["measurements"]),
+                    data=(
+                        r[node.measurement][node.fragment]["value"]
+                        for r in response["measurements"]
+                        if node.measurement in r and node.fragment in r[node.measurement]
+                    ),
                     index=pd.to_datetime(
-                        [r["time"] for r in response["measurements"]], utc=True, format="%Y-%m-%dT%H:%M:%S.%fZ"
-                    ).tz_convert(self._local_tz),
+                        [
+                            r["time"]
+                            for r in response["measurements"]
+                            if node.measurement in r and node.fragment in r[node.measurement]
+                        ],
+                        utc=True,
+                        format="%Y-%m-%dT%H:%M:%S.%fZ",
+                    ),
                     columns=[node.name],
                     dtype="float64",
                 )
                 data_list.append(data_tmp)
-                if data_tmp.empty:
+
+                # Stopping criteria for data collection
+                if data_tmp.empty or "next" not in response.keys():
                     data = pd.concat(data_list)
                     break
                 else:
@@ -161,6 +222,7 @@ class CumulocityConnection(BaseSeriesConnection, protocol="cumulocity"):
             data.index.name = "Time (with timezone)"
             return data
 
+        # parallelize download from multiple nodes
         with concurrent.futures.ThreadPoolExecutor() as executor:
             results = executor.map(read_node, nodes)
 
@@ -218,6 +280,59 @@ class CumulocityConnection(BaseSeriesConnection, protocol="cumulocity"):
                 data_interval,
             )
         )
+
+    @staticmethod
+    def create_device(url: str, username: str, password: str, tenant: str, device_name: str) -> None:
+        """Create a cumulocity device.
+
+        :param url: URL of the server without scheme (https://).
+        :param usr: Username in Cumulocity for login.
+        :param pwd: Password in Cumulocity for login.
+        :param tenant: Cumulocity tenant.
+        :param device_name: Name of the to be created device.
+        """
+        auth_header = str(base64.b64encode(bytes(f"{tenant}/{username}:{password}", encoding="utf-8")), "utf-8")
+        headers = {"Authorization": f"Basic {auth_header}"}
+
+        payload = {
+            "name": device_name,
+            "c8y_IsDevice": {},
+        }
+
+        request_url = f"{url}/inventory/managedObjects"
+
+        response = CumulocityConnection._raw_request("POST", request_url, headers=headers, data=json.dumps(payload))
+        log.info(response.text)
+
+    @staticmethod
+    def get_measurement_ids_by_device(url: str, username: str, password: str, tenant: str, device_id: str) -> list:
+        """Returns a list of all measurement IDs that the specified device holds.
+
+        :param url: URL of the server without scheme (https://).
+        :param usr: Username in Cumulocity for login.
+        :param pwd: Password in Cumulocity for login.
+        :param tenant: Cumulocity tenant.
+        :param device_id: ID of the device to retrieve the measurement IDs from.
+        """
+        auth_header = str(base64.b64encode(bytes(f"{tenant}/{username}:{password}", encoding="utf-8")), "utf-8")
+        headers = {"Authorization": f"Basic {auth_header}"}
+
+        request_url = f"{url}/measurement/measurements?source={device_id}&pageSize=2000"
+
+        data_list = []
+
+        # Sequentially collect all measuremnt IDs from device
+        while True:
+            response = CumulocityConnection._raw_request("GET", request_url, headers=headers).json()
+            for r in response["measurements"]:
+                if r["id"] not in data_list:
+                    data_list.append(r["id"])
+            if "next" not in response.keys() or response["measurements"] == []:
+                break
+            else:
+                request_url = response["next"]
+
+        return data_list
 
     def close_sub(self) -> None:
         """Close an open subscription."""
@@ -278,26 +393,34 @@ class CumulocityConnection(BaseSeriesConnection, protocol="cumulocity"):
 
         return dt.isoformat() + "Z"
 
-    def _raw_request(self, method: str, endpoint: str, headers: dict, **kwargs: Any) -> requests.Response:
+    @staticmethod
+    def _raw_request(method: str, endpoint: str, headers: dict, **kwargs: Any) -> requests.Response:
         """Perform Cumulocity request and handle possibly resulting errors.
 
         :param method: HTTP request method.
         :param endpoint: Endpoint for the request (server URI is added automatically).
         :param kwargs: Additional arguments for the request.
         """
-
         response = requests.request(method, endpoint, headers=headers, verify=False, **kwargs)
 
         # Check for request errors
-        if response.status_code not in [200, 204]:  # Status 200 for GET requests, 204 for POST requests
+        if response.status_code not in [
+            200,
+            201,
+            204,
+        ]:  # Status 200 for GET requests, 204 for POST requests
             error = f"Cumulocity Error {response.status_code}"
-            if hasattr(response, "json") and "Message" in response.json():
-                error = f"{error}: {response.json()['Message']}"
+            if hasattr(response, "text") and "message" in response.json():
+                error = f"{error}: {response.json()['message']}"
             elif response.status_code == 401:
-                error = f"{error}: Access Forbidden, Invalid login info"
+                error = f"{error}: Authentication has failed, or credentials were required but not provided."
+            elif response.status_code == 403:
+                error = f"{error}: You are not authorized to access the API."
             elif response.status_code == 404:
                 error = f"{error}: Endpoint not found '{str(endpoint)}'"
             elif response.status_code == 500:
+                error = f"{error}: Internal error: request could not be processed."
+            elif response.status_code == 503:
                 error = f"{error}: Server is unavailable"
 
             raise ConnectionError(error)
@@ -313,7 +436,10 @@ class CumulocityConnection(BaseSeriesConnection, protocol="cumulocity"):
 
         return _nodes
 
-    def get_auth_header(self, node: NodeCumulocity) -> dict:
-        auth_header = str(base64.b64encode(bytes(f"{self._tenant}/{self.usr}:{self.pwd}", encoding="utf-8")), "utf-8")
+    def get_auth_header(self) -> dict:
+        auth_header = str(
+            base64.b64encode(bytes(f"{self._tenant}/{self.usr}:{self.pwd}", encoding="utf-8")),
+            "utf-8",
+        )
         headers = {"Authorization": f"Basic {auth_header}"}
         return headers
