@@ -669,8 +669,10 @@ class NodeEntsoE(Node, protocol="entsoe"):
 class NodeCumulocity(Node, protocol="cumulocity"):
     """Node for the Cumulocity API."""
 
-    measurement_id: str = field(kw_only=True, converter=str)
-    value_fragment_series: str = field(kw_only=True, converter=str)
+    # parameters for reading/writing from/to cumulocity nodes
+    device_id: str = field(kw_only=True, converter=str)
+    measurement: str = field(kw_only=True, converter=str)
+    fragment: str = field(kw_only=True, converter=str, default="")
 
     def __attrs_post_init__(self) -> None:
         """Ensure username and password are processed correctly."""
@@ -685,16 +687,14 @@ class NodeCumulocity(Node, protocol="cumulocity"):
         """
         name, pwd, url, usr, interval = cls._read_dict_info(dikt)
         try:
-            measurement_id = cls._try_dict_get_any(dikt, "id", "measurement_id")
+            device_id = cls._try_dict_get_any(dikt, "id", "device_id")
         except KeyError:
             raise KeyError(
                 f"The required parameter for the node configuration was not found (see log). The node {name} could "
                 f"not load."
             )
         try:
-            value_fragment_series = cls._try_dict_get_any(
-                dikt, "series", "Series", "valueFragmentSeries", "valuefragmentseries"
-            )
+            measurement = cls._try_dict_get_any(dikt, "measurement", "Measurement")
         except KeyError:
             raise KeyError(
                 f"The required parameter for the node configuration was not found (see log). The node {name} could "
@@ -702,14 +702,19 @@ class NodeCumulocity(Node, protocol="cumulocity"):
             )
 
         try:
+            fragment = cls._try_dict_get_any(dikt, "fragment", "Fragment")
+        except KeyError:
+            fragment = ""
+        try:
             return cls(
                 name,
                 url,
                 "cumulocity",
                 usr=usr,
                 pwd=pwd,
-                measurement_id=measurement_id,
-                value_fragment_series=value_fragment_series,
+                device_id=device_id,
+                measurement=measurement,
+                fragment=fragment,
             )
         except (TypeError, AttributeError):
             raise TypeError(f"Could not convert all types for node {name}.")

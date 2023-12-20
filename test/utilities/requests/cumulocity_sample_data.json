@@ -1,6 +1,6 @@
 {
-    "next": "?dateFrom=2023-05-05T08:21:03.414810Z&dateTo=2023-05-05T08:21:13.414810Z&source=1234&valueFragmentSeries=P&pageSize=2000&currentPage=2",
-    "self": "?dateFrom=2023-05-05T08:21:03.414810Z&dateTo=2023-05-05T08:21:13.414810Z&source=1234&valueFragmentSeries=P&pageSize=2000",
+    "next": "/measurement/measurements?dateFrom=2023-05-05T08:21:03.414810Z&dateTo=2023-05-05T08:21:13.414810Z&source=1234&valueFragmentSeries=P&pageSize=2000&currentPage=2",
+    "self": "/measurement/measurements?dateFrom=2023-05-05T08:21:03.414810Z&dateTo=2023-05-05T08:21:13.414810Z&source=1234&valueFragmentSeries=P&pageSize=2000",
     "statistics": {
         "currentPage": 1,
         "pageSize": 2000
@@ -9,13 +9,13 @@
         {
             "self": "/measurement/measurements/x",
             "time": "2023-05-04T07:13:53.665Z",
-            "id": "x",
+            "id": "1",
             "source": {
                 "self": "/inventory/managedObjects/x",
                 "id": "x"
             },
-            "type": "c8y_Power",
-            "c8y_Power": {
+            "type": "Power",
+            "Power": {
                 "P": {
                     "unit": "W",
                     "value": 3478
@@ -25,13 +25,13 @@
         {
             "self": "/measurement/measurements/x",
             "time": "2023-05-04T07:14:53.666Z",
-            "id": "x",
+            "id": "2",
             "source": {
                 "self": "/inventory/managedObjects/x",
                 "id": "x"
             },
-            "type": "c8y_Power",
-            "c8y_Power": {
+            "type": "Power",
+            "Power": {
                 "P": {
                     "unit": "W",
                     "value": 4768
@@ -41,13 +41,13 @@
         {
             "self": "/measurement/measurements/x",
             "time": "2023-05-04T07:15:53.667Z",
-            "id": "x",
+            "id": "3",
             "source": {
                 "self": "/inventory/managedObjects/x",
                 "id": "x"
             },
-            "type": "c8y_Power",
-            "c8y_Power": {
+            "type": "Power",
+            "Power": {
                 "P": {
                     "unit": "W",
                     "value": 3784
@@ -57,13 +57,13 @@
         {
             "self": "/measurement/measurements/x",
             "time": "2023-05-04T07:16:53.668Z",
-            "id": "x",
+            "id": "4",
             "source": {
                 "self": "/inventory/managedObjects/x",
                 "id": "x"
             },
-            "type": "c8y_Power",
-            "c8y_Power": {
+            "type": "Power",
+            "Power": {
                 "P": {
                     "unit": "W",
                     "value": 4673
@@ -73,13 +73,13 @@
         {
             "self": "/measurement/measurements/x",
             "time": "2023-05-04T07:17:53.668Z",
-            "id": "x",
+            "id": "5",
             "source": {
                 "self": "/inventory/managedObjects/x",
                 "id": "x"
             },
-            "type": "c8y_Power",
-            "c8y_Power": {
+            "type": "Power",
+            "Power": {
                 "P": {
                     "unit": "W",
                     "value": 4378
@@ -89,13 +89,13 @@
         {
             "self": "/measurement/measurements/x",
             "time": "2023-05-04T07:18:53.669Z",
-            "id": "x",
+            "id": "6",
             "source": {
                 "self": "/inventory/managedObjects/x",
                 "id": "x"
             },
-            "type": "c8y_Power",
-            "c8y_Power": {
+            "type": "Power",
+            "Power": {
                 "P": {
                     "unit": "W",
                     "value": 3487
@@ -105,13 +105,13 @@
         {
             "self": "/measurement/measurements/x",
             "time": "2023-05-04T07:19:53.677Z",
-            "id": "x",
+            "id": "7",
             "source": {
                 "self": "/inventory/managedObjects/x",
                 "id": "x"
             },
-            "type": "c8y_Power",
-            "c8y_Power": {
+            "type": "Power",
+            "Power": {
                 "P": {
                     "unit": "W",
                     "value": 3487
@@ -121,13 +121,13 @@
         {
             "self": "/measurement/measurements/x",
             "time": "2023-05-04T07:20:53.675Z",
-            "id": "x",
+            "id": "8",
             "source": {
                 "self": "/inventory/managedObjects/x",
                 "id": "x"
             },
-            "type": "c8y_Power",
-            "c8y_Power": {
+            "type": "Power",
+            "Power": {
                 "P": {
                     "unit": "W",
                     "value": 3487
@@ -137,13 +137,13 @@
         {
             "self": "/measurement/measurements/x",
             "time": "2023-05-04T07:21:53.675Z",
-            "id": "x",
+            "id": "9",
             "source": {
                 "self": "/inventory/managedObjects/x",
                 "id": "x"
             },
-            "type": "c8y_Power",
-            "c8y_Power": {
+            "type": "Power",
+            "Power": {
                 "P": {
                     "unit": "W",
                     "value": 3879
@@ -153,13 +153,13 @@
         {
             "self": "/measurement/measurements/x",
             "time": "2023-05-04T07:22:53.676Z",
-            "id": "x",
+            "id": "10",
             "source": {
                 "self": "/inventory/managedObjects/x",
                 "id": "x"
             },
-            "type": "c8y_Power",
-            "c8y_Power": {
+            "type": "Power",
+            "Power": {
                 "P": {
                     "unit": "W",
                     "value": 4787
@@ -169,13 +169,13 @@
         {
             "self": "/measurement/measurements/x",
             "time": "2023-05-04T07:23:53.677Z",
-            "id": "x",
+            "id": "11",
             "source": {
                 "self": "/inventory/managedObjects/x",
                 "id": "x"
             },
-            "type": "c8y_Power",
-            "c8y_Power": {
+            "type": "Power",
+            "Power": {
                 "P": {
                     "unit": "W",
                     "value": 4389
@@ -185,13 +185,13 @@
         {
             "self": "/measurement/measurements/x",
             "time": "2023-05-04T07:25:53.678Z",
-            "id": "x",
+            "id": "12",
             "source": {
                 "self": "/inventory/managedObjects/x",
                 "id": "x"
             },
-            "type": "c8y_Power",
-            "c8y_Power": {
+            "type": "Power",
+            "Power": {
                 "P": {
                     "unit": "W",
                     "value": 3478
@@ -201,13 +201,13 @@
         {
             "self": "/measurement/measurements/x",
             "time": "2023-05-04T07:26:53.679Z",
-            "id": "x",
+            "id": "13",
             "source": {
                 "self": "/inventory/managedObjects/x",
                 "id": "x"
             },
-            "type": "c8y_Power",
-            "c8y_Power": {
+            "type": "Power",
+            "Power": {
                 "P": {
                     "unit": "W",
                     "value": 4783
@@ -217,13 +217,13 @@
         {
             "self": "/measurement/measurements/x",
             "time": "2023-05-04T07:27:53.679Z",
-            "id": "x",
+            "id": "14",
             "source": {
                 "self": "/inventory/managedObjects/x",
                 "id": "x"
             },
-            "type": "c8y_Power",
-            "c8y_Power": {
+            "type": "Power",
+            "Power": {
                 "P": {
                     "unit": "W",
                     "value": 4783
@@ -233,13 +233,13 @@
         {
             "self": "/measurement/measurements/x",
             "time": "2023-05-04T07:29:53.681Z",
-            "id": "x",
+            "id": "15",
             "source": {
                 "self": "/inventory/managedObjects/x",
                 "id": "x"
             },
-            "type": "c8y_Power",
-            "c8y_Power": {
+            "type": "Power",
+            "Power": {
                 "P": {
                     "unit": "W",
                     "value": 4893
@@ -249,13 +249,13 @@
         {
             "self": "/measurement/measurements/x",
             "time": "2023-05-04T07:30:53.681Z",
-            "id": "x",
+            "id": "16",
             "source": {
                 "self": "/inventory/managedObjects/x",
                 "id": "x"
             },
-            "type": "c8y_Power",
-            "c8y_Power": {
+            "type": "Power",
+            "Power": {
                 "P": {
                     "unit": "W",
                     "value": 4378
@@ -265,13 +265,13 @@
         {
             "self": "/measurement/measurements/x",
             "time": "2023-05-04T07:31:53.682Z",
-            "id": "x",
+            "id": "17",
             "source": {
                 "self": "/inventory/managedObjects/x",
                 "id": "x"
             },
-            "type": "c8y_Power",
-            "c8y_Power": {
+            "type": "Power",
+            "Power": {
                 "P": {
                     "unit": "W",
                     "value": 4378
@@ -281,13 +281,13 @@
         {
             "self": "/measurement/measurements/x",
             "time": "2023-05-04T07:32:53.683Z",
-            "id": "x",
+            "id": "18",
             "source": {
                 "self": "/inventory/managedObjects/x",
                 "id": "x"
             },
-            "type": "c8y_Power",
-            "c8y_Power": {
+            "type": "Power",
+            "Power": {
                 "P": {
                     "unit": "W",
                     "value": 2987
@@ -297,13 +297,13 @@
         {
             "self": "/measurement/measurements/x",
             "time": "2023-05-04T07:33:53.683Z",
-            "id": "x",
+            "id": "19",
             "source": {
                 "self": "/inventory/managedObjects/x",
                 "id": "x"
             },
-            "type": "c8y_Power",
-            "c8y_Power": {
+            "type": "Power",
+            "Power": {
                 "P": {
                     "unit": "W",
                     "value": 2873
@@ -313,13 +313,13 @@
         {
             "self": "/measurement/measurements/x",
             "time": "2023-05-04T07:34:53.686Z",
-            "id": "x",
+            "id": "20",
             "source": {
                 "self": "/inventory/managedObjects/x",
                 "id": "x"
             },
-            "type": "c8y_Power",
-            "c8y_Power": {
+            "type": "Power",
+            "Power": {
                 "P": {
                     "unit": "W",
                     "value": 2378
@@ -329,13 +329,13 @@
         {
             "self": "/measurement/measurements/x",
             "time": "2023-05-04T07:35:53.686Z",
-            "id": "x",
+            "id": "21",
             "source": {
                 "self": "/inventory/managedObjects/x",
                 "id": "x"
             },
-            "type": "c8y_Power",
-            "c8y_Power": {
+            "type": "Power",
+            "Power": {
                 "P": {
                     "unit": "W",
                     "value": 3278
@@ -345,13 +345,13 @@
         {
             "self": "/measurement/measurements/x",
             "time": "2023-05-04T07:36:53.686Z",
-            "id": "x",
+            "id": "22",
             "source": {
                 "self": "/inventory/managedObjects/x",
                 "id": "x"
             },
-            "type": "c8y_Power",
-            "c8y_Power": {
+            "type": "Power",
+            "Power": {
                 "P": {
                     "unit": "W",
                     "value": 2367
@@ -361,13 +361,13 @@
         {
             "self": "/measurement/measurements/x",
             "time": "2023-05-04T07:37:53.687Z",
-            "id": "x",
+            "id": "23",
             "source": {
                 "self": "/inventory/managedObjects/x",
                 "id": "x"
             },
-            "type": "c8y_Power",
-            "c8y_Power": {
+            "type": "Power",
+            "Power": {
                 "P": {
                     "unit": "W",
                     "value": 3287
@@ -377,13 +377,13 @@
         {
             "self": "/measurement/measurements/x",
             "time": "2023-05-04T07:38:53.688Z",
-            "id": "x",
+            "id": "24",
             "source": {
                 "self": "/inventory/managedObjects/x",
                 "id": "x"
             },
-            "type": "c8y_Power",
-            "c8y_Power": {
+            "type": "Power",
+            "Power": {
                 "P": {
                     "unit": "W",
                     "value": 5830
@@ -393,13 +393,13 @@
         {
             "self": "/measurement/measurements/x",
             "time": "2023-05-04T07:39:53.689Z",
-            "id": "x",
+            "id": "25",
             "source": {
                 "self": "/inventory/managedObjects/x",
                 "id": "x"
             },
-            "type": "c8y_Power",
-            "c8y_Power": {
+            "type": "Power",
+            "Power": {
                 "P": {
                     "unit": "W",
                     "value": 2384
@@ -409,13 +409,13 @@
         {
             "self": "/measurement/measurements/x",
             "time": "2023-05-04T07:40:53.690Z",
-            "id": "x",
+            "id": "26",
             "source": {
                 "self": "/inventory/managedObjects/x",
                 "id": "x"
             },
-            "type": "c8y_Power",
-            "c8y_Power": {
+            "type": "Power",
+            "Power": {
                 "P": {
                     "unit": "W",
                     "value": 3983
@@ -425,13 +425,13 @@
         {
             "self": "/measurement/measurements/x",
             "time": "2023-05-04T07:41:53.691Z",
-            "id": "x",
+            "id": "27",
             "source": {
                 "self": "/inventory/managedObjects/x",
                 "id": "x"
             },
-            "type": "c8y_Power",
-            "c8y_Power": {
+            "type": "Power",
+            "Power": {
                 "P": {
                     "unit": "W",
                     "value": 3764
@@ -441,13 +441,13 @@
         {
             "self": "/measurement/measurements/x",
             "time": "2023-05-04T07:42:53.691Z",
-            "id": "x",
+            "id": "28",
             "source": {
                 "self": "/inventory/managedObjects/x",
                 "id": "x"
             },
-            "type": "c8y_Power",
-            "c8y_Power": {
+            "type": "Power",
+            "Power": {
                 "P": {
                     "unit": "\u00baC",
                     "value": 3673
