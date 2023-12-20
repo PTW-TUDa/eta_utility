@@ -68,24 +68,9 @@ class OpcUaServer:
         nodes = self._validate_nodes(set(values.keys()))
 
         for node in nodes:
-            try:
-                var = self._server.get_node(node.opc_id)
-                opc_type = var.get_data_type_as_variant_type()
-                var.set_value(ua.Variant(values[node], opc_type))
-            except ThreadLoopNotRunning:
-                # FIXME: This is a workaround for the bug in asyncua.sync It should be removed when the bug is fixed.
-                temp_loop = var.tloop
-                # Initialize a new ThreadLoop and start it
-                var.tloop = asyncua.sync.ThreadLoop()
-                var.tloop.start()
-
-                # Write the value
-                opc_type = var.get_data_type_as_variant_type()
-                var.set_value(ua.Variant(values[node], opc_type))
-
-                # Stop the ThreadLoop and restore the old one
-                var.tloop.stop()
-                var.tloop = temp_loop
+            var = self._server.get_node(node.opc_id)
+            opc_type = var.get_data_type_as_variant_type()
+            var.set_value(ua.Variant(values[node], opc_type))
 
     def read(self, nodes: Nodes | None = None) -> pd.DataFrame:
         """
