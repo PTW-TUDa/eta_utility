@@ -55,7 +55,7 @@ numpy = {version= "~1.24.0"}
 pandas = {version= "~2.0.3"}
 xlrd = "^2.0.1"
 opcua = "~0.98.13" # Deprecated soon
-asyncua = {git = "https://github.com/miki5799/opcua-asyncio.git", rev = "development"}
+asyncua-fork-for-eta-utility = "==1.0.7"
 lxml = "^4.9.3"
 requests = "^2.31.0"
 pymodbustcp = "==0.2.0"
@@ -163,6 +163,8 @@ extend_ignore = [
     "RST304",
     # Warnings about fixtures without return values are broken:
     "PT019",
+    # Temporary fix for missing 'asyncua' import (we are using asyncua-fork-for-eta-utility))
+    "I900",
 ]
 per_file_ignores = [
     "__init__.py: F401"
