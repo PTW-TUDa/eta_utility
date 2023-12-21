@@ -235,7 +235,7 @@ build:
   script:
     - rm -rf dist
     - pip install poetry
-    - poetry publish --build --username $USERNAME --password $PASSWORD --repository pypi
+    - poetry publish --build --username $USERNAME --password $PASSWORD
   artifacts:
     name: "eta_utility-build-$CI_COMMIT_REF_NAME-$CI_JOB_STATUS"
     paths:
