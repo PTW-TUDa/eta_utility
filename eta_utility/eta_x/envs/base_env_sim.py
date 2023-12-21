@@ -34,6 +34,8 @@ class BaseEnvSim(BaseEnv, abc.ABC):
     :param sampling_time: Duration of a single time sample / time step in seconds.
     :param model_parameters: Parameters for the mathematical model.
     :param sim_steps_per_sample: Number of simulation steps to perform during every sample.
+    :param render_mode: Renders the environments to help visualise what the agent see, examples
+        modes are "human", "rgb_array", "ansi" for text.
     :param kwargs: Other keyword arguments (for subclasses).
     """
 
@@ -56,6 +58,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         sampling_time: TimeStep | str,
         model_parameters: Mapping[str, Any] | None = None,
         sim_steps_per_sample: int | str = 1,
+        render_mode: str | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(
@@ -67,6 +70,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
             scenario_time_end=scenario_time_end,
             episode_duration=episode_duration,
             sampling_time=sampling_time,
+            render_mode=render_mode,
             **kwargs,
         )
 
@@ -192,6 +196,11 @@ class BaseEnvSim(BaseEnv, abc.ABC):
 
         terminated = self._done() or not step_success
         info: dict[str, Any] = {"sim_time_elapsed": sim_time_elapsed}
+
+        # Render the environment at each step
+        if self.render_mode is not None:
+            self.render()
+
         return self._observations(), 0, terminated, False, info
 
     def _update_state(self, action: np.ndarray) -> tuple[bool, float]:
@@ -282,6 +291,10 @@ class BaseEnvSim(BaseEnv, abc.ABC):
 
         self.state.update(self.get_scenario_state())
         self.state_log.append(self.state)
+
+        # Render the environment when calling the reset function
+        if self.render_mode is not None:
+            self.render()
 
         return self._observations(), {}
 
