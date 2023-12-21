@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "eta-utility"
-version = "v3.0.0"
+version = "v3.0.1"
 description = "A framework for researching energy optimization of factory operations"
 authors = [
     "Technical University of Darmstadt, Institute for Production Management, Technology and Machine Tools (PTW). <info@ptw.tu-darmstadt.de>"
