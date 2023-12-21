@@ -58,6 +58,8 @@ class BaseEnv(Env, abc.ABC):
     :param scenario_time_end: Ending time of the scenario.
     :param episode_duration: Duration of the episode in seconds.
     :param sampling_time: Duration of a single time sample / time step in seconds.
+    :param render_mode: Renders the environments to help visualise what the agent see, examples
+        modes are "human", "rgb_array", "ansi" for text.
     :param kwargs: Other keyword arguments (for subclasses).
     """
 
@@ -85,6 +87,7 @@ class BaseEnv(Env, abc.ABC):
         episode_duration: TimeStep | str,
         sampling_time: TimeStep | str,
         sim_steps_per_sample: int | str = 1,
+        render_mode: str | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__()
@@ -120,6 +123,8 @@ class BaseEnv(Env, abc.ABC):
         self.n_steps: int = 0
         #: Current step of the model (total over all episodes).
         self.n_steps_longtime: int = 0
+        #: Render mode for rendering the environment
+        self.render_mode: str | None | None = render_mode
 
         # Set some standard environment settings
         #: Duration of one episode in seconds.
@@ -409,7 +414,7 @@ class BaseEnv(Env, abc.ABC):
         raise NotImplementedError("Cannot close an abstract Environment.")
 
     @abc.abstractmethod
-    def render(self, mode: str = "human") -> None:
+    def render(self) -> None:
         """Render the environment
 
         The set of supported modes varies per environment. Some environments do not support rendering at
@@ -421,7 +426,6 @@ class BaseEnv(Env, abc.ABC):
             * ansi: Return a string (str) or StringIO.StringIO containing a terminal-style text representation.
               The text can include newlines and ANSI escape sequences (e.g. for colors).
 
-        :param mode: Rendering mode.
         """
         raise NotImplementedError("Cannot render an abstract Environment.")
 

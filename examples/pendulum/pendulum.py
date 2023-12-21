@@ -48,6 +48,8 @@ class PendulumEnv(BaseEnv, GymPendulum):
     :param length: Length of the pendulum
     :param do_render: Render the learning/playing process or not? (default: True)
     :param screen_dim: Dimension of the screen to render on in pixels (default: 500)
+    :param render_mode: Renders the environments to help visualise what the agent see, examples
+        modes are "human", "rgb_array", "ansi" for text.
     """
 
     version = "v1.0"
@@ -71,6 +73,7 @@ class PendulumEnv(BaseEnv, GymPendulum):
         length: float,
         do_render: bool = True,
         screen_dim: int = 500,
+        render_mode: str = "human",
     ):
         super().__init__(
             env_id,
@@ -81,6 +84,7 @@ class PendulumEnv(BaseEnv, GymPendulum):
             scenario_time_end=scenario_time_end,
             episode_duration=episode_duration,
             sampling_time=sampling_time,
+            render_mode=render_mode,
         )
 
         # Load environment dynamics specific settings
@@ -153,6 +157,10 @@ class PendulumEnv(BaseEnv, GymPendulum):
         terminated = self.n_steps >= self.n_episode_steps
         truncated = False
 
+        # Render the environment at each step
+        if self.render_mode == "human":
+            self.render()
+
         return observations, -costs, terminated, truncated, {}
 
     def reset(
@@ -198,15 +206,21 @@ class PendulumEnv(BaseEnv, GymPendulum):
         for idx, name in enumerate(self.state_config.observations):
             observations[idx] = self.state[name]
 
+        # Render the environment when calling the reset function
+        if self.render_mode == "human":
+            self.render()
+
         return observations, {}
 
-    def render(self, mode: str = "human") -> None:
+    def render(self) -> None:
         """Use the render function from the Farama gymnasium PendulumEnv environment.
         This requires a little hack because our 'self.state' attribute is different."""
         if self.do_render:
             state = self.state.copy()
-            self.state = [self.state["th"], self.state["th_dot"]]  # type: ignore
-            GymPendulum.render_mode = mode
+            self.state = (
+                [self.state["th"], self.state["th_dot"]] if not isinstance(state, np.ndarray) else state  # type: ignore
+            )
+            GymPendulum.last_u = self.last_u
             GymPendulum.render(self)
             self.state = state
 
