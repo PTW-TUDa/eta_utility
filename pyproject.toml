@@ -54,7 +54,8 @@ python-dateutil = "^2.8.2"
 numpy = {version= "~1.24.0"}
 pandas = {version= "~2.0.3"}
 xlrd = "^2.0.1"
-opcua = "~0.98.13"
+opcua = "~0.98.13" # Deprecated soon
+asyncua = {git = "https://github.com/miki5799/opcua-asyncio.git", rev = "development"}
 lxml = "^4.9.3"
 requests = "^2.31.0"
 pymodbustcp = "==0.2.0"
@@ -197,7 +198,8 @@ module = [
     "keyboard.*",
     "onnxruntime.*",
     "matplotlib.*",
-    "torch.ao.nn.*"
+    "torch.ao.nn.*",
+    "asyncua.*"
 ]
 ignore_missing_imports = true
 [[tool.mypy.overrides]]

@@ -257,10 +257,10 @@ class TestConnectorOperations:
 
     @pytest.fixture(scope="class")
     def connection(self, local_nodes):
-        connection = OpcUaConnection.from_node(local_nodes[0], usr="admin", pwd="0")
+        connection: OpcUaConnection = OpcUaConnection.from_node(local_nodes[0], usr="admin", pwd="0")
         return connection
 
-    def test_create_nodes(self, server, connection, local_nodes):
+    def test_create_nodes(self, server: OpcUaServer, connection: OpcUaConnection, local_nodes):
         connection.create_nodes(local_nodes)
 
         for node in local_nodes:
@@ -269,25 +269,25 @@ class TestConnectorOperations:
     values = ((0, 1.5), (1, 5), (2, "something"))
 
     @pytest.mark.parametrize(("index", "value"), values)
-    def test_write_node(self, server, connection, local_nodes, index, value):
+    def test_write_node(self, server: OpcUaServer, connection: OpcUaConnection, local_nodes, index, value):
         connection.write({local_nodes[index]: value})
 
         assert server.read(local_nodes[index]).iloc[0, 0] == value
 
     @pytest.mark.parametrize(("index", "expected"), values)
-    def test_read_node(self, connection, local_nodes, index, expected):
+    def test_read_node(self, connection: OpcUaConnection, local_nodes, index, expected):
         val = connection.read({local_nodes[index]})
 
         assert val.iloc[0, 0] == expected
         assert val.columns[0] == local_nodes[index].name
 
-    def test_read_fail(self, connection, local_nodes):
+    def test_read_fail(self, connection: OpcUaConnection, local_nodes):
         n = local_nodes[0]
         fail_node = Node(n.name, n.url, n.protocol, usr=n.usr, pwd=n.pwd, opc_id="ns=6;s=AnotherNamespace.DoesNotExist")
         with pytest.raises(ConnectionError, match=".*BadNodeIdUnknown.*"):
             connection.read(fail_node)
 
-    def test_recreate_existing_node(self, connection, local_nodes, caplog):
+    def test_recreate_existing_node(self, connection: OpcUaConnection, local_nodes, caplog):
         log = get_logger()
         log.propagate = True
 
@@ -301,21 +301,26 @@ class TestConnectorOperations:
         with pytest.raises(ConnectionError, match=".*BadUserAccessDenied.*"):
             connection.write({n: 123})
 
-    def test_delete_nodes(self, connection, local_nodes):
+    def test_delete_nodes(self, connection: OpcUaConnection, local_nodes):
         connection.delete_nodes(local_nodes)
 
         with pytest.raises(ConnectionError, match=".*BadNodeIdUnknown.*"):
             connection.read(local_nodes)
 
-    def test_login_fail_read(self, server, local_nodes):
+    def test_login_fail_read(self, server: OpcUaServer, local_nodes):
         n = local_nodes[0]
         connection = OpcUaConnection.from_node(n, usr="another", pwd="something")
 
-        # make server reject everything
-        def um(s, u, p):
-            return False
+        # Create a new user manager that rejects all users
+        from asyncua.server.user_managers import UserManager
 
-        server._server.user_manager.user_manager = um
+        class BadUserManager(UserManager):
+            # Reject all users and return None instead of a user object
+            def get_user(self, iserver, username=None, password=None, certificate=None):
+                return None
+
+        # Set the user manager
+        server._server.aio_obj.iserver.set_user_manager(user_manager=BadUserManager())
 
         with pytest.raises(ConnectionError, match=".*BadUserAccessDenied.*"):
             connection.read(n)
@@ -367,8 +372,8 @@ class TestConnectorSubscriptions:
         connection.close_sub()
 
     @pytest.fixture()
-    def _write_nodes_interrupt(self, server, local_nodes):
-        async def write_loop(server, local_nodes, values):
+    def _write_nodes_interrupt(self, server: OpcUaServer, local_nodes):
+        async def write_loop(server: OpcUaServer, local_nodes, values):
             i = 0
             while True:
                 if i == 3:
@@ -392,7 +397,7 @@ class TestConnectorSubscriptions:
         log = get_logger()
         log.propagate = True
 
-        connection = OpcUaConnection.from_node(local_nodes[0], usr="admin", pwd="0")
+        connection: OpcUaConnection = OpcUaConnection.from_node(local_nodes[0], usr="admin", pwd="0")
         handler = DFSubHandler(write_interval=1)
         connection.subscribe(handler, nodes=local_nodes, interval=1)
 
@@ -478,8 +483,8 @@ class TestConnectorSubscriptionsIntervalChecker:
             yield server
 
     @pytest.fixture()
-    def _write_nodes_interval_checking(self, server, local_nodes_interval_checking):
-        async def write_loop(server, local_nodes_interval_checking, values):
+    def _write_nodes_interval_checking(self, server: OpcUaServer, local_nodes_interval_checking):
+        async def write_loop(server: OpcUaServer, local_nodes_interval_checking, values):
             i = 0
             while True:
                 if i <= 2:
@@ -493,7 +498,7 @@ class TestConnectorSubscriptionsIntervalChecker:
         asyncio.get_event_loop().create_task(write_loop(server, local_nodes_interval_checking, self.values))
 
     def test_subscribe_interval_checking(self, local_nodes_interval_checking, _write_nodes_interval_checking, caplog):
-        connection = OpcUaConnection.from_node(local_nodes_interval_checking[0], usr="admin", pwd="0")
+        connection: OpcUaConnection = OpcUaConnection.from_node(local_nodes_interval_checking[0], usr="admin", pwd="0")
         handler = DFSubHandler(write_interval=1)
         connection.subscribe(handler, nodes=local_nodes_interval_checking, interval=1)
 

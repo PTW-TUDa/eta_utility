@@ -12,10 +12,18 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
+import asyncua.sync
 import pandas as pd
-from opcua import Client, Subscription, ua
-from opcua.crypto.security_policies import SecurityPolicyBasic256Sha256
-from opcua.ua import SecurityPolicy, uaerrors
+
+# FIXME: add async import: from asyncua import Client as asyncClient
+from asyncua import ua
+
+# FIXME: add async import: from asyncua.common.subscription import Subscription as asyncSubscription
+from asyncua.crypto.security_policies import SecurityPolicyBasic256Sha256
+
+# Synchronous imports
+from asyncua.sync import Client, Subscription
+from asyncua.ua import SecurityPolicy, uaerrors
 
 from eta_utility import KeyCertPair, Suppressor, get_logger
 from eta_utility.connectors.node import Node, NodeOpcUa
@@ -24,7 +32,13 @@ from .util import IntervalChecker, RetryWaiter
 
 if TYPE_CHECKING:
     from typing import Any, Generator, Mapping, Sequence
-    from opcua import Node as OpcNode
+
+    # Sync import
+    from asyncua.sync import SyncNode as SyncOpcNode
+
+    # Async import
+    # FIXME: add async import: from asyncua import Node as asyncSyncOpcNode
+
     from eta_utility.type_hints import AnyNode, Nodes, TimeStep
 
 from .base_classes import BaseConnection, SubscriptionHandler
@@ -57,7 +71,7 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
         if self._url.scheme != "opc.tcp":
             raise ValueError("Given URL is not a valid OPC url (scheme: opc.tcp).")
 
-        self.connection: Client = Client(self.url)
+        self.connection: Client
         self._connected = False
         self._retry = RetryWaiter()
         self._retry_interval_checker = RetryWaiter()
@@ -179,13 +193,14 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
         :raises ConnectionError: When an error occurs during node creation.
         """
 
-        def create_object(parent: OpcNode, child: NodeOpcUa) -> OpcNode:
-            for obj in parent.get_children():
+        def create_object(parent: SyncOpcNode, child: NodeOpcUa) -> SyncOpcNode:
+            children: list[SyncOpcNode] = asyncua.sync._to_sync(parent.tloop, parent.get_children())
+            for obj in children:
                 ident = obj.nodeid.Identifier if type(obj.nodeid.Identifier) is str else obj.nodeid.Identifier
                 if child.opc_path_str == ident:
                     return obj
             else:
-                return parent.add_object(child.opc_id, child.opc_name)
+                return asyncua.sync._to_sync(parent.tloop, parent.add_object(child.opc_id, child.opc_name))
 
         _nodes = self._validate_nodes(nodes)
 
@@ -193,9 +208,14 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
             for node in _nodes:
                 try:
                     if len(node.opc_path) == 0:
-                        last_obj = self.connection.get_objects_node()
+                        last_obj = asyncua.sync._to_sync(
+                            self.connection.tloop, self.connection.aio_obj.get_objects_node()
+                        )
                     else:
-                        last_obj = create_object(self.connection.get_objects_node(), node.opc_path[0])
+                        sync_node = asyncua.sync._to_sync(
+                            self.connection.tloop, self.connection.aio_obj.get_objects_node()
+                        )
+                        last_obj = create_object(sync_node, node.opc_path[0])
 
                     for key in range(1, len(node.opc_path)):
                         last_obj = create_object(last_obj, node.opc_path[key])
@@ -226,7 +246,7 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
         :raises ConnectionError: If deletion of nodes fails.
         """
 
-        def delete_node_parents(node: OpcNode, depth: int = 20) -> None:
+        def delete_node_parents(node: SyncOpcNode, depth: int = 20) -> None:
             parents = node.get_references(direction=ua.BrowseDirection.Inverse)
             if not node.get_children():
                 node.delete(delete_references=True)
@@ -393,12 +413,18 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
         except AttributeError:
             # Occurs if the subscription did not exist and can be ignored.
             pass
+        except asyncua.sync.ThreadLoopNotRunning:
+            # Occurs if the subscription (and therefore the thread loop) was already closed and can be ignored.
+            pass
 
         self._disconnect()
 
     def _connect(self) -> None:
         """Connect to server. This will try to securely connect using Basic256SHA256 method
         before trying an insecure connection."""
+        if not hasattr(self, "connection"):
+            # Do not reninitialize connection if it already exists
+            self.connection = Client(self.url)
         self._connected = False
         if self.usr is not None:
             self.connection.set_user(self.usr)
@@ -407,8 +433,8 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
         self._retry.tried()
 
         def _connect_insecure() -> None:
-            self.connection.security_policy = SecurityPolicy()
-            self.connection.uaclient.set_security(self.connection.security_policy)
+            self.connection.aio_obj.security_policy = SecurityPolicy()
+            self.connection.aio_obj.uaclient.set_security(self.connection.aio_obj.security_policy)
             self.connection.connect()
 
         def _connect_secure() -> None:
@@ -530,3 +556,9 @@ class _OPCSubHandler:
 
         self.handler.push(self._sub_nodes[str(node)], val, _time)
         self._node_interval_to_check.push(node=self._sub_nodes[str(node)], value=val, timestamp=_time)
+
+    def status_change_notification(self, status: ua.StatusChangeNotification) -> None:
+        pass
+
+    def event_notification(self, event: ua.EventNotificationList) -> None:
+        pass
