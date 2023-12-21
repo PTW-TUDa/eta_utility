@@ -50,7 +50,7 @@ files = [
 
 [[package]]
 name = "asyncua"
-version = "1.0.5"
+version = "1.0.6"
 description = ""
 optional = false
 python-versions = "*"
@@ -60,7 +60,7 @@ develop = false
 [package.dependencies]
 aiofiles = "*"
 aiosqlite = "*"
-cryptography = "*"
+cryptography = ">40.0.1"
 pyOpenSSL = "*"
 python-dateutil = "*"
 pytz = "*"
@@ -70,8 +70,8 @@ typing-extensions = "*"
 [package.source]
 type = "git"
 url = "https://github.com/miki5799/opcua-asyncio.git"
-reference = "sync-reusable-client-1364"
-resolved_reference = "8dab330ff659915e3e90f0ff883b77f7f29b2bd7"
+reference = "development"
+resolved_reference = "224f603e06c58c64abb40319afe41d65f8148fc0"
 
 [[package]]
 name = "attrs"
@@ -6283,4 +6283,4 @@ examples = ["keyboard", "matplotlib", "onnxruntime", "pygame", "pyglet"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8.0"
-content-hash = "851ddd5839dd1a3af2829be212273864c2565f63645b38fd03eb84f02881d4be"
+content-hash = "7c1c3965f7998653e56da93e185cf69b6f1247126a927cd04f05b920011635a8"
