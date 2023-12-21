@@ -39,6 +39,8 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
     :param sampling_time: Duration of a single time sample / time step in seconds.
     :param model_parameters: Parameters for the mathematical model.
     :param prediction_scope: Duration of the prediction (usually a subsample of the episode duration).
+    :param render_mode: Renders the environments to help visualise what the agent see, examples
+        modes are "human", "rgb_array", "ansi" for text.
     :param kwargs: Other keyword arguments (for subclasses).
     """
 
@@ -55,6 +57,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         sampling_time: TimeStep | str,
         model_parameters: Mapping[str, Any],
         prediction_scope: TimeStep | str | None = None,
+        render_mode: str | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(
@@ -66,6 +69,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             scenario_time_end=scenario_time_end,
             episode_duration=episode_duration,
             sampling_time=sampling_time,
+            render_mode=render_mode,
             **kwargs,
         )
 
@@ -207,7 +211,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
 
         observations = self.update()
 
-        # update and log current state
+        # Update and log current state
         self._create_new_state(self.additional_state)
         self._actions_to_state(action)
 
@@ -216,6 +220,11 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         self.state_log.append(self.state)
 
         reward = pyo.value(list(self._concrete_model.component_objects(pyo.Objective))[0])
+
+        # Render the environment at each step
+        if self.render_mode is not None:
+            self.render()
+
         return observations, reward, self._done(), False, {}
 
     def update(self, observations: Sequence[Sequence[float | int]] | None = None) -> np.ndarray:
@@ -231,7 +240,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             "should be done automatically when using the MPCBasic Algorithm."
         )
 
-        # update shift counter for rolling MPC approach
+        # Update shift counter for rolling MPC approach
         self.n_steps += 1
 
         # The timeseries data must be updated for the next time step. The index depends on whether time itself is being
@@ -366,6 +375,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
 
         if self.n_steps > 0:
             self._concrete_model = self._model()
+
         super().reset(seed=seed, options=options)
 
         assert self._concrete_model is not None, "Mathematical model is not initialized. Call reset another time."
@@ -385,6 +395,10 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         for act in self.state_config.actions:
             self.state[act] = 0
         self.state_log.append(self.state)
+
+        # Render the environment when calling the reset function
+        if self.render_mode is not None:
+            self.render()
 
         return np.array(observations), {}
 

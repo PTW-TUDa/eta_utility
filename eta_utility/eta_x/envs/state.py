@@ -144,19 +144,17 @@ class StateVar:
         # mypy does not recognize default_if_none
     )
 
-    #: Lowest possible value of the state variable (default: None).
+    #: Lowest possible value of the state variable (default: np.nan).
     low_value: float = field(
         kw_only=True,
         default=np.nan,
-        converter=converters.pipe(converters.default_if_none(np.nan), np.float32)  # type: ignore
-        # mypy does not recognize default_if_none
+        converter=converters.pipe(converters.default_if_none(np.nan), np.float32),  # type: ignore
     )
-    #: Highest possible value of the state variable (default: None).
+    #: Highest possible value of the state variable (default: np.nan).
     high_value: float = field(
         kw_only=True,
         default=np.nan,
-        converter=converters.pipe(converters.default_if_none(np.nan), np.float32)  # type: ignore
-        # mypy does not recognize default_if_none
+        converter=converters.pipe(converters.default_if_none(np.nan), np.float32),  # type: ignore
     )
     #: If the value of the variable dips below this, the episode should be aborted (default: None).
     abort_condition_min: float | None = field(kw_only=True, default=None, converter=converters.optional(float))
@@ -319,6 +317,7 @@ class StateConfig:
         """
         self.vars[var.name] = var
 
+        # Mappings for action and observation variables
         if var.is_agent_action:
             self.actions.append(var.name)
         if var.is_agent_observation:
@@ -347,16 +346,25 @@ class StateConfig:
             self.rev_ext_ids[var.ext_id] = var.name
             self.ext_scale[var.name] = {"add": var.ext_scale_add, "multiply": var.ext_scale_mult}
 
+        # Mappings for interaction variables
         if var.from_interact and var.interact_id is not None:
             self.interact_outputs.append(var.name)
             self.map_interact_ids[var.name] = var.interact_id
             self.interact_scale[var.name] = {"add": var.interact_scale_add, "multiply": var.interact_scale_mult}
+        elif (var.from_interact and var.interact_id is None) or (not var.from_interact and var.interact_id is not None):
+            raise KeyError(
+                f"Variable {var.name} is declared as an interaction variable, but a necessary configuration is missing."
+            )
 
         # Mappings for scenario variables
         if var.from_scenario and var.scenario_id is not None:
             self.scenarios.append(var.name)
             self.map_scenario_ids[var.name] = var.scenario_id
             self.scenario_scale[var.name] = {"add": var.scenario_scale_add, "multiply": var.scenario_scale_mult}
+        elif (var.from_scenario and var.scenario_id is None) or (not var.from_scenario and var.scenario_id is not None):
+            raise KeyError(
+                f"Variable {var.name} is declared as an scenario variable, but a necessary configuration is missing."
+            )
 
     def store_file(self, file: Path) -> None:
         """Save the StateConfig to a comma separated file.
@@ -393,7 +401,7 @@ class StateConfig:
 
         return valid_min and valid_max
 
-    def continuous_action_space(self) -> spaces.Box:
+    def continuous_action_space(self) -> spaces.Box:  # type: ignore
         """Generate an action space according to the format required by the OpenAI
         specification.
 
@@ -408,9 +416,12 @@ class StateConfig:
             dtype=np.float32,
         )
 
-        return spaces.Box(action_low, action_high, dtype=np.float32)
+        try:
+            return spaces.Box(action_low, action_high, dtype=np.float32)
+        except ValueError as e:
+            log.error(f"The following {e} occured. Check the the StateConfig parameters low_value and high_value")
 
-    def continuous_obs_space(self) -> spaces.Box:
+    def continuous_obs_space(self) -> spaces.Box:  # type: ignore
         """Generate a continuous observation space according to the format required by the OpenAI
         specification.
 
@@ -424,7 +435,13 @@ class StateConfig:
             [np.nan_to_num(var.high_value, nan=np.inf) for var in self.vars.values() if var.is_agent_observation],
             dtype=np.float32,
         )
-        return spaces.Box(observation_low, observation_high, dtype=np.float32)
+
+        try:
+            return spaces.Box(observation_low, observation_high, dtype=np.float32)
+        except ValueError as e:
+            log.error(
+                f"The following error occured: {e}. Check the the StateConfig parameters low_value and high_value"
+            )
 
     def continuous_observation_space(self) -> spaces.Box:
         return self.continuous_obs_space()

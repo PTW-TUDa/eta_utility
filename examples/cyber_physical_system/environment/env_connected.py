@@ -92,7 +92,9 @@ class CleaningMachineConnected(BaseEnvLive):
         observations, rewards, terminated, truncated, info = super().step(action)
 
         # Convert the temperature value to Kelvin.
-        self.state["temp_tank"] += 273.15
+        self.state["temp_tank"] += (
+            273.15 + 20
+        )  # 20 degrees added because tank temperature in the OPC UA server is permanently 0
         observations[self.state_config.observations.index("temp_tank")] = self.state["temp_tank"]  # type: ignore
         log.info(f"Current temperature in tank: {self.state['temp_tank']} K")
 
@@ -123,7 +125,9 @@ class CleaningMachineConnected(BaseEnvLive):
         observations, infos = super().reset(seed=seed, options=options)
 
         # Convert the temperature value to Kelvin.
-        self.state["temp_tank"] += 273.15
+        self.state["temp_tank"] += (
+            273.15 + 20
+        )  # 20 degrees added because tank temperature in the OPC UA server is permanently 0
         observations[self.state_config.observations.index("temp_tank")] = self.state["temp_tank"]  # type: ignore
         log.info(f"Current temperature in tank: {self.state['temp_tank']} K")
 

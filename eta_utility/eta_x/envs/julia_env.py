@@ -63,6 +63,8 @@ class JuliaEnv(BaseEnv):
     :param scenario_time_end: Ending time of the scenario.
     :param episode_duration: Duration of the episode in seconds.
     :param sampling_time: Duration of a single time sample / time step in seconds.
+    :param render_mode: Renders the environments to help visualise what the agent see, examples
+        modes are "human", "rgb_array", "ansi" for text.
     :param kwargs: Other keyword arguments (for subclasses).
     """
 
@@ -81,6 +83,7 @@ class JuliaEnv(BaseEnv):
         episode_duration: TimeStep | str,
         sampling_time: TimeStep | str,
         julia_env_file: pathlib.Path | str,
+        render_mode: str | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(
@@ -92,6 +95,7 @@ class JuliaEnv(BaseEnv):
             scenario_time_end=scenario_time_end,
             episode_duration=episode_duration,
             sampling_time=sampling_time,
+            render_mode=render_mode,
         )
         # Set arguments as instance parameters.
         for key, value in kwargs.items():
@@ -162,6 +166,10 @@ class JuliaEnv(BaseEnv):
         observations, reward, terminated, truncated, info = self.__jl.step_b(self._jlenv, action)
         self.state_log.append(observations)
 
+        # Render the environment at each step
+        if self.render_mode is not None:
+            self.render()
+
         return observations, reward, terminated, truncated, info
 
     def _reduce_state_log(self) -> list[dict[str, float]]:
@@ -207,6 +215,10 @@ class JuliaEnv(BaseEnv):
         """
         super().reset(seed=seed, options=options)
 
+        # Render the environment when calling the reset function
+        if self.render_mode is not None:
+            self.render()
+
         return self.__jl.reset_b(self._jlenv, seed, options)
 
     def close(self) -> None:
@@ -215,7 +227,7 @@ class JuliaEnv(BaseEnv):
         """
         return self.__jl.close_b(self._jlenv)
 
-    def render(self, mode: str = "human", **kwargs: Any) -> None:
+    def render(self, **kwargs: Any) -> None:
         """Render the environment
 
         The set of supported modes varies per environment. Some environments do not support rendering at
@@ -227,8 +239,9 @@ class JuliaEnv(BaseEnv):
             * ansi: Return a string (str) or StringIO.StringIO containing a terminal-style text representation.
               The text can include newlines and ANSI escape sequences (e.g. for colors).
 
-        :param mode: Rendering mode.
         """
+        mode = self.render_mode
+
         self.__jl.render(self._jlenv, mode, **kwargs)
 
     def __getattr__(self, name: str) -> Any:

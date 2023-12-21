@@ -51,6 +51,7 @@ class DampedOscillatorEnv(BaseEnvSim):
         episode_duration: TimeStep | str,
         sampling_time: TimeStep | str,
         scale_actions: bool = False,
+        render_mode: str | None = None,
         **kwargs: Any,
     ):
         super().__init__(
@@ -62,6 +63,7 @@ class DampedOscillatorEnv(BaseEnvSim):
             scenario_time_end=scenario_time_end,
             episode_duration=episode_duration,
             sampling_time=sampling_time,
+            render_mode=render_mode,
             **kwargs,
         )
         self.scale_actions = scale_actions

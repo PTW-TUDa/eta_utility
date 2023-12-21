@@ -32,6 +32,8 @@ class BaseEnvLive(BaseEnv, abc.ABC):
     :param episode_duration: Duration of the episode in seconds.
     :param sampling_time: Duration of a single time sample / time step in seconds.
     :param max_errors: Maximum number of connection errors before interrupting the optimization process.
+    :param render_mode: Renders the environments to help visualise what the agent see, examples
+        modes are "human", "rgb_array", "ansi" for text.
     :param kwargs: Other keyword arguments (for subclasses).
     """
 
@@ -53,6 +55,7 @@ class BaseEnvLive(BaseEnv, abc.ABC):
         episode_duration: TimeStep | str,
         sampling_time: TimeStep | str,
         max_errors: int = 10,
+        render_mode: str | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(
@@ -64,6 +67,7 @@ class BaseEnvLive(BaseEnv, abc.ABC):
             scenario_time_end=scenario_time_end,
             episode_duration=episode_duration,
             sampling_time=sampling_time,
+            render_mode=render_mode,
             **kwargs,
         )
         #: Instance of the Live Connector.
@@ -151,6 +155,10 @@ class BaseEnvLive(BaseEnv, abc.ABC):
         self.state.update(self.get_scenario_state())
         self.state_log.append(self.state)
 
+        # Render the environment at each step
+        if self.render_mode is not None:
+            self.render()
+
         return self._observations(), 0, self._done(), False, {}
 
     def reset(
@@ -187,6 +195,7 @@ class BaseEnvLive(BaseEnv, abc.ABC):
                 should be analogous to the ``info`` returned by :meth:`step`.
         """
         assert self.state_config is not None, "Set state_config before calling reset function."
+
         super().reset(seed=seed, options=options)
         self._init_live_connector()
 
@@ -201,6 +210,10 @@ class BaseEnvLive(BaseEnv, abc.ABC):
         self.state.update({self.state_config.rev_ext_ids[name]: results[name] for name in start_obs})
         self.state.update(self.get_scenario_state())
         self.state_log.append(self.state)
+
+        # Render the environment when calling the reset function
+        if self.render_mode is not None:
+            self.render()
 
         return self._observations(), {}
 
