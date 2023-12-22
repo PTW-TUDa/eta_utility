@@ -233,7 +233,6 @@ class ETAx:
             self.config_run,
             self.config.settings.environment,
             callback,
-            self.config.settings.seed,
             self.config.settings.verbose,
             self.config.setup.vectorizer_class,
             self.config.settings.n_environments,
@@ -262,7 +261,6 @@ class ETAx:
                 self.config_run,
                 self.config.settings.interaction_env,
                 callback,
-                self.config.settings.seed,
                 self.config.settings.verbose,
                 training=training,
             )
@@ -344,6 +342,7 @@ class ETAx:
                 raise
 
             # reset environment one more time to call environment callback one last time
+            self.environments.seed(self.config.settings.seed)
             self.environments.reset()
 
             # save model
@@ -404,7 +403,10 @@ class ETAx:
                     log.error(
                         "Exception occurred during an environment step. Aborting and trying to reset environments."
                     )
-                    observations = self._reset_envs()
+                    try:
+                        observations = self._reset_envs()
+                    except BaseException as followup_exception:
+                        raise e from followup_exception
                     log.debug("Environment reset successful - re-raising exception")
                     raise e
 
@@ -451,10 +453,12 @@ class ETAx:
         assert self.environments is not None, "Initialized environments could not be found. Call prepare_run first."
         log.debug("Resetting environments.")
 
+        self.environments.seed(self.config.settings.seed)
         if self.config.settings.interact_with_env:
             assert (
                 self.interaction_env is not None
             ), "Initialized interaction environments could not be found. Call prepare_run first."
+            self.interaction_env.seed(self.config.settings.seed)
             observations = self.interaction_env.reset()
             return self._reset_env_interaction(observations)
         else:

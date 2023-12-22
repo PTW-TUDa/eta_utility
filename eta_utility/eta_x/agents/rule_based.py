@@ -45,7 +45,9 @@ class RuleBased(BaseAlgorithm, abc.ABC):
         super().__init__(policy=policy, env=env, verbose=verbose, learning_rate=0, **kwargs)
 
         #: Last / initial State of the agent.
-        self.state: np.ndarray | None = np.zeros(self.action_space.shape) if self.action_space is not None else None
+        self.state: np.ndarray | None = (
+            np.zeros(self.action_space.shape) if self.action_space is not None else None  # type: ignore
+        )
 
         self.policy_class: type[BasePolicy]
         if _init_setup_model:

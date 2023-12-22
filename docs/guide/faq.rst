@@ -31,7 +31,7 @@ Alternatively, you can use a terminal to add the variable:
 
 .. code-block:: console
 
-    $> set PATH=%PATH%;<Your Git Path>
+    $ set PATH=%PATH%;<Your Git Path>
 
 In case of any problems with locating of git on your device, `this StackOverflow discussion
 (external link) <https://stackoverflow.com/questions/11928561/where-is-git-exe-located>`_
@@ -49,7 +49,7 @@ You can force resetting the git credentials in Windows:
 
 - open "Credential Manager" in system control
 - Delete information about the git server you are trying to login to
-  (in  case of eta_utility: git.rwth-aachen.de)
+  (in  case of eta_utility: "git.ptw.maschinenbau.tu-darmstadt.de <git.ptw.maschinenbau.tu-darmstadt.de>"_).
 
 .. _dymola_license_not_found:
 
@@ -104,7 +104,7 @@ First, find the path to your sphinx installation, then add it via the terminal o
 
 .. code-block:: console
 
-    $> set PATH=%PATH%;<Your sphinx path>
+    $ set PATH=%PATH%;<Your sphinx path>
 
 .. figure:: figures/dev_03_AddingSphinx2PATH.png
     :width: 470
@@ -120,7 +120,7 @@ If you receive the following error message, when you want to install the Julia e
 
 .. code-block:: console
 
-    $> Exception: Julia executable cannot be found. If you have installed Julia, make sure Julia executable is in the system path. If you have not installed Julia, download from https://julialang.org/downloads/ and install it.
+    $ Exception: Julia executable cannot be found. If you have installed Julia, make sure Julia executable is in the system path. If you have not installed Julia, download from https://julialang.org/downloads/ and install it.
 
 Add the path from Julia to Windows as described in :ref:`install_julia` and restart eta-utility.
 
@@ -133,17 +133,21 @@ code, update *eta_utility* with the following command (add extra requirements li
 
 .. code-block:: console
 
-    $> pip install --upgrade --upgrade-strategy=only-if-needed eta_utility
+    $ pip install --upgrade --upgrade-strategy=only-if-needed eta_utility
 
-I want to start a julia experiment, but the following error occurs:
+I want to start a julia experiment, but there is an AttributeError
 -------------------------------------------------------------------
-If you receive the following error message, when you want to start a julia experiment:
+If you receive the following (or a similar) error message, when you want to start a julia experiment:
 
 .. code-block:: console
 
-    $> Exception: AttributeError: module 'eta_utility.eta_x.agents' has no attribute 'Nsga2'.
+    $ Exception: AttributeError: module 'eta_utility.eta_x.agents' has no attribute 'Nsga2'.
 
 Make sure PyJulia is installed in the correct virtual environment as described in :ref:`install_julia`.
+
+I made changes in the NSGA2 agent and want to do a commit, but my tests are not passing
+---------------------------------------------------------------------------------------
+Make sure that you have refreshed the stored agent model as described in :ref:`testing_your_code`.
 
 Resolve FMPy compilation issue on macOS (x64)
 -----------------------------------------------
@@ -153,8 +157,8 @@ The error message might look like this:
 
 .. code-block:: console
 
-    $> clang: error: unsupported option '-fopenmp'
-    $> error: command 'clang' failed with exit status 1
+    $ clang: error: unsupported option '-fopenmp'
+    $ error: command 'clang' failed with exit status 1
 
 Here's how you can manually compile the FMU. Make sure to replace all occurrences of "fmu_file" with the actual name of the FMU:
 
@@ -162,60 +166,60 @@ Here's how you can manually compile the FMU. Make sure to replace all occurrence
 
 .. code-block:: console
 
-   $> brew install zip
+   $ brew install zip
 
 
 2. Create a folder where the FMU can be extracted and extract the FMU:
 
 .. code-block:: console
 
-   $> [ ! -d fmu_extract ] && mkdir fmu_extract
-   $> unzip -u path/to/fmu_file.fmu -d fmu_extract
+   $ [ ! -d fmu_extract ] && mkdir fmu_extract
+   $ unzip -u path/to/fmu_file.fmu -d fmu_extract
 
 
 3. If you encounter an error with compiling the `ModelicaInternal.c` file, insert a function declaration before the call in `/sources/ModelicaInternal.c`, add the following declaration:
 
 .. code-block:: console
 
-   $> int creat(const char *path, mode_t mode) __DARWIN_ALIAS_C(creat);
+   $ int creat(const char *path, mode_t mode) __DARWIN_ALIAS_C(creat);
 
 
 4. Switch to the `sources` folder:
 
 .. code-block:: console
 
-   $> cd fmu_extract/sources
+   $ cd fmu_extract/sources
 
 
 5. Run the following Clang compiler command with the `-w` flags to clear the output of warnings (replace `/path/to/fmpy/` with the actual path to your fmpy installation):
 
 .. code-block:: console
 
-   $> clang -w -c -arch x86_64 -arch arm64 -I. -I/path/to/fmpy/c-code all.c && clang -w -shared -arch x86_64 -arch arm64 -ofmu_file.dylib *.o -lm
+   $ clang -w -c -arch x86_64 -arch arm64 -I. -I/path/to/fmpy/c-code all.c && clang -w -shared -arch x86_64 -arch arm64 -ofmu_file.dylib *.o -lm
 
 
 6. Move the output to the `darwin64` folder:
 
 .. code-block:: console
 
-   $> [ ! -d ../binaries/darwin64 ] && mkdir ../binaries/darwin64
-   $> mv out.so ../binaries/darwin64/fmu_file.dylib
+   $ [ ! -d ../binaries/darwin64 ] && mkdir ../binaries/darwin64
+   $ mv out.so ../binaries/darwin64/fmu_file.dylib
 
 
 7. Pack the new FMU, which contains the compiled files:
 
 .. code-block:: console
 
-   $> cd ..
-   $> zip -r ../fmu_file.fmu *
+   $ cd ..
+   $ zip -r ../fmu_file.fmu *
 
 
 8. Clean up:
 
 .. code-block:: console
 
-   $> cd ..
-   $> rm -rf fmu_extract
+   $ cd ..
+   $ rm -rf fmu_extract
 
 
 After following these steps, you should have a new FMU file that contains the compiled files and can be used on macOS systems.

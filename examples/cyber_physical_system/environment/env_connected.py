@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from typing import Any, Callable
 
     from eta_utility.eta_x import ConfigOptRun
-    from eta_utility.type_hints import StepResult, TimeStep
+    from eta_utility.type_hints import ObservationType, StepResult, TimeStep
 
 log = get_logger("eta_x.envs")
 
@@ -24,8 +24,6 @@ class CleaningMachineConnected(BaseEnvLive):
 
     :param env_id: Identification for the environment, useful when creating multiple environments.
     :param config_run: Configuration of the optimization run.
-    :param seed: Random seed to use for generating random numbers in this environment.
-        (default: None / create random seed).
     :param verbose: Verbosity to use for logging.
     :param callback: callback which should be called after each episode.
     :param scenario_time_begin: Beginning time of the scenario.
@@ -42,7 +40,6 @@ class CleaningMachineConnected(BaseEnvLive):
         self,
         env_id: int,
         config_run: ConfigOptRun,
-        seed: int | None = None,
         verbose: int = 2,
         callback: Callable | None = None,
         *,
@@ -56,7 +53,6 @@ class CleaningMachineConnected(BaseEnvLive):
         super().__init__(
             env_id=env_id,
             config_run=config_run,
-            seed=seed,
             verbose=verbose,
             callback=callback,
             scenario_time_begin=scenario_time_begin,
@@ -93,38 +89,49 @@ class CleaningMachineConnected(BaseEnvLive):
         """
         assert self.state_config is not None, "Set state_config before calling step function."
 
-        observations, rewards, done, info = super().step(action)
+        observations, rewards, terminated, truncated, info = super().step(action)
 
         # Convert the temperature value to Kelvin.
-        self.state["temp_tank"] += 273.15
-        observations[self.state_config.observations.index("temp_tank")] = self.state["temp_tank"]
+        self.state["temp_tank"] += (
+            273.15 + 20
+        )  # 20 degrees added because tank temperature in the OPC UA server is permanently 0
+        observations[self.state_config.observations.index("temp_tank")] = self.state["temp_tank"]  # type: ignore
         log.info(f"Current temperature in tank: {self.state['temp_tank']} K")
 
         # Store the results every five steps
         if self.n_steps % 5 == 0:
             self.render()
 
-        return observations, rewards, done, info
+        return observations, rewards, terminated, truncated, info
 
-    def reset(self) -> np.ndarray:
+    def reset(
+        self,
+        *,
+        seed: int | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> tuple[ObservationType, dict[str, Any]]:
         """Reset the environment. This is called after each episode is completed and should be used to reset the
         state of the environment such that simulation of a new episode can begin.
 
-        :return: The return value represents the observations (state) of the environment before the first
-                 step is performed
+        :param seed: The seed that is used to initialize the environment's PRNG (`np_random`) (default: None).
+        :param options: Additional information to specify how the environment is reset (optional,
+                depending on the specific environment) (default: None)
+        :return: Tuple of observation and info. Analogous to the ``info`` returned by :meth:`step`.
         """
         assert self.state_config is not None, "Set state_config before calling reset function."
 
         # Turn off the tank heater before each episode
         self.live_connector.write({str(self.state_config.map_ext_ids["mode_tankheater"]): True})
-        observations = super().reset()
+        observations, infos = super().reset(seed=seed, options=options)
 
         # Convert the temperature value to Kelvin.
-        self.state["temp_tank"] += 273.15
-        observations[self.state_config.observations.index("temp_tank")] = self.state["temp_tank"]
+        self.state["temp_tank"] += (
+            273.15 + 20
+        )  # 20 degrees added because tank temperature in the OPC UA server is permanently 0
+        observations[self.state_config.observations.index("temp_tank")] = self.state["temp_tank"]  # type: ignore
         log.info(f"Current temperature in tank: {self.state['temp_tank']} K")
 
-        return observations
+        return observations, infos
 
     def render(self, mode: str = "human") -> None:
         csv_export(

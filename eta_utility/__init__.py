@@ -1,4 +1,3 @@
-from ._version import __version__, __version_tuple__
 from .util import (
     LOG_DEBUG,
     LOG_ERROR,
@@ -18,4 +17,4 @@ from .util import (
     log_add_filehandler,
     url_parse,
 )
-from .util_julia import install_julia
+from .util_julia import install_julia, update_agent

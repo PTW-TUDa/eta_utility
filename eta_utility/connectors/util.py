@@ -101,7 +101,10 @@ def decode_modbus_value(value: Sequence[int], byteorder: str, type_: Callable | 
     # Convert the value into the appropriate format
     val = struct.unpack(unpack, struct.pack(pack, *value))[0]
     if type_ is str:
-        val = type_(val, "utf-8")
+        try:
+            val = type_(val, "utf-8")
+        except UnicodeDecodeError:
+            val = ""
     elif type_ is not None:
         val = type_(val)
     else:

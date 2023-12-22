@@ -22,7 +22,8 @@ class NoPolicy(policies.BasePolicy):
         """
         raise NotImplementedError("'NoPolicy' should be used only, when predictions are calculated otherwise.")
 
-    def _predict(self, observation: th.Tensor, deterministic: bool = False) -> th.Tensor:
+    # type ignored because mypy doesn't seem to think the following is equivalent to the super class...
+    def _predict(self, observation: th.Tensor, deterministic: bool = False) -> th.Tensor:  # type: ignore
         """Get the action according to the policy for a given observation.
 
         Not implemented in NoPolicy.

@@ -6,7 +6,6 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib import cm
 
 from eta_utility.eta_x.common import episode_results_path
 from eta_utility.eta_x.envs import BaseEnvSim, StateConfig, StateVar
@@ -16,7 +15,7 @@ if TYPE_CHECKING:
     from typing import Any, Callable
 
     from eta_utility.eta_x import ConfigOptRun
-    from eta_utility.type_hints import StepResult, TimeStep
+    from eta_utility.type_hints import ObservationType, StepResult, TimeStep
 
 
 class DampedOscillatorEnv(BaseEnvSim):
@@ -26,8 +25,6 @@ class DampedOscillatorEnv(BaseEnvSim):
 
     :param env_id: Identification for the environment, useful when creating multiple environments
     :param config_run: Configuration of the optimization run
-    :param seed: Random seed to use for generating random numbers in this environment
-        (default: None / create random seed)
     :param verbose: Verbosity to use for logging (default: 2)
     :param callback: callback which should be called after each episode
     :param scenario_time_begin: Beginning time of the scenario
@@ -46,7 +43,6 @@ class DampedOscillatorEnv(BaseEnvSim):
         self,
         env_id: int,
         config_run: ConfigOptRun,
-        seed: int | None = None,
         verbose: int = 2,
         callback: Callable | None = None,
         *,
@@ -55,18 +51,19 @@ class DampedOscillatorEnv(BaseEnvSim):
         episode_duration: TimeStep | str,
         sampling_time: TimeStep | str,
         scale_actions: bool = False,
+        render_mode: str | None = None,
         **kwargs: Any,
     ):
         super().__init__(
             env_id,
             config_run,
-            seed,
             verbose,
             callback,
             scenario_time_begin=scenario_time_begin,
             scenario_time_end=scenario_time_end,
             episode_duration=episode_duration,
             sampling_time=sampling_time,
+            render_mode=render_mode,
             **kwargs,
         )
         self.scale_actions = scale_actions
@@ -114,14 +111,22 @@ class DampedOscillatorEnv(BaseEnvSim):
         if self.scale_actions:
             action *= 15
 
-        observations, _, done, info = super().step(action)
+        observations, _, terminated, truncated, info = super().step(action)
         self.episode_reward -= abs(self.state["s"])
-        return observations, self.episode_reward, done, info
+        return observations, self.episode_reward, terminated, truncated, info
 
-    def reset(self) -> np.ndarray:
+    def reset(
+        self,
+        *,
+        seed: int | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> tuple[ObservationType, dict[str, Any]]:
         """Reset the model and return initial observations.
 
-        :return: Initial observation.
+        :param seed: The seed that is used to initialize the environment's PRNG (`np_random`) (default: None).
+        :param options: Additional information to specify how the environment is reset (optional,
+                depending on the specific environment) (default: None)
+        :return: Tuple of observation and info. Analogous to the ``info`` returned by :meth:`step`.
         """
         assert self.state_config is not None, "Set state_config before calling reset function."
 
@@ -130,10 +135,10 @@ class DampedOscillatorEnv(BaseEnvSim):
         assert force_var.high_value is not None, "Set high value for the applied force"
         self.additional_state = {"f": self.np_random.uniform(force_var.low_value, force_var.high_value)}
 
-        observations = super().reset()
+        observations, infos = super().reset(seed=seed, options=options)
         self.episode_reward = 0
 
-        return observations
+        return observations, infos
 
     def render(self, mode: str = "human") -> None:
         self.export_state_log(
@@ -144,11 +149,11 @@ class DampedOscillatorEnv(BaseEnvSim):
         mpl.rcParams["font.size"] = "9"
         linestyles = [":", "--", "-"]
 
-        def greys(x: int) -> tuple[int]:
-            return cm.Greys(int(255 - ((255 - 100) / 3) * x))
+        def greys(x: int) -> tuple[float, ...]:
+            return tuple([(x / 4) for _ in range(3)]) + (1,)
 
         fig, ax = plt.subplots(1, 1, figsize=(7, 3.5))
-        fig.set_tight_layout(True)
+        fig.set_layout_engine("tight")
 
         data = pd.DataFrame(data=self.state_log, index=list(range(len(self.state_log))), dtype=np.float32)
         x = data.index

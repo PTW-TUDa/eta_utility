@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from typing import Any, Callable, Mapping
 
     from eta_utility.eta_x import ConfigOptRun
-    from eta_utility.type_hints import StepResult, TimeStep
+    from eta_utility.type_hints import ObservationType, StepResult, TimeStep
 
 log = get_logger("eta_x.envs")
 
@@ -26,8 +26,6 @@ class BaseEnvSim(BaseEnv, abc.ABC):
 
     :param env_id: Identification for the environment, useful when creating multiple environments.
     :param config_run: Configuration of the optimization run.
-    :param seed: Random seed to use for generating random numbers in this environment
-        (default: None / create random seed).
     :param verbose: Verbosity to use for logging.
     :param callback: callback which should be called after each episode.
     :param scenario_time_begin: Beginning time of the scenario.
@@ -36,6 +34,8 @@ class BaseEnvSim(BaseEnv, abc.ABC):
     :param sampling_time: Duration of a single time sample / time step in seconds.
     :param model_parameters: Parameters for the mathematical model.
     :param sim_steps_per_sample: Number of simulation steps to perform during every sample.
+    :param render_mode: Renders the environments to help visualise what the agent see, examples
+        modes are "human", "rgb_array", "ansi" for text.
     :param kwargs: Other keyword arguments (for subclasses).
     """
 
@@ -49,7 +49,6 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         self,
         env_id: int,
         config_run: ConfigOptRun,
-        seed: int | None = None,
         verbose: int = 2,
         callback: Callable | None = None,
         *,
@@ -59,18 +58,19 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         sampling_time: TimeStep | str,
         model_parameters: Mapping[str, Any] | None = None,
         sim_steps_per_sample: int | str = 1,
+        render_mode: str | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(
             env_id,
             config_run,
-            seed,
             verbose,
             callback,
             scenario_time_begin=scenario_time_begin,
             scenario_time_end=scenario_time_end,
             episode_duration=episode_duration,
             sampling_time=sampling_time,
+            render_mode=render_mode,
             **kwargs,
         )
 
@@ -180,8 +180,12 @@ class BaseEnvSim(BaseEnv, abc.ABC):
             * **observations**: A numpy array with new observation values as defined by the observation space.
               Observations is a np.array() (numpy array) with floating point or integer values.
             * **reward**: The value of the reward function. This is just one floating point value.
-            * **done**: Boolean value specifying whether an episode has been completed. If this is set to true,
+            * **terminated**: Boolean value specifying whether an episode has been completed. If this is set to true,
               the reset function will automatically be called by the agent or by eta_i.
+            * **truncated**: Boolean, whether the truncation condition outside the scope is satisfied.
+                Typically, this is a timelimit, but could also be used to indicate an agent physically going out of
+                bounds. Can be used to end the episode prematurely before a terminal state is reached. If true, the
+                user needs to call the `reset` function.
             * **info**: Provide some additional info about the state of the environment. The contents of this may
               be used for logging purposes in the future but typically do not currently serve a purpose.
         """
@@ -190,9 +194,14 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         step_success, sim_time_elapsed = self._update_state(action)
         self.state_log.append(self.state)
 
-        done = self._done() or not step_success
+        terminated = self._done() or not step_success
         info: dict[str, Any] = {"sim_time_elapsed": sim_time_elapsed}
-        return self._observations(), 0, done, info
+
+        # Render the environment at each step
+        if self.render_mode is not None:
+            self.render()
+
+        return self._observations(), 0, terminated, False, info
 
     def _update_state(self, action: np.ndarray) -> tuple[bool, float]:
         """Take additional_state, execute simulation and get state information from scenario. This function
@@ -229,18 +238,41 @@ class BaseEnvSim(BaseEnv, abc.ABC):
 
         return step_success, sim_time_elapsed
 
-    def reset(self) -> np.ndarray:
-        """Reset the model and return initial observations. This also calls the callback, increments the episode
-        counter, resets the episode steps and appends the state_log to the longtime storage.
+    def reset(
+        self,
+        *,
+        seed: int | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> tuple[ObservationType, dict[str, Any]]:
+        """Resets the environment to an initial internal state, returning an initial observation and info.
 
-        If you want to extend this function, write your own code and call super().reset() afterwards to return
-        fresh observations. This allows you to adjust timeseries for example. If you need to manipulate the state
-        before initializing or if you want to adjust the initialization itself, overwrite the function entirely.
+        This method generates a new starting state often with some randomness to ensure that the agent explores the
+        state space and learns a generalised policy about the environment. This randomness can be controlled
+        with the ``seed`` parameter otherwise if the environment already has a random number generator and
+        :meth:`reset` is called with ``seed=None``, the RNG is not reset. When using the environment in conjunction with
+        *stable_baselines3*, the vectorized environment will take care of seeding your custom environment automatically.
 
-        :return: Initial observation.
+        For Custom environments, the first line of :meth:`reset` should be ``super().reset(seed=seed)`` which implements
+        the seeding correctly.
+
+        .. note ::
+            Don't forget to store and reset the episode_timer.
+
+        :param seed: The seed that is used to initialize the environment's PRNG (`np_random`).
+                If the environment does not already have a PRNG and ``seed=None`` (the default option) is passed,
+                a seed will be chosen from some source of entropy (e.g. timestamp or /dev/urandom).
+                However, if the environment already has a PRNG and ``seed=None`` is passed, the PRNG will *not* be
+                reset. If you pass an integer, the PRNG will be reset even if it already exists. (default: None)
+        :param options: Additional information to specify how the environment is reset (optional,
+                depending on the specific environment) (default: None)
+
+        :return: Tuple of observation and info. The observation of the initial state will be an element of
+                :attr:`observation_space` (typically a numpy array) and is analogous to the observation returned by
+                :meth:`step`. Info is a dictionary containing auxiliary information complementing ``observation``. It
+                should be analogous to the ``info`` returned by :meth:`step`.
         """
         assert self.state_config is not None, "Set state_config before calling reset function."
-        self._reset_state()
+        super().reset(seed=seed, options=options)
 
         # reset the FMU after every episode with new parameters
         self._init_simulator(self.model_parameters)
@@ -260,7 +292,11 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         self.state.update(self.get_scenario_state())
         self.state_log.append(self.state)
 
-        return self._observations()
+        # Render the environment when calling the reset function
+        if self.render_mode is not None:
+            self.render()
+
+        return self._observations(), {}
 
     def close(self) -> None:
         """Close the environment. This should always be called when an entire run is finished. It should be used to

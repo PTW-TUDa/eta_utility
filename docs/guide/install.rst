@@ -10,20 +10,11 @@ the utility functions, please see the development guide :ref:`development`.
 You can install the basic package (without *eta_x*) or the entire library, both options are
 shown below.
 
-.. warning::
-   Due to limitations with the versions of *stable_baselines3* and *gym* this version of *eta_utility*
-   can only be installed after executing the following command to install specific versions of
-   *setuptools* and *pip*:
-
-   .. code-block:: console
-
-      $> python -m pip install setuptools==65.5 pip==21
-
 The installation is performed using pip:
 
 .. code-block:: console
 
-   $> pip install eta_utility
+   $ pip install eta_utility
 
 There are multiple classes of optional requirements. If you would like to use some of the optional components, please install one or more of the following:
 
@@ -35,7 +26,7 @@ The optional requirements can be installed using pip. For example:
 
 .. code-block:: console
 
-   $> pip install eta_utility[eta_x]
+   $ pip install eta_utility[eta_x]
 
 .. _install_julia:
 
@@ -59,7 +50,7 @@ and inside the eta-utility directory execute the following command:
 
 .. code-block::
 
-    $> install-julia
+    $ install-julia
 
 Make sure to install julia using the same python virtual environment that you are using to execute your code.
 

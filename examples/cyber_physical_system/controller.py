@@ -24,8 +24,8 @@ class DirectControl(RuleBased):
         """
 
         temp_tank_sim = observation[0]
-        tankheater_status = observation[2]
-        market_price = observation[3]
+        tankheater_status = observation[1]
+        market_price = observation[2]
 
         # Set target temperature depending on the market price
         if market_price <= 100.08:
@@ -34,12 +34,12 @@ class DirectControl(RuleBased):
             temp_set = 273.15 + 62
 
         # Three-point control for setting controlled variable ON/OFF of the tank heater
-        actions: np.ndarray = np.zeros((1), dtype=bool)
+        actions: np.ndarray = np.zeros((1), dtype=float)
         if temp_tank_sim > temp_set:
-            actions[0] = [[False]]
+            actions[0] = 0
         elif temp_tank_sim > (temp_set - 3) and temp_tank_sim < temp_set:
-            actions[0] = [[True]] if tankheater_status == 1 else [[False]]
+            actions[0] = 1 if tankheater_status == 1 else 0
         elif temp_tank_sim <= (temp_set - 3):
-            actions[0] = [[True]]
+            actions[0] = 1
 
         return actions

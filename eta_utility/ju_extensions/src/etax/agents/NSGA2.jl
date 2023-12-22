@@ -241,8 +241,8 @@ end
 Cross the solution with another solution. Returns a new genetic solution and does not modify the
 current solution.
 
-:param solution: parent envolved in the crossover.
-:param other: second parent envolve in the crossover.
+:param solution: parent involved in the crossover.
+:param other: second parent involved in the crossover.
 :param probability: probability for crossover.
 :param maxcrosslen: maximum length of the crossover section.
 """

@@ -40,50 +40,56 @@ def setup_live_connect(config_live_connect, nodes_from_config):
     server.stop()
 
 
-def test_read(setup_live_connect):
-    connector = setup_live_connect
-
-    result = connector.read("CHP.opti_mode", "control_mode", "op_request", "control_value")
-
-    assert result == {
+read_values = (
+    {
         "CHP.opti_mode": True,
         "CHP.control_mode": True,
         "CHP.control_value": True,
         "CHP.op_request": False,
-    }
+    },
+)
 
 
-def test_read_write(setup_live_connect):
+@pytest.mark.parametrize(("values"), read_values)
+def test_read(setup_live_connect, values):
     connector = setup_live_connect
+    result = connector.read(*values.keys())
 
-    connector.write(
+    assert result == values
+
+
+read_write_values = (
+    (
+        {
+            "CHP.opti_mode": True,
+            "CHP.op_request": True,
+            "CHP.control_mode": True,
+            "CHP.control_value": True,
+            "CHP.control_mode_opti": 1,
+            "CHP.control_value_opti": 70,
+        }
+    ),
+    (
         {
             "CHP.opti_mode": False,
             "CHP.op_request": False,
             "CHP.control_mode": False,
-            "control_value": False,
-            "control_mode_opti": 0,
-            "control_value_opti": 0,
+            "CHP.control_value": False,
+            "CHP.control_mode_opti": 0,
+            "CHP.control_value_opti": 0,
         }
-    )
+    ),
+)
 
-    result = connector.read(
-        "CHP.opti_mode",
-        "CHP.op_request",
-        "CHP.control_mode",
-        "CHP.control_value",
-        "control_mode_opti",
-        "control_value_opti",
-    )
 
-    assert result == {
-        "CHP.opti_mode": False,
-        "CHP.op_request": False,
-        "CHP.control_mode": False,
-        "CHP.control_value": False,
-        "CHP.control_mode_opti": 0,
-        "CHP.control_value_opti": 0,
-    }
+@pytest.mark.parametrize(("values"), read_write_values)
+def test_read_write(setup_live_connect, values):
+    connector = setup_live_connect
+    connector.write(values)
+
+    result = connector.read(*values.keys())
+
+    assert result == values
 
 
 def test_set_activate_and_deactivate(setup_live_connect):
@@ -105,32 +111,9 @@ def test_set_activate_and_deactivate(setup_live_connect):
 def test_close(setup_live_connect):
     connector = setup_live_connect
 
-    connector.write(
-        {
-            "CHP.opti_mode": True,
-            "CHP.op_request": True,
-            "CHP.control_mode": True,
-            "control_value": True,
-            "control_mode_opti": 1,
-            "control_value_opti": 70,
-        }
-    )
+    connector.write(read_write_values[0])
 
     connector.close()
-    result = connector.read(
-        "CHP.opti_mode",
-        "op_request",
-        "control_mode",
-        "control_value",
-        "CHP.control_mode_opti",
-        "CHP.control_value_opti",
-    )
+    result = connector.read(*read_write_values[0].keys())
 
-    assert result == {
-        "CHP.opti_mode": False,
-        "CHP.op_request": False,
-        "CHP.control_mode": False,
-        "CHP.control_value": False,
-        "CHP.control_mode_opti": 0,
-        "CHP.control_value_opti": 0,
-    }
+    assert result == read_write_values[1]

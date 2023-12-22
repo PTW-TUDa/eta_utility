@@ -13,30 +13,28 @@ except ModuleNotFoundError:
         name="pygame",
     )
 else:
-    from gym.envs.classic_control.pendulum import angle_normalize, PendulumEnv as GymPendulum
+    from gymnasium.envs.classic_control.pendulum import angle_normalize, PendulumEnv as GymPendulum
 
 from eta_utility import get_logger
 from eta_utility.eta_x.envs import BaseEnv, StateConfig, StateVar
 
 if TYPE_CHECKING:
     from datetime import datetime
-    from typing import Callable
+    from typing import Any, Callable
 
     from eta_utility.eta_x import ConfigOptRun
-    from eta_utility.type_hints import StepResult, TimeStep
+    from eta_utility.type_hints import ObservationType, StepResult, TimeStep
 
 log = get_logger("test_etax", 2)
 
 
 class PendulumEnv(BaseEnv, GymPendulum):
     """Pendulum environment in the *eta_utility* style. This class is adapted from the
-    `pendulum example <https://gym.openai.com/envs/Pendulum-v0/>`_ in the OpenAI gym:
-    :py:class:`gym.envs.classic_control.PendulumEnv`:
+    `pendulum example <https://gymnasium.farama.org/environments/classic_control/pendulum/>`_ in
+    the Farama gymnasium: :py:class:`gymnasium.envs.classic_control.PendulumEnv`:
 
     :param env_id: Identification for the environment, useful when creating multiple environments
     :param config_run: Configuration of the optimization run
-    :param seed: Random seed to use for generating random numbers in this environment
-        (default: None / create random seed)
     :param verbose: Verbosity to use for logging (default: 2)
     :param callback: callback which should be called after each episode
     :param scenario_time_begin: Beginning time of the scenario
@@ -50,6 +48,8 @@ class PendulumEnv(BaseEnv, GymPendulum):
     :param length: Length of the pendulum
     :param do_render: Render the learning/playing process or not? (default: True)
     :param screen_dim: Dimension of the screen to render on in pixels (default: 500)
+    :param render_mode: Renders the environments to help visualise what the agent see, examples
+        modes are "human", "rgb_array", "ansi" for text.
     """
 
     version = "v1.0"
@@ -59,7 +59,6 @@ class PendulumEnv(BaseEnv, GymPendulum):
         self,
         env_id: int,
         config_run: ConfigOptRun,
-        seed: int | None = None,
         verbose: int = 2,
         callback: Callable | None = None,
         *,
@@ -67,24 +66,25 @@ class PendulumEnv(BaseEnv, GymPendulum):
         scenario_time_end: datetime | str,
         episode_duration: TimeStep | str,
         sampling_time: TimeStep | str,
-        max_speed: float,
+        max_speed: int,
         max_torque: float,
         g: float,
         mass: float,
         length: float,
         do_render: bool = True,
         screen_dim: int = 500,
+        render_mode: str = "human",
     ):
         super().__init__(
             env_id,
             config_run,
-            seed,
             verbose,
             callback,
             scenario_time_begin=scenario_time_begin,
             scenario_time_end=scenario_time_end,
             episode_duration=episode_duration,
             sampling_time=sampling_time,
+            render_mode=render_mode,
         )
 
         # Load environment dynamics specific settings
@@ -154,32 +154,33 @@ class PendulumEnv(BaseEnv, GymPendulum):
             observations[idx] = self.state[name]
 
         # Check if the episode is completed
-        done = self.n_steps >= self.n_episode_steps
+        terminated = self.n_steps >= self.n_episode_steps
+        truncated = False
 
-        return observations, -costs, done, {}
+        # Render the environment at each step
+        if self.render_mode == "human":
+            self.render()
 
-    def reset(self) -> np.ndarray:
+        return observations, -costs, terminated, truncated, {}
+
+    def reset(
+        self,
+        *,
+        seed: int | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> tuple[ObservationType, dict[str, Any]]:
         """Reset the environment. This is called after each episode is completed and should be used to reset the
         state of the environment such that simulation of a new episode can begin.
 
-        :return: The return value represents the observations (state) of the environment before the first
-                 step is performed
+        :param seed: The seed that is used to initialize the environment's PRNG (`np_random`) (default: None).
+        :param options: Additional information to specify how the environment is reset (optional,
+                depending on the specific environment) (default: None)
+        :return: Tuple of observation and info. Analogous to the ``info`` returned by :meth:`step`.
         """
         assert self.state_config is not None, "Set state_config before calling reset function."
 
         # save episode's stats
-        if self.n_steps > 0:
-            if self.callback is not None:
-                self.callback(self)
-
-            # Store some logging data
-            self.n_episodes += 1
-            self.state_log_longtime.append(self.state_log)
-            self.n_steps_longtime += self.n_steps
-
-            # Reset episode variables
-            self.n_steps = 0
-            self.state_log = []
+        super().reset(seed=seed, options=options)
 
         self.last_u = None
         self.state = {}
@@ -205,15 +206,22 @@ class PendulumEnv(BaseEnv, GymPendulum):
         for idx, name in enumerate(self.state_config.observations):
             observations[idx] = self.state[name]
 
-        return observations
+        # Render the environment when calling the reset function
+        if self.render_mode == "human":
+            self.render()
 
-    def render(self, mode: str = "human") -> None:
-        """Use the render function from the OpenAI gym PendulumEnv environment.
+        return observations, {}
+
+    def render(self) -> None:
+        """Use the render function from the Farama gymnasium PendulumEnv environment.
         This requires a little hack because our 'self.state' attribute is different."""
         if self.do_render:
             state = self.state.copy()
-            self.state = [self.state["th"], self.state["th_dot"]]  # type: ignore
-            GymPendulum.render(self, mode)
+            self.state = (
+                [self.state["th"], self.state["th_dot"]] if not isinstance(state, np.ndarray) else state  # type: ignore
+            )
+            GymPendulum.last_u = self.last_u
+            GymPendulum.render(self)
             self.state = state
 
     def close(self) -> None:

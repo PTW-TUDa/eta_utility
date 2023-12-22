@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
-from gym import Env, utils
+from gymnasium import Env
 
 from eta_utility import get_logger, timeseries
 from eta_utility.eta_x.envs.state import StateConfig
@@ -19,14 +19,15 @@ if TYPE_CHECKING:
     from typing import Any, Callable, Mapping, Sequence
 
     from eta_utility.eta_x import ConfigOptRun
-    from eta_utility.type_hints import Path, StepResult, TimeStep
+    from eta_utility.type_hints import ObservationType, Path, StepResult, TimeStep
+
 
 log = get_logger("eta_x.envs")
 
 
 class BaseEnv(Env, abc.ABC):
     """Abstract environment definition, providing some basic functionality for concrete environments to use.
-    The class implements and adapts functions from gym.Env. It provides additional functionality as required by
+    The class implements and adapts functions from gymnasium.Env. It provides additional functionality as required by
     the ETA-X framework and should be used as the starting point for new environments.
 
     The initialization of this superclass performs many of the necessary tasks, required to specify a concrete
@@ -39,10 +40,10 @@ class BaseEnv(Env, abc.ABC):
 
         - **version**: Version number of the environment.
         - **description**: Short description string of the environment.
-        - **action_space**: The action space of the environment (see also gym.spaces for options).
-        - **observation_space**: The observation space of the environment (see also gym.spaces for options).
+        - **action_space**: The action space of the environment (see also gymnasium.spaces for options).
+        - **observation_space**: The observation space of the environment (see also gymnasium.spaces for options).
 
-    The gym interface requires the following methods for the environment to work correctly within the framework.
+    The gymnasium interface requires the following methods for the environment to work correctly within the framework.
     Consult the documentation of each method for more detail.
 
         - **step()**
@@ -51,14 +52,14 @@ class BaseEnv(Env, abc.ABC):
 
     :param env_id: Identification for the environment, useful when creating multiple environments.
     :param config_run: Configuration of the optimization run.
-    :param seed: Random seed to use for generating random numbers in this environment
-        (default: None / create random seed).
     :param verbose: Verbosity to use for logging.
     :param callback: callback which should be called after each episode.
     :param scenario_time_begin: Beginning time of the scenario.
     :param scenario_time_end: Ending time of the scenario.
     :param episode_duration: Duration of the episode in seconds.
     :param sampling_time: Duration of a single time sample / time step in seconds.
+    :param render_mode: Renders the environments to help visualise what the agent see, examples
+        modes are "human", "rgb_array", "ansi" for text.
     :param kwargs: Other keyword arguments (for subclasses).
     """
 
@@ -78,7 +79,6 @@ class BaseEnv(Env, abc.ABC):
         self,
         env_id: int,
         config_run: ConfigOptRun,
-        seed: int | None = None,
         verbose: int = 2,
         callback: Callable | None = None,
         *,
@@ -86,6 +86,8 @@ class BaseEnv(Env, abc.ABC):
         scenario_time_end: datetime | str,
         episode_duration: TimeStep | str,
         sampling_time: TimeStep | str,
+        sim_steps_per_sample: int | str = 1,
+        render_mode: str | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__()
@@ -121,6 +123,8 @@ class BaseEnv(Env, abc.ABC):
         self.n_steps: int = 0
         #: Current step of the model (total over all episodes).
         self.n_steps_longtime: int = 0
+        #: Render mode for rendering the environment
+        self.render_mode: str | None | None = render_mode
 
         # Set some standard environment settings
         #: Duration of one episode in seconds.
@@ -152,12 +156,6 @@ class BaseEnv(Env, abc.ABC):
         if self.scenario_time_begin > self.scenario_time_end:
             raise ValueError("Start time of the scenario should be smaller than or equal to end time.")
 
-        #: Numpy random generator.
-        self.np_random: np.random.Generator
-        #: Value used for seeding the random generator.
-        self._seed: int
-        self.np_random, self._seed = self.seed(seed)
-
         #: The time series DataFrame contains all time series scenario data. It can be filled by the
         #: import_scenario method.
         self.timeseries: pd.DataFrame = pd.DataFrame()
@@ -184,52 +182,8 @@ class BaseEnv(Env, abc.ABC):
         self.data_log: list[dict[str, Any]] = []
         #: Log of specific environment settings / other data, apart from state, over multiple episodes.
         self.data_log_longtime: list[list[dict[str, Any]]]
-
-    def _init_state_space(self) -> StateConfig:
-        """Initialize the StateConfig object from a dataframe stored in self.state_config. Also provide a deprecated
-        structure of variables, which includes the self.names mapping and multiple other maps.
-
-        .. deprecated:: 2.0.0
-            Initialize the StateConfig object directly instead and use the mappings and functions it provides.
-
-        The names array contains the following (ordered) lists of variables in a dictionary:
-
-            * **actions**: Variables that are agent actions.
-            * **observations**: Variables that are agent observations.
-            * **ext_inputs**: Variables that should be provided to an external source (such as an FMU).
-            * **ext_output**: variables that can be received from an external source (such as an FMU).
-            * **abort_conditions_min**: Variables that have minimum values for an abort condition.
-            * **abort_conditions_max**: Variables that have maximum values for an abort condition.
-
-        *self.ext_scale* is a dictionary of scaling values for external input values (for example from simulations).
-
-        *self.map_ext_ids* is a mapping of internal environment names to external IDs.
-
-        *self.rev_ext_ids* is a mapping of external IDs to internal environment names.
-
-        *self.map_scenario_ids* is a mapping of internal environment names to scenario IDs.
-        """
-        self.state_config = StateConfig.from_dict(self.state_config)
-
-        self.names = {
-            "actions": self.state_config.actions,
-            "observations": self.state_config.observations,
-            "ext_inputs": self.state_config.ext_inputs,
-            "ext_outputs": self.state_config.ext_outputs,
-            "scenario": self.state_config.scenarios,
-            "abort_conditions_min": self.state_config.abort_conditions_min,
-            "abort_conditions_max": self.state_config.abort_conditions_max,
-        }
-        self.ext_scale = self.state_config.ext_scale
-        self.map_ext_ids = self.state_config.map_ext_ids
-        self.rev_ext_ids = self.state_config.rev_ext_ids
-        self.map_scenario_ids = self.state_config.map_scenario_ids
-
-        self.continuous_action_space_from_state = self.state_config.continuous_action_space
-        self.continuous_obs_space_from_state = self.state_config.continuous_obs_space
-        self.continuous_spaces_from_state = self.state_config.continuous_spaces
-
-        return self.state_config
+        #: Number of simulation steps to be taken for each sample. This must be a divisor of 'sampling_time'.
+        self.sim_steps_per_sample: int = int(sim_steps_per_sample)
 
     def import_scenario(self, *scenario_paths: Mapping[str, Any], prefix_renamed: bool = True) -> pd.DataFrame:
         """Load data from csv into self.timeseries_data by using scenario_from_csv
@@ -323,8 +277,12 @@ class BaseEnv(Env, abc.ABC):
             * observations: A numpy array with new observation values as defined by the observation space.
               Observations is a np.array() (numpy array) with floating point or integer values.
             * reward: The value of the reward function. This is just one floating point value.
-            * done: Boolean value specifying whether an episode has been completed. If this is set to true, the reset
-              function will automatically be called by the agent or by eta_i.
+            * terminated: Boolean value specifying whether an episode has been completed. If this is set to true,
+              the reset function will automatically be called by the agent or by eta_i.
+            * truncated: Boolean, whether the truncation condition outside the scope is satisfied.
+              Typically, this is a timelimit, but could also be used to indicate an agent physically going out of
+              bounds. Can be used to end the episode prematurely before a terminal state is reached. If true, the user
+              needs to call the `reset` function.
             * info: Provide some additional info about the state of the environment. The contents of this may be used
               for logging purposes in the future but typically do not currently serve a purpose.
 
@@ -380,18 +338,42 @@ class BaseEnv(Env, abc.ABC):
         """
         return self.n_steps >= self.n_episode_steps
 
-    @abc.abstractmethod
-    def reset(self) -> np.ndarray:
-        """Reset the environment. This is called after each episode is completed and should be used to reset the
-        state of the environment such that simulation of a new episode can begin.
+    def reset(
+        self,
+        *,
+        seed: int | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> tuple[ObservationType, dict[str, Any]]:
+        """Resets the environment to an initial internal state, returning an initial observation and info.
+
+        This method generates a new starting state often with some randomness to ensure that the agent explores the
+        state space and learns a generalised policy about the environment. This randomness can be controlled
+        with the ``seed`` parameter otherwise if the environment already has a random number generator and
+        :meth:`reset` is called with ``seed=None``, the RNG is not reset. When using the environment in conjunction with
+        *stable_baselines3*, the vectorized environment will take care of seeding your custom environment automatically.
+
+        For Custom environments, the first line of :meth:`reset` should be ``super().reset(seed=seed)`` which implements
+        the seeding correctly.
 
         .. note ::
-            Don't forget to store and reset the episode_timer.
+            Don't forget to store and reset the episode_timer by calling self._reset_state() if you overwrite this
+            function.
 
-        :return: The return value represents the observations (state) of the environment before the first
-                 step is performed.
+        :param seed: The seed that is used to initialize the environment's PRNG (`np_random`).
+                If the environment does not already have a PRNG and ``seed=None`` (the default option) is passed,
+                a seed will be chosen from some source of entropy (e.g. timestamp or /dev/urandom).
+                However, if the environment already has a PRNG and ``seed=None`` is passed, the PRNG will *not* be
+                reset. If you pass an integer, the PRNG will be reset even if it already exists. (default: None)
+        :param options: Additional information to specify how the environment is reset (optional,
+                depending on the specific environment) (default: None)
+
+        :return: Tuple of observation and info. The observation of the initial state will be an element of
+                :attr:`observation_space` (typically a numpy array) and is analogous to the observation returned by
+                :meth:`step`. Info is a dictionary containing auxiliary information complementing ``observation``. It
+                should be analogous to the ``info`` returned by :meth:`step`.
         """
-        raise NotImplementedError("Cannot reset an abstract Environment.")
+        self._reset_state()
+        return super().reset(seed=seed, options=options)
 
     def _reduce_state_log(self) -> list[dict[str, float]]:
         """Removes unwanted parameters from state_log before storing in state_log_longtime
@@ -432,11 +414,11 @@ class BaseEnv(Env, abc.ABC):
         raise NotImplementedError("Cannot close an abstract Environment.")
 
     @abc.abstractmethod
-    def render(self, mode: str = "human") -> None:
+    def render(self) -> None:
         """Render the environment
 
         The set of supported modes varies per environment. Some environments do not support rendering at
-        all. By convention in OpenAI *gym*, if mode is:
+        all. By convention in Farama *gymnasium*, if mode is:
 
             * human: render to the current display or terminal and return nothing. Usually for human consumption.
             * rgb_array: Return a numpy.ndarray with shape (x, y, 3), representing RGB values for an x-by-y pixel image,
@@ -444,29 +426,8 @@ class BaseEnv(Env, abc.ABC):
             * ansi: Return a string (str) or StringIO.StringIO containing a terminal-style text representation.
               The text can include newlines and ANSI escape sequences (e.g. for colors).
 
-        :param mode: Rendering mode.
         """
         raise NotImplementedError("Cannot render an abstract Environment.")
-
-    def seed(self, seed: int | None = None) -> tuple[np.random.Generator, int]:
-        """Set random seed for the random generator of the environment
-
-        :param seed: Seeding value.
-        :return: Tuple of the numpy random generator and the set seed value.
-        """
-        if seed is None:
-            iseed = None
-            log.info("The environment seed is set to None, a random seed will be set.")
-        else:
-            iseed = int(seed) + self.env_id
-
-        np_random, _seed = utils.seeding.np_random(iseed)  # noqa
-        log.info(f"The environment seed is set to: {_seed}")
-
-        self._seed = _seed
-        self.np_random = np_random
-
-        return self.np_random, self._seed
 
     @classmethod
     def get_info(cls) -> tuple[str, str]:

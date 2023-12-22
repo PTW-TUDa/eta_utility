@@ -2,39 +2,36 @@
 
 Environments
 ===============
-The environments implemented in *eta_x* are subclasses `OpenAI gym environments
-<https://www.gymlibrary.dev/content/environment_creation/>`_. The *eta_x* environments are provided as abstract classes which
-must be subclassed to create useful implementations. For the specific use cases they are intended for, these
-base classes make the creation of new environments much easier.
+*eta_utility* environments are based on the interfaces offered by `stable_baselines3
+<https://stable-baselines3.readthedocs.io/en/master/guide/custom_env.html>`_ which are in turn based on the
+`Farama gymnasium environments <https://gymnasium.farama.org/api/env/>`_. The *eta_x* environments are provided as
+abstract classes which must be subclassed to create useful implementations. For the specific use cases they are
+intended for, these base classes make the creation of new environments much easier.
 
-The most important concept to understand when working with the *eta_x* environments is the handling and configuration
-of the environment state. The state is represented by StateVar objects which each correspond to one variable of the
-environment. All StateVar objects of an environment are combined into the StateConfig object. From the StateConfig
-object we can determine most other aspects of the environment, such as for example the observation space and action
-space. The OpenAI documentation provides more information about `Spaces <https://www.gymlibrary.dev/api/spaces/>`_.
+Custom environments should follow the interface for custom environments discussed in the `stable_baselines3
+documentation <https://stable-baselines3.readthedocs.io/en/master/guide/custom_env.html>`_. The following describes
+the functions available to simplify implementation of specific functionality in custom environments. You can look
+at the :ref:`examples` for some inspiration what custom environments can look like.
 
+The custom environments created with the utilities described here can be used directly with *stable_baselines3* or
+*gymnasium*. However, using the :py:class:`eta_utility.eta_x::ETAx` class is recommended (see :ref:`intro_etax`).
 When using the *ETAx* class for your optimization runs, the parameters required for environment instantiation must
-be configured in the *environment_specific* section of the configuration. *ETAx* (the class) also supports the
-concept of an interaction between multiple environments as shown in the figure.
-
-.. figure:: figures/Interaction_between_env.png
-    :scale: 15
-    :alt: Interaction between real- and simulation- environment
-
-    Example of an interaction between a real and a simulation environment.
-
-The figure illustrates the entire process which consists of a step in the live/real environment and an update of
-the simulation environment before the agent receives the output of the simulation environment as its observations.
-For interaction between environments, additional parameters can be set in the configuration file. To configure the
-interaction environment, use the section *interaction_env_specific*. If this section is not present, the parameters
-from the *environment_specific* section will be used.
+be configured in the *environment_specific* section of the configuration. If interaction between environments is also
+configured, additional parameters can be set in the configuration file. To configure the interaction environment, use
+the section *interaction_env_specific*. If that section is not present, the parameters from the *environment_specific*
+section will be used for both environments.
 
 Environment State Configuration
 --------------------------------
-As described above, the most important concept to understand when trying to create new environments for *eta_x* is
-the handling of the environment state.
 
-Each state variable is represented by a *StateVar* object
+The most important concept to understand when working with the environment utilities provided by *eta_utility* is
+is the handling and configuration of the environment state. The state is represented by
+:py:class:`eta_utility.eta_x.envs::StateVar` objects which each correspond to one variable of the environment. All
+StateVar objects of an environment are combined into the StateConfig object. From the StateConfig object we can
+determine most other aspects of the environment, such as for example the observation space and action space. The
+*gymnasium* documentation provides more information about `Spaces <https://gymnasium.farama.org/api/spaces/>`_.
+
+Each state variable is represented by a *StateVar* object:
 
 .. autoclass:: eta_utility.eta_x.envs::StateVar
     :members:

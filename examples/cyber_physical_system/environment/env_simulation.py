@@ -24,8 +24,6 @@ class CleaningMachineSimulation(BaseEnvSim):
 
     :param env_id: Identification for the environment, useful when creating multiple environments.
     :param config_run: Configuration of the optimization run.
-    :param seed: Random seed to use for generating random numbers in this environment
-        (default: None / create random seed).
     :param verbose: Verbosity to use for logging.
     :param callback: callback which should be called after each episode.
     :param scenario_time_begin: Beginning time of the scenario.
@@ -45,7 +43,6 @@ class CleaningMachineSimulation(BaseEnvSim):
         self,
         env_id: int,
         config_run: ConfigOptRun,
-        seed: int | None = 123,
         verbose: int = 2,
         callback: Callable | None = None,
         *,
@@ -60,7 +57,6 @@ class CleaningMachineSimulation(BaseEnvSim):
         super().__init__(
             env_id=env_id,
             config_run=config_run,
-            seed=seed,
             verbose=verbose,
             callback=callback,
             scenario_time_begin=scenario_time_begin,
@@ -86,24 +82,35 @@ class CleaningMachineSimulation(BaseEnvSim):
                 name="temp_tank_opcua",
                 ext_id="MAFAC_KEA.tank.tank.medium.T",
                 is_ext_input=True,
-                is_agent_observation=True,
                 from_interact=True,
+                interact_id=0,
             ),
             StateVar(
                 name="tankheater",
                 is_agent_observation=True,
                 from_interact=True,
+                interact_id=1,
                 ext_id="u_tank_heater",
                 is_ext_input=True,
-                low_value=1,
-                high_value=0,
+                low_value=0,
+                high_value=1,
             ),
-            StateVar(name="heating_register", ext_id="u_heating_register", from_interact=True, is_ext_input=True),
-            StateVar(name="motor_nozzles", ext_id="u_motor_nozzles", from_interact=True, is_ext_input=True),
-            StateVar(name="motor_basket", ext_id="u_motor_basket", from_interact=True, is_ext_input=True),
-            StateVar(name="pump", ext_id="u_pump", from_interact=True, is_ext_input=True),
-            StateVar(name="fan", ext_id="u_fan", from_interact=True, is_ext_input=True),
-            StateVar(name="valve", ext_id="u_valve", from_interact=True, is_ext_input=True),
+            StateVar(
+                name="heating_register",
+                ext_id="u_heating_register",
+                from_interact=True,
+                interact_id=2,
+                is_ext_input=True,
+            ),
+            StateVar(
+                name="motor_nozzles", ext_id="u_motor_nozzles", from_interact=True, interact_id=3, is_ext_input=True
+            ),
+            StateVar(
+                name="motor_basket", ext_id="u_motor_basket", from_interact=True, interact_id=4, is_ext_input=True
+            ),
+            StateVar(name="pump", ext_id="u_pump", from_interact=True, interact_id=5, is_ext_input=True),
+            StateVar(name="fan", ext_id="u_fan", from_interact=True, interact_id=6, is_ext_input=True),
+            StateVar(name="valve", ext_id="u_valve", from_interact=True, interact_id=7, is_ext_input=True),
             StateVar(name="Pel_tankheater", ext_id="MAFAC_KEA.tankHeater.P_el", is_ext_output=True),
             StateVar(
                 name="market_price",

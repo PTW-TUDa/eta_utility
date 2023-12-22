@@ -23,12 +23,12 @@
         "save_model_every_x_episodes": 100,
         "n_episodes_learn": 1000,
         "n_episodes_play": 5,
-        "n_environments": 4
+        "n_environments": 4,
+        "seed": 321
     },
     "environment_specific": {
         "scenario_time_begin": "2022-01-04 12:12",
         "scenario_time_end": "2022-01-04 12:13",
-        "seed": 321,
         "max_speed": 8,
         "max_torque": 2.0,
         "g": 10,

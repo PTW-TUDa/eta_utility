@@ -7,7 +7,7 @@ comprehensive frameworks which combine functionality for optimization, simulatio
 devices in the factory.
 
 Therefore, we developed the *eta_utility* framework, which provides a standardized interface for the development
-of digital twins of factories or machines in a factory. The framework is based on the OpenAI gym environment
+of digital twins of factories or machines in a factory. The framework is based on the Gymnasium environment
 and follows a rolling horizon optimization approach. It provides standardized connectors for multiple
 communication protocols, including OPC UA and Modbus TCP. These facilities can be utilized to easily implement
 rolling horizon optimizations for factory systems and to directly control devices in the factory with the
@@ -16,26 +16,19 @@ optimization results.
 Full Documentation can be found on the
 `Documentation Page <https://eta-utility.readthedocs.io/>`_.
 
-You can find the `source code on github <https://github.com/PTW-TUDa/eta_utility/>`_. If you would like to contribute, please check our `working repository <https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility/>`_.
+You can find the `source code on github <https://github.com/PTW-TUDa/eta_utility/>`_. If you would like to contribute, please
+check our `working repository <https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility/>`_.
 
 
 .. warning::
     This is beta software. APIs and functionality might change without prior notice. Please fix the version you
     are using in your requirements to ensure your software will not be broken by changes in *eta_utility*.
 
-.. warning::
-    This version of *eta_utility* uses a deprecated version of *stable_baselines3* and OpenAI *gym*. It can only be installed
-    with specific versions of setuptools and pip!
-
-    .. code-block::console
-
-        python -m pip install setuptools==65.5 pip==21
-
 The package *eta_utility* consists of five main modules and some additional functionality:
 
 - *eta_x* is the rolling horizon optimization module which combines the functionality of the
-  other modules. It is based on the OpenAI *gym* framework and utilizes algorithms and functions
-  from the *stable_baselines3* package. *eta_x* also contains extended base classes for
+  other modules. It is based on the *gymnasium* framework and utilizes
+  algorithms and functions from the *stable_baselines3* package. *eta_x* also contains extended base classes for
   environments and additional agents (or algorithms).
 - The *connectors* module provides a standardized way to connect to machines and devices in a
   factory or other factory systems (such as energy management systems). The **connectors** can also
@@ -72,7 +65,7 @@ Please cite this project using our publication:
 
 .. code-block::
 
-    Grosch, B., Ranzau, H., Dietrich, B., Kohne, T., Fuhrländer-Völker D., Sossenheimer, J., Lindner, M., Weigold, M.
+    Grosch, B., Ranzau, H., Dietrich, B., Kohne, T., Fuhrländer-Völker, D., Sossenheimer, J., Lindner, M., Weigold, M.
     A framework for researching energy optimization of factory operations.
     Energy Inform 5 (Suppl 1), 29 (2022). https://doi.org/10.1186/s42162-022-00207-6
 

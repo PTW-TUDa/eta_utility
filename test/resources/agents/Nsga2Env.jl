@@ -2,7 +2,7 @@
 using PyCall
 using Random: rand
 
-@pyimport gym.spaces as spaces
+@pyimport gymnasium.spaces as spaces
 @pyimport numpy
 
 mutable struct Environment
@@ -19,7 +19,7 @@ mutable struct Environment
             PyObject,
             0,
             PyObject(numpy.inf);
-            shape=(60,),
+            shape = (60,),
             dtype = PyObject(numpy.float32),
         )
         env.pyenv."action_space" = pycall(
@@ -40,15 +40,20 @@ function step!(env::Environment, actions)
 
     observations = zeros(Float64, (nactions, env.pyenv."observation_space"."shape"[1]))
     rewards = rand(Float64, (nactions, 1))
-    dones = trues(nactions)
+    terminated = trues(nactions)
+    truncated = falses(nactions)
     infos = [Dict{String,Any}() for _ = 1:nactions]
 
-    return observations, rewards, dones, infos
+    return observations, rewards, terminated, truncated, infos
 end
 
-function reset!(env::Environment)
+function reset!(
+    env::Environment,
+    seed::Union{Int,Nothing} = nothing,
+    options::Union{Dict{String,Any},Nothing} = nothing,
+)
     observations = zeros(Float64, env.pyenv."observation_space"."shape"[1])
-    return observations
+    return observations, Dict{String,Any}()
 end
 
 function close!(env::Environment)
@@ -56,10 +61,6 @@ function close!(env::Environment)
 end
 
 function render(env::Environment, mode)
-    nothing
-end
-
-function seed!(env::Environment, seed)
     nothing
 end
 
