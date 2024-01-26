@@ -316,17 +316,16 @@ def csv_export(
         _path.with_suffix(".csv")
 
     if isinstance(data, Mapping):
-        exists = True if _path.exists() else False
-
         with _path.open("a") as f:
             writer = csv.DictWriter(f, fieldnames=data.keys(), delimiter=sep)
-            if not exists:
+            if not _path.exists():
                 writer.writeheader()
 
             writer.writerow({key: replace_decimal_str(val, decimal) for key, val in data.items()})
 
     elif isinstance(data, pd.DataFrame):
-        data.index = index
+        if index is not None:
+            data.index = index
         data.to_csv(path_or_buf=str(_path), sep=sep, decimal=decimal)
 
     elif isinstance(data, Sequence):
@@ -338,7 +337,8 @@ def csv_export(
             raise ValueError("Column names for csv export not specified.")
 
         _data = pd.DataFrame(data=data, columns=cols)
-        _data.index = index
+        if index is not None:
+            _data.index = index
         _data.to_csv(path_or_buf=str(_path), sep=sep, decimal=decimal)
 
     log.info(f"Exported CSV data to {_path}.")
