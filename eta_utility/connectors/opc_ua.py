@@ -454,7 +454,7 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
                     _connect_insecure()
                 else:
                     raise e
-            except (TimeoutError, ConTimeoutError):
+            except (TimeoutError, ConTimeoutError, asyncio.exceptions.TimeoutError):
                 self._try_secure_connect = False
                 raise ConnectionError("Host timeout during secure connect")
 
@@ -465,7 +465,7 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
                 _connect_insecure()
         except (socket.herror, socket.gaierror) as e:
             raise ConnectionError(f"Host not found: {self.url}") from e
-        except (socket.timeout, TimeoutError, ConTimeoutError) as e:
+        except (socket.timeout, TimeoutError, ConTimeoutError, asyncio.exceptions.TimeoutError) as e:
             raise ConnectionError(f"Host timeout: {self.url}") from e
         except ConCancelledError as e:
             raise ConnectionError(f"Connection cancelled by host: {self.url}") from e
