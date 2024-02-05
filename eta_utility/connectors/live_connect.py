@@ -167,45 +167,39 @@ class LiveConnect(AbstractContextManager):
         errors = False
         #: Nodes for initializing the system.
         self._init_vals: dict[str, Any] | None
-        self._init_vals, e = self._read_value_mapping(
-            init, e_msg="Not all nodes required for initialization are configured as nodes."
-        )
-        if e:
-            errors = e
+        self._init_vals, e = self._read_value_mapping(init, context_description="initialization")
+        errors |= e
         #: Nodes for closing the connection.
         self._close_vals: dict[str, Any] | None
-        self._close_vals, e = self._read_value_mapping(
-            close, e_msg="Not all nodes required for closing the object are configured as nodes."
-        )
-        if e:
-            errors = e
+        self._close_vals, e = self._read_value_mapping(close, context_description="closing connection")
+        errors |= e
         #: Nodes for activating the system.
         self._activate_vals: dict[str, Any] | None = {}
         self._activate_vals, e = self._read_value_mapping(
-            activate, flatten=False, e_msg="Not all nodes required for system activation are configured as nodes."
+            activate, flatten=False, context_description="system activation"
         )
-        if e:
-            errors = e
+        errors |= e
         #: Nodes for deactivating the system.
         self._deactivate_vals: dict[str, Any] | None = {}
         self._deactivate_vals, e = self._read_value_mapping(
-            deactivate, flatten=False, e_msg="Not all nodes required for system deactivation are configured as nodes."
+            deactivate, flatten=False, context_description="system deactivation"
         )
-        if e:
-            errors = e
+        errors |= e
         #: Nodes to observe.
         self._observe_vals: list[str] | None = []
-        if observe is not None:
+        if observe:
             for sys_val in observe:
                 if isinstance(sys_val, Sequence) and type(sys_val) is not str:
                     self._observe_vals.extend(sys_val)
                 elif sys_val is not None:
                     self._observe_vals.append(sys_val)
-        if len(self._observe_vals) <= 0:
+        if not self._observe_vals:
             self._observe_vals = None
         elif not set(self._observe_vals) <= self._nodes.keys():
-            log.error("Not all observation nodes of the object are configured as nodes.")
+            missing_values = set(self._observe_vals) - set(self._nodes.keys())
+            log.error(f"Observed Nodes { ', '.join(missing_values)} are missing from the node list.")
             errors = True
+
         #: Configuration for the step set value.
         self._set_values: dict[str, Any] | None = {}
         if set_values is not None:
@@ -215,13 +209,16 @@ class LiveConnect(AbstractContextManager):
                 if sys_setval is not None:
                     self._set_values[sys_setval["name"]] = sys_setval
                     nds.add(self._set_values[sys_setval["name"]]["node"])
-        if len(self._set_values) <= 0:
+        if not self._set_values:
             self._set_values = None
         elif not nds <= self._nodes.keys():
-            log.error("Not all nodes required for setting control values are configured as nodes.")
+            missing_values = nds - set(self._nodes.keys())
+            log.error(
+                f"Nodes {', '.join(missing_values)} required for setting control values are missing from the node list."
+            )
             errors = True
         else:
-            for keys, set_value in self._set_values.items():
+            for _, set_value in self._set_values.items():
                 set_value.setdefault("node", set_value["name"])
                 set_value.setdefault("threshold", 0)
                 set_value.setdefault("mult", 1)
@@ -235,22 +232,22 @@ class LiveConnect(AbstractContextManager):
         self._activation_indicators, e = self._read_value_mapping(
             activation_indicators,
             flatten=False,
-            e_msg="Not all nodes required for checking system activation are configured as nodes.",
+            context_description="checking system activation",
         )
         if e or errors:
             raise KeyError("Not all required nodes are configured.")
 
     def _read_value_mapping(
-        self, values: Mapping[str, Any] | None, flatten: bool = True, *, e_msg: str
+        self, values: Mapping[str, Any] | None, flatten: bool = True, *, context_description: str
     ) -> tuple[dict[str, Any] | None, bool]:
         """Read a list of values and deserialize it to a mapping.
 
         :param values: Values to deserialize.
         :param flatten: Output into a single layer (not separated by system).
-        :param e_msg: Error message to log if function fails.
+        :param context_description: Description to log if mapping fails.
         :return: Tuple of deserialized values and bool indicating an error if true.
         """
-        errors = False
+        missing_keys = set()
         _vals: dict[str, Any] = {}
 
         if values is not None:
@@ -265,20 +262,21 @@ class LiveConnect(AbstractContextManager):
             vals = None
         else:
             vals = _vals
+
             if flatten:
                 for key, sys_val in vals.items():
                     if sys_val and key not in self._nodes.keys():
-                        errors = True
-                        break
-                if errors:
-                    log.error(e_msg)
+                        missing_keys.add(key)
             else:
                 for key, sys_val in vals.items():
                     if sys_val and not sys_val.keys() <= self._nodes.keys():
-                        log.error(e_msg)
-                        errors = True
+                        missing_keys.update(sys_val.keys())
+        if missing_keys:
+            log.error(
+                f"Nodes {', '.join(missing_keys)} required for {context_description} are missing from the node list."
+            )
 
-        return vals, errors
+        return vals, bool(missing_keys)
 
     @classmethod
     def from_json(
