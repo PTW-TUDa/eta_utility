@@ -189,14 +189,13 @@ class ETAx:
         try:
             self._prepare_environments(training)
             yield
-
         finally:
             # close all environments when done (kill processes)
             log.debug("Closing environments.")
-            assert self.environments is not None, "Initialized environments could not be found."
+            assert self.environments is not None, "Environment initialization failed."
             self.environments.close()
             if self.config.settings.interact_with_env:
-                assert self.interaction_env is not None, "Initialized interaction environments could not be found."
+                assert self.interaction_env is not None, "Interaction environment initialization failed."
                 self.interaction_env.close()
 
     def _prepare_environments(self, training: bool = True) -> None:
