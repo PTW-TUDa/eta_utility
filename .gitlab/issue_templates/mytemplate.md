@@ -15,10 +15,10 @@
 
 ## What is the current bug behavior?
 
-(What actually happens.) 
+(What actually happens.)
 
 
-## Was there an error message? 
+## Was there an error message?
 
 (Paste any relevant logs - please use code blocks (```) to format console output, logs, and code, as
 it's very hard to read otherwise.)
