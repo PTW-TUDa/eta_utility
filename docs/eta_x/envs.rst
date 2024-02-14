@@ -157,3 +157,19 @@ because LiveConnect needs additional configuration.
     :show-inheritance:
     :exclude-members: reward_range, metadata, spec, _seed, _init_legacy, _init_state_space, _abc_impl
     :noindex:
+
+
+Julia Environment
+-----------------------------
+The JuliaEnv is an environment that supports the connection to a julia file. Make sure to set the *julia_env_file*
+where your julia file is located. In contrast to the other environments, the Julia class, written in Python, must be
+imported in the setup file for the parameter *environment_import*. The parameter *julia_env_file* is located in the
+*settings* section of the configuration file. See also :ref:`eta_experiment_config`.
+
+.. autoclass:: eta_utility.eta_x.envs::JuliaEnv
+    :members:
+    :private-members:
+    :inherited-members: abc.ABC
+    :show-inheritance:
+    :exclude-members: reward_range, metadata, spec, _seed, _init_legacy, _init_state_space, _abc_impl
+    :noindex:
