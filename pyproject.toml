@@ -65,7 +65,7 @@ fmpy = "^0.3.5"
 # Specific requirements for eta_x
 gymnasium =  {version = "==0.29.1", optional=true} # no SemVer
 torch = {version = "==2.0.0", python="^3.8", optional=true} # nvidia packages are not included in 2.0.1, see https://github.com/pytorch/pytorch/issues/100974
-stable-baselines3 = {version = "==2.1", optional=true} # no SemVer
+stable-baselines3 = {version = "==2.2.1", optional=true} # no SemVer
 tensorboard = {version = "~2.14.0", python= "^3.8", optional=true}
 pyomo = {version = "~6.6.2", optional=true}
 

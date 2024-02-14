@@ -213,6 +213,7 @@ class BaseEnv(Env, abc.ABC):
             * **time_conversion_str**: Time conversion string, determining the datetime format
               used in the imported file (default: %Y-%m-%d %H:%M).
         :param prefix_renamed: Determine whether the prefix is also applied to renamed columns.
+        :return: Data Frame of the imported and formatted scenario data.
         """
         paths = []
         prefix = []
@@ -266,7 +267,8 @@ class BaseEnv(Env, abc.ABC):
     def step(self, action: np.ndarray) -> StepResult:
         """Perform one time step and return its results. This is called for every event or for every time step during
         the simulation/optimization run. It should utilize the actions as supplied by the agent to determine the new
-        state of the environment. The method must return a four-tuple of observations, rewards, dones, info.
+        state of the environment. The method must return a five-tuple of observations, rewards, terminated, truncated,
+        info.
 
         .. note ::
             Do not forget to increment n_steps and n_steps_longtime.
@@ -274,17 +276,17 @@ class BaseEnv(Env, abc.ABC):
         :param action: Actions taken by the agent.
         :return: The return value represents the state of the environment after the step was performed.
 
-            * observations: A numpy array with new observation values as defined by the observation space.
+            * **observations**: A numpy array with new observation values as defined by the observation space.
               Observations is a np.array() (numpy array) with floating point or integer values.
-            * reward: The value of the reward function. This is just one floating point value.
-            * terminated: Boolean value specifying whether an episode has been completed. If this is set to true,
+            * **reward**: The value of the reward function. This is just one floating point value.
+            * **terminated**: Boolean value specifying whether an episode has been completed. If this is set to true,
               the reset function will automatically be called by the agent or by eta_i.
-            * truncated: Boolean, whether the truncation condition outside the scope is satisfied.
+            * **truncated**: Boolean, whether the truncation condition outside the scope is satisfied.
               Typically, this is a timelimit, but could also be used to indicate an agent physically going out of
               bounds. Can be used to end the episode prematurely before a terminal state is reached. If true, the user
               needs to call the `reset` function.
-            * info: Provide some additional info about the state of the environment. The contents of this may be used
-              for logging purposes in the future but typically do not currently serve a purpose.
+            * **info**: Provide some additional info about the state of the environment. The contents of this may be
+              used for logging purposes in the future but typically do not currently serve a purpose.
 
         """
         raise NotImplementedError("Cannot step an abstract Environment.")
