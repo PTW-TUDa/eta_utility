@@ -29,6 +29,7 @@ repos:
       - id: check-added-large-files
         args: [ "--maxkb=512" ]
       - id: trailing-whitespace
+        exclude: (.md)$
       - id: mixed-line-ending
         args: ["--fix=crlf"]
       - id: end-of-file-fixer
