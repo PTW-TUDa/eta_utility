@@ -326,11 +326,8 @@ class BaseEnv(Env, abc.ABC):
         :return: Observations for the agent as determined by state_config.
         """
         assert self.state_config is not None, "Set state_config before calling _observations function."
-        observations = np.empty(len(self.state_config.observations))
-        for idx, name in enumerate(self.state_config.observations):
-            observations[idx] = self.state[name]
-
-        return observations
+        observations = [self.state[name] for name in self.state_config.observations]
+        return np.array(observations, dtype=np.float64)
 
     def _done(self) -> bool:
         """Check if the episode is over or not using the number of steps (n_steps) and the total number of
