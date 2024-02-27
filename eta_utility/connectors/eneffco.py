@@ -72,7 +72,7 @@ class EnEffCoConnection(BaseSeriesConnection, protocol="eneffco"):
             raise AttributeError("Keyword parameter 'api_token' is missing.")
         api_token = kwargs["api_token"]
 
-        if node.protocol == "eneffco" and isinstance(node, NodeEnEffCo):
+        if node.protocol == "eneffco":
             return cls(node.url, usr, pwd, api_token=api_token, nodes=[node])
         else:
             raise ValueError(

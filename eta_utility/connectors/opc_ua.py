@@ -101,7 +101,7 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
         :return: OpcUaConnection object.
         """
 
-        if node.protocol == "opcua" and isinstance(node, NodeOpcUa):
+        if node.protocol == "opcua":
             return cls(node.url, usr=usr, pwd=pwd, nodes=[node], **kwargs)
 
         else:

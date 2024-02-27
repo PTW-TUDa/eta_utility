@@ -70,7 +70,7 @@ class ModbusConnection(BaseConnection, protocol="modbus"):
         :param kwargs: Other arguments are ignored.
         :return: ModbusConnection object.
         """
-        if node.protocol == "modbus" and isinstance(node, NodeModbus):
+        if node.protocol == "modbus":
             return cls(node.url, usr, pwd, nodes=[node])
 
         else:
