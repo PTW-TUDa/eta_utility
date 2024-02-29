@@ -225,3 +225,11 @@ omit = [
     "*/dist/*",
     "*/eta_utility/type_hints/*",
 ]
+[tool.coverage.report]
+exclude_lines = [
+    # These lines are excluded from coverage because they are not meant to be tested
+    'pragma: no cover',
+    'if TYPE_CHECKING:',
+    'raise NotImplementedError',
+    'pass',
+]
