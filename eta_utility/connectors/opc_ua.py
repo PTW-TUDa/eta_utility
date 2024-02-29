@@ -143,7 +143,13 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
             try:
                 opcua_variable = self.connection.get_node(node.opc_id)
                 value = opcua_variable.get_value()
-                value = node.dtype(value) if node.dtype is not None else value
+                if node.dtype is not None:
+                    try:
+                        value = node.dtype(value)
+                    except ValueError as e:
+                        raise ConnectionError(
+                            f"Failed to typecast value '{value}' at {node.name} to {node.dtype.__name__}."
+                        ) from e
                 return {node.name: [value]}
             except uaerrors.BadNodeIdUnknown:
                 raise ConnectionError(
