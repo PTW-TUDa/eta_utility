@@ -254,7 +254,7 @@ inside the project folder:
 
 Using tags for the images is a good practice to differentiate image versions, in case it's not used it's automatic
 labeled as *latest*. Currently there are three images for python environments called *python*, with python versions
-differentiated by tags (py3.8, py3.9 and py3.10) and there is an image with combined python and julia installations.
+differentiated by tags (py3.9, py3.10 and py3.11) and there is an image with combined python and julia installations.
 
 The last step is to upload the images to the private docker registry.
 

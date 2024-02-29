@@ -17,7 +17,8 @@ from . import processors
 from .policies import NoPolicy
 
 if TYPE_CHECKING:
-    from typing import Any, Callable, Mapping, Sequence
+    from collections.abc import Mapping, Sequence
+    from typing import Any, Callable
 
     from gymnasium import Env
     from stable_baselines3.common.base_class import BaseAlgorithm, BasePolicy

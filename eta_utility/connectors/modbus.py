@@ -6,7 +6,7 @@ import asyncio
 import socket
 from contextlib import contextmanager
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 import pandas as pd
 from pyModbusTCP import constants as mb_const  # noqa: I900
@@ -23,7 +23,8 @@ from eta_utility.connectors.util import (
 )
 
 if TYPE_CHECKING:
-    from typing import Any, Generator, Mapping
+    from typing import Any
+    from collections.abc import Generator, Mapping
     from eta_utility.type_hints import AnyNode, Nodes, TimeStep
 
 from .base_classes import BaseConnection, SubscriptionHandler
@@ -110,7 +111,7 @@ class ModbusConnection(BaseConnection, protocol="modbus"):
 
         with self._connection():
             for node in nodes:
-                if not isinstance(values[node], List):
+                if not isinstance(values[node], list):
                     bits = encode_bits(values[node], node.mb_byteorder, node.mb_bit_length, node.dtype)
                 else:
                     bits = values[node]

@@ -25,7 +25,8 @@ from eta_utility.eta_x.common import (
 )
 
 if TYPE_CHECKING:
-    from typing import Any, Generator, Mapping
+    from collections.abc import Generator, Mapping
+    from typing import Any
 
     from stable_baselines3.common.base_class import BaseAlgorithm
     from stable_baselines3.common.type_aliases import MaybeCallback

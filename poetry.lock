@@ -98,9 +98,6 @@ files = [
     {file = "Babel-2.13.1.tar.gz", hash = "sha256:33e0952d7dd6374af8dbf6768cc4ddf3ccfefc244f9986d4074704f2fbd18900"},
 ]
 
-[package.dependencies]
-pytz = {version = ">=2015.7", markers = "python_version < \"3.9\""}
-
 [package.extras]
 dev = ["freezegun (>=1.0,<2.0)", "pytest (>=6.0)", "pytest-cov"]
 
@@ -724,22 +721,6 @@ files = [
 docs = ["furo (>=2023.9.10)", "sphinx (>=7.2.6)", "sphinx-autodoc-typehints (>=1.24)"]
 testing = ["covdefaults (>=2.3)", "coverage (>=7.3.2)", "diff-cover (>=8)", "pytest (>=7.4.3)", "pytest-cov (>=4.1)", "pytest-mock (>=3.12)", "pytest-timeout (>=2.2)"]
 typing = ["typing-extensions (>=4.8)"]
-
-[[package]]
-name = "flake8"
-version = "5.0.4"
-description = "the modular source code checker: pep8 pyflakes and co"
-optional = true
-python-versions = ">=3.6.1"
-files = [
-    {file = "flake8-5.0.4-py2.py3-none-any.whl", hash = "sha256:7a1cf6b73744f5806ab95e526f6f0d8c01c66d7bbe349562d22dfca20610b248"},
-    {file = "flake8-5.0.4.tar.gz", hash = "sha256:6fbe320aad8d6b95cec8b8e47bc933004678dc63095be98528b7bdd2a9f510db"},
-]
-
-[package.dependencies]
-mccabe = ">=0.7.0,<0.8.0"
-pycodestyle = ">=2.9.0,<2.10.0"
-pyflakes = ">=2.5.0,<2.6.0"
 
 [[package]]
 name = "flake8"
@@ -2214,7 +2195,8 @@ files = [
 [package.dependencies]
 numpy = [
     {version = ">=1.20.3", markers = "python_version < \"3.10\""},
-    {version = ">=1.21.0", markers = "python_version >= \"3.10\""},
+    {version = ">=1.23.2", markers = "python_version >= \"3.11\""},
+    {version = ">=1.21.0", markers = "python_version >= \"3.10\" and python_version < \"3.11\""},
 ]
 python-dateutil = ">=2.8.2"
 pytz = ">=2020.1"
@@ -2443,17 +2425,6 @@ pyasn1 = ">=0.4.6,<0.6.0"
 
 [[package]]
 name = "pycodestyle"
-version = "2.9.1"
-description = "Python style guide checker"
-optional = true
-python-versions = ">=3.6"
-files = [
-    {file = "pycodestyle-2.9.1-py2.py3-none-any.whl", hash = "sha256:d1735fc58b418fd7c5f658d28d943854f8a849b01a5d0a1e6f3f3fdd0166804b"},
-    {file = "pycodestyle-2.9.1.tar.gz", hash = "sha256:2c9607871d58c76354b697b42f5d57e1ada7d261c261efac224b664affdc5785"},
-]
-
-[[package]]
-name = "pycodestyle"
 version = "2.11.1"
 description = "Python style guide checker"
 optional = true
@@ -2472,17 +2443,6 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 files = [
     {file = "pycparser-2.21-py2.py3-none-any.whl", hash = "sha256:8ee45429555515e1f6b185e78100aea234072576aa43ab53aefcae078162fca9"},
     {file = "pycparser-2.21.tar.gz", hash = "sha256:e644fdec12f7872f86c58ff790da456218b10f863970249516d60a5eaca77206"},
-]
-
-[[package]]
-name = "pyflakes"
-version = "2.5.0"
-description = "passive checker of Python programs"
-optional = true
-python-versions = ">=3.6"
-files = [
-    {file = "pyflakes-2.5.0-py2.py3-none-any.whl", hash = "sha256:4579f67d887f804e67edb544428f264b7b24f435b263c4614f384135cea553d2"},
-    {file = "pyflakes-2.5.0.tar.gz", hash = "sha256:491feb020dca48ccc562a8c0cbe8df07ee13078df59813b83959cbdada312ea3"},
 ]
 
 [[package]]
@@ -6209,11 +6169,11 @@ docs = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "rst.link
 testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "pytest (>=6)", "pytest-black (>=0.3.7)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=2.2)", "pytest-ignore-flaky", "pytest-mypy (>=0.9.1)", "pytest-ruff"]
 
 [extras]
-develop = ["black", "blacken_docs", "flake8", "flake8", "flake8-builtins", "flake8-comprehensions", "flake8-eradicate", "flake8-mutable", "flake8-print", "flake8-pyproject", "flake8-pytest-style", "flake8-requirements", "flake8-rst-docstrings", "gymnasium", "isort", "keyboard", "matplotlib", "mypy", "onnxruntime", "openpyxl", "pep8-naming", "pre-commit", "pycodestyle", "pycodestyle", "pyflakes", "pyflakes", "pygame", "pyglet", "pyomo", "pytest", "pytest-cov", "pyupgrade", "sphinx", "sphinx-copybutton", "sphinx-rtd-theme", "stable-baselines3", "tensorboard", "torch", "types-python-dateutil", "types-requests"]
+develop = ["black", "blacken_docs", "flake8", "flake8-builtins", "flake8-comprehensions", "flake8-eradicate", "flake8-mutable", "flake8-print", "flake8-pyproject", "flake8-pytest-style", "flake8-requirements", "flake8-rst-docstrings", "gymnasium", "isort", "keyboard", "matplotlib", "mypy", "onnxruntime", "openpyxl", "pep8-naming", "pre-commit", "pycodestyle", "pyflakes", "pygame", "pyglet", "pyomo", "pytest", "pytest-cov", "pyupgrade", "sphinx", "sphinx-copybutton", "sphinx-rtd-theme", "stable-baselines3", "tensorboard", "torch", "types-python-dateutil", "types-requests"]
 eta-x = ["gymnasium", "pyomo", "stable-baselines3", "tensorboard", "torch"]
 examples = ["keyboard", "matplotlib", "onnxruntime", "pygame", "pyglet"]
 
 [metadata]
 lock-version = "2.0"
-python-versions = ">=3.8, <3.11"
-content-hash = "8131c40bc7581cc50610588114b4351d70b278345474a897a2fbd1453e0bcda3"
+python-versions = ">=3.9, <3.12"
+content-hash = "6586bd0bb344f2dbb6e39e4e09292ab1e555e539620799faa3e0ac5b98d75ca7"

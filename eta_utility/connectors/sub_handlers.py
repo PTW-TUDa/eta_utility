@@ -18,7 +18,8 @@ from dateutil import tz
 from eta_utility import get_logger
 
 if TYPE_CHECKING:
-    from typing import Any, Deque, Sequence, TextIO
+    from typing import Any, Deque, TextIO
+    from collections.abc import Sequence
     from types import TracebackType
     from eta_utility.type_hints import AnyNode, Number, Path, TimeStep
 

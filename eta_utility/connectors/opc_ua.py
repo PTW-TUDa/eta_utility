@@ -31,7 +31,8 @@ from eta_utility.connectors.node import Node, NodeOpcUa
 from .util import IntervalChecker, RetryWaiter
 
 if TYPE_CHECKING:
-    from typing import Any, Generator, Mapping, Sequence
+    from typing import Any
+    from collections.abc import Generator, Mapping, Sequence
 
     # Sync import
     from asyncua.sync import SyncNode as SyncOpcNode

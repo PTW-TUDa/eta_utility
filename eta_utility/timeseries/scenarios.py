@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import pathlib
+from collections.abc import Sequence, Sized
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Sequence, Sized
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -10,7 +11,8 @@ import pandas as pd
 from eta_utility import timeseries
 
 if TYPE_CHECKING:
-    from typing import Mapping, SupportsFloat
+    from collections.abc import Mapping
+    from typing import SupportsFloat
 
     from eta_utility.type_hints import Path, TimeStep
 

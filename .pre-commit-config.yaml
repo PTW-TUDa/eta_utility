@@ -10,7 +10,7 @@ repos:
     rev: v3.10.1
     hooks:
       - id: pyupgrade
-        args: [ "--py38-plus" ]
+        args: [ "--py39-plus" ]
   - repo: https://github.com/psf/black
     rev: 23.7.0
     hooks:
@@ -22,7 +22,7 @@ repos:
       - id: blacken-docs
         additional_dependencies:
           - black==23.7.0
-        args: [ "--line-length", "120", "--target-version", "py38"]
+        args: [ "--line-length", "120", "--target-version", "py39"]
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.4.0
     hooks:

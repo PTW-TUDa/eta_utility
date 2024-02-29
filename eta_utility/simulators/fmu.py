@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import itertools as it
 import shutil
+from collections.abc import Mapping
 from datetime import timedelta
-from typing import TYPE_CHECKING, Mapping
+from typing import TYPE_CHECKING
 
 import numpy as np
 from fmpy import extract, read_model_description
@@ -16,7 +17,8 @@ from fmpy.util import compile_platform_binary
 from eta_utility import get_logger
 
 if TYPE_CHECKING:
-    from typing import Any, Sequence
+    from collections.abc import Sequence
+    from typing import Any
 
     from fmpy.model_description import ModelDescription
 

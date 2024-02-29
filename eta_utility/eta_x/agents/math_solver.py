@@ -14,7 +14,8 @@ from eta_utility import get_logger
 if TYPE_CHECKING:
     import io
     import pathlib
-    from typing import Any, Sequence
+    from collections.abc import Sequence
+    from typing import Any
 
     import torch as th
     from stable_baselines3.common.policies import BasePolicy

@@ -1,5 +1,3 @@
-from typing import List
-
 from pyModbusTCP.client import ModbusClient as BaseClient  # noqa: I900
 
 
@@ -21,5 +19,5 @@ class ModbusClient(BaseClient):
     def unit_id(self, unit_id=None) -> None:
         pass
 
-    def read_holding_registers(self, reg_addr, reg_nb=1) -> List[int]:
+    def read_holding_registers(self, reg_addr, reg_nb=1) -> list[int]:
         return self.value

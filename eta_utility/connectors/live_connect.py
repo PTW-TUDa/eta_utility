@@ -3,10 +3,11 @@ from __future__ import annotations
 
 import pathlib
 import time
+from collections.abc import Mapping, Sequence
 from concurrent.futures import TimeoutError as ConTimeoutError
 from contextlib import AbstractContextManager
 from datetime import timedelta
-from typing import TYPE_CHECKING, Mapping, Sequence
+from typing import TYPE_CHECKING
 
 import numpy as np
 

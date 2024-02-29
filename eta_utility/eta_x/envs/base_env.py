@@ -16,7 +16,8 @@ from eta_utility.eta_x.envs.state import StateConfig
 from eta_utility.util import csv_export
 
 if TYPE_CHECKING:
-    from typing import Any, Callable, Mapping, Sequence
+    from collections.abc import Mapping, Sequence
+    from typing import Any, Callable
 
     from eta_utility.eta_x import ConfigOptRun
     from eta_utility.type_hints import ObservationType, Path, StepResult, TimeStep

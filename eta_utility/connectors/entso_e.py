@@ -18,7 +18,8 @@ from eta_utility.timeseries import df_resample, df_time_slice
 from eta_utility.util import dict_search, round_timestamp
 
 if TYPE_CHECKING:
-    from typing import Any, Mapping
+    from typing import Any
+    from collections.abc import Mapping
     from eta_utility.type_hints import AnyNode, Nodes, TimeStep
 
 from .base_classes import BaseSeriesConnection, SubscriptionHandler
