@@ -187,18 +187,13 @@ class LiveConnect(AbstractContextManager):
         )
         errors |= e
         #: Nodes to observe.
-        self._observe_vals: list[str] | None = []
-        if observe:
-            for sys_val in observe:
-                if isinstance(sys_val, Sequence) and type(sys_val) is not str:
-                    self._observe_vals.extend(sys_val)
-                elif sys_val is not None:
-                    self._observe_vals.append(sys_val)
-        if not self._observe_vals:
-            self._observe_vals = None
-        elif not set(self._observe_vals) <= self._nodes.keys():
-            missing_values = set(self._observe_vals) - set(self._nodes.keys())
-            log.error(f"Observed Nodes { ', '.join(missing_values)} are missing from the node list.")
+        self._observe_vals: list[str] | None = [val for val in observe if val is not None] if observe else None
+        if self._observe_vals and not set(self._observe_vals).issubset(self._nodes):
+            missing_nodes = set(self._observe_vals) - set(self._nodes.keys())
+            log.error(
+                "Not all observed nodes of the object are configured as nodes. Missing nodes: "
+                + ", ".join(missing_nodes)
+            )
             errors = True
 
         #: Configuration for the step set value.
@@ -212,10 +207,11 @@ class LiveConnect(AbstractContextManager):
                     nds.add(self._set_values[sys_setval["name"]]["node"])
         if not self._set_values:
             self._set_values = None
-        elif not nds <= self._nodes.keys():
-            missing_values = nds - set(self._nodes.keys())
+        elif not nds.issubset(self._nodes):
+            missing_nodes = nds - set(self._nodes.keys())
             log.error(
-                f"Nodes {', '.join(missing_values)} required for setting control values are missing from the node list."
+                "Not all nodes required for setting control values are configured as nodes. Missing nodes: "
+                + ", ".join(missing_nodes)
             )
             errors = True
         else:
@@ -259,7 +255,7 @@ class LiveConnect(AbstractContextManager):
                 elif sys_val is not None:
                     _vals[key] = sys_val
 
-        if len(_vals) <= 0:
+        if not _vals:
             vals = None
         else:
             vals = _vals
@@ -578,22 +574,29 @@ class LiveConnect(AbstractContextManager):
         :return: Dictionary of the most current node values.
         """
         # Sort nodes to be read by connection
-        reads: dict[str, list[AnyNode]] = {url: [] for url in self._connections.keys()}
+        node_readings: dict[str, list[AnyNode]] = {url: [] for url in self._connections.keys()}
+        _error = False
         for name in nodes:
             n = f"{self.name}.{name}" if "." not in name and self.name is not None else name
-            reads[self._connection_map[n]].append(self._nodes[n])
-
+            try:
+                node_readings[self._connection_map[n]].append(self._nodes[n])
+            except KeyError as e:
+                new_e = KeyError(f"{e.args[0]} not found in node list.")
+                log.error(new_e)
+                _error = True
+        if _error:
+            raise KeyError("Check log. One or more nodes not found in node list.")
         # Read from all selected nodes for each connection
         result = {}
         for idx, connection in enumerate(self._connections):
             try:
-                if reads[connection]:
-                    result.update(self._connections[connection].read(reads[connection]).iloc[0].to_dict())
+                if node_readings[connection]:
+                    result.update(self._connections[connection].read(node_readings[connection]).iloc[0].to_dict())
                     self.error_count[idx] = 0
             except (ConnectionError, ConTimeoutError) as e:
                 if self.error_count[idx] < self.max_error_count:
                     self.error_count[idx] += 1
-                    result.update({name.name: np.nan for name in reads[connection]})
+                    result.update({name.name: np.nan for name in node_readings[connection]})
                     log.error(e)
                 else:
                     raise
