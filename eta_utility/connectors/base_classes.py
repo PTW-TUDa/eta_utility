@@ -4,8 +4,9 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING
 
 import pandas as pd
 from attr import field
@@ -15,7 +16,8 @@ from eta_utility import url_parse
 from eta_utility.util import ensure_timezone, round_timestamp
 
 if TYPE_CHECKING:
-    from typing import Any, Mapping, Sequence
+    from collections.abc import Mapping, Sequence
+    from typing import Any
     from urllib.parse import ParseResult
 
     from eta_utility.type_hints import AnyNode, Nodes, TimeStep

@@ -16,7 +16,7 @@ import pandas as pd
 from eta_utility import get_logger
 
 if TYPE_CHECKING:
-    from typing import Sequence
+    from collections.abc import Sequence
 
     from eta_utility.type_hints import Path, TimeStep
 

@@ -9,7 +9,8 @@ from eta_utility.eta_x import ETAx
 from eta_utility.servers import OpcUaServer
 
 if TYPE_CHECKING:
-    from typing import Any, Mapping, Sequence
+    from collections.abc import Mapping, Sequence
+    from typing import Any
 
 
 def main() -> None:

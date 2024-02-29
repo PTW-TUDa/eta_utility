@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Mapping
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -15,7 +16,8 @@ from eta_utility import get_logger
 from eta_utility.connectors.node import Node, NodeEnEffCo
 
 if TYPE_CHECKING:
-    from typing import Any, Sequence
+    from typing import Any
+    from collections.abc import Sequence
     from eta_utility.type_hints import AnyNode, Nodes, TimeStep
 
 from .base_classes import BaseSeriesConnection, SubscriptionHandler

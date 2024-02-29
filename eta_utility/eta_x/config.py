@@ -10,7 +10,8 @@ from attrs import Factory, converters, define, field, fields, validators
 from eta_utility import deep_mapping_update, dict_pop_any, get_logger, json_import
 
 if TYPE_CHECKING:
-    from typing import Any, Mapping
+    from collections.abc import Mapping
+    from typing import Any
 
     from attrs import Attribute
     from stable_baselines3.common.base_class import BaseAlgorithm, BasePolicy

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import abc
+from collections.abc import Mapping, MutableMapping, Sequence
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Mapping, MutableMapping, Sequence
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd

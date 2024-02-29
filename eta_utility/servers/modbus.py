@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import socket
+from collections.abc import Sized
 from datetime import datetime
-from typing import TYPE_CHECKING, List, Sized
+from typing import TYPE_CHECKING
 
 import pandas as pd
 from pyModbusTCP.server import ModbusServer as BaseModbusServer  # noqa: I900
@@ -17,7 +18,8 @@ from eta_utility.connectors.util import (
 
 if TYPE_CHECKING:
     import types
-    from typing import Any, Mapping
+    from collections.abc import Mapping
+    from typing import Any
 
     from eta_utility.type_hints import AnyNode, Nodes
 
@@ -64,7 +66,7 @@ class ModbusServer:
 
         for node in nodes:
             byteorder = "big" if self._big_endian else "little"
-            if not isinstance(values[node], List):
+            if not isinstance(values[node], list):
                 bits = encode_bits(values[node], byteorder, node.mb_bit_length, node.dtype)
             else:
                 bits = values[node]
@@ -102,7 +104,7 @@ class ModbusServer:
             if val.ok and (node.mb_register == "holding" or node.mb_register == "input"):
                 byteorder = "big" if self._big_endian else "little"
                 results[node.name] = decode_modbus_value(val.data, byteorder, node.dtype)
-            elif val.ok and isinstance(val.data, List):
+            elif val.ok and isinstance(val.data, list):
                 if len(val.data) > 1:
                     for idx, value in enumerate(val.data):
                         results[f"{node.name}_{idx}"] = value

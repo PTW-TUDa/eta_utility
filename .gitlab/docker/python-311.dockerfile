@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM python:3.8-slim-bullseye
+FROM python:3.11-slim-bullseye
 
 # Set workspace
 ENV APP_PATH=/usr/src/app
@@ -11,7 +11,7 @@ RUN python --version
 # Install additional dependencies for pipelines
 RUN set -eux; \
     apt-get update; \
-    apt-get install -y --no-install-recommends git make curl; \
+    apt-get install -y --no-install-recommends git make curl build-essential; \
     rm -rf /var/lib/apt/lists/*;
 
 # Install poetry (and pytorch, because we only need the cpu version)

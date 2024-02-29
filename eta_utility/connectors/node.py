@@ -4,7 +4,8 @@
 from __future__ import annotations
 
 import pathlib
-from typing import TYPE_CHECKING, Mapping
+from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
 import pandas as pd
 from attrs import converters, define, field, validators
@@ -12,7 +13,8 @@ from attrs import converters, define, field, validators
 from eta_utility import dict_get_any, get_logger, url_parse
 
 if TYPE_CHECKING:
-    from typing import Any, Callable, Sequence
+    from collections.abc import Sequence
+    from typing import Any, Callable
     from urllib.parse import ParseResult
 
     from eta_utility.type_hints import Path

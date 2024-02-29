@@ -12,7 +12,8 @@ from gymnasium import spaces
 from eta_utility import get_logger
 
 if TYPE_CHECKING:
-    from typing import Any, Mapping, Sequence
+    from collections.abc import Mapping, Sequence
+    from typing import Any
 
     from attrs import Attribute
 
