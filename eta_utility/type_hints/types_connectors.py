@@ -11,7 +11,19 @@ from eta_utility.connectors.node import (
     NodeLocal,
     NodeModbus,
     NodeOpcUa,
+    NodeWetterdienstObservation,
+    NodeWetterdienstPrediction,
 )
 
-AnyNode = Union[Node, NodeLocal, NodeModbus, NodeOpcUa, NodeEnEffCo, NodeEntsoE, NodeCumulocity]
+AnyNode = Union[
+    Node,
+    NodeLocal,
+    NodeModbus,
+    NodeOpcUa,
+    NodeEnEffCo,
+    NodeEntsoE,
+    NodeCumulocity,
+    NodeWetterdienstObservation,
+    NodeWetterdienstPrediction,
+]
 Nodes = Union[Sequence[AnyNode], set[AnyNode], AbstractSet[AnyNode], AnyNode]

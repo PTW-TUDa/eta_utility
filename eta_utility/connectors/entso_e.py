@@ -304,7 +304,7 @@ class ENTSOEConnection(BaseSeriesConnection, protocol="entsoe"):
 
 
 class _ConnectionConfiguration:
-    """Auxiliary class to configure the parameters for establish connection to ENTSO-E API.
+    """Auxiliary class to configure the parameters for establishing a connection to ENTSO-E API.
 
     Currently, the connection class only supports two types of data requests through the method read_series, they are:
     **Energy price day ahead** and **Actual energy generation per type**. All the data requests available are listed in
