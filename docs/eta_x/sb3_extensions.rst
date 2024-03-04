@@ -45,7 +45,7 @@ The linear schedule implements a linear evolution of the learning rate.
 
 Extractors
 --------------
-Extractors are based on :py:class:`stable_baselines3.common.base_class.BaseFeaturesExtractor`. Use of a custom extractor is specified as a configuration option of the *Policy*. It is specified in the *agent_specific* section of the configuration as part of the *policy_kwargs* dictionary. The required parameters are *features_extractor_class* which must contain the python class and *features_extractor_kwargs* which is a Mapping of the arguments passed to the feature extractor.
+Extractors are based on :py:class:`stable_baselines3.common.base_class.BaseFeaturesExtractor`. Use of a custom extractor is specified as a configuration option of the *Policy*. It is specified in the *agent_specific* section of the configuration as part of the *policy_kwargs* dictionary. The required parameters are *features_extractor_class* which must contain the Python class and *features_extractor_kwargs* which is a Mapping of the arguments passed to the feature extractor.
 
 .. autoclass:: eta_utility.eta_x.common::CustomExtractor
     :noindex:
