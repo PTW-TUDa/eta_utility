@@ -296,7 +296,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         return_obs = []  # Array for all current observations
         for var_name in self.state_config.observations:
             settings = self.state_config.vars[var_name]
-            assert type(settings.interact_id) is int, "The interact_id value for observations must be an integer."
+            assert isinstance(settings.interact_id, int), "The interact_id value for observations must be an integer."
             value = None
 
             # Read values from external environment (for example simulation)
@@ -467,8 +467,8 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         :return: Pyomo parameter dictionary.
         """
         output: PyoParams = {}
-        if index is not None:
-            index = list(index) if type(index) is not list else index
+        if index is not None and not isinstance(index, list):
+            index = list(index)
 
         _ts: pd.DataFrame | pd.Series | dict[str, Any] | Sequence
         # If part of the timeseries was converted before, make sure that everything is on the same level again.
@@ -521,7 +521,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             #  component name.
             if (
                 component_name is not None
-                and type(_ts.name) is str
+                and isinstance(_ts.name, str)
                 and "." in _ts.name
                 and component_name in _ts.name.split(".")
             ):  # noqa
