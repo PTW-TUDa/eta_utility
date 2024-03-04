@@ -760,7 +760,7 @@ class NodeWetterdienst(Node):
                 "was not found. The node could not load."
             )
         parameters = [item.name for item in Parameter]
-        if self.parameter.upper() not in parameters:
+        if self.parameter not in parameters:
             raise ValueError(
                 f"Parameter {self.parameter} is not valid. Valid parameters can be found here:"
                 f"https://wetterdienst.readthedocs.io/en/latest/data/parameters.html"
@@ -802,6 +802,8 @@ class NodeWetterdienstObservation(NodeWetterdienst, protocol="wetterdienst_obser
                 params = DwdObservationParameter[resolution.name]  # type: ignore
                 if self.parameter in [param.name for param in params if type(param) is not enum.EnumMeta]:
                     available_resolutions.append(resolution.name)  # type: ignore
+            if len(available_resolutions) == 0:
+                raise ValueError(f"Parameter {self.parameter} is not a valid observation parameter.")
             raise ValueError(
                 f"Parameter {self.parameter} is not valid for the given resolution. "
                 f"Valid resolutions for parameter {self.parameter} are: "
@@ -859,7 +861,7 @@ class NodeWetterdienstPrediction(NodeWetterdienst, protocol="wetterdienst_predic
         # Create list of available parameters, enums are excluded because they are datasets
         available_params = [param.name for param in params if type(param) is not enum.EnumMeta]
 
-        if self.parameter.upper() not in available_params:
+        if self.parameter not in available_params:
             raise ValueError(
                 f"Parameter {self.parameter} is not valid for the given resolution."
                 f"Valid parameters for resolution {self.mosmix_type} can be found here:"

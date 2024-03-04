@@ -67,7 +67,19 @@ class WetterdienstConnection(BaseSeriesConnection, ABC):
         interval: TimeStep = 60,
         **kwargs: Any,
     ) -> pd.DataFrame:
-        pass
+        """Asbtract base method for read_series(). Is fully implemented in subclasses.
+
+        :param nodes: List of nodes to read values from.
+        :param from_time: Starting time to begin reading (included in output).
+        :param to_time: Time to stop reading at (not included in output).
+        :param interval: interval between time steps. It is interpreted as seconds if given as integer.
+        :param kwargs: additional argument list, to be defined by subclasses.
+        :return: pandas.DataFrame containing the data read from the connection.
+        """
+        if from_time.tzinfo != to_time.tzinfo:
+            log.warning(
+                f"Timezone of from_time and to_time are different. Using from_time timezone: {from_time.tzinfo}"
+            )
 
     def read(self, nodes: Nodes | None = None) -> pd.DataFrame:
         """
@@ -144,9 +156,15 @@ class WetterdienstConnection(BaseSeriesConnection, ABC):
             stations = request.filter_by_station_id(node.station_id)
         else:
             stations = request.filter_by_rank(node.latlon, rank=node.number_of_stations)
-        # Convert to pandas and pivot values so date is the index and stations+parameters are the columns
+
+        # Convert to pandas and pivot values so date is the index and
+        # node names combined with the station_id are the columns
         result_df: pd.DataFrame = stations.values.all().df.to_pandas()
-        result_df = result_df.pivot(values="value", columns=("station_id", "dataset", "parameter"), index="date")
+        result_df = result_df.pivot(values="value", columns=("parameter", "station_id"), index="date")
+
+        # Rename the columns to the node names
+        result_df = result_df.rename({node.parameter.lower(): node.name}, axis="columns")
+        result_df = result_df.rename_axis(("Name", "station_id"), axis="columns")
         return result_df
 
 
@@ -174,13 +192,9 @@ class WetterdienstObservationConnection(WetterdienstConnection, protocol="wetter
         :return: Pandas DataFrame containing the data read from the connection
         """
 
+        super().read_series(from_time, to_time, nodes, interval)
         nodes = self._validate_nodes(nodes)
         interval = interval if isinstance(interval, timedelta) else timedelta(seconds=interval)
-
-        if from_time.tzinfo != to_time.tzinfo:
-            log.warning(
-                f"Timezone of from_time and to_time are different. Using from_time timezone: {from_time.tzinfo}"
-            )
 
         def _read_node(node: NodeWetterdienstObservation) -> pd.Dataframe:
             # Get the resolution for the node from the interval
@@ -203,14 +217,9 @@ class WetterdienstObservationConnection(WetterdienstConnection, protocol="wetter
         result = pd.concat(results, axis=1, sort=False)
 
         # Convert the data to the requested interval
-        result = result.asfreq(interval, method="ffill")
-        result.ffill(inplace=True)
+        result = result.asfreq(interval, method="ffill").ffill()
 
         return result
-
-    def _convert_interval(self, interval: int | str) -> str:
-        interval_time: int = int(interval)
-        return NodeWetterdienstObservation.convert_interval_to_resolution(interval_time)
 
 
 class WetterdienstPredictionConnection(WetterdienstConnection, protocol="wetterdienst_prediction"):
@@ -238,11 +247,8 @@ class WetterdienstPredictionConnection(WetterdienstConnection, protocol="wetterd
         :return: Pandas DataFrame containing the data read from the connection
         """
 
+        super().read_series(from_time, to_time, nodes, interval)
         nodes = self._validate_nodes(nodes)
-        if from_time.tzinfo != to_time.tzinfo:
-            log.warning(
-                f"Timezone of from_time and to_time are different. Using from_time timezone: {from_time.tzinfo}"
-            )
 
         def _read_node(node: NodeWetterdienstPrediction) -> pd.Dataframe:
             request = DwdMosmixRequest(

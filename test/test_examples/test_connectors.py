@@ -10,6 +10,9 @@ from examples.connectors.data_recorder import (  # noqa: I900
 from examples.connectors.read_series_eneffco import (  # noqa: I900
     read_series as ex_read_eneffco,
 )
+from examples.connectors.read_series_wetterdienst import (
+    read_series as ex_read_wetterdienst,
+)
 
 from ..utilities.pyModbusTCP.client import ModbusClient as MockModbusClient
 from ..utilities.requests.eneffco_request import request
@@ -54,3 +57,11 @@ def test_example_data_recorder(temp_dir, _local_requests, _mock_client, config_n
         config_eneffco["postman_token"],
         3,
     )
+
+
+def test_example_read_wetterdienst():
+    data = ex_read_wetterdienst()
+
+    assert isinstance(data, pd.DataFrame)
+    assert set(data.columns) == {("Temperature_Darmstadt", "00917")}
+    assert data.shape == (19, 1)
