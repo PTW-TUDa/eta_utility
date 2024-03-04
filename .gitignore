@@ -1,6 +1,7 @@
 /venv*/
 
 *.xls
+*.xlsx
 *.csv
 *.json
 !*/resources/**/*.json
