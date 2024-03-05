@@ -579,10 +579,15 @@ class Nsga2(BaseAlgorithm):
         """
         assert self.env is not None, "The agent needs to know the environment to evaluate solutions."
 
-        rewards = None
+        rewards = np.array([])
         retries = 0
+        infos: list[dict[str, Any]] = []
+
         while retries < self.max_retries:
-            observations, rewards, dones, infos = self.env.step(self._jl_get_actions(generation))
+            _observations, rewards, terminated, truncated, infos = self.env.step(
+                self._jl_get_actions(generation)
+            )  # type: ignore
+            dones = terminated | truncated  # type: ignore
             self._update_info_buffer(infos, dones)
 
             # Ensure that there are always multiple rewards for every solution.

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import socket
+from collections.abc import Sized
 from datetime import datetime
-from typing import TYPE_CHECKING, Sized
+from typing import TYPE_CHECKING
 
 # Async import
 import asyncua.sync
@@ -18,7 +19,8 @@ from eta_utility.connectors.node import NodeOpcUa
 
 if TYPE_CHECKING:
     import types
-    from typing import Any, Mapping
+    from collections.abc import Mapping
+    from typing import Any
 
     # Sync import
     from asyncua.sync import SyncNode as SyncOpcNode

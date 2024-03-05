@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 import pandas as pd
 import pytest
 
@@ -51,6 +53,65 @@ fail_nodes = (
             "opc_id": "ns=2;somestring",
         },
         "When specifying opc_id, make sure it follows the format ns=2;s=.path",
+    ),
+    (  # wetterdienst
+        {
+            "name": "Serv.NodeName",
+            "url": "",
+            "protocol": "wetterdienst_observation",
+            "parameter": "foo-bar",
+            "station_id": "0",
+        },
+        "Parameter FOO-BAR is not valid. Valid parameters can be found here:"
+        "https://wetterdienst.readthedocs.io/en/latest/data/parameters.html",
+    ),
+    (
+        {
+            "name": "Serv.NodeName",
+            "url": "",
+            "protocol": "wetterdienst_observation",
+            "parameter": "HUMIDITY",
+        },
+        "The required parameter 'station_id' or 'latlon' and 'number_of_stations' for the node configuration "
+        "was not found. The node could not load.",
+    ),
+    (
+        {
+            "name": "Serv.NodeName",
+            "url": "",
+            "protocol": "wetterdienst_observation",
+            "parameter": "temperature_air_mean_200",
+            "station_id": "0",
+            "interval": "60",
+        },
+        re.escape(
+            "Parameter TEMPERATURE_AIR_MEAN_200 is not valid for the given resolution. "
+            "Valid resolutions for parameter TEMPERATURE_AIR_MEAN_200 are: "
+            "['MINUTE_10', 'HOURLY', 'SUBDAILY', 'DAILY', 'MONTHLY', 'ANNUAL']"
+        ),
+    ),
+    (
+        {
+            "name": "Serv.NodeName",
+            "url": "",
+            "protocol": "wetterdienst_prediction",
+            "parameter": "temperature_air_mean_200",
+            "station_id": "0",
+        },
+        "mosmix_type must be either 'SMALL' or 'LARGE'",
+    ),
+    (
+        {
+            "name": "Serv.NodeName",
+            "url": "",
+            "protocol": "wetterdienst_observation",
+            "parameter": "temperature_air_mean_200",
+            "station_id": "0",
+            "interval": "200",
+        },
+        re.escape(
+            "Interval 200 not supported. Must be one of " "[60, 300, 600, 3600, 28800, 86400, 2592000, 31536000]"
+        ),
     ),
 )
 
@@ -254,6 +315,42 @@ nodes = (
             "url": "https://some_url.de/path",
             "protocol": "entsoe",
             "interval": 42,
+        },
+    ),
+    (
+        {
+            "name": "Serv.NodeName",
+            "url": "https://some_url.de/path",
+            "protocol": "wetterdienst_observation",
+            "parameter": "temperature_air_mean_200",
+            "interval": "3600",
+            "station_id": "00917",
+        },
+        {
+            "name": "Serv.NodeName",
+            "url": "https://some_url.de/path",
+            "protocol": "wetterdienst_observation",
+            "parameter": "TEMPERATURE_AIR_MEAN_200",
+            "interval": 3600,
+            "station_id": "00917",
+        },
+    ),
+    (
+        {
+            "name": "Serv.NodeName",
+            "url": "https://some_url.de/path",
+            "protocol": "wetterdienst_prediction",
+            "parameter": "temperature_air_mean_200",
+            "mosmix_type": "SMALL",
+            "station_id": "K2596",
+        },
+        {
+            "name": "Serv.NodeName",
+            "url": "https://some_url.de/path",
+            "protocol": "wetterdienst_prediction",
+            "parameter": "TEMPERATURE_AIR_MEAN_200",
+            "mosmix_type": "SMALL",
+            "station_id": "K2596",
         },
     ),
     (

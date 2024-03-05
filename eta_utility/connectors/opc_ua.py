@@ -31,7 +31,8 @@ from eta_utility.connectors.node import Node, NodeOpcUa
 from .util import IntervalChecker, RetryWaiter
 
 if TYPE_CHECKING:
-    from typing import Any, Generator, Mapping, Sequence
+    from typing import Any
+    from collections.abc import Generator, Mapping, Sequence
 
     # Sync import
     from asyncua.sync import SyncNode as SyncOpcNode
@@ -101,7 +102,7 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
         :return: OpcUaConnection object.
         """
 
-        if node.protocol == "opcua" and isinstance(node, NodeOpcUa):
+        if node.protocol == "opcua":
             return cls(node.url, usr=usr, pwd=pwd, nodes=[node], **kwargs)
 
         else:
@@ -143,7 +144,13 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
             try:
                 opcua_variable = self.connection.get_node(node.opc_id)
                 value = opcua_variable.get_value()
-                value = node.dtype(value) if node.dtype is not None else value
+                if node.dtype is not None:
+                    try:
+                        value = node.dtype(value)
+                    except ValueError as e:
+                        raise ConnectionError(
+                            f"Failed to typecast value '{value}' at {node.name} to {node.dtype.__name__}."
+                        ) from e
                 return {node.name: [value]}
             except uaerrors.BadNodeIdUnknown:
                 raise ConnectionError(
@@ -454,7 +461,7 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
                     _connect_insecure()
                 else:
                     raise e
-            except (TimeoutError, ConTimeoutError):
+            except (TimeoutError, ConTimeoutError, asyncio.exceptions.TimeoutError):
                 self._try_secure_connect = False
                 raise ConnectionError("Host timeout during secure connect")
 
@@ -465,7 +472,7 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
                 _connect_insecure()
         except (socket.herror, socket.gaierror) as e:
             raise ConnectionError(f"Host not found: {self.url}") from e
-        except (socket.timeout, TimeoutError, ConTimeoutError) as e:
+        except (socket.timeout, TimeoutError, ConTimeoutError, asyncio.exceptions.TimeoutError) as e:
             raise ConnectionError(f"Host timeout: {self.url}") from e
         except ConCancelledError as e:
             raise ConnectionError(f"Connection cancelled by host: {self.url}") from e

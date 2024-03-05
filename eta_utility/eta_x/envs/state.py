@@ -12,7 +12,8 @@ from gymnasium import spaces
 from eta_utility import get_logger
 
 if TYPE_CHECKING:
-    from typing import Any, Mapping, Sequence
+    from collections.abc import Mapping, Sequence
+    from typing import Any
 
     from attrs import Attribute
 
@@ -65,6 +66,7 @@ class StateVar:
     #: Name or identifier (order) of the variable in the external interaction model
     #: (e.g.: environment or FMU) (default: None).
     ext_id: str | int | None = field(kw_only=True, default=None, validator=validators.optional(_valid_id))
+
     #: Should this variable be passed to the external model as an input? (default: False).
     is_ext_input: bool = field(
         kw_only=True,

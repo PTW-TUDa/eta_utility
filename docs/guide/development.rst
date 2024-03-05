@@ -45,8 +45,8 @@ If you don't have pipx installed, you can install it with pip:
 
 .. code-block:: console
 
-    $ python3 -m pip install pipx
-    $ python3 -m pipx ensurepath
+    $ python -m pip install pipx
+    $ python -m pipx ensurepath
 
 Then install Poetry with pipx:
 
@@ -158,7 +158,7 @@ You can change the Python version Poetry uses with:
 
     $ poetry env use <full python path>
 
-To list all available python versions on Windows, run:
+To list all available Python versions on Windows, run:
 
 .. code-block:: console
 
@@ -232,8 +232,8 @@ GitLab - Docker containers
 -----------------------------
 
 The directory *.gitlab* contains the dockerfiles which defines the images that the jobs
-of the CI/CD run on. Currently there are two main dockerfiles, one to describe python-julia
-environment and another just for python.
+of the CI/CD run on. Currently there are two main dockerfiles, one to describe Python-Julia
+environment and another just for Python.
 
 All the dockerfiles contains an correspondent image stored in **Packages & Registries > Container Registry**.
 In which the image will be used in a container to execute the jobs.
@@ -253,8 +253,8 @@ inside the project folder:
     $ docker build -t git-reg.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility/pyjulia:py3.9-jl1.9 -f .gitlab/docker/pyjulia-39-19.dockerfile .
 
 Using tags for the images is a good practice to differentiate image versions, in case it's not used it's automatic
-labeled as *latest*. Currently there are three images for python environments called *python*, with python versions
-differentiated by tags (py3.8, py3.9 and py3.10) and there is an image with combined python and julia installations.
+labeled as *latest*. Currently there are three images for Python environments called *python*, with Python versions
+differentiated by tags (py3.9, py3.10 and py3.11) and there is an image with combined Python and Julia installations.
 
 The last step is to upload the images to the private docker registry.
 

@@ -25,7 +25,8 @@ from eta_utility.eta_x.common import (
 )
 
 if TYPE_CHECKING:
-    from typing import Any, Generator, Mapping
+    from collections.abc import Generator, Mapping
+    from typing import Any
 
     from stable_baselines3.common.base_class import BaseAlgorithm
     from stable_baselines3.common.type_aliases import MaybeCallback
@@ -98,7 +99,6 @@ class ETAx:
         :param series_name: Name for a series of runs.
         :param run_name: Name for a specific run.
         :param run_description: Description for a specific run.
-        :return: Boolean value indicating successful preparation.
         """
         self.config_run = ConfigOptRun(
             series=series_name,
@@ -120,7 +120,7 @@ class ETAx:
 
         :param reset: Flag to determine whether an existing model should be reset.
         """
-        self._prepare_model(reset)
+        self._prepare_model(reset=reset)
 
     def _prepare_model(self, reset: bool = False) -> None:
         """Check for existing model and load it or back it up and create a new model.
@@ -189,14 +189,13 @@ class ETAx:
         try:
             self._prepare_environments(training)
             yield
-
         finally:
             # close all environments when done (kill processes)
             log.debug("Closing environments.")
-            assert self.environments is not None, "Initialized environments could not be found."
+            assert self.environments is not None, "Environment initialization failed."
             self.environments.close()
             if self.config.settings.interact_with_env:
-                assert self.interaction_env is not None, "Initialized interaction environments could not be found."
+                assert self.interaction_env is not None, "Interaction environment initialization failed."
                 self.interaction_env.close()
 
     def _prepare_environments(self, training: bool = True) -> None:
@@ -318,6 +317,9 @@ class ETAx:
                     / self.config.settings.sampling_time
                 )
 
+            # Set the seed for the environments before starting to learn
+            self.environments.seed(self.config.settings.seed)
+
             callback_learn = merge_callbacks(
                 CheckpointCallback(
                     save_freq=save_freq,
@@ -327,7 +329,7 @@ class ETAx:
                 callbacks,
             )
 
-            # Start learning
+            # The experiments are reset before the learning phase begins, start learning
             log.info("Start learning process of agent in environment.")
             try:
                 self.model.learn(
@@ -341,11 +343,13 @@ class ETAx:
                 self.model.save(filename)
                 raise
 
-            # reset environment one more time to call environment callback one last time
-            self.environments.seed(self.config.settings.seed)
-            self.environments.reset()
+            try:
+                log.debug("Resetting environment one more time to call environment callback one last time.")
+                self.environments.reset()
+            except ValueError as e:
+                raise ValueError("An error occured when the environment is resetting.") from e
 
-            # save model
+            # Save model
             log.debug(f"Saving model to file: {self.config_run.path_run_model}.")
             self.model.save(self.config_run.path_run_model)
             if isinstance(self.environments, VecNormalize):
@@ -432,7 +436,7 @@ class ETAx:
 
             # Perform a step  with the interaction environment and update the normal environment with
             # its observations
-            observations, rewards, dones, info = self.interaction_env.step(action)
+            observations, _rewards, dones, info = self.interaction_env.step(action)
             observations = np.array(self.environments.env_method("update", observations, indices=0))
             # Make sure to also reset the environment, if the interaction_env says it's done. For the interaction
             # env this is done inside the vectorizer.
@@ -441,14 +445,13 @@ class ETAx:
                     info[idx]["terminal_observation"] = observations
                     observations[idx] = self._reset_env_interaction(observations)
         else:
-            observations, rewards, dones, info = self.environments.step(action)
+            observations, _rewards, dones, info = self.environments.step(action)
         return observations, dones
 
     def _reset_envs(self) -> VecEnvObs:
-        """Reset the environments when interaction with another environment is taking place.
+        """Reset the environment before and afterwards when the play and learn function is calling.
 
-        :param observations: Observations from the interaction env.
-        :return: observations after reset.
+        :return: Observations after reset.
         """
         assert self.environments is not None, "Initialized environments could not be found. Call prepare_run first."
         log.debug("Resetting environments.")
@@ -465,6 +468,11 @@ class ETAx:
             return self.environments.reset()
 
     def _reset_env_interaction(self, observations: VecEnvObs) -> VecEnvObs:
+        """Reset the environments when interaction with another environment is taking place.
+
+        :param Observations: Observations from the interaction env.
+        :return: Observations after reset.
+        """
         assert self.environments is not None, "Initialized environments could not be found. Call prepare_run first."
         log.debug("Resetting main environment during environment interaction.")
 

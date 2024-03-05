@@ -52,6 +52,6 @@ and inside the eta-utility directory execute the following command:
 
     $ install-julia
 
-Make sure to install julia using the same python virtual environment that you are using to execute your code.
+Make sure to install Julia using the same Python virtual environment that you are using to execute your code.
 
-This command will install PyJulia, configure PyCall in your system, and install the julia extensions package (ju_extensions) from eta_utility.
+This command will install PyJulia, configure PyCall in your system, and install the Julia extensions package (ju_extensions) from eta_utility.

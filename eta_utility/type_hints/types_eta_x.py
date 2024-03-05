@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 from stable_baselines3.common.type_aliases import GymEnv  # noqa:F401
@@ -14,6 +14,6 @@ from stable_baselines3.common.type_aliases import (  # noqa:F401
 )
 
 ActionType = np.ndarray
-EnvSettings = Dict[str, Any]
-AlgoSettings = Dict[str, Any]
-PyoParams = Dict[Optional[str], Union[Dict[Optional[str], Any], Any]]
+EnvSettings = dict[str, Any]
+AlgoSettings = dict[str, Any]
+PyoParams = dict[Optional[str], Union[dict[Optional[str], Any], Any]]

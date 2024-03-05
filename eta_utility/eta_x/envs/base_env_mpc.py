@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import abc
+from collections.abc import Mapping, MutableMapping, Sequence
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Mapping, MutableMapping, Sequence
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -173,8 +174,9 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
 
     def step(self, action: np.ndarray) -> StepResult:
         """Perform one time step and return its results. This is called for every event or for every time step during
-        the simulation/optimization run. It should utilize the actions as supplied by the agent to determine
-        the new state of the environment. The method must return a four-tuple of observations, rewards, dones, info.
+        the simulation/optimization run. It should utilize the actions as supplied by the agent to determine the new
+        state of the environment. The method must return a five-tuple of observations, rewards, terminated, truncated,
+        info.
 
         This also updates self.state and self.state_log to store current state information.
 
@@ -187,17 +189,17 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         :param np.ndarray action: Actions to perform in the environment.
         :return: The return value represents the state of the environment after the step was performed.
 
-            * observations: A numpy array with new observation values as defined by the observation space.
+            * **observations**: A numpy array with new observation values as defined by the observation space.
               Observations is a np.array() (numpy array) with floating point or integer values.
-            * reward: The value of the reward function. This is just one floating point value.
-            * terminated: Boolean value specifying whether an episode has been completed. If this is set to true,
+            * **reward**: The value of the reward function. This is just one floating point value.
+            * **terminated**: Boolean value specifying whether an episode has been completed. If this is set to true,
               the reset function will automatically be called by the agent or by eta_i.
-            * truncated: Boolean, whether the truncation condition outside the scope is satisfied.
-            * truncated: Boolean, whether the truncation condition outside the scope is satisfied.
-                Typically, this is a timelimit, but could also be used to indicate an agent physically going out of
-                bounds. Can be used to end the episode prematurely before a terminal state is reached. If true, the
-                user needs to call the `reset` function.
-            * info: Provide some additional info about the state of the environment. The contents of this may
+            * **truncated**: Boolean, whether the truncation condition outside the scope is satisfied.
+            * **truncated**: Boolean, whether the truncation condition outside the scope is satisfied.
+              Typically, this is a timelimit, but could also be used to indicate an agent physically going out of
+              bounds. Can be used to end the episode prematurely before a terminal state is reached. If true, the
+              user needs to call the `reset` function.
+            * **info**: Provide some additional info about the state of the environment. The contents of this may
               be used for logging purposes in the future but typically do not currently serve a purpose.
         """
         self._actions_valid(action)
@@ -294,7 +296,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         return_obs = []  # Array for all current observations
         for var_name in self.state_config.observations:
             settings = self.state_config.vars[var_name]
-            assert type(settings.interact_id) is int, "The interact_id value for observations must be an integer."
+            assert isinstance(settings.interact_id, int), "The interact_id value for observations must be an integer."
             value = None
 
             # Read values from external environment (for example simulation)
@@ -465,8 +467,8 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         :return: Pyomo parameter dictionary.
         """
         output: PyoParams = {}
-        if index is not None:
-            index = list(index) if type(index) is not list else index
+        if index is not None and not isinstance(index, list):
+            index = list(index)
 
         _ts: pd.DataFrame | pd.Series | dict[str, Any] | Sequence
         # If part of the timeseries was converted before, make sure that everything is on the same level again.
@@ -519,7 +521,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             #  component name.
             if (
                 component_name is not None
-                and type(_ts.name) is str
+                and isinstance(_ts.name, str)
                 and "." in _ts.name
                 and component_name in _ts.name.split(".")
             ):  # noqa

@@ -18,7 +18,8 @@ from eta_utility.timeseries import df_resample, df_time_slice
 from eta_utility.util import dict_search, round_timestamp
 
 if TYPE_CHECKING:
-    from typing import Any, Mapping
+    from typing import Any
+    from collections.abc import Mapping
     from eta_utility.type_hints import AnyNode, Nodes, TimeStep
 
 from .base_classes import BaseSeriesConnection, SubscriptionHandler
@@ -303,7 +304,7 @@ class ENTSOEConnection(BaseSeriesConnection, protocol="entsoe"):
 
 
 class _ConnectionConfiguration:
-    """Auxiliary class to configure the parameters for establish connection to ENTSO-E API.
+    """Auxiliary class to configure the parameters for establishing a connection to ENTSO-E API.
 
     Currently, the connection class only supports two types of data requests through the method read_series, they are:
     **Energy price day ahead** and **Actual energy generation per type**. All the data requests available are listed in

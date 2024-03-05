@@ -4,20 +4,21 @@ from __future__ import annotations
 
 import itertools as it
 import shutil
+from collections.abc import Mapping
 from datetime import timedelta
-from typing import TYPE_CHECKING, Mapping
+from typing import TYPE_CHECKING
 
 import numpy as np
 from fmpy import extract, read_model_description
 from fmpy.fmi2 import FMU2Model, FMU2Slave
-from fmpy.simulation import apply_start_values
 from fmpy.sundials import CVodeSolver
 from fmpy.util import compile_platform_binary
 
 from eta_utility import get_logger
 
 if TYPE_CHECKING:
-    from typing import Any, Sequence
+    from collections.abc import Sequence
+    from typing import Any
 
     from fmpy.model_description import ModelDescription
 
@@ -193,11 +194,14 @@ class FMUSimulator:
         # initialize
         self.fmu.instantiate(visible=False, callbacks=None, loggingOn=False)
         self.fmu.setupExperiment(startTime=self.start_time)
-        self.fmu.enterInitializationMode()
 
+        # set init values
+        # instead of using the fmpy apply_start_values func from fmpy use the own set_values func to set the values
+        # of the simulation variables correctly, reasons are also performance and simulation speed
         init_values = {} if init_values is None else init_values
-        apply_start_values(self.fmu, self.model_description, start_values=init_values)
+        self.set_values(init_values)
 
+        self.fmu.enterInitializationMode()
         self.fmu.exitInitializationMode()
         #: Current simulation time.
         self.time = self.start_time
@@ -376,10 +380,13 @@ class FMUSimulator:
         self.time = self.start_time
         self.fmu.reset()
         self.fmu.setupExperiment(startTime=self.start_time)
+
+        # set init values
+        # instead of using the fmpy apply_start_values func from fmpy use the own set_values func to set the values
+        # of the simulation variables correctly, reasons are also performance and simulation speed
+        self.set_values(init_values)  # type: ignore
+
         self.fmu.enterInitializationMode()
-
-        apply_start_values(self.fmu, self.model_description, start_values=init_values)
-
         self.fmu.exitInitializationMode()
 
     def close(self) -> None:
