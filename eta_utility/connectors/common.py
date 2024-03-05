@@ -3,7 +3,8 @@
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Sized
+from collections.abc import Sized
+from typing import TYPE_CHECKING
 
 from eta_utility.connectors.base_classes import BaseConnection
 

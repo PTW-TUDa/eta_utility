@@ -17,10 +17,12 @@ if check_julia_package():
     from eta_utility.util_julia import import_jl_file
 
 if TYPE_CHECKING:
+    from types import ModuleType
     from typing import Any, Callable
 
     from eta_utility.eta_x import ConfigOptRun
     from eta_utility.type_hints import StepResult, TimeStep
+
 
 Jl.eval("using PyCall")
 jl_setattribute = Jl.eval("pyfunction(setfield!, PyAny, Symbol, PyAny)")
@@ -101,11 +103,16 @@ class JuliaEnv(BaseEnv):
         for key, value in kwargs.items():
             setattr(self, key, value)
 
-        julia_env_path = julia_env_file if isinstance(julia_env_file, pathlib.Path) else pathlib.Path(julia_env_file)
-        if not julia_env_path.is_absolute():
-            julia_env_path = config_run.path_root / julia_env_path
+        #: Julia file name.
+        julia_env_file = julia_env_file if isinstance(julia_env_file, pathlib.Path) else pathlib.Path(julia_env_file)
 
-        self.__jl = import_jl_file(julia_env_path)
+        #: Root Path to the julia file.
+        self.julia_env_path: pathlib.Path = (
+            julia_env_file if julia_env_file.is_absolute() else config_run.path_root / julia_env_file
+        )
+
+        #: Imported Julia file as a module (written in julia) for further initialization of the environment.
+        self.__jl: ModuleType = import_jl_file(self.julia_env_path)
 
         # Make sure that all required functions are implemented in julia.
         for func in {"Environment", "step!", "reset!", "close!", "render", "first_update!", "update!"}:
@@ -114,6 +121,7 @@ class JuliaEnv(BaseEnv):
                     f"Implementation of abstract method {func} missing from julia implementation of JuliaEnv."
                 )
 
+        #: Initialized julia environment (written in julia).
         self._jlenv = self.__jl.Environment(self)
 
     def first_update(self, observations: np.ndarray) -> np.ndarray:
@@ -139,7 +147,8 @@ class JuliaEnv(BaseEnv):
     def step(self, action: np.ndarray) -> StepResult:
         """Perform one time step and return its results. This is called for every event or for every time step during
         the simulation/optimization run. It should utilize the actions as supplied by the agent to determine the new
-        state of the environment. The method must return a four-tuple of observations, rewards, dones, info.
+        state of the environment. The method must return a five-tuple of observations, rewards, terminated, truncated,
+        info.
 
         .. note ::
             Do not forget to increment n_steps and n_steps_longtime.
@@ -147,17 +156,17 @@ class JuliaEnv(BaseEnv):
         :param action: Actions taken by the agent.
         :return: The return value represents the state of the environment after the step was performed.
 
-            * observations: A numpy array with new observation values as defined by the observation space.
+            * **observations**: A numpy array with new observation values as defined by the observation space.
               Observations is a np.array() (numpy array) with floating point or integer values.
-            * reward: The value of the reward function. This is just one floating point value.
-            * terminated: Boolean value specifying whether an episode has been completed. If this is set to true,
+            * **reward**: The value of the reward function. This is just one floating point value.
+            * **terminated**: Boolean value specifying whether an episode has been completed. If this is set to true,
               the reset function will automatically be called by the agent or by eta_i.
-            * truncated: Boolean, whether the truncation condition outside the scope is satisfied.
+            * **truncated**: Boolean, whether the truncation condition outside the scope is satisfied.
               Typically, this is a timelimit, but could also be used to indicate an agent physically going out of
               bounds. Can be used to end the episode prematurely before a terminal state is reached. If true, the user
               needs to call the `reset` function.
-            * info: Provide some additional info about the state of the environment. The contents of this may be used
-              for logging purposes in the future but typically do not currently serve a purpose.
+            * **info**: Provide some additional info about the state of the environment. The contents of this may
+              be used for logging purposes in the future but typically do not currently serve a purpose.
 
         """
         self._actions_valid(action)
@@ -240,9 +249,7 @@ class JuliaEnv(BaseEnv):
               The text can include newlines and ANSI escape sequences (e.g. for colors).
 
         """
-        mode = self.render_mode
-
-        self.__jl.render(self._jlenv, mode, **kwargs)
+        self.__jl.render(self._jlenv, **kwargs)
 
     def __getattr__(self, name: str) -> Any:
         # Return the item if it is set on the python object

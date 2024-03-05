@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING
 
 import torch as th
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor

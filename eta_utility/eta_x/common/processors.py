@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import torch as th
 
 if TYPE_CHECKING:
-    from typing import Iterable, Sequence
+    from collections.abc import Iterable, Sequence
 
 
 class Split1d(th.nn.ModuleList):

@@ -69,7 +69,7 @@ class CumulocityConnection(BaseSeriesConnection, protocol="cumulocity"):
             raise AttributeError("Keyword parameter 'tenant' is missing.")
         tenant = kwargs["tenant"]
 
-        if node.protocol == "cumulocity" and isinstance(node, NodeCumulocity):
+        if node.protocol == "cumulocity":
             return cls(node.url, usr, pwd, tenant=tenant, nodes=[node])
         else:
             raise ValueError(

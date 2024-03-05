@@ -10,7 +10,7 @@ Installation of Python
 ------------------------
 
 If you do not already have it, install Python (64 Bit) on your device. ETA_utility supports Python versions between
-**3.8** and **3.10**.
+**3.9** and **3.11**.
 
 Below, the installation is illustrated using Python 3.10.10, 64 Bit. You can install Python for
 Windows from `python.org <https://www.python.org/downloads/windows/>`_

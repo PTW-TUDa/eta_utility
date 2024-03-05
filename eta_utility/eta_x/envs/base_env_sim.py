@@ -12,8 +12,9 @@ from eta_utility.eta_x.envs import BaseEnv
 from eta_utility.simulators import FMUSimulator
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from datetime import datetime
-    from typing import Any, Callable, Mapping
+    from typing import Any, Callable
 
     from eta_utility.eta_x import ConfigOptRun
     from eta_utility.type_hints import ObservationType, StepResult, TimeStep
@@ -163,8 +164,9 @@ class BaseEnvSim(BaseEnv, abc.ABC):
 
     def step(self, action: np.ndarray) -> StepResult:
         """Perform one time step and return its results. This is called for every event or for every time step during
-        the simulation/optimization run. It should utilize the actions as supplied by the agent to determine
-        the new state of the environment. The method must return a four-tuple of observations, rewards, dones, info.
+        the simulation/optimization run. It should utilize the actions as supplied by the agent to determine the new
+        state of the environment. The method must return a five-tuple of observations, rewards, terminated, truncated,
+        info.
 
         This also updates self.state and self.state_log to store current state information.
 
@@ -183,9 +185,9 @@ class BaseEnvSim(BaseEnv, abc.ABC):
             * **terminated**: Boolean value specifying whether an episode has been completed. If this is set to true,
               the reset function will automatically be called by the agent or by eta_i.
             * **truncated**: Boolean, whether the truncation condition outside the scope is satisfied.
-                Typically, this is a timelimit, but could also be used to indicate an agent physically going out of
-                bounds. Can be used to end the episode prematurely before a terminal state is reached. If true, the
-                user needs to call the `reset` function.
+              Typically, this is a timelimit, but could also be used to indicate an agent physically going out of
+              bounds. Can be used to end the episode prematurely before a terminal state is reached. If true, the
+              user needs to call the `reset` function.
             * **info**: Provide some additional info about the state of the environment. The contents of this may
               be used for logging purposes in the future but typically do not currently serve a purpose.
         """

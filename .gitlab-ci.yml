@@ -15,8 +15,8 @@ stages:
 
 .on_version_tag_rule:
   rules:
-    # Create a pipeline if a version tag was created
-    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+([ab]\d+)?$/'
+    # Deploy if a version tag was created
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
 
 workflow:
   rules:
@@ -25,17 +25,14 @@ workflow:
     # Create a pipeline for the default branch
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     # Create a pipeline if a version tag was created
-    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+([ab]\d+)?$/'
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(-[0-9A-Za-z]+)?$/'
     # Dont create a branch pipeline while there are open merge requests
     - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
       when: never
 
 include:
   - template: Security/Secret-Detection.gitlab-ci.yml
-  - template: Security/License-Scanning.gitlab-ci.yml
 
-variables:
-    ASDF_PYTHON_VERSION: '3.10'
 
 default:
   tags:
@@ -49,6 +46,11 @@ default:
     - rm -rf .cache .pip_cache .pytest_cache .mypy_cache dist doc eta_utility.egg-info build
     - rm -rf docs/_build docs/_stubs
     - ls -la
+    - poetry export --extras develop --without-hashes -o requirements.txt && \
+    # Remove nvidia and torch from requirements.txt, pytorch is installed above and nvidia packages (cuda) are not needed
+    - sed -i '/^nvidia-/d' ./requirements.txt && \
+    - sed -i '/torch==/d' ./requirements.txt && \
+    - pip install -r requirements.txt --no-cache-dir
 
 isort:
   stage: check
@@ -106,52 +108,17 @@ check-poetry:
     - poetry --version
     - poetry check
 
-license_scanning:
-  stage: check
-  before_script: []
-  rules:
-    - !reference [.default_rules, rules]
-
 secret_detection:
   stage: check
   before_script: []
   rules:
     - !reference [.default_rules, rules]
 
-test3.8:
-  stage: test
-  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/python:py3.8
-  script:
-    - pytest --cov --junitxml=./junit.xml
-  retry:
-    max: 1
-    when: script_failure
-  artifacts:
-    paths:
-      - junit.xml
-    reports:
-      junit: junit.xml
-
-
-test3.9:
-  stage: test
-  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/python:py3.9
-  script:
-    - pytest --cov --junitxml=./junit.xml
-  retry:
-    max: 1
-    when: script_failure
-  artifacts:
-    paths:
-      - junit.xml
-    reports:
-      junit: junit.xml
-
-test3.10:
+test3.10: &test_config
   stage: test
   image: $CI_REGISTRY/eta-fabrik/public/eta-utility/python:py3.10
   script:
-    - pytest --cov --junitxml=./junit.xml
+  - pytest --cov --cov-report term --junitxml=./junit.xml
   retry:
     max: 1
     when: script_failure
@@ -161,22 +128,33 @@ test3.10:
     reports:
       junit: junit.xml
 
-test3.10_updated_deps:
-  stage: test
-  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/python:py3.10
+# This job has test coverage report
+test3.9-jl1.9:
+  <<: *test_config
+  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/pyjulia:py3.9-jl1.9
+  coverage: '/TOTAL.*\s+(\d+%)$/'
+  script:
+  - pytest --cov --junitxml=./junit.xml --cov-report term --cov-report xml:coverage.xml
+  artifacts:
+    paths:
+      - junit.xml
+    reports:
+      junit: junit.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+
+test3.11:
+  <<: *test_config
+  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/python:py3.11
+
+test3.11_updated_deps:
+  <<: *test_config
+  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/python:py3.11
   script:
     - pip install --upgrade .[develop] --upgrade-strategy=only-if-needed
     - pip install pytest pytest-cov
     - pytest --cov --junitxml=./junit.xml
-  allow_failure: true
-  retry:
-    max: 1
-    when: script_failure
-  artifacts:
-    paths:
-      - junit.xml
-    reports:
-      junit: junit.xml
 
 test-julia:
   stage: test
@@ -190,13 +168,6 @@ test-julia:
     max: 1
     when: script_failure
 
-test-pyjulia:
-  stage: test
-  script:
-    - python-jl -m pytest test/test_etax/test_agents.py::TestNSGA2
-  retry:
-    max: 1
-    when: script_failure
 
 linkcheck-docs:
   stage: test

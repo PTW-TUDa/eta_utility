@@ -12,7 +12,8 @@ import pandas as pd
 from eta_utility.util import ensure_timezone
 
 if TYPE_CHECKING:
-    from typing import Any, Callable, Iterable, Sequence
+    from collections.abc import Iterable, Sequence
+    from typing import Any, Callable
 
     from eta_utility.type_hints import AnyNode, TimeStep
 

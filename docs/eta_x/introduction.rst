@@ -32,10 +32,9 @@ These algorithms specifically include some algorithms which are not from the fie
 learning but can be employed in generalized rolling horizon optimization settings.
 
 The functions available in eta_utility.eta_x.envs make it easy to create new, custom environments
-(see `stable_baselines3 custom environments
-<https://stable-baselines3.readthedocs.io/en/master/guide/custom_env.html>`). For example, they provide functionality
-for integrating FMU simulation models, communicating with real machinery in factories, or even integrating environments
-written in Julia.
+(see `stable_baselines3 custom environments <https://stable-baselines3.readthedocs.io/en/master/guide/custom_env.html>`_).
+For example, they provide functionality for integrating FMU simulation models,
+communicating with real machinery in factories, or even integrating environments written in Julia.
 
 The *ETAx* class is built on top of this functionality and extends the general Markov Decision Process by the option to
 introduce interactions between multiple environments. This enables the creation of digital twins, which could for

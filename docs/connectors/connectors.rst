@@ -6,6 +6,8 @@ Multiple protocols and APIs are supported by *eta_utility*. Most functionality i
 connectors, some of the connectors also offer specific functionality, which only applies to the protocol or
 API they implement.
 
+EnEffCo
+----------------------------------------------------
 A simple example using the **EnEffCo connection**:
 
 .. literalinclude:: ../../examples/connectors/read_series_eneffco.py
@@ -13,18 +15,27 @@ A simple example using the **EnEffCo connection**:
     :end-before: --main--
     :dedent:
 
+OpcUa
+----------------------------------------------------
+
 .. autoclass:: eta_utility.connectors::OpcUaConnection
     :members:
     :noindex:
 
+Modbus
+----------------------------------------------------
 .. autoclass:: eta_utility.connectors::ModbusConnection
     :members:
     :noindex:
 
+EnEffCo
+----------------------------------------------------
 .. autoclass:: eta_utility.connectors::EnEffCoConnection
     :members:
     :noindex:
 
+ENTSO-E
+----------------------------------------------------
 An example using the **ENTSO-E connection**:
 
 .. literalinclude:: ../../examples/connectors/read_series_entsoe.py
@@ -33,5 +44,18 @@ An example using the **ENTSO-E connection**:
     :dedent:
 
 .. autoclass:: eta_utility.connectors::ENTSOEConnection
+    :members:
+    :noindex:
+
+Wetterdienst
+----------------------------------------------------
+An example using the **Wetterdienst connection**:
+
+.. literalinclude:: ../../examples/connectors/read_series_wetterdienst.py
+    :start-after: --begin_wetterdienst_doc_example--
+    :end-before: --end_wetterdienst_doc_example--
+    :dedent:
+
+.. autoclass:: eta_utility.connectors::WetterdienstConnection
     :members:
     :noindex:
