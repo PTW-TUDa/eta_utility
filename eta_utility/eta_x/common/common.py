@@ -77,7 +77,7 @@ def vectorize_environment(
     # Create the vectorized environment
     def create_env(env_id: int) -> Env:
         env_id += 1
-        return env(env_id, config_run, verbose, callback, **env_settings)
+        return env(env_id=env_id, config_run=config_run, verbose=verbose, callback=callback, **env_settings)
 
     envs: VecEnv | VecNormalize
     envs = vectorizer([partial(create_env, i) for i in range(n)])
