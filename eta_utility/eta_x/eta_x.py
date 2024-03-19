@@ -191,12 +191,18 @@ class ETAx:
             yield
         finally:
             # close all environments when done (kill processes)
-            log.debug("Closing environments.")
-            assert self.environments is not None, "Environment initialization failed."
-            self.environments.close()
+            if self.environments is not None:
+                log.debug("Closing environments.")
+                self.environments.close()
+            else:
+                log.error("Environment initialization failed.")
+
             if self.config.settings.interact_with_env:
-                assert self.interaction_env is not None, "Interaction environment initialization failed."
-                self.interaction_env.close()
+                if self.interaction_env is not None:
+                    log.debug("Closing interaction environment.")
+                    self.interaction_env.close()
+                else:
+                    log.error("Interaction environment initialization failed.")
 
     def _prepare_environments(self, training: bool = True) -> None:
         """Vectorize and prepare the environments and potentially the interaction environments.
