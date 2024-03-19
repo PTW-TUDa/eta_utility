@@ -64,7 +64,7 @@ class StateVar:
     )
 
     #: Name or identifier (order) of the variable in the external interaction model
-    #: (e.g.: environment or FMU) (default: None).
+    #: (e.g.: environment or FMU) (default: StateVar.name if (is_ext_input or is_ext_output) else None).
     ext_id: str | int | None = field(kw_only=True, default=None, validator=validators.optional(_valid_id))
 
     #: Should this variable be passed to the external model as an input? (default: False).
@@ -171,6 +171,11 @@ class StateVar:
         converter=converters.pipe(converters.default_if_none(0), int)  # type: ignore
         # mypy does not recognize default_if_none
     )
+
+    def __attrs_post_init__(self) -> None:
+        if (self.is_ext_input or self.is_ext_output) and self.ext_id is None:
+            object.__setattr__(self, "ext_id", self.name)
+            log.info(f"Using name as ext_id for variable {self.name}")
 
     @classmethod
     def from_dict(cls, mapping: Mapping[str, Any] | pd.Series) -> StateVar:
