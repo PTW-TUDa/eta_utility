@@ -94,7 +94,7 @@ class ModbusConnection(BaseConnection, protocol="modbus"):
             results = {node: self._read_mb_value(node) for node in _nodes}
 
         for node, result in results.items():
-            value = decode_modbus_value(result, node.mb_byteorder, node.dtype)
+            value = decode_modbus_value(result, node.mb_byteorder, node.dtype, node.mb_wordorder)
             values[node.name] = value
 
         return pd.DataFrame(values, index=[self._assert_tz_awareness(datetime.now())])
@@ -185,7 +185,7 @@ class ModbusConnection(BaseConnection, protocol="modbus"):
                         continue
 
                     if result is not None:
-                        _result = decode_modbus_value(result, node.mb_byteorder, node.dtype)
+                        _result = decode_modbus_value(result, node.mb_byteorder, node.dtype, node.mb_wordorder)
 
                         time = self._assert_tz_awareness(datetime.now())
 

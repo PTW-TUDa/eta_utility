@@ -9,50 +9,35 @@ from eta_utility.servers import ModbusServer
 nodes = (
     {
         "name": "Serv.NodeName",
-        "port": 502,
-        "protocol": "modbus",
         "mb_channel": "5000",
-        "mb_byteorder": "big",
         "mb_register": "holding",
         "mb_bitlength": 32,
         "dtype": "int",
     },
     {
         "name": "Serv.NodeName",
-        "port": 502,
-        "protocol": "modbus",
         "mb_channel": "5032",
-        "mb_byteorder": "big",
         "mb_register": "holding",
         "mb_bitlength": 32,
         "dtype": "float",
     },
     {
         "name": "Serv.NodeName",
-        "port": 502,
-        "protocol": "modbus",
         "mb_channel": "5064",
-        "mb_byteorder": "big",
         "mb_register": "holding",
         "mb_bitlength": 64,
         "dtype": "string",
     },
     {
         "name": "Serv.NodeName",
-        "port": 502,
-        "protocol": "modbus",
         "mb_channel": "5128",
-        "mb_byteorder": "big",
         "mb_register": "coils",
         "mb_bitlength": 1,
         "dtype": "int",
     },
     {
         "name": "Serv.NodeName",
-        "port": 502,
-        "protocol": "modbus",
         "mb_channel": "5136",
-        "mb_byteorder": "big",
         "mb_register": "coils",
         "mb_bitlength": 4,
         "dtype": "int",
@@ -61,17 +46,27 @@ nodes = (
 
 
 @pytest.fixture(scope="module")
-def local_nodes():
+def local_nodes(config_modbus_port):
     _nodes = []
     for node in nodes:
-        _nodes.extend(Node.from_dict({**node, "ip": socket.gethostbyname(socket.gethostname())}))
+        _nodes.extend(
+            Node.from_dict(
+                {
+                    **node,
+                    "ip": socket.gethostbyname(socket.gethostname()),
+                    "port": config_modbus_port,
+                    "protocol": "modbus",
+                    "mb_byteorder": "big",
+                }
+            )
+        )
 
     return _nodes
 
 
-def test_init():
+def test_init(config_modbus_port):
     try:
-        server = ModbusServer(ip="127.0.0.1")
+        server = ModbusServer(ip="127.0.0.1", port=config_modbus_port)
         assert server._server.is_run is True
     finally:
         server.stop()
@@ -80,8 +75,8 @@ def test_init():
     assert server._server.is_run is False
 
 
-def test_init_with():
-    with ModbusServer(ip="127.0.0.1") as server:
+def test_init_with(config_modbus_port):
+    with ModbusServer(ip="127.0.0.1", port=config_modbus_port) as server:
         assert server._server.is_run is True  # Check session can be created
 
     # Check session is closed
@@ -90,14 +85,14 @@ def test_init_with():
 
 class TestServerOperations:
     @pytest.fixture(scope="class")
-    def server(self):
-        with ModbusServer(ip=socket.gethostbyname(socket.gethostname())) as server:
+    def server(self, config_modbus_port):
+        with ModbusServer(ip=socket.gethostbyname(socket.gethostname()), port=config_modbus_port) as server:
             yield server
 
     def test_active(self, server):
         assert server.active is True
 
-    def test_write_data_holding(self, server, local_nodes):
+    def test_write_data_holding(self, server, local_nodes, config_modbus_port):
         node = Node(
             "Serv.NodeName",
             url=local_nodes[0].url,

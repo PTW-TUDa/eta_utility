@@ -51,7 +51,9 @@ class RetryWaiter:
         await async_sleep(self.wait_time)
 
 
-def decode_modbus_value(value: Sequence[int], byteorder: str, type_: Callable | None = None) -> Any:
+def decode_modbus_value(
+    value: Sequence[int], byteorder: str, type_: Callable | None = None, wordorder: str = "big"
+) -> Any:
     r"""Method to decode incoming modbus values. Strings are always decoded as utf-8 values. If you do not
     want this behaviour specify 'bytes' as the data type.
 
@@ -62,13 +64,41 @@ def decode_modbus_value(value: Sequence[int], byteorder: str, type_: Callable | 
                   format strings (default: f).
     :return: Decoded value as a python type.
     """
-    if byteorder == "little":
-        bo = "<"
-    elif byteorder == "big":
-        bo = ">"
-    else:
+    if byteorder not in ("little", "big"):
         raise ValueError(f"Specified an invalid byteorder: '{byteorder}'")
+    if wordorder not in ("little", "big"):
+        raise ValueError(f"Specified an invalid wordorder: '{wordorder}'")
 
+    bo = "<" if byteorder == "little" else ">"
+
+    # Swap words if word order is little endian
+    if type_ is int or type_ is float:
+        if wordorder == "little":
+            value = value[::-1]
+
+    dtype, _len = _get_decode_params(value, type_)
+
+    # Determine the format strings for packing and unpacking the received byte sequences. These format strings
+    # depend on the endianness (determined by bo), the length of the value in bytes and the data type.
+    pack = f">{len(value):1d}H"
+    unpack = f"{bo}{_len}{dtype}"
+
+    # Convert the value into the appropriate format
+    val = struct.unpack(unpack, struct.pack(pack, *value))[0]
+    if type_ is str:
+        try:
+            val = type_(val, "utf-8")
+        except UnicodeDecodeError:
+            val = ""
+    elif type_ is not None:
+        val = type_(val)
+    else:
+        val = float(val)
+
+    return val
+
+
+def _get_decode_params(value: Sequence[int], type_: Callable | None = None) -> tuple[str, int]:
     if type_ is str or type_ is bytes:
         dtype = "s"
         _len = len(value) * 2
@@ -94,24 +124,7 @@ def decode_modbus_value(value: Sequence[int], byteorder: str, type_: Callable | 
     else:
         raise ValueError(f"The given modbus data type was not recognized: {type_}")
 
-    # Determine the format strings for packing and unpacking the received byte sequences. These format strings
-    # depend on the endianness (determined by bo), the length of the value in bytes and the data type.
-    pack = f">{len(value):1d}H"
-    unpack = f"{bo}{_len}{dtype}"
-
-    # Convert the value into the appropriate format
-    val = struct.unpack(unpack, struct.pack(pack, *value))[0]
-    if type_ is str:
-        try:
-            val = type_(val, "utf-8")
-        except UnicodeDecodeError:
-            val = ""
-    elif type_ is not None:
-        val = type_(val)
-    else:
-        val = float(val)
-
-    return val
+    return dtype, _len
 
 
 def encode_bits(
