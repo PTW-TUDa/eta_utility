@@ -74,7 +74,11 @@ class ModbusServer:
             if node.mb_register == "coils":
                 self._server.data_hdl.write_coils(node.mb_channel, bits, srv_info)
             elif node.mb_register == "holding":
-                self._server.data_hdl.write_h_regs(node.mb_channel, bitarray_to_registers(bits), srv_info)
+                bits = bitarray_to_registers(bits)
+                # If the wordorder is little, the bits have to be reversed.
+                if node.mb_wordorder == "little":
+                    bits = bits[::-1]
+                self._server.data_hdl.write_h_regs(node.mb_channel, bits, srv_info)
 
     def read(self, nodes: Nodes | None = None) -> pd.DataFrame:
         """
@@ -103,7 +107,7 @@ class ModbusServer:
 
             if val.ok and (node.mb_register == "holding" or node.mb_register == "input"):
                 byteorder = "big" if self._big_endian else "little"
-                results[node.name] = decode_modbus_value(val.data, byteorder, node.dtype)
+                results[node.name] = decode_modbus_value(val.data, byteorder, node.dtype, node.mb_wordorder)
             elif val.ok and isinstance(val.data, list):
                 if len(val.data) > 1:
                     for idx, value in enumerate(val.data):

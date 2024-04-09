@@ -361,7 +361,7 @@ class NodeLocal(Node, protocol="local"):
             raise TypeError(f"Could not convert all types for node {name}")
 
 
-def _mb_byteorder_converter(value: str) -> str:
+def _mb_endianness_converter(value: str) -> str:
     """Convert some values for mb_byteorder.
 
     :param value: Value to be converted to mb_byteorder
@@ -395,7 +395,11 @@ class NodeModbus(Node, protocol="modbus"):
 
     #: Byteorder of values returned by modbus
     mb_byteorder: str = field(
-        kw_only=True, converter=_mb_byteorder_converter, validator=validators.in_({"little", "big"})
+        kw_only=True, converter=_mb_endianness_converter, validator=validators.in_({"little", "big"})
+    )
+    #: Wordorder of values returned by modbus
+    mb_wordorder: str = field(
+        default="big", kw_only=True, converter=_mb_endianness_converter, validator=validators.in_({"little", "big"})
     )
 
     def __attrs_post_init__(self) -> None:
