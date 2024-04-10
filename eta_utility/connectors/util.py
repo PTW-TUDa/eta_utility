@@ -78,6 +78,10 @@ def decode_modbus_value(
 
     dtype, _len = _get_decode_params(value, type_)
 
+    # Boolean values don't need decoding
+    if type_ is bool:
+        return bool(value[0])
+
     # Determine the format strings for packing and unpacking the received byte sequences. These format strings
     # depend on the endianness (determined by bo), the length of the value in bytes and the data type.
     pack = f">{len(value):1d}H"
