@@ -40,6 +40,7 @@ Please read the development guide before starting development on *eta_utility*: 
 
     /connectors/introduction
     /connectors/connectors
+    /connectors/emonio
     /connectors/live_connect
     /connectors/sub_handlers
 

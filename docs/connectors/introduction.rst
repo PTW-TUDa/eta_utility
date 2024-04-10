@@ -99,6 +99,11 @@ The following classes are there to document the required parameters for each typ
     :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol
     :noindex:
 
+.. autoclass:: eta_utility.connectors.node::NodeEmonio
+    :inherited-members:
+    :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol
+    :noindex:
+
 Connection Instantiation
 ----------------------------
 Connections can be instantiated using different methods as described :ref:`above <connection instantiation>`. The two most common methods are described
