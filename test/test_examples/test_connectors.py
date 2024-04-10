@@ -1,11 +1,21 @@
+import socket
+
 import pandas as pd
 import pytest
 import requests
 from pyModbusTCP import client as mbclient  # noqa: I900
 
+from eta_utility.connectors.emonio import NodeModbusFactory
+from eta_utility.connectors.node import Node
 from eta_utility.servers import OpcUaServer
+from eta_utility.servers.modbus import ModbusServer
 from examples.connectors.data_recorder import (  # noqa: I900
     execution_loop as ex_data_recorder,
+)
+from examples.connectors.read_emonio_live import (
+    emonio_manuell,
+    live_from_dict,
+    modbus_manuell,
 )
 from examples.connectors.read_series_eneffco import (  # noqa: I900
     read_series as ex_read_eneffco,
@@ -65,3 +75,42 @@ def test_example_read_wetterdienst():
     assert isinstance(data, pd.DataFrame)
     assert set(data.columns) == {("Temperature_Darmstadt", "00917")}
     assert data.shape == (19, 1)
+
+
+class TestEmonio:
+    @pytest.fixture(scope="class")
+    def url(self, config_modbus_port):
+        return f"{socket.gethostbyname(socket.gethostname())}:{config_modbus_port}"
+
+    @pytest.fixture(scope="class")
+    def nodes(self, url) -> list[Node]:
+        factory = NodeModbusFactory(url)
+        voltage_node = factory.get_default_node("Spannung", 300)
+        current_node = factory.get_default_node("Strom", 2)
+        return [voltage_node, current_node]
+
+    @pytest.fixture(scope="class")
+    def server(self, config_modbus_port, nodes):
+        with ModbusServer(port=config_modbus_port) as server:
+            server.write({nodes[0]: self.values[0]})
+            server.write({nodes[1]: self.values[1]})
+            # Set phase 'a' to connected
+            server._server.data_bank.set_discrete_inputs(0, [1])
+            yield server
+
+    values = [230, 1]
+
+    def test_live(self, server, url):
+        result = live_from_dict(url)
+        assert result["emonio.V_RMS"] // 1 == self.values[0]
+        assert result["emonio.I_RMS"] // 1 == self.values[1]
+
+    def test_emonio(self, server, url):
+        result = emonio_manuell(url).round(3)
+        for value in result.iloc[0].values:
+            assert value in self.values
+
+    def test_modbus(self, server, url):
+        result = modbus_manuell(url).round(3)
+        for value in result.iloc[0].values:
+            assert value in self.values

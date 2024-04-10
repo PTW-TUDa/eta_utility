@@ -6,6 +6,7 @@ from typing import AbstractSet, Union
 from eta_utility.connectors.node import (
     Node,
     NodeCumulocity,
+    NodeEmonio,
     NodeEnEffCo,
     NodeEntsoE,
     NodeLocal,
@@ -25,5 +26,6 @@ AnyNode = Union[
     NodeCumulocity,
     NodeWetterdienstObservation,
     NodeWetterdienstPrediction,
+    NodeEmonio,
 ]
 Nodes = Union[Sequence[AnyNode], set[AnyNode], AbstractSet[AnyNode], AnyNode]

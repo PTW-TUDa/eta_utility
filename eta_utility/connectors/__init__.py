@@ -1,5 +1,6 @@
 from .common import connections_from_nodes, name_map_from_node_sequence
 from .cumulocity import CumulocityConnection
+from .emonio import EmonioConnection
 from .eneffco import EnEffCoConnection
 from .entso_e import ENTSOEConnection
 from .live_connect import LiveConnect

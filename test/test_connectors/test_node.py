@@ -113,6 +113,26 @@ fail_nodes = (
             "Interval 200 not supported. Must be one of " "[60, 300, 600, 3600, 28800, 86400, 2592000, 31536000]"
         ),
     ),
+    (
+        {
+            "name": "Serv.Name1",
+            "url": "",
+            "protocol": "emonio",
+        },
+        "Parameter for node Serv.Name1 not found, name is not valid.",
+    ),
+    (
+        {"name": "Serv.Name1", "url": "", "protocol": "emonio", "address": 13},
+        "Address 13 for node Serv.Name1 is not valid.",
+    ),
+    (
+        {
+            "name": "Serv.Spannung Max",
+            "url": "",
+            "protocol": "emonio",
+        },
+        "Phase must be set for MIN/MAX values",
+    ),
 )
 
 
@@ -327,9 +347,7 @@ nodes = (
             "station_id": "00917",
         },
         {
-            "name": "Serv.NodeName",
             "url": "https://some_url.de/path",
-            "protocol": "wetterdienst_observation",
             "parameter": "TEMPERATURE_AIR_MEAN_200",
             "interval": 3600,
             "station_id": "00917",
@@ -345,12 +363,71 @@ nodes = (
             "station_id": "K2596",
         },
         {
-            "name": "Serv.NodeName",
             "url": "https://some_url.de/path",
-            "protocol": "wetterdienst_prediction",
             "parameter": "TEMPERATURE_AIR_MEAN_200",
             "mosmix_type": "SMALL",
             "station_id": "K2596",
+        },
+    ),
+    (  # emonio
+        {
+            "name": "Serv.Spannung",
+            "url": "https://some_url.de/path",
+            "protocol": "emonio",
+        },
+        {
+            "name": "Serv.Spannung",
+            "address": 300,
+        },
+    ),
+    (
+        {
+            "name": "Serv.Spannung MAX",
+            "url": "https://some_url.de/path",
+            "protocol": "emonio",
+            "phase": "a",
+        },
+        {
+            "name": "Serv.Spannung MAX",
+            "address": 22,
+            "phase": "a",
+        },
+    ),
+    (
+        {
+            "name": "Serv.Temperatur",
+            "url": "https://some_url.de/path",
+            "protocol": "emonio",
+            "phase": "a",
+        },
+        {
+            "name": "Serv.Temperatur",
+            "address": 500,
+        },
+    ),
+    (
+        {
+            "name": "Serv.Temperatur",
+            "url": "https://some_url.de/path",
+            "protocol": "emonio",
+            "phase": "a",
+        },
+        {
+            "name": "Serv.Temperatur",
+            "address": 500,
+        },
+    ),
+    (
+        {
+            "name": "Serv.NodeName",
+            "url": "https://some_url.de/path",
+            "protocol": "emonio",
+            "phase": "a",
+            "address": 310,
+        },
+        {
+            "name": "Serv.NodeName",
+            "address": 310,
         },
     ),
     (

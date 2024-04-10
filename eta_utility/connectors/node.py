@@ -29,6 +29,7 @@ if TYPE_CHECKING:
 
 default_schemes = {
     "modbus": "modbus.tcp",
+    "emonio": "modbus.tcp",
     "opcua": "opc.tcp",
     "eneffco": "https",
     "local": "https",
@@ -227,7 +228,6 @@ class Node(metaclass=NodeMeta):
                     raise TypeError(text)
                 else:
                     log.error(text)
-
         return nodes
 
     @staticmethod
@@ -420,12 +420,12 @@ class NodeModbus(Node, protocol="modbus"):
         :return: NodeModbus object.
         """
         name, pwd, url, usr, interval = cls._read_dict_info(dikt)
-
         # Initialize node if protocol is 'modbus'
         try:
             mb_register = cls._try_dict_get_any(dikt, "mb_register", "modbusregistertype")
             mb_channel = cls._try_dict_get_any(dikt, "mb_channel", "modbuschannel")
             mb_byteorder = cls._try_dict_get_any(dikt, "mb_byteorder", "modbusbyteorder")
+            mb_wordorder = dict_get_any(dikt, "mb_wordorder", "modbuswordorder", fail=False, default="big")
             mb_slave = dict_get_any(dikt, "mb_slave", "modbusslave", fail=False, default=32)
             mb_bit_length = dict_get_any(dikt, "mb_bit_length", "mb_bitlength", fail=False, default=32)
             dtype = dict_get_any(dikt, "dtype", "datentyp", fail=False)
@@ -434,7 +434,6 @@ class NodeModbus(Node, protocol="modbus"):
                 f"The required parameter for the node configuration was not found (see log). The node {name} could "
                 f"not load."
             )
-
         try:
             return cls(
                 name,
@@ -447,6 +446,7 @@ class NodeModbus(Node, protocol="modbus"):
                 mb_channel=mb_channel,
                 mb_bit_length=mb_bit_length,
                 mb_byteorder=mb_byteorder,
+                mb_wordorder=mb_wordorder,
                 dtype=dtype,
                 interval=interval,
             )
@@ -884,5 +884,118 @@ class NodeWetterdienstPrediction(NodeWetterdienst, protocol="wetterdienst_predic
         mosmix_type = dikt.get("mosmix_type")
         try:
             return cls(name, url, "wetterdienst_prediction", mosmix_type=mosmix_type, **params)
+        except (TypeError, AttributeError):
+            raise TypeError(f"Could not convert all types for node {name}.")
+
+
+class NodeEmonio(Node, protocol="emonio"):
+    """
+    Node for the emonio. The parameter to read is specified by the name of the node.
+    Available parameters are defined in the parameter_map class attribute.
+    Additionally, the phase of the parameter can be specified, with 'a', 'b', 'c' or 'abc'.
+
+    https://wiki.emonio.de/de/Emonio_P3
+    """
+
+    #: Modbus address of the parameter to read
+    address: int = field(default=-1, kw_only=True, converter=int)
+    #: Phase of the parameter (a, b, c). If not set, all phases are read
+    phase: str = field(
+        default="abc", kw_only=True, converter=_lower_str, validator=validators.in_({"a", "b", "c", "abc"})
+    )
+
+    # Mapping of parameters to addresses
+    parameter_map = {
+        0: ["VRMS", "V_RMS", "Voltage", "V", "Spannung"],
+        2: ["IRMS", "I_RMS", "Current", "I", "Strom"],
+        4: ["WATT", "Power", "W", "Leistung", "Wirkleistung"],
+        6: ["VAR", "Reactive Power", "VAR", "Blindleistung"],
+        8: ["VA", "Apparent Power", "VA", "Scheinleistung"],
+        10: ["FREQ", "Frequency", "Hz", "Frequenz"],
+        12: ["KWH", "Energy", "kWh", "Energie"],
+        14: ["PF", "Power Factor", "PF", "Leistungsfaktor"],
+        20: ["VRMS MIN", "VRMS_MIN", "Voltage Min", "V Min", "Spannung Min"],
+        22: ["VRMS MAX", "VRMS_MAX", "Voltage Max", "V Max", "Spannung Max"],
+        24: ["IRMS MIN", "IRMS_MIN", "Current Min", "I Min", "Strom Min"],
+        26: ["IRMS MAX", "IRMS_MAX", "Current Max", "I Max", "Strom Max"],
+        28: ["WATT MIN", "WATT_MIN", "Power Min", "W Min", "Leistung Min"],
+        30: ["WATT MAX", "WATT_MAX", "Power Max", "W Max", "Leistung Max"],
+        500: ["Temp", "degree", "Temperature", "°C", "Temperatur"],
+        800: ["Impulse", "Impuls"],
+    }
+    # Mapping of phases to address offsets
+    phase_map = {
+        "a": 0,
+        "b": 100,
+        "c": 200,
+        "abc": 300,
+    }
+    # Create dictionary with all upper cased parameters
+    upper_cased = {adr: [par.upper() for par in par_list] for (adr, par_list) in parameter_map.items()}
+
+    def __attrs_post_init__(self) -> None:
+        """Ensure that all required parameters are present and valid."""
+        super().__attrs_post_init__()
+
+        if self.address == -1:
+            address = self._translate_name()
+            object.__setattr__(self, "address", address)
+        assert self.address != -1
+
+        _parameter = self.address % 100
+        _phase = self.address // 100 * 100
+        # Validate address
+        if self.address == 500 or self.address == 800:
+            pass
+        elif _parameter not in self.parameter_map or _phase not in self.phase_map.values():
+            raise ValueError(f"Address {self.address} for node {self.name} is not valid.")
+        elif _parameter >= 20 and _parameter <= 30 and _phase == 300:
+            raise ValueError("Phase must be set for MIN/MAX values")
+
+    def _translate_name(self) -> int:
+        """Translate the name of the node to the correct parameter name.
+
+        :return: Modbus address of the parameter.
+        """
+        parameter: int | None = None
+        phase: int | None = None
+        # Try to find matching parameter for the name
+        for address in self.upper_cased:
+            # e.g. Server1.Voltage -> VOLTAGE
+            parameter_str = self.name.split(".")[-1].upper()
+            if parameter_str in self.upper_cased[address]:
+                parameter = address
+                log.debug(f"Parameter {parameter_str} found at address {address}")
+                break
+        # If no parameter was found, raise an error
+        if parameter is None:
+            raise ValueError(f"Parameter for node {self.name} not found, name is not valid.")
+
+        # Temperature and Impulse values do not have a phase
+        if parameter == 500 or parameter == 800:
+            return parameter
+
+        # Phase is set to 0, 100, 200 or 300. (300 is default)
+        phase = self.phase_map[self.phase]
+
+        # Return correct address (by adding the phase offset to the parameter)
+        return parameter + phase
+
+    @classmethod
+    def _from_dict(cls, dikt: dict[str, Any]) -> NodeEmonio:
+        """Create an Emonio node from a dictionary of node information.
+
+        :param dikt: dictionary with node information.
+        :return: NodeEmonio object.
+        """
+        name, _, url, _, interval = cls._read_dict_info(dikt)
+
+        phase = dikt.get("phase", "abc")
+        phase = "abc" if pd.isna(phase) else phase
+
+        address = dikt.get("address")
+        address = -1 if pd.isna(address) else address
+        try:
+            return cls(name, url, "emonio", interval=interval, phase=phase, address=address)
         except (TypeError, AttributeError):
             raise TypeError(f"Could not convert all types for node {name}.")
