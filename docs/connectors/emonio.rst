@@ -2,6 +2,16 @@
 
 EmonioConnection
 ======================================
+Eta-utility provides a connection class to read data from an Emonio device.
+The emonio has to be in the same network as the computer running eta-utility.
+Since the EmonioConnection is implmented using the modbus protocol, the Emonio needs
+to have its Modbus Server configured to `Enabled`.
+
+This can be done in the Emonio App under `Settings` -> `Modbus Server`.
+The ip address and port of the emonio can also easily be found in the app.
+
+See the Emonio documentation for more information:
+https://wiki.emonio.de/de/Emonio_P3
 
 .. autoclass:: eta_utility.connectors::EmonioConnection
     :members:
@@ -62,14 +72,14 @@ Examples
 This example demonstrates how to create a :class:`~eta_utility.connectors.live_connect.LiveConnect` from a dictionary to read data from an Emonio device.
 Alternatively, the LiveConnection can be created from a JSON file, with the JSON having the same structure as the dictionary.
 
-"url" has to be replaced with the IP address and port of the Emonio device, e.g. "192.168.178.123:502"
+``url`` has to be replaced with the IP address and port of the Emonio device, e.g. ``"192.168.178.123:502"``.
 
 .. literalinclude:: ../../examples/connectors/read_emonio_live.py
     :start-after: --live--
     :end-before: --live--
     :dedent:
 
-Here we create the emonio nodes manually and read them with the
+Here we create the Emonio nodes manually and read them with the
 :class:`~eta_utility.connectors.emonio.EmonioConnection` class.
 
 .. literalinclude:: ../../examples/connectors/read_emonio_live.py
@@ -77,8 +87,8 @@ Here we create the emonio nodes manually and read them with the
     :end-before: --emonio--
     :dedent:
 
-The NodeModbusFactory can be used to create modbus nodes directly.
-But this is not recommended, as the EmonioConnection class is more convenient and has extra error checking.
+The :class:`~eta_utility.connectors.emonio.NodeModbusFactory` can be used to create modbus nodes directly.
+But this is not recommended, as the :class:`~eta_utility.connectors.emonio.EmonioConnection` class is more convenient and has extra error checking.
 
 .. literalinclude:: ../../examples/connectors/read_emonio_live.py
     :start-after: --modbus--

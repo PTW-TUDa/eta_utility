@@ -22,21 +22,19 @@ log = get_logger("connectors.emonio")
 
 class EmonioConnection(Connection, protocol="emonio"):
     """
-    Thin wrapper class for the emonio that uses a modbus TCP Connection.
-    Internally the emonio nodes are converted to modbus nodes with
+    Thin wrapper class for the Emonio that uses a modbus TCP Connection.
+    Internally the Emonio nodes are converted to modbus nodes with
     fixed parameters, expect for the name, url and channel.
     If nodes have specified a phase, the connection will check if the phase is connected.
-    Additionally, the connection will check for emonio errors and warnings (max. every minute).
+    Additionally, the connection will check for Emonio errors and warnings (max. every minute).
 
-    When creating a :class:`~node.NodeEmonio` the parameter (and resulting modbus channel)
+    When creating a :class:`~node.NodeEmonio` the :attr:`~node.NodeEmonio.parameter` (and resulting modbus channel)
     is set by the name of the node (case insensitive).
     See `Available Emonio Nodes` for for possible parameter names.
     Alternatively, the :attr:`~node.NodeEmonio.address` (modbus channel) can be set manually.
-    The phase is set by the phase parameter of the node.
-    Possible values are "a", "b", "c" or "abc", with "abc" being the default.
 
-    See the emonio documentation for more information:
-    https://wiki.emonio.de/de/Emonio_P3
+    The phase is set by the :attr:`~node.NodeEmonio.phase` attribute of the node.
+    Possible values are ``a``, ``b``, ``c`` or ``abc``, with ``abc`` being the default.
     """
 
     def __init__(self, url: str, *, nodes: Nodes | None = None, check_error: bool = True) -> None:
@@ -85,9 +83,9 @@ class EmonioConnection(Connection, protocol="emonio"):
     def write(self, values: Mapping[Node, Any]) -> None:
         """
         .. warning::
-           Not implemented: Writing to emonio nodes is not supported.
+           Not implemented: Writing to Emonio nodes is not supported.
         """
-        raise NotImplementedError("Writing to emonio nodes is not supported")
+        raise NotImplementedError("Writing to Emonio nodes is not supported")
 
     def subscribe(self, handler: SubscriptionHandler, nodes: Nodes | None = None, interval: TimeStep = 1) -> None:
         """
@@ -107,11 +105,11 @@ class EmonioConnection(Connection, protocol="emonio"):
 
     def _prepare_modbus_nodes(self, nodes: list[NodeEmonio] | set[NodeEmonio] | NodeEmonio) -> list[NodeModbus]:
         """
-        Convert the emonio nodes to modbus nodes with fixed parameters.
-        The wordorder is little because the emonio uses zero based word indexing.
+        Convert the Emonio nodes to modbus nodes with fixed parameters.
+        The wordorder is little because the Emonio uses zero based word indexing.
         All values are 32 bit float holding registers.
 
-        :param nodes: List of emonio nodes.
+        :param nodes: List of Emonio nodes.
         :return: List of modbus nodes (will return empty list when no nodes are passed).
         """
         if not isinstance(nodes, Iterable):
@@ -136,12 +134,12 @@ class EmonioConnection(Connection, protocol="emonio"):
 
     def _get_phases_status(self) -> dict[str, bool]:
         """
-        Get connection information about the phases of the emonio.
-        The status is read from the discrete input registers of the emonio.
+        Get connection information about the phases of the Emonio.
+        The status is read from the discrete input registers of the Emonio.
         """
 
         nodes = [self.nodes_factory.get_discrete_input_node(phase, i) for i, phase in enumerate(["a", "b", "c"])]
-        # Read the status of the phases from the emonio
+        # Read the status of the phases from the Emonio
         result = self._connection.read(nodes)
         # Convert the result to a dictionary
         result = result.iloc[0].to_dict()
@@ -150,7 +148,7 @@ class EmonioConnection(Connection, protocol="emonio"):
 
     def _check_phases(self, nodes: list[NodeEmonio] | set[NodeEmonio] | NodeEmonio) -> None:
         """
-        Check the connection status of the emonio phases.
+        Check the connection status of the Emonio phases.
 
         :param nodes: List of nodes to check.
         """
@@ -178,8 +176,8 @@ class EmonioConnection(Connection, protocol="emonio"):
 
     def _check_warnings_and_errors(self) -> None:
         """
-        Check the emonio for errors and warnings.
-        This is done by reading the error and warning bits from the emonio.
+        Check the Emonio for errors and warnings.
+        This is done by reading the error and warning bits from the Emonio.
         If an error bit is set, a ValueError is raised.
         If a warning bit is set, a warning is logged.
         """
@@ -210,7 +208,7 @@ class NodeModbusFactory:
     The NodeModbusFactory is a factory class that creates NodeModbus objects
     with fixed parameters, expect: name, url and mb_channel.
 
-    Has to be initialized with the url of the emonio.
+    Has to be initialized with the url of the Emonio.
 
     It's a helper class for the EmonioConnection to create its modbus nodes.
     It also can be used to manually create a NodeModbus object, which has to be read with a ModbusConnection.
@@ -244,7 +242,7 @@ class NodeModbusFactory:
 
     def get_default_node(self, name: str, channel: int) -> NodeModbus:
         """
-        Create a modbus node for reading emonio values.
+        Create a modbus node for reading Emonio values.
 
         :param name: Name of the node.
         :param channel: Modbus channel of the node. (Emonio address)
@@ -254,7 +252,7 @@ class NodeModbusFactory:
 
     def get_discrete_input_node(self, name: str, channel: int) -> NodeModbus:
         """
-        Create a modbus node for reading the connection status of the emonio phases.
+        Create a modbus node for reading the connection status of the Emonio phases.
 
         :param name: Name of the node.
         :param channel: Modbus channel of the node. (Emonio address)
@@ -263,7 +261,7 @@ class NodeModbusFactory:
 
     def get_warnings_errors_node(self, name: str, channel: int) -> NodeModbus:
         """
-        Create a modbus node for reading the error and warning registers of the emonio.
+        Create a modbus node for reading the error and warning registers of the Emonio.
 
         :param name: Name of the node.
         :param channel: Modbus channel of the node. (Emonio address)

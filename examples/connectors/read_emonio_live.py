@@ -9,10 +9,10 @@ def live_from_dict(url: str) -> pd.DataFrame:
         "system": [
             {
                 "name": "emonio",
-                "servers": {"dc_supply": {"url": url, "protocol": "emonio"}},
+                "servers": {"ac_supply": {"url": url, "protocol": "emonio"}},
                 "nodes": [
-                    {"name": "V_RMS", "server": "dc_supply"},
-                    {"name": "I_RMS", "server": "dc_supply", "phase": "a"},
+                    {"name": "V_RMS", "server": "ac_supply"},
+                    {"name": "I_RMS", "server": "ac_supply", "phase": "a"},
                 ],
             }
         ]
