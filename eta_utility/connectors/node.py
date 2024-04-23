@@ -745,7 +745,7 @@ class NodeWetterdienst(Node):
     """
 
     #: Parameter to read from wetterdienst (e.g HUMIDITY or TEMPERATURE_AIR_200)
-    parameter: str = field(kw_only=True, converter=str)
+    parameter: str = field(kw_only=True, converter=str.upper)
 
     #: The id of the weather station
     station_id: str | None = field(default=None, kw_only=True)
@@ -756,8 +756,9 @@ class NodeWetterdienst(Node):
 
     def __attrs_post_init__(self) -> None:
         """Ensure that all required parameters are present."""
+        # Set same default URL for all Wetterdienst nodes
+        object.__setattr__(self, "url", "https://opendata.dwd.de")
         super().__attrs_post_init__()
-        object.__setattr__(self, "parameter", self.parameter.upper())
         if self.station_id is None and (self.latlon is None or self.number_of_stations is None):
             raise ValueError(
                 "The required parameter 'station_id' or 'latlon' and 'number_of_stations' for the node configuration "
@@ -791,9 +792,12 @@ class NodeWetterdienstObservation(NodeWetterdienst, protocol="wetterdienst_obser
     For more information see: https://wetterdienst.readthedocs.io/en/latest/data/coverage/dwd/observation.html
     """
 
+    #: Redeclare interval attribute, but don't allow it to be optional
+    interval: str = field(converter=converters.optional(float), kw_only=True, repr=False, eq=False, order=False)
+
     def __attrs_post_init__(self) -> None:
         super().__attrs_post_init__()
-        resolution = self.convert_interval_to_resolution(self.interval)  # type: ignore
+        resolution = self.convert_interval_to_resolution(self.interval)
         # Sort out the parameters by resolution
         available_params = DwdObservationParameter[resolution]
         available_params = [param.name for param in available_params if type(param) is not enum.EnumMeta]
@@ -821,10 +825,10 @@ class NodeWetterdienstObservation(NodeWetterdienst, protocol="wetterdienst_obser
         :param dikt: dictionary with node information.
         :return: NodeWetterdienst object.
         """
-        name, _, url, _, interval = cls._read_dict_info(dikt)
+        name, _, _, _, interval = cls._read_dict_info(dikt)
         params = cls._get_params(dikt)
         try:
-            return cls(name, url, "wetterdienst_observation", interval=interval, **params)
+            return cls(name, "", "wetterdienst_observation", interval=interval, **params)
         except (TypeError, AttributeError):
             raise TypeError(f"Could not convert all types for node {name}.")
 
@@ -853,13 +857,10 @@ class NodeWetterdienstPrediction(NodeWetterdienst, protocol="wetterdienst_predic
     """
 
     #: Type of the MOSMIX prediction. Either 'SMALL' or 'LARGE'
-    mosmix_type: str = field(default=None, kw_only=True, converter=str)
+    mosmix_type: str = field(kw_only=True, converter=str.upper, validator=validators.in_({"SMALL", "LARGE"}))
 
     def __attrs_post_init__(self) -> None:
         super().__attrs_post_init__()
-        object.__setattr__(self, "mosmix_type", self.mosmix_type.upper())
-        if self.mosmix_type not in {"SMALL", "LARGE"}:
-            raise ValueError("mosmix_type must be either 'SMALL' or 'LARGE'")
         # Sort out the parameters by resolution
         params = DwdMosmixParameter[self.mosmix_type]
         # Create list of available parameters, enums are excluded because they are datasets
@@ -879,11 +880,11 @@ class NodeWetterdienstPrediction(NodeWetterdienst, protocol="wetterdienst_predic
         :param dikt: dictionary with node information.
         :return: NodeWetterdienst object.
         """
-        name, _, url, _, _ = cls._read_dict_info(dikt)
+        name, _, _, _, _ = cls._read_dict_info(dikt)
         params = cls._get_params(dikt)
         mosmix_type = dikt.get("mosmix_type")
         try:
-            return cls(name, url, "wetterdienst_prediction", mosmix_type=mosmix_type, **params)
+            return cls(name, "", "wetterdienst_prediction", mosmix_type=mosmix_type, **params)
         except (TypeError, AttributeError):
             raise TypeError(f"Could not convert all types for node {name}.")
 

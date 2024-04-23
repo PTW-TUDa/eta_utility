@@ -30,6 +30,8 @@ log = get_logger("connectors.wetterdienst")
 class WetterdienstConnection(BaseSeriesConnection, ABC):
     """
     The WetterdienstConnection class is a connector to the Wetterdienst API for retrieving weather data.
+    This class is an abstract base class and should not be used directly. Instead, use the subclasses
+    :class:`WetterdienstObservationConnection` and :class:`WetterdienstPredictionConnection`.
 
     :param url: The base URL of the Wetterdienst API
     :param nodes: Nodes to select in connection
@@ -56,7 +58,7 @@ class WetterdienstConnection(BaseSeriesConnection, ABC):
         :param node: Node to initialize from
         :param kwargs: Extra keyword arguments
         """
-        return cls(nodes=[node])
+        return cls(nodes=[node], **kwargs)
 
     @abstractmethod
     def read_series(
@@ -67,7 +69,9 @@ class WetterdienstConnection(BaseSeriesConnection, ABC):
         interval: TimeStep = 60,
         **kwargs: Any,
     ) -> pd.DataFrame:
-        """Asbtract base method for read_series(). Is fully implemented in subclasses.
+        """Abstract base method for read_series(). Is fully implemented in
+        :func:`~wetterdienst.WetterdienstObservationConnection.read_series` and
+        :func:`~wetterdienst.WetterdienstPredictionConnection.read_series`.
 
         :param nodes: List of nodes to read values from.
         :param from_time: Starting time to begin reading (included in output).
@@ -171,7 +175,8 @@ class WetterdienstConnection(BaseSeriesConnection, ABC):
 class WetterdienstObservationConnection(WetterdienstConnection, protocol="wetterdienst_observation"):
     """
     The WetterdienstObservationConnection class is a connector to the Wetterdienst API
-    for retrieving weather observation data.
+    for retrieving weather observation data. Data can only be read with
+    :func:`~wetterdienst.WetterdienstObservationConnection.read_series`.
     """
 
     def read_series(
@@ -198,7 +203,7 @@ class WetterdienstObservationConnection(WetterdienstConnection, protocol="wetter
 
         def _read_node(node: NodeWetterdienstObservation) -> pd.Dataframe:
             # Get the resolution for the node from the interval
-            resolution = NodeWetterdienstObservation.convert_interval_to_resolution(node.interval)  # type: ignore
+            resolution = NodeWetterdienstObservation.convert_interval_to_resolution(node.interval)
             # Create a request object for the node
             request = DwdObservationRequest(
                 parameter=node.parameter,
@@ -225,7 +230,8 @@ class WetterdienstObservationConnection(WetterdienstConnection, protocol="wetter
 class WetterdienstPredictionConnection(WetterdienstConnection, protocol="wetterdienst_prediction"):
     """
     The WetterdienstPredictionConnection class is a connector to the Wetterdienst API
-    for retrieving weather prediction data (MOSMIX).
+    for retrieving weather prediction data (MOSMIX). Data can only be read with
+    :func:`~wetterdienst.WetterdienstPredictionConnection.read_series`.
     """
 
     def read_series(

@@ -61,6 +61,7 @@ fail_nodes = (
             "protocol": "wetterdienst_observation",
             "parameter": "foo-bar",
             "station_id": "0",
+            "interval": "60",
         },
         "Parameter FOO-BAR is not valid. Valid parameters can be found here:"
         "https://wetterdienst.readthedocs.io/en/latest/data/parameters.html",
@@ -71,6 +72,7 @@ fail_nodes = (
             "url": "",
             "protocol": "wetterdienst_observation",
             "parameter": "HUMIDITY",
+            "interval": "60",
         },
         "The required parameter 'station_id' or 'latlon' and 'number_of_stations' for the node configuration "
         "was not found. The node could not load.",
@@ -89,16 +91,6 @@ fail_nodes = (
             "Valid resolutions for parameter TEMPERATURE_AIR_MEAN_200 are: "
             "['MINUTE_10', 'HOURLY', 'SUBDAILY', 'DAILY', 'MONTHLY', 'ANNUAL']"
         ),
-    ),
-    (
-        {
-            "name": "Serv.NodeName",
-            "url": "",
-            "protocol": "wetterdienst_prediction",
-            "parameter": "temperature_air_mean_200",
-            "station_id": "0",
-        },
-        "mosmix_type must be either 'SMALL' or 'LARGE'",
     ),
     (
         {
@@ -347,7 +339,7 @@ nodes = (
             "station_id": "00917",
         },
         {
-            "url": "https://some_url.de/path",
+            "url": "https://opendata.dwd.de",
             "parameter": "TEMPERATURE_AIR_MEAN_200",
             "interval": 3600,
             "station_id": "00917",
@@ -363,7 +355,7 @@ nodes = (
             "station_id": "K2596",
         },
         {
-            "url": "https://some_url.de/path",
+            "url": "https://opendata.dwd.de",
             "parameter": "TEMPERATURE_AIR_MEAN_200",
             "mosmix_type": "SMALL",
             "station_id": "K2596",
