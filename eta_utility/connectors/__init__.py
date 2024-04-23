@@ -8,7 +8,7 @@ from .modbus import ModbusConnection
 from .node import Node
 from .opc_ua import OpcUaConnection
 from .sub_handlers import CsvSubHandler, DFSubHandler, MultiSubHandler
-from .wetterdienst import (
+from .wetterdienst_connection import (
     WetterdienstConnection,
     WetterdienstObservationConnection,
     WetterdienstPredictionConnection,
