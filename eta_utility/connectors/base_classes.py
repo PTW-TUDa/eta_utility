@@ -179,47 +179,63 @@ class Connection(ABC):
         self.exc: BaseException | None = None
 
     @classmethod
-    def from_node(cls, node: Nodes, **kwargs: Any) -> BaseConnection | dict[str, Any]:
-        """Initialize the connection object from a node object. If multiple nodes are passed,
-         a list of connections is returned.
+    def from_node(cls, node: Nodes, usr: str | None = None, pwd: str | None = None, **kwargs: Any) -> BaseConnection:
+        """Return a single connection for nodes with the same url hostname.
+          Initialize the connection object from a node object. When a list of Node objects is provided,
+          from_node checks if all nodes match the same connection; it throws an error if they don't.
+          A node matches a connection if it has the same url hostname.
 
         :param node: Node(s) to initialize from.
         :param kwargs: Other arguments are ignored.
-        :return: BaseConnection object or dictionary of BaseConnections
+        :raises: ValueError: if not all nodes match the same connection.
+        :return: BaseConnection object
         """
         # Make sure nodes is always a set of nodes
         nodes = {node} if not isinstance(node, Iterable) else set(node)
-        connections: dict[str, Any] = {}
+        # Check if all nodes have the same hostname
+        if len({f"{node.url_parsed.hostname}" for node in nodes}) != 1:
+            raise ValueError("Nodes must all have the same protocol and hostname to be used with the same connection.")
 
-        username = kwargs.pop("usr", None)
-        password = kwargs.pop("pwd", None)
+        for index, node in enumerate(nodes):
+            # Instantiate connection from the first node
+            if index == 0:
+                # set the username and password
+                usr = node.usr or usr
+                pwd = node.pwd or pwd
+
+                connection = cls._registry[node.protocol]._from_node(node, usr=usr, pwd=pwd, **kwargs)
+            # Add node to existing connection
+            else:
+                connection.selected_nodes.add(node)
+
+        return connection
+
+    @classmethod
+    def from_nodes(cls, nodes: Nodes, **kwargs: Any) -> dict[str, BaseConnection]:
+        """Returns a dictionary of connections for nodes with the same url hostname.
+          This method handles different Connections, unlike from_node().
+          The keys of the dictionary are the hostnames of the nodes and
+          each connection contains the nodes with the same hostname.
+          (Uses from_node to initialize connections from nodes.)
+
+        :param nodes: List of nodes to initialize from.
+        :param kwargs: Other arguments are ignored.
+        :return: Dictionary of BaseConnection objects with the hostname as key.
+        """
+        connections: dict[str, BaseConnection] = {}
+        nodes = {nodes} if not isinstance(nodes, Iterable) else set(nodes)
 
         for node in nodes:
-            # Create connection if it does not exist
-            if node.url_parsed.hostname is not None and node.url_parsed.hostname not in connections:
-                if node.protocol in cls._registry.keys():
-                    # set the username and password
-                    usr = node.usr or username
-                    pwd = node.pwd or password
+            node_id = f"{node.url_parsed.hostname}"
 
-                    connections[node.url_parsed.hostname] = cls._registry[node.protocol]._from_node(
-                        node, usr=usr, pwd=pwd, **kwargs
-                    )
+            # If we already have a connection for this URL, add the node to connection
+            if node_id in connections:
+                connections[node_id].selected_nodes.add(node)
+                continue  # Skip creating a new connection
 
-                else:
-                    raise ValueError(
-                        f"Node {node.name} does not specify a recognized protocol for initializing a"
-                        f" connection.({node.protocol}) "
-                    )
+            connections[node_id] = cls.from_node(node, **kwargs)
 
-            elif node.url_parsed.hostname is not None:
-                # Otherwise, just mark the node as selected
-                connections[node.url_parsed.hostname].selected_nodes.add(node)
-
-        if len(connections) == 1:
-            return list(connections.values())[0]
-        else:
-            return connections
+        return connections
 
     @classmethod
     @abstractmethod

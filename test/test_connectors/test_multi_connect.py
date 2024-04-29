@@ -4,7 +4,8 @@ import pytest
 import requests
 from pyModbusTCP import client as mbclient  # noqa: I900
 
-from eta_utility.connectors import CsvSubHandler, Node, connections_from_nodes
+from eta_utility.connectors import CsvSubHandler, Node
+from eta_utility.connectors.base_classes import BaseConnection
 from eta_utility.servers import OpcUaServer
 
 from ..conftest import stop_execution
@@ -37,8 +38,8 @@ def _mock_client(monkeypatch):
 def test_multi_connect(config_nodes_file, config_eneffco, _mock_client, local_server, temp_dir):
     nodes = Node.from_excel(config_nodes_file["file"], config_nodes_file["sheet"])
 
-    connections = connections_from_nodes(
-        nodes, config_eneffco["user"], config_eneffco["pw"], eneffco_api_token=config_eneffco["postman_token"]
+    connections = BaseConnection.from_nodes(
+        nodes, usr=config_eneffco["user"], pwd=config_eneffco["pw"], api_token=config_eneffco["postman_token"]
     )
 
     subscription_handler = CsvSubHandler(temp_dir / "multi_connect_test_output.csv")

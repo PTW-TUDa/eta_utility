@@ -28,20 +28,9 @@ read data from the specified data point. Each data point has its own node, not j
 that we are connecting to. Therefore, *Nodes* are the easiest way to instantiate connections, however they can
 be a bit unwieldy to work with when trying to read many different data points from the same device.
 
-.. _connection instantiation:
+See :ref:`Connection instantiation <connection instantiation>` for more information on how to create connections.
 
-There are multiple ways to instantiate connections, depending on the use case:
 
-- When only a single connection is needed, the connection can be instantiated directly. This is possible
-  with or without specifying nodes. *Node* objects do have to be created however, to be able to tell the
-  connection where (which data points) to read data from or write data to.
-- If you already have the *Node* object(s) and want to create connection(s), you should use the *from_node* method of
-  the *BaseConnection* class. It requires less duplicate information than direct instantiation. If a single node is
-  passed, the method returns the connection for that node. When multiple connections to different devices are needed, it
-  is usually easiest to create all of the *Node* objects first and pass them in a list. Then, *from_node* returns a
-  dictionary of connections and automatically selects the correct nodes for each connection.
-- When a single connection is needed and access to the *Node* objects is not required, many (not all) connectors
-  offer a *from_ids* classmethod which returns the Connection object and creates the *Nodes* only internally.
 
 Nodes
 ----------
@@ -101,32 +90,68 @@ The following classes are there to document the required parameters for each typ
 
 .. autoclass:: eta_utility.connectors.node::NodeEmonio
     :inherited-members:
-    :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol
+    :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol,  upper_cased
     :noindex:
 
-Connection Instantiation
-----------------------------
-Connections can be instantiated using different methods as described :ref:`above <connection instantiation>`. The two most common methods are described
-here, they are instantiation of a connection *from_ids* and the instantiation of a single or multiple connection(s)
-using *from_node*.
+.. _connection instantiation:
 
-Instantiation *from_node* in BaseConnection is useful if you already have created some node(s) and would like to create connection(s)
-from them. Each connection class also has its own *_from_node* method, since the necessary/accepted keywords might differ. To create connections, a password
-and a username are often required. For setting these the following prioritization applies:
+
+Connection Instantiation
+=========================
+| There are multiple ways to instantiate connections, depending on the use case.
+  The two most common methods are :attr:`BaseConnection.from_node()` and :attr:`BaseConnection.from_nodes()`.
+| Instantiation with :attr:`from_node(s)` is useful if you already have created some node(s) and would like to create connection(s)
+  from them.
+| Each connection class also has its own :attr:`_from_node()` method, since the necessary/accepted keywords might differ. To create connections, a password
+  and a username are often required. For setting these the following prioritization applies:
 
 - If a password is given in the node, take it.
 - If there is no password there, take as "default" a password from the arguments.
 - If there is neither, the username and password are empty.
 
+Creating one or more Connections from node(s)
+-----------------------------------------------
+If you have one or multiple nodes, use :attr:`from_nodes`. Create all of the :class:`Node` objects first and pass them in a list.
+:attr:`from_nodes` then returns a dictionary of connections and automatically assigns the nodes to their correct connection.
+It requires less duplicate information than direct instantiation.
+
+.. autofunction:: eta_utility.connectors.base_classes::BaseConnection.from_nodes
+    :noindex:
+
+Create one Connection
+----------------------
+If you have one or more :class:`Node` objects for the same hostname/protocol and just want to create one connection, you should use the :attr:`from_node` method of
+the :class:`BaseConnection` class.
+
 .. autofunction:: eta_utility.connectors.base_classes::BaseConnection.from_node
     :noindex:
 
-The *from_ids* method is helpful if you do not require access to the nodes and just want to quickly create a single
+Direct Instantiation (not recommended)
+---------------------------------------
+| Instantiate a connection directly if you prefer to set up the connection manually, and know the specific details required.
+  This method is straightforward, but requires you to explicitly handle all the connection details.
+| However, you do need to create :class:`Node` objects to tell the connection where (from which data points) to read data from or write data to.
+| It's also possible to pass a list of nodes, but for this use case the :attr:`from_node` method is recommended.
+
+.. code-block:: python
+
+    # Example for a Modbus connection
+    from eta_utility.connectors import ModbusConnection
+
+    url = "modbus://192.168.178.123:502"
+    username = ("admin",)
+    password = "admin"
+
+    connection = ModbusConnection(url=url, usr=username, pwd=password)
+
+Using from_ids
+----------
+The :attr:`from_ids()` method is helpful if you do not require access to the nodes and just want to quickly create a single
 connection.
 
  .. note::
     This is not available for all connectors, since the concept of IDs does not apply universally. An
-    example is shown here. Refer to the API documentation of the connector you would like to use to see if the
+    example is shown :ref:`here <connectors>`. Refer to the API documentation of the connector you would like to use to see if the
     method exists and which parameters are required.
 
 .. autofunction:: eta_utility.connectors::EnEffCoConnection.from_ids

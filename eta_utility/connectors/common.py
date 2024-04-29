@@ -34,14 +34,7 @@ def connections_from_nodes(
     :param key_cert: Key and certificate pair object from eta_utility for authorization with servers.
     :return: Dictionary of connection objects {hostname: connection}.
     """
-
-    connections = BaseConnection.from_node(nodes, usr=usr, pwd=pwd, api_token=eneffco_api_token, key_cert=key_cert)
-
-    if not isinstance(connections, dict):
-        node = nodes[0] if isinstance(nodes, list) else nodes
-        return {node.url_parsed.hostname: connections}
-    else:
-        return connections
+    return BaseConnection.from_nodes(nodes, usr=usr, pwd=pwd, api_token=eneffco_api_token, key_cert=key_cert)
 
 
 def name_map_from_node_sequence(nodes: Nodes) -> dict[str, AnyNode]:
