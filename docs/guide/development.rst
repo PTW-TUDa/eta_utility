@@ -52,7 +52,7 @@ Then install Poetry with pipx:
 
 .. code-block:: console
 
-    $ pipx install poetry==1.6.1
+    $ pipx install poetry==1.8.2
 
 
 .. note::

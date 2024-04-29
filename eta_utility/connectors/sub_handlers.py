@@ -453,7 +453,7 @@ class DFSubHandler(SubscriptionHandler):
     :param write_interval: Interval between index values in the data frame (value to which time is rounded).
     :param size_limit: Number of rows to keep in memory.
     :param auto_fillna: If True, missing values in self._data are filled with the pandas-method
-                        df.fillna(method='ffill') each time self.data is called.
+                        df.ffill() each time self.data is called.
     """
 
     def __init__(self, write_interval: TimeStep = 1, size_limit: int = 100, auto_fillna: bool = True) -> None:
@@ -530,7 +530,7 @@ class DFSubHandler(SubscriptionHandler):
         """This contains the interval dataframe and will return a copy of that."""
         self._data_lock.acquire()
         if self.auto_fillna:
-            self._data.fillna(method="ffill", inplace=True)
+            self._data.ffill(inplace=True)
         data = self._data.replace(-np.inf, np.nan, inplace=False)
         self._data_lock.release()
         return data

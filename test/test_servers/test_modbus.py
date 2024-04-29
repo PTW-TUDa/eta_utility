@@ -152,12 +152,12 @@ class TestServerOperations:
         result = server.read(node)
 
         if isinstance(value, str):
-            assert result[node.name][0] == value
+            assert result[node.name].iloc[0] == value
         elif node.mb_register == "coils" or node.mb_register == "discrete_input":
             if len(value) > 1:
                 for idx, _ in enumerate(value):
-                    assert result[f"{node.name}_{idx}"][0] == value[idx]
+                    assert result[f"{node.name}_{idx}"].iloc[0] == value[idx]
             else:
-                assert result[node.name][0] == value
+                assert result[node.name].iloc[0] == value
         else:
-            assert result[node.name][0] == pytest.approx(value)
+            assert result[node.name].iloc[0] == pytest.approx(value)

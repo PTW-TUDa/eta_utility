@@ -67,10 +67,10 @@ class SubscriptionHandler(ABC):
             if isinstance(timestamp, int):
                 timestamp = timedelta(seconds=timestamp)
             if timestamp < timedelta(seconds=0):
-                _freq = str((-timestamp).seconds) + "S"
+                _freq = str((-timestamp).seconds) + "s"
                 timestamp = pd.date_range(end=datetime.now(), freq=_freq, periods=len(value))
             else:
-                _freq = str(timestamp.seconds) + "S"
+                _freq = str(timestamp.seconds) + "s"
                 timestamp = pd.date_range(start=datetime.now(), freq=_freq, periods=len(value))
             timestamp = timestamp.round(_freq)
         # timestamp None:
@@ -93,7 +93,7 @@ class SubscriptionHandler(ABC):
             # If value is multidimensional, an Exception will be raised by pandas.
 
         # Round index to self._write_interval
-        value.index = value.index.round(str(self._write_interval) + "S")
+        value.index = value.index.round(str(self._write_interval) + "s")
 
         return value
 

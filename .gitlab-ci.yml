@@ -33,13 +33,15 @@ workflow:
 include:
   - template: Security/Secret-Detection.gitlab-ci.yml
 
+variables:
+  POETRY_VERSION: 1.8.2
 
 default:
   tags:
     - python
     - docker
   interruptible: true
-  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/pyjulia:py3.9-jl1.9
+  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/poetry${POETRY_VERSION}:py3.9-jl1.9
   before_script:
     - apt-get update
     - python --version
@@ -116,7 +118,7 @@ secret_detection:
 
 test3.10: &test_config
   stage: test
-  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/python:py3.10
+  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/poetry${POETRY_VERSION}:py3.10
   script:
   - pytest --cov --cov-report term --junitxml=./junit.xml
   retry:
@@ -131,7 +133,7 @@ test3.10: &test_config
 # This job has test coverage report
 test3.9-jl1.9:
   <<: *test_config
-  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/pyjulia:py3.9-jl1.9
+  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/poetry${POETRY_VERSION}:py3.9-jl1.9
   coverage: '/TOTAL.*\s+(\d+%)$/'
   script:
   - pytest --cov --junitxml=./junit.xml --cov-report term --cov-report xml:coverage.xml
@@ -146,11 +148,11 @@ test3.9-jl1.9:
 
 test3.11:
   <<: *test_config
-  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/python:py3.11
+  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/poetry${POETRY_VERSION}:py3.11
 
 test3.11_updated_deps:
   <<: *test_config
-  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/python:py3.11
+  image: $CI_REGISTRY/eta-fabrik/public/eta-utility/poetry${POETRY_VERSION}:py3.11
   script:
     - pip install --upgrade .[develop] --upgrade-strategy=only-if-needed
     - pip install pytest pytest-cov
