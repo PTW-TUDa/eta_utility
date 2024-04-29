@@ -587,7 +587,7 @@ class Nsga2(BaseAlgorithm):
             _observations, rewards, terminated, truncated, infos = self.env.step(
                 self._jl_get_actions(generation)
             )  # type: ignore
-            dones = terminated | truncated  # type: ignore
+            dones = terminated | truncated
             self._update_info_buffer(infos, dones)
 
             # Ensure that there are always multiple rewards for every solution.

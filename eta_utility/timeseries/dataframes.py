@@ -229,11 +229,11 @@ def df_resample(
     :param missing_data: Specify a method for handling missing data values. If this is not specified, missing data
                          will not be handled. All missing data handling functions for pandas dataframes are valid.
                          See also: https://pandas.pydata.org/docs/reference/frame.html#missing-data-handling. Some
-                         examples: 'interpolate', 'fillna' (default: asfreq).
+                         examples: 'interpolate', 'ffill' (default: asfreq).
     :return: Copy of the DataFrame.
     """
-    if missing_data == "fillna":
-        interpolation_method = op.methodcaller(missing_data, method="pad")
+    if missing_data == "fillna" or missing_data == "ffill":
+        interpolation_method = op.methodcaller("ffill")
     elif missing_data == "interpolate":
         interpolation_method = op.methodcaller(missing_data, method="time")
     elif missing_data is None:
@@ -252,7 +252,7 @@ def df_resample(
         delta = str(
             periods_deltas[0].total_seconds() if isinstance(periods_deltas[0], timedelta) else periods_deltas[0]
         )
-        new_df = interpolation_method(df.resample(str(delta) + "S"))
+        new_df = interpolation_method(df.resample(str(delta) + "s"))
     else:
         new_df = pd.DataFrame()
         total_periods = 0
@@ -266,7 +266,7 @@ def df_resample(
             new_df = pd.concat(
                 df,
                 interpolation_method(
-                    df.iloc[total_periods : periods_deltas[key]].resample(str(delta) + "S")  # type: ignore
+                    df.iloc[total_periods : periods_deltas[key]].resample(str(delta) + "s")  # type: ignore
                 ),
             )
             total_periods += periods_deltas[key]  # type: ignore
