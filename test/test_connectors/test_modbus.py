@@ -219,7 +219,7 @@ class TestConnectorOperations:
 
     @pytest.fixture(scope="class")
     def connection(self, local_nodes):
-        connection = ModbusConnection.from_node(local_nodes[0])
+        connection = ModbusConnection.from_node(local_nodes)
         return connection
 
     values = ((0, 1.5), (1, 5), (2, " something"))
@@ -326,9 +326,9 @@ class TestConnectorSubscriptions:
             await asyncio.sleep(0.5)
 
     def test_subscribe(self, local_nodes, server):
-        connection = ModbusConnection.from_node(local_nodes[0], usr="admin", pwd="0")
+        connection = ModbusConnection.from_node(local_nodes, usr="admin", pwd="0")
         handler = DFSubHandler(write_interval=0.5)
-        connection.subscribe(handler, nodes=local_nodes, interval=0.5)
+        connection.subscribe(handler, interval=0.5)
 
         loop = asyncio.get_event_loop()
         loop.run_until_complete(self.write_loop(server, local_nodes, self.values))
@@ -377,9 +377,9 @@ class TestConnectorSubscriptions:
         log = get_logger()
         log.propagate = True
 
-        connection = ModbusConnection.from_node(local_nodes[0], usr="admin", pwd="0")
+        connection = ModbusConnection.from_node(local_nodes, usr="admin", pwd="0")
         handler = DFSubHandler(write_interval=1)
-        connection.subscribe(handler, nodes=local_nodes, interval=1)
+        connection.subscribe(handler, interval=1)
 
         loop = asyncio.get_event_loop()
         loop.run_until_complete(stop_execution(25))
@@ -481,9 +481,9 @@ class TestConnectorSubscriptionsIntervalChecker:
         log = get_logger()
         log.propagate = True
 
-        connection = ModbusConnection.from_node(local_nodes_interval_checking[0], usr="admin", pwd="0")
+        connection = ModbusConnection.from_node(local_nodes_interval_checking, usr="admin", pwd="0")
         handler = DFSubHandler(write_interval=1)
-        connection.subscribe(handler, nodes=local_nodes_interval_checking, interval=1)
+        connection.subscribe(handler, interval=1)
 
         loop = asyncio.get_event_loop()
         loop.run_until_complete(stop_execution(10))

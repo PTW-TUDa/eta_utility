@@ -10,6 +10,8 @@ import pathlib
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
+from eta_utility.connectors.base_classes import BaseConnection
+
 try:
     import keyboard
 except ModuleNotFoundError:
@@ -19,7 +21,7 @@ except ModuleNotFoundError:
         name="keyboard",
     )
 from eta_utility import get_logger
-from eta_utility.connectors import Node, connections_from_nodes, sub_handlers
+from eta_utility.connectors import Node, sub_handlers
 
 if TYPE_CHECKING:
     from eta_utility.type_hints import Path, TimeStep
@@ -122,7 +124,7 @@ def execution_loop(
     log.setLevel(verbosity * 10)
 
     nodes = Node.from_excel(nodes_file, nodes_sheet)
-    connections = connections_from_nodes(nodes, usr=eneffco_usr, pwd=eneffco_pw, eneffco_api_token=eneffco_api_token)
+    connections = BaseConnection.from_nodes(nodes, usr=eneffco_usr, pwd=eneffco_pw, api_token=eneffco_api_token)
 
     # Start handler
     subscription_handler = sub_handlers.MultiSubHandler()

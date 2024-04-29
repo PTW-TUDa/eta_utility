@@ -257,7 +257,7 @@ class TestConnectorOperations:
 
     @pytest.fixture(scope="class")
     def connection(self, local_nodes):
-        connection: OpcUaConnection = OpcUaConnection.from_node(local_nodes[0], usr="admin", pwd="0")
+        connection: OpcUaConnection = OpcUaConnection.from_node(local_nodes, usr="admin", pwd="0")
         return connection
 
     def test_create_nodes(self, server: OpcUaServer, connection: OpcUaConnection, local_nodes):
@@ -346,9 +346,9 @@ class TestConnectorSubscriptions:
             await asyncio.sleep(0.5)
 
     def test_subscribe(self, local_nodes, server):
-        connection = OpcUaConnection.from_node(local_nodes[0], usr="admin", pwd="0")
+        connection = OpcUaConnection.from_node(local_nodes, usr="admin", pwd="0")
         handler = DFSubHandler(write_interval=0.5)
-        connection.subscribe(handler, nodes=local_nodes, interval=0.5)
+        connection.subscribe(handler, interval=0.5)
 
         loop = asyncio.get_event_loop()
         loop.run_until_complete(self.write_loop(server, local_nodes, self.values))
@@ -397,9 +397,9 @@ class TestConnectorSubscriptions:
         log = get_logger()
         log.propagate = True
 
-        connection: OpcUaConnection = OpcUaConnection.from_node(local_nodes[0], usr="admin", pwd="0")
+        connection: OpcUaConnection = OpcUaConnection.from_node(local_nodes, usr="admin", pwd="0")
         handler = DFSubHandler(write_interval=1)
-        connection.subscribe(handler, nodes=local_nodes, interval=1)
+        connection.subscribe(handler, interval=1)
 
         loop = asyncio.get_event_loop()
         loop.run_until_complete(stop_execution(25))
@@ -498,9 +498,9 @@ class TestConnectorSubscriptionsIntervalChecker:
         asyncio.get_event_loop().create_task(write_loop(server, local_nodes_interval_checking, self.values))
 
     def test_subscribe_interval_checking(self, local_nodes_interval_checking, _write_nodes_interval_checking, caplog):
-        connection: OpcUaConnection = OpcUaConnection.from_node(local_nodes_interval_checking[0], usr="admin", pwd="0")
+        connection: OpcUaConnection = OpcUaConnection.from_node(local_nodes_interval_checking, usr="admin", pwd="0")
         handler = DFSubHandler(write_interval=1)
-        connection.subscribe(handler, nodes=local_nodes_interval_checking, interval=1)
+        connection.subscribe(handler, interval=1)
 
         loop = asyncio.get_event_loop()
         loop.run_until_complete(stop_execution(10))
