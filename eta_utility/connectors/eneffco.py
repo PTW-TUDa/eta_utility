@@ -13,19 +13,19 @@ import pandas as pd
 import requests
 
 from eta_utility import get_logger
-from eta_utility.connectors.node import Node, NodeEnEffCo
+from eta_utility.connectors.node import NodeEnEffCo
 
 if TYPE_CHECKING:
     from typing import Any
     from collections.abc import Sequence
-    from eta_utility.type_hints import AnyNode, Nodes, TimeStep
+    from eta_utility.type_hints import Nodes, TimeStep
 
 from .base_classes import BaseSeriesConnection, SubscriptionHandler
 
 log = get_logger("connectors.eneffco")
 
 
-class EnEffCoConnection(BaseSeriesConnection, protocol="eneffco"):
+class EnEffCoConnection(BaseSeriesConnection[NodeEnEffCo], protocol="eneffco"):
     """
     EnEffCoConnection is a class to download and upload multiple features from and to the EnEffCo database as
     timeseries.
@@ -40,7 +40,7 @@ class EnEffCoConnection(BaseSeriesConnection, protocol="eneffco"):
     API_PATH: str = "/API/v1.0"
 
     def __init__(
-        self, url: str, usr: str | None, pwd: str | None, *, api_token: str, nodes: Nodes | None = None
+        self, url: str, usr: str | None, pwd: str | None, *, api_token: str, nodes: Nodes[NodeEnEffCo] | None = None
     ) -> None:
         url = url + self.API_PATH
         self._api_token: str = api_token
@@ -60,7 +60,7 @@ class EnEffCoConnection(BaseSeriesConnection, protocol="eneffco"):
 
     @classmethod
     def _from_node(
-        cls, node: AnyNode, usr: str | None = None, pwd: str | None = None, **kwargs: Any
+        cls, node: NodeEnEffCo, usr: str | None = None, pwd: str | None = None, **kwargs: Any
     ) -> EnEffCoConnection:
         """Initialize the connection object from an EnEffCo protocol node object
 
@@ -93,10 +93,10 @@ class EnEffCoConnection(BaseSeriesConnection, protocol="eneffco"):
         :param api_token: Token for API authentication.
         :return: EnEffCoConnection object.
         """
-        nodes = [Node(name=name, url=url, protocol="eneffco", eneffco_code=name) for name in ids]
+        nodes = [NodeEnEffCo(name=name, url=url, protocol="eneffco", eneffco_code=name) for name in ids]
         return cls(url=url, usr=usr, pwd=pwd, api_token=api_token, nodes=nodes)
 
-    def read(self, nodes: Nodes | None = None) -> pd.DataFrame:
+    def read(self, nodes: Nodes[NodeEnEffCo] | None = None) -> pd.DataFrame:
         """Download current value from the EnEffCo Database
 
         :param nodes: List of nodes to read values from.
@@ -109,7 +109,7 @@ class EnEffCoConnection(BaseSeriesConnection, protocol="eneffco"):
         return value
 
     def write(
-        self, values: Mapping[AnyNode, Any] | pd.Series[datetime, Any], time_interval: timedelta | None = None
+        self, values: Mapping[NodeEnEffCo, Any] | pd.Series[datetime, Any], time_interval: timedelta | None = None
     ) -> None:
         """Writes some values to the EnEffCo Database
 
@@ -166,7 +166,7 @@ class EnEffCoConnection(BaseSeriesConnection, protocol="eneffco"):
 
         return str(upload_data)
 
-    def read_info(self, nodes: Nodes | None = None) -> pd.DataFrame:
+    def read_info(self, nodes: Nodes[NodeEnEffCo] | None = None) -> pd.DataFrame:
         """Read additional datapoint information from Database.
 
         :param nodes: List of nodes to read values from.
@@ -183,7 +183,9 @@ class EnEffCoConnection(BaseSeriesConnection, protocol="eneffco"):
 
         return pd.concat(values, axis=1)
 
-    def subscribe(self, handler: SubscriptionHandler, nodes: Nodes | None = None, interval: TimeStep = 1) -> None:
+    def subscribe(
+        self, handler: SubscriptionHandler, nodes: Nodes[NodeEnEffCo] | None = None, interval: TimeStep = 1
+    ) -> None:
         """Subscribe to nodes and call handler when new data is available. This will return only the
         last available values.
 
@@ -194,7 +196,12 @@ class EnEffCoConnection(BaseSeriesConnection, protocol="eneffco"):
         self.subscribe_series(handler=handler, req_interval=1, nodes=nodes, interval=interval, data_interval=interval)
 
     def read_series(
-        self, from_time: datetime, to_time: datetime, nodes: Nodes | None = None, interval: TimeStep = 1, **kwargs: Any
+        self,
+        from_time: datetime,
+        to_time: datetime,
+        nodes: Nodes[NodeEnEffCo] | None = None,
+        interval: TimeStep = 1,
+        **kwargs: Any,
     ) -> pd.DataFrame:
         """Download timeseries data from the EnEffCo Database
 
@@ -241,7 +248,7 @@ class EnEffCoConnection(BaseSeriesConnection, protocol="eneffco"):
         handler: SubscriptionHandler,
         req_interval: TimeStep,
         offset: TimeStep | None = None,
-        nodes: Nodes | None = None,
+        nodes: Nodes[NodeEnEffCo] | None = None,
         interval: TimeStep = 1,
         data_interval: TimeStep = 1,
         **kwargs: Any,
@@ -406,7 +413,7 @@ class EnEffCoConnection(BaseSeriesConnection, protocol="eneffco"):
 
         return response
 
-    def _validate_nodes(self, nodes: Nodes | None) -> set[NodeEnEffCo]:  # type: ignore
+    def _validate_nodes(self, nodes: Nodes[NodeEnEffCo] | None) -> set[NodeEnEffCo]:  # type: ignore
         vnodes = super()._validate_nodes(nodes)
         _nodes = set()
         for node in vnodes:

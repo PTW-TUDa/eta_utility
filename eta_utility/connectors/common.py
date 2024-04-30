@@ -4,14 +4,15 @@
 from __future__ import annotations
 
 from collections.abc import Sized
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 
 from eta_utility.connectors.base_classes import BaseConnection
+from eta_utility.connectors.node import Node
 
 if TYPE_CHECKING:
     from typing import Any
 
-    from eta_utility.type_hints import AnyNode, Nodes
+    from eta_utility.type_hints import Nodes
     from eta_utility.util import KeyCertPair
 
 
@@ -37,7 +38,10 @@ def connections_from_nodes(
     return BaseConnection.from_nodes(nodes, usr=usr, pwd=pwd, api_token=eneffco_api_token, key_cert=key_cert)
 
 
-def name_map_from_node_sequence(nodes: Nodes) -> dict[str, AnyNode]:
+N = TypeVar("N", bound=Node)
+
+
+def name_map_from_node_sequence(nodes: Nodes) -> dict[str, N]:
     """Convert a Sequence/List of Nodes into a dictionary of nodes, identified by their name.
 
     .. warning ::

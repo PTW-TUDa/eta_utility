@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import AbstractSet, Union
+from typing import AbstractSet, TypeVar, Union
 
 from eta_utility.connectors.node import (
     Node,
@@ -16,6 +16,7 @@ from eta_utility.connectors.node import (
     NodeWetterdienstPrediction,
 )
 
+# Deprecated Type
 AnyNode = Union[
     Node,
     NodeLocal,
@@ -28,4 +29,7 @@ AnyNode = Union[
     NodeWetterdienstPrediction,
     NodeEmonio,
 ]
-Nodes = Union[Sequence[AnyNode], set[AnyNode], AbstractSet[AnyNode], AnyNode]
+# Generic Template for Nodes, N has to be a subclass of Node
+N = TypeVar("N", bound=Node)
+
+Nodes = Union[Sequence[N], set[N], AbstractSet[N], N]

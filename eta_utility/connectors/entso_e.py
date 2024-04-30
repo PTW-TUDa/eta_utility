@@ -13,21 +13,21 @@ from lxml import etree
 from lxml.builder import E
 
 from eta_utility import get_logger
-from eta_utility.connectors.node import NodeEntsoE
+from eta_utility.connectors.node import Node, NodeEntsoE
 from eta_utility.timeseries import df_resample, df_time_slice
 from eta_utility.util import dict_search, round_timestamp
 
 if TYPE_CHECKING:
     from typing import Any
     from collections.abc import Mapping
-    from eta_utility.type_hints import AnyNode, Nodes, TimeStep
+    from eta_utility.type_hints import Nodes, TimeStep
 
 from .base_classes import BaseSeriesConnection, SubscriptionHandler
 
 log = get_logger("connectors.entso-e")
 
 
-class ENTSOEConnection(BaseSeriesConnection, protocol="entsoe"):
+class ENTSOEConnection(BaseSeriesConnection[NodeEntsoE], protocol="entsoe"):
     """
     ENTSOEConnection is a class to download and upload multiple features from and to the ENTSO-E transparency platform
     database as timeseries. The platform contains data about the european electricity markets.
@@ -46,7 +46,7 @@ class ENTSOEConnection(BaseSeriesConnection, protocol="entsoe"):
         url: str = "https://web-api.tp.entsoe.eu/",
         *,
         api_token: str,
-        nodes: Nodes | None = None,
+        nodes: Nodes[NodeEntsoE] | None = None,
     ) -> None:
         url = url + self.API_PATH
         self._api_token: str = api_token
@@ -56,7 +56,7 @@ class ENTSOEConnection(BaseSeriesConnection, protocol="entsoe"):
         self.config = _ConnectionConfiguration()
 
     @classmethod
-    def _from_node(cls, node: AnyNode, **kwargs: Any) -> ENTSOEConnection:
+    def _from_node(cls, node: Node, **kwargs: Any) -> ENTSOEConnection:
         """Initialize the connection object from an entso-e protocol node object
 
         :param node: Node to initialize from
@@ -75,7 +75,7 @@ class ENTSOEConnection(BaseSeriesConnection, protocol="entsoe"):
                 "protocol: {}.".format(node.name)
             )
 
-    def read(self, nodes: Nodes | None = None) -> pd.DataFrame:
+    def read(self, nodes: Nodes[NodeEntsoE] | None = None) -> pd.DataFrame:
         """
         .. warning::
             Cannot read single values from ENTSO-E transparency platform. Use read_series instead
@@ -87,7 +87,9 @@ class ENTSOEConnection(BaseSeriesConnection, protocol="entsoe"):
             "Cannot read single values from ENTSO-E transparency platform. Use read_series instead"
         )
 
-    def write(self, values: Mapping[AnyNode, Mapping[datetime, Any]], time_interval: timedelta | None = None) -> None:
+    def write(
+        self, values: Mapping[NodeEntsoE, Mapping[datetime, Any]], time_interval: timedelta | None = None
+    ) -> None:
         """
         .. warning::
             Cannot write to ENTSO-E transparency platform.
@@ -97,7 +99,9 @@ class ENTSOEConnection(BaseSeriesConnection, protocol="entsoe"):
         """
         raise NotImplementedError("Cannot write to ENTSO-E transparency platform.")
 
-    def subscribe(self, handler: SubscriptionHandler, nodes: Nodes | None = None, interval: TimeStep = 1) -> None:
+    def subscribe(
+        self, handler: SubscriptionHandler, nodes: Nodes[NodeEntsoE] | None = None, interval: TimeStep = 1
+    ) -> None:
         """Subscribe to nodes and call handler when new data is available. This will return only the
         last available values.
 
@@ -168,7 +172,7 @@ class ENTSOEConnection(BaseSeriesConnection, protocol="entsoe"):
         self,
         from_time: datetime,
         to_time: datetime,
-        nodes: Nodes | None = None,
+        nodes: Nodes[NodeEntsoE] | None = None,
         interval: TimeStep = 1,
         **kwargs: Any,
     ) -> pd.DataFrame:
@@ -225,7 +229,7 @@ class ENTSOEConnection(BaseSeriesConnection, protocol="entsoe"):
         handler: SubscriptionHandler,
         req_interval: TimeStep,
         offset: TimeStep | None = None,
-        nodes: Nodes | None = None,
+        nodes: Nodes[NodeEntsoE] | None = None,
         interval: TimeStep = 1,
         data_interval: TimeStep = 1,
         **kwargs: Any,

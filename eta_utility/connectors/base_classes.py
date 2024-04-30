@@ -6,13 +6,15 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Generic
 
 import pandas as pd
 from attr import field
 from dateutil import tz
 
 from eta_utility import url_parse
+from eta_utility.connectors.node import Node
+from eta_utility.type_hints.types_connectors import N, Nodes
 from eta_utility.util import ensure_timezone, round_timestamp
 
 if TYPE_CHECKING:
@@ -20,7 +22,7 @@ if TYPE_CHECKING:
     from typing import Any
     from urllib.parse import ParseResult
 
-    from eta_utility.type_hints import AnyNode, Nodes, TimeStep
+    from eta_utility.type_hints import TimeStep
 
 
 class SubscriptionHandler(ABC):
@@ -98,7 +100,7 @@ class SubscriptionHandler(ABC):
         return value
 
     @abstractmethod
-    def push(self, node: AnyNode, value: Any, timestamp: datetime | None = None) -> None:
+    def push(self, node: Node, value: Any, timestamp: datetime | None = None) -> None:
         """Receive data from a subcription. This should contain the node that was requested, a value and a timestamp
         when data was received. If the timestamp is not provided, current time will be used.
 
@@ -109,7 +111,7 @@ class SubscriptionHandler(ABC):
         pass
 
 
-class Connection(ABC):
+class Connection(ABC, Generic[N]):
     """Base class with a common interface for all connection objects
 
     The URL may contain the username and password (schema://username:password@hostname:port/path). In this case, the
@@ -134,7 +136,9 @@ class Connection(ABC):
 
         return super().__init_subclass__(**kwargs)
 
-    def __init__(self, url: str, usr: str | None = None, pwd: str | None = None, *, nodes: Nodes | None = None) -> None:
+    def __init__(
+        self, url: str, usr: str | None = None, pwd: str | None = None, *, nodes: Nodes[N] | None = None
+    ) -> None:
         #: URL of the server to connect to
         self._url: ParseResult
         #: Username fot login to server
@@ -179,13 +183,15 @@ class Connection(ABC):
         self.exc: BaseException | None = None
 
     @classmethod
-    def from_node(cls, node: Nodes, usr: str | None = None, pwd: str | None = None, **kwargs: Any) -> BaseConnection:
+    def from_node(
+        cls, node: Nodes[Node], usr: str | None = None, pwd: str | None = None, **kwargs: Any
+    ) -> BaseConnection:
         """Return a single connection for nodes with the same url hostname.
           Initialize the connection object from a node object. When a list of Node objects is provided,
           from_node checks if all nodes match the same connection; it throws an error if they don't.
           A node matches a connection if it has the same url hostname.
 
-        :param node: Node(s) to initialize from.
+        :param node: Node to initialize from.
         :param kwargs: Other arguments are ignored.
         :raises: ValueError: if not all nodes match the same connection.
         :return: BaseConnection object
@@ -194,7 +200,7 @@ class Connection(ABC):
         nodes = {node} if not isinstance(node, Iterable) else set(node)
         # Check if all nodes have the same hostname
         if len({f"{node.url_parsed.hostname}" for node in nodes}) != 1:
-            raise ValueError("Nodes must all have the same protocol and hostname to be used with the same connection.")
+            raise ValueError("Nodes must all have the same hostname to be used with the same connection.")
 
         for index, node in enumerate(nodes):
             # Instantiate connection from the first node
@@ -211,7 +217,7 @@ class Connection(ABC):
         return connection
 
     @classmethod
-    def from_nodes(cls, nodes: Nodes, **kwargs: Any) -> dict[str, BaseConnection]:
+    def from_nodes(cls, nodes: Nodes[Node], **kwargs: Any) -> dict[str, BaseConnection]:
         """Returns a dictionary of connections for nodes with the same url hostname.
           This method handles different Connections, unlike from_node().
           The keys of the dictionary are the hostnames of the nodes and
@@ -239,7 +245,7 @@ class Connection(ABC):
 
     @classmethod
     @abstractmethod
-    def _from_node(cls, node: AnyNode, **kwargs: Any) -> BaseConnection:
+    def _from_node(cls, node: N, **kwargs: Any) -> BaseConnection:
         """Initialize the object from a node with corresponding protocol
 
         :return: Initialized connection object.
@@ -247,7 +253,7 @@ class Connection(ABC):
         pass
 
     @abstractmethod
-    def read(self, nodes: Nodes | None = None) -> pd.DataFrame:
+    def read(self, nodes: Nodes[N] | None = None) -> pd.DataFrame:
         """Read data from nodes
 
         :param nodes: List of nodes to read from.
@@ -257,7 +263,7 @@ class Connection(ABC):
         pass
 
     @abstractmethod
-    def write(self, values: Mapping[AnyNode, Any]) -> None:
+    def write(self, values: Mapping[N, Any]) -> None:
         """Write data to a list of nodes
 
         :param values: Dictionary of nodes and data to write {node: value}.
@@ -265,7 +271,7 @@ class Connection(ABC):
         pass
 
     @abstractmethod
-    def subscribe(self, handler: SubscriptionHandler, nodes: Nodes | None = None, interval: TimeStep = 1) -> None:
+    def subscribe(self, handler: SubscriptionHandler, nodes: Nodes[N] | None = None, interval: TimeStep = 1) -> None:
         """Subscribe to nodes and call handler when new data is available.
 
         :param nodes: Identifiers for the nodes to subscribe to.
@@ -283,7 +289,7 @@ class Connection(ABC):
     def url(self) -> str:
         return self._url.geturl()
 
-    def _validate_nodes(self, nodes: Nodes | None) -> set[AnyNode]:
+    def _validate_nodes(self, nodes: Nodes[N] | None) -> set[N]:
         """Make sure that nodes are a Set of nodes and that all nodes correspond to the protocol and url
         of the connection.
 
@@ -317,18 +323,25 @@ class Connection(ABC):
 BaseConnection = Connection
 
 
-class BaseSeriesConnection(BaseConnection, ABC):
+class BaseSeriesConnection(Connection[N], ABC):
     """Connection object for protocols with the ability to provide access to timeseries data.
 
     :param url: URL of the server to connect to.
     """
 
-    def __init__(self, url: str, usr: str | None = None, pwd: str | None = None, *, nodes: Nodes | None = None) -> None:
+    def __init__(
+        self, url: str, usr: str | None = None, pwd: str | None = None, *, nodes: Nodes[N] | None = None
+    ) -> None:
         super().__init__(url, usr, pwd, nodes=nodes)
 
     @abstractmethod
     def read_series(
-        self, from_time: datetime, to_time: datetime, nodes: Nodes | None = None, interval: TimeStep = 1, **kwargs: Any
+        self,
+        from_time: datetime,
+        to_time: datetime,
+        nodes: Nodes[N] | None = None,
+        interval: TimeStep = 1,
+        **kwargs: Any,
     ) -> pd.DataFrame:
         """Read time series data from the connection, within a specified time interval (from_time until to_time).
 
@@ -346,7 +359,7 @@ class BaseSeriesConnection(BaseConnection, ABC):
         handler: SubscriptionHandler,
         req_interval: TimeStep,
         offset: TimeStep | None = None,
-        nodes: Nodes | None = None,
+        nodes: Nodes[N] | None = None,
         interval: TimeStep = 1,
         data_interval: TimeStep = 1,
         **kwargs: Any,

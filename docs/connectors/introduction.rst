@@ -45,6 +45,7 @@ automatically by the connectors and the username and password will be removed be
 The *Node* class should always be used to instantiate nodes. The type of the node can be specified using the
 *protocol* parameter.
 
+
 .. autoclass:: eta_utility.connectors::Node
     :noindex:
 
@@ -92,6 +93,31 @@ The following classes are there to document the required parameters for each typ
     :inherited-members:
     :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol,  upper_cased
     :noindex:
+
+
+Node Typing
+---------------
+Eta-utility provides a generic type :attr:`Nodes[N]` which can be used to type a sequence or set of nodes. This is useful when
+working with multiple nodes and you want to ensure that all nodes are of the same type.
+
+  .. code-block:: python
+
+    from eta_utility.connectors import Node, NodeModbus, NodeOpcUa
+    from eta_utility.type_hints import Nodes
+
+    # Example of typing nodes
+    modbus_node: NodeModbus = Node("modbus://localhost:502/0/0", "modbus", ...)
+    opcua_node: NodeOpcUa = Node("opcua://localhost:4840/0/0", "opcua", ...)
+    nodes: Nodes[NodeModbus] = [modbus_node]
+
+    # This will raise a type error
+    nodes: Nodes[NodeModbus] = [modbus_node, opcua_node]
+
+    # Use *Node* to allow different types of nodes
+    nodes: Nodes[Node] = [modbus_node, opcua_node]
+    # or explicitly list the types
+    nodes: Nodes[NodeModbus | NodeOpcUa] = [modbus_node, opcua_node]
+
 
 .. _connection instantiation:
 

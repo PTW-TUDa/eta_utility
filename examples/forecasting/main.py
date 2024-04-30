@@ -14,10 +14,10 @@ import pandas as pd
 from eta_utility import get_logger
 from eta_utility.connectors import (
     DFSubHandler,
-    Node,
     OpcUaConnection,
     name_map_from_node_sequence,
 )
+from eta_utility.connectors.node import NodeOpcUa
 from eta_utility.servers import OpcUaServer
 
 if TYPE_CHECKING:
@@ -112,7 +112,7 @@ async def local_server() -> None:
 
     # initialize the server
     nodes = [
-        Node(
+        NodeOpcUa(
             name=name,
             url=f"opc.tcp://{Config.opc_server['ip']}:{Config.opc_server['port']}",
             protocol="opcua",
@@ -123,7 +123,7 @@ async def local_server() -> None:
     ]
     server = OpcUaServer(namespace=2, ip=str(Config.opc_server["ip"]), port=int(Config.opc_server["port"]))
     server.create_nodes(nodes)
-    node_map = name_map_from_node_sequence(nodes)
+    node_map: dict[str, NodeOpcUa] = name_map_from_node_sequence(nodes)
     while True:
         server.write({node_map[name]: value for name, value in data.iloc[current_line].items()})
         current_line = current_line + 1 if current_line < len(data) else 0
@@ -209,7 +209,7 @@ async def inference_loop(
 
     model_input_list: deque = deque(maxlen=maxlen)
 
-    output_node = Node(
+    output_node = NodeOpcUa(
         name="EMAG-GT-forecast-opcua",
         url="opc.tcp://localhost",
         protocol="opcua",
