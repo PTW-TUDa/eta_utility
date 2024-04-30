@@ -1,5 +1,7 @@
 import pandas as pd
 
+from eta_utility.connectors.node import NodeEmonio
+
 
 def live_from_dict(url: str) -> pd.DataFrame:
     # --live--
@@ -28,10 +30,10 @@ def live_from_dict(url: str) -> pd.DataFrame:
 
 def emonio_manuell(url: str) -> pd.DataFrame:
     # --emonio--
-    from eta_utility.connectors import EmonioConnection, Node
+    from eta_utility.connectors import EmonioConnection
 
-    voltage_node = Node("V_RMS", url, "emonio")
-    current_node = Node("I_RMS", url, "emonio", phase="a")
+    voltage_node = NodeEmonio("V_RMS", url, "emonio")
+    current_node = NodeEmonio("I_RMS", url, "emonio", phase="a")
 
     # Initialize the connection object with both nodes
     connection = EmonioConnection.from_node([voltage_node, current_node])

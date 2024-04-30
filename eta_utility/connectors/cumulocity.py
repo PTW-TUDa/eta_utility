@@ -16,14 +16,14 @@ from eta_utility.connectors.node import NodeCumulocity
 
 if TYPE_CHECKING:
     from typing import Any
-    from eta_utility.type_hints import AnyNode, Nodes, TimeStep
+    from eta_utility.type_hints import Nodes, TimeStep
 
 from .base_classes import BaseSeriesConnection, SubscriptionHandler
 
 log = get_logger("connectors.cumulocity")
 
 
-class CumulocityConnection(BaseSeriesConnection, protocol="cumulocity"):
+class CumulocityConnection(BaseSeriesConnection[NodeCumulocity], protocol="cumulocity"):
     """
     CumulocityConnection is a class to download and upload multiple features from and to the Cumulocity database as
     timeseries.
@@ -35,7 +35,9 @@ class CumulocityConnection(BaseSeriesConnection, protocol="cumulocity"):
     :param nodes: Nodes to select in connection.
     """
 
-    def __init__(self, url: str, usr: str | None, pwd: str | None, *, tenant: str, nodes: Nodes | None = None) -> None:
+    def __init__(
+        self, url: str, usr: str | None, pwd: str | None, *, tenant: str, nodes: Nodes[NodeCumulocity] | None = None
+    ) -> None:
         self._tenant = tenant
 
         super().__init__(url, usr, pwd, nodes=nodes)
@@ -54,7 +56,7 @@ class CumulocityConnection(BaseSeriesConnection, protocol="cumulocity"):
 
     @classmethod
     def _from_node(
-        cls, node: AnyNode, usr: str | None = None, pwd: str | None = None, **kwargs: Any
+        cls, node: NodeCumulocity, usr: str | None = None, pwd: str | None = None, **kwargs: Any
     ) -> CumulocityConnection:
         """Initialize the connection object from an Cumulocity protocol node object
 
@@ -77,7 +79,7 @@ class CumulocityConnection(BaseSeriesConnection, protocol="cumulocity"):
                 "protocol: {}.".format(node.name)
             )
 
-    def read(self, nodes: Nodes | None = None) -> pd.DataFrame:
+    def read(self, nodes: Nodes[NodeCumulocity] | None = None) -> pd.DataFrame:
         """Download current value from the Cumulocity Database
 
         :param nodes: List of nodes to read values from.
@@ -94,7 +96,7 @@ class CumulocityConnection(BaseSeriesConnection, protocol="cumulocity"):
         values: pd.Series[datetime, Any],
         measurement_type: str,
         unit: str,
-        nodes: Nodes | None = None,
+        nodes: Nodes[NodeCumulocity] | None = None,
     ) -> None:
         """Write values to the cumulocity Database
 
@@ -143,7 +145,9 @@ class CumulocityConnection(BaseSeriesConnection, protocol="cumulocity"):
                 )
                 log.info(response.text)
 
-    def subscribe(self, handler: SubscriptionHandler, nodes: Nodes | None = None, interval: TimeStep = 1) -> None:
+    def subscribe(
+        self, handler: SubscriptionHandler, nodes: Nodes[NodeCumulocity] | None = None, interval: TimeStep = 1
+    ) -> None:
         """Subscribe to nodes and call handler when new data is available. This will return only the
         last available values.
 
@@ -157,7 +161,7 @@ class CumulocityConnection(BaseSeriesConnection, protocol="cumulocity"):
         self,
         from_time: datetime,
         to_time: datetime,
-        nodes: Nodes | None = None,
+        nodes: Nodes[NodeCumulocity] | None = None,
         interval: TimeStep | None = None,
         **kwargs: Any,
     ) -> pd.DataFrame:
@@ -234,7 +238,7 @@ class CumulocityConnection(BaseSeriesConnection, protocol="cumulocity"):
         handler: SubscriptionHandler,
         req_interval: TimeStep,
         offset: TimeStep | None = None,
-        nodes: Nodes | None = None,
+        nodes: Nodes[NodeCumulocity] | None = None,
         interval: TimeStep = 1,
         data_interval: TimeStep = 1,
         **kwargs: Any,
@@ -427,7 +431,7 @@ class CumulocityConnection(BaseSeriesConnection, protocol="cumulocity"):
 
         return response
 
-    def _validate_nodes(self, nodes: Nodes | None) -> set[NodeCumulocity]:  # type: ignore
+    def _validate_nodes(self, nodes: Nodes[NodeCumulocity] | None) -> set[NodeCumulocity]:  # type: ignore
         vnodes = super()._validate_nodes(nodes)
         _nodes = set()
         for node in vnodes:

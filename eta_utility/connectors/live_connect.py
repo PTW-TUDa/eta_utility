@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     import types
     from typing import Any
 
-    from eta_utility.type_hints import AnyNode, Path, TimeStep
+    from eta_utility.type_hints import Path, TimeStep
 
 log = get_logger("connectors.live")
 
@@ -113,7 +113,7 @@ class LiveConnect(AbstractContextManager):
 
     def __init__(
         self,
-        nodes: Sequence[AnyNode],
+        nodes: Sequence[Node],
         name: str | None = None,
         step_size: TimeStep = 1,
         max_error_count: int = 10,
@@ -132,7 +132,7 @@ class LiveConnect(AbstractContextManager):
         self._connections: dict[str, BaseConnection] = BaseConnection.from_nodes(nodes)
 
         #: Mapping of all nodes.
-        self._nodes: dict[str, AnyNode] = name_map_from_node_sequence(nodes)
+        self._nodes: dict[str, Node] = name_map_from_node_sequence(nodes)
         #: Mapping of node names to connections.
         self._connection_map: dict[str, str] = {}
         for node in self._nodes.values():
@@ -383,7 +383,7 @@ class LiveConnect(AbstractContextManager):
     ) -> tuple[
         dict[str, dict[str, Any] | None],
         dict[str, dict[str, Any]],
-        list[AnyNode],
+        list[Node],
         list[str],
         dict[str, dict[str, Any] | None],
     ]:
@@ -550,7 +550,7 @@ class LiveConnect(AbstractContextManager):
             _nodes = dict(nodes)
 
         # Sort nodes to be written by connection
-        writes: dict[str, dict[AnyNode, Any]] = {url: {} for url in self._connections.keys()}
+        writes: dict[str, dict[Node, Any]] = {url: {} for url in self._connections.keys()}
         for name, value in _nodes.items():
             n = f"{self.name}.{name}" if "." not in name and self.name is not None else name
             writes[self._connection_map[n]][self._nodes[n]] = value
@@ -575,7 +575,7 @@ class LiveConnect(AbstractContextManager):
         :return: Dictionary of the most current node values.
         """
         # Sort nodes to be read by connection
-        node_readings: dict[str, list[AnyNode]] = {url: [] for url in self._connections.keys()}
+        node_readings: dict[str, list[Node]] = {url: [] for url in self._connections.keys()}
         _error = False
         for name in nodes:
             n = f"{self.name}.{name}" if "." not in name and self.name is not None else name

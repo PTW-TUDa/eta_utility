@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from typing import Any
 
-    from eta_utility.type_hints import AnyNode, Nodes
+    from eta_utility.type_hints import Nodes
 
 log = get_logger("servers.modbus")
 
@@ -55,7 +55,7 @@ class ModbusServer:
         self._server: BaseModbusServer = BaseModbusServer(self._url.hostname, self._url.port, no_block=True)
         self.start()
 
-    def write(self, values: Mapping[AnyNode, Any]) -> None:
+    def write(self, values: Mapping[NodeModbus, Any]) -> None:
         """Write some values directly to the Modbus server. This function supports writing int, float and
         string objects. If you have another object, convert it to bytes before writing.
 
@@ -80,7 +80,7 @@ class ModbusServer:
                     bits = bits[::-1]
                 self._server.data_hdl.write_h_regs(node.mb_channel, bits, srv_info)
 
-    def read(self, nodes: Nodes | None = None) -> pd.DataFrame:
+    def read(self, nodes: Nodes[NodeModbus] | None = None) -> pd.DataFrame:
         """
         Read some manually selected values directly from the Modbusserver.
 
@@ -138,7 +138,7 @@ class ModbusServer:
     def active(self) -> bool:
         return self._server.is_run
 
-    def _validate_nodes(self, nodes: Nodes | None) -> set[NodeModbus]:
+    def _validate_nodes(self, nodes: Nodes[NodeModbus] | None) -> set[NodeModbus]:
         """Make sure that nodes are a Set of nodes and that all nodes correspond to the protocol and url
         of the connection.
 

@@ -6,6 +6,7 @@ import pandas as pd
 
 from eta_utility.connectors import Node
 from eta_utility.connectors.cumulocity import CumulocityConnection
+from eta_utility.connectors.node import NodeCumulocity
 
 # Params for example Cumulocity-Connection
 URL = "eta-iot-cumulocity.ptw.maschinenbau.tu-darmstadt.de"
@@ -16,7 +17,7 @@ USER = ""  # enter username here
 PASSWORD = ""  # enter your password here
 TENANT = "edge"
 
-cumu_node = Node(
+cumu_node = NodeCumulocity(
     "Cumulocity-Test-Node",
     URL,
     "cumulocity",
@@ -25,7 +26,7 @@ cumu_node = Node(
     fragment=FRAGMENT,
 )
 
-cumu_node2 = Node(
+cumu_node2 = NodeCumulocity(
     "Cumulocity-Test-Node2",
     URL,
     "cumulocity",

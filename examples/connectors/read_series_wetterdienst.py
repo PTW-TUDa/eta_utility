@@ -2,8 +2,9 @@ from datetime import datetime
 
 import pandas as pd
 
-from eta_utility.connectors import Node, WetterdienstConnection
+from eta_utility.connectors import WetterdienstConnection
 from eta_utility.connectors.base_classes import Connection
+from eta_utility.connectors.node import NodeWetterdienst
 
 
 def main() -> None:
@@ -15,7 +16,7 @@ def read_series() -> pd.DataFrame:
 
     # Construct a node with the necessary information to request data from the Wetterdienst API
     node = (
-        Node(
+        NodeWetterdienst(
             "Temperature_Darmstadt",
             "https://opendata.dwd.de",
             "wetterdienst_observation",
@@ -26,7 +27,7 @@ def read_series() -> pd.DataFrame:
     )
 
     # start connection from one or multiple nodes
-    # The from_node() method can be used for initializing the connection
+    # The 'Connection' class can be used for initializing the connection
     connection = Connection.from_node(node)
 
     # Define time interval as datetime values

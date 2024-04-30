@@ -9,13 +9,14 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
+from eta_utility.connectors.node import Node
 from eta_utility.util import ensure_timezone
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
     from typing import Any, Callable
 
-    from eta_utility.type_hints import AnyNode, TimeStep
+    from eta_utility.type_hints import TimeStep
 
 
 class RetryWaiter:
@@ -220,14 +221,14 @@ class IntervalChecker:
 
     def __init__(self) -> None:
         #: Dictionary that stores the value and the time for checking changes and the time interval
-        self.node_latest_values: dict[AnyNode, list] = {}
+        self.node_latest_values: dict[Node, list] = {}
 
         #: :py:func:`eta_utility.util.ensure_timezone`
         self._assert_tz_awareness = ensure_timezone
 
     def push(
         self,
-        node: AnyNode,
+        node: Node,
         value: Any | pd.Series | Sequence[Any],
         timestamp: datetime | pd.DatetimeIndex | TimeStep | None = None,
     ) -> None:
