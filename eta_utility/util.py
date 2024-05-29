@@ -117,7 +117,7 @@ def log_add_filehandler(
     :return: The *FileHandler* logger.
     """
     log = logging.getLogger(LOG_PREFIX)
-    _format = format if format in LOG_FORMATS else LOG_FORMATS["time"]
+    _format = LOG_FORMATS[format] if format in LOG_FORMATS else LOG_FORMATS["time"]
     _filename = filename if isinstance(filename, pathlib.Path) else pathlib.Path(filename)
 
     filehandler = logging.FileHandler(filename=_filename)
