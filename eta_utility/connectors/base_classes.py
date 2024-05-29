@@ -186,10 +186,10 @@ class Connection(ABC, Generic[N]):
     def from_node(
         cls, node: Nodes[Node], usr: str | None = None, pwd: str | None = None, **kwargs: Any
     ) -> BaseConnection:
-        """Return a single connection for nodes with the same url hostname.
+        """Return a single connection for nodes with the same url netloc.
           Initialize the connection object from a node object. When a list of Node objects is provided,
           from_node checks if all nodes match the same connection; it throws an error if they don't.
-          A node matches a connection if it has the same url hostname.
+          A node matches a connection if it has the same url netloc.
 
         :param node: Node to initialize from.
         :param kwargs: Other arguments are ignored.
@@ -198,9 +198,9 @@ class Connection(ABC, Generic[N]):
         """
         # Make sure nodes is always a set of nodes
         nodes = {node} if not isinstance(node, Iterable) else set(node)
-        # Check if all nodes have the same hostname
-        if len({f"{node.url_parsed.hostname}" for node in nodes}) != 1:
-            raise ValueError("Nodes must all have the same hostname to be used with the same connection.")
+        # Check if all nodes have the same netloc
+        if len({f"{node.url_parsed.netloc}" for node in nodes}) != 1:
+            raise ValueError("Nodes must all have the same netloc to be used with the same connection.")
 
         for index, node in enumerate(nodes):
             # Instantiate connection from the first node
@@ -218,21 +218,21 @@ class Connection(ABC, Generic[N]):
 
     @classmethod
     def from_nodes(cls, nodes: Nodes[Node], **kwargs: Any) -> dict[str, BaseConnection]:
-        """Returns a dictionary of connections for nodes with the same url hostname.
+        """Returns a dictionary of connections for nodes with the same url netloc.
           This method handles different Connections, unlike from_node().
-          The keys of the dictionary are the hostnames of the nodes and
-          each connection contains the nodes with the same hostname.
+          The keys of the dictionary are the netlocs of the nodes and
+          each connection contains the nodes with the same netloc.
           (Uses from_node to initialize connections from nodes.)
 
         :param nodes: List of nodes to initialize from.
         :param kwargs: Other arguments are ignored.
-        :return: Dictionary of BaseConnection objects with the hostname as key.
+        :return: Dictionary of BaseConnection objects with the netloc as key.
         """
         connections: dict[str, BaseConnection] = {}
         nodes = {nodes} if not isinstance(nodes, Iterable) else set(nodes)
 
         for node in nodes:
-            node_id = f"{node.url_parsed.hostname}"
+            node_id = f"{node.url_parsed.netloc}"
 
             # If we already have a connection for this URL, add the node to connection
             if node_id in connections:
@@ -304,9 +304,7 @@ class Connection(ABC, Generic[N]):
 
             # If not using preselected nodes from self.selected_nodes, check if nodes correspond to the connection
             _nodes = {
-                node
-                for node in nodes
-                if node.protocol == self._PROTOCOL and node.url_parsed.hostname == self._url.hostname
+                node for node in nodes if node.protocol == self._PROTOCOL and node.url_parsed.netloc == self._url.netloc
             }
 
         # Make sure that some nodes remain after the checks and raise an error if there are none.

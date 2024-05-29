@@ -136,10 +136,10 @@ class LiveConnect(AbstractContextManager):
         #: Mapping of node names to connections.
         self._connection_map: dict[str, str] = {}
         for node in self._nodes.values():
-            if node.url_parsed.hostname is not None:
-                self._connection_map[node.name] = node.url_parsed.hostname
+            if node.url_parsed.netloc is not None:
+                self._connection_map[node.name] = node.url_parsed.netloc
             else:
-                raise ValueError(f"Node without hostname supplied: {node.name}")
+                raise ValueError(f"Node without netloc supplied: {node.name}")
         #: Start time of initialisation.
         self.start_time = time.time()
         #: Step size (time) for the live connector in time increments.
