@@ -12,7 +12,7 @@ from eta_utility.eta_x.envs import BaseEnv
 from eta_utility.util_julia import check_julia_package
 
 if check_julia_package():
-    from julia import Main as Jl  # noqa: I900
+    from julia import Main as Jl
 
     from eta_utility.util_julia import import_jl_file
 
@@ -115,7 +115,7 @@ class JuliaEnv(BaseEnv):
         self.__jl: ModuleType = import_jl_file(self.julia_env_path)
 
         # Make sure that all required functions are implemented in julia.
-        for func in {"Environment", "step!", "reset!", "close!", "render", "first_update!", "update!"}:
+        for func in ("Environment", "step!", "reset!", "close!", "render", "first_update!", "update!"):
             if not hasattr(self.__jl, func):
                 raise NotImplementedError(
                     f"Implementation of abstract method {func} missing from julia implementation of JuliaEnv."

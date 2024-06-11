@@ -9,9 +9,10 @@ from wetterdienst.provider.dwd.mosmix.api import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation.api import DwdObservationRequest
 
 if TYPE_CHECKING:
-    from typing import Any
     from collections.abc import Mapping
-    from eta_utility.type_hints import TimeStep, Nodes
+    from typing import Any
+
+    from eta_utility.type_hints import Nodes, TimeStep
 
 from datetime import datetime, timedelta
 

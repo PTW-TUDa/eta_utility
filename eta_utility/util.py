@@ -52,7 +52,7 @@ LOG_FORMATS = {
 def get_logger(
     name: str | None = None,
     level: int | None = None,
-    format: str | None = None,  # noqa: A002
+    format: str | None = None,
 ) -> logging.Logger:
     """Get eta_utility specific logger.
 
@@ -93,7 +93,7 @@ def get_logger(
         from eta_utility.util_julia import julia_extensions_available
 
         if julia_extensions_available():
-            from julia import ju_extensions  # noqa: I900
+            from julia import ju_extensions
 
             if format is not None:
                 ju_extensions.set_logger(log.level, format)
@@ -106,7 +106,7 @@ def get_logger(
 def log_add_filehandler(
     filename: Path,
     level: int | None = None,
-    format: str | None = None,  # noqa: A002
+    format: str | None = None,
 ) -> logging.Logger:
     """Add a file handler to the logger to save the log output.
 
@@ -133,7 +133,7 @@ def log_add_filehandler(
 
 def log_add_streamhandler(
     level: int | None = None,
-    format: str | None = None,  # noqa: A002
+    format: str | None = None,
 ) -> logging.Logger:
     """Add a stream handler to the logger to show the log output.
 
@@ -282,10 +282,7 @@ def deep_mapping_update(
     :param overrides: Mapping with new values to integrate into the new mapping.
     :return: New Mapping with values from the source and overrides combined.
     """
-    if not isinstance(source, Mapping):
-        output = {}
-    else:
-        output = dict(copy.deepcopy(source))
+    output = dict(copy.deepcopy(source)) if isinstance(source, Mapping) else {}
 
     for key, value in overrides.items():
         if isinstance(value, Mapping):
@@ -472,10 +469,8 @@ class SelfsignedKeyCertPair(KeyCertPair):
             locale.setlocale(locale.LC_ALL, "")
             # extract country
             country = locale.getlocale()[0]
-            if country:
-                country = country.split("_")[-1]
-            else:
-                country = ""
+
+            country = country.split("_")[-1] if country else ""
 
         if province is None:
             province = ""

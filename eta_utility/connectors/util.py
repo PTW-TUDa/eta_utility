@@ -14,7 +14,7 @@ from eta_utility.util import ensure_timezone
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
-    from typing import Any, Callable
+    from typing import Any, Callable, Final
 
     from eta_utility.type_hints import TimeStep
 
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 class RetryWaiter:
     """Helper class which keeps track of waiting time before retrying a connection."""
 
-    values = [0, 1, 3, 5, 5, 10, 20, 30, 40, 60]
+    VALUES: Final[list[int]] = [0, 1, 3, 5, 5, 10, 20, 30, 40, 60]
 
     def __init__(self) -> None:
         self.counter = 0
@@ -38,10 +38,10 @@ class RetryWaiter:
     @property
     def wait_time(self) -> int:
         """Return the time to wait for."""
-        if self.counter >= len(self.values) - 1:
-            return self.values[-1]
+        if self.counter >= len(self.VALUES) - 1:
+            return self.VALUES[-1]
         else:
-            return self.values[self.counter]
+            return self.VALUES[self.counter]
 
     def wait(self) -> None:
         """Wait/sleep synchronously."""
@@ -73,9 +73,8 @@ def decode_modbus_value(
     bo = "<" if byteorder == "little" else ">"
 
     # Swap words if word order is little endian
-    if type_ is int or type_ is float:
-        if wordorder == "little":
-            value = value[::-1]
+    if type_ in (int, float) and wordorder == "little":
+        value = value[::-1]
 
     dtype, _len = _get_decode_params(value, type_)
 
@@ -152,10 +151,7 @@ def encode_bits(
         value = type_(value)
 
     if isinstance(value, int):
-        if value < 0:
-            _types = {1: "b", 2: "h", 4: "i", 8: "q"}
-        else:
-            _types = {1: "B", 2: "H", 4: "I", 8: "Q"}
+        _types = {1: "b", 2: "h", 4: "i", 8: "q"} if value < 0 else {1: "B", 2: "H", 4: "I", 8: "Q"}
         try:
             _type = _types[byte_length]
         except KeyError:

@@ -85,35 +85,20 @@ sphinx-copybutton = {version = "^0.5.2", optional = true}
 pre-commit = {version = "^3.4.0", optional = true}
 black = {version = "~23.7", optional = true}
 blacken_docs = {version = "~1.16", optional = true}
-isort = {version = "~5.12", optional = true}
-pyupgrade = {version ="~3.10", optional = true}
 # MyPy requirements and typing packages
 mypy = {version = "~1.9", optional = true}
 types-python-dateutil = {version = "^2.8.19.14", optional = true}
 types-requests = {version = "^2.31.0.4", optional = true}
-# Linting / Flake8 requirements and linting packages
-flake8 = {version ="^6.0.0", optional = true}
-pyflakes = {version = "~3.1", optional = true}
-pycodestyle= {version = "~2.11.0", optional = true}
-flake8-pyproject= {version = "~1.2", optional = true}
-flake8-builtins = {version = "~2.1", optional = true}
-flake8-eradicate = {version = "~1.5", optional = true}
-flake8-comprehensions= {version = "~3.14", optional = true}
-flake8-mutable={version = "~1.2", optional = true}
-flake8-print={version = "^5.0", optional = true}
-flake8-pytest-style= {version= "~1.7", optional = true}
-flake8-requirements={version = "~1.7", optional = true}
-flake8-rst-docstrings = {version = "^0.3.0", optional = true}
-pep8-naming={version = "~0.13", optional = true}
+# Ruff
+ruff = "^0.4.4"
+
 
 [tool.poetry.extras]
 develop = ["gymnasium", "torch", "stable_baselines3", "tensorboard", "pyomo",     # include eta_x
             "matplotlib", "keyboard", "pygame", "pyglet", "onnxruntime",    # include examples
             "pytest", "pytest-cov", "openpyxl", "sphinx", "sphinx-rtd-theme", "sphinx-copybutton", "pre-commit",
-            "black", "blacken_docs", "isort", "pyupgrade", "mypy", "types-python-dateutil",
-            "types-requests", "flake8", "pyflakes", "pycodestyle", "flake8-pyproject", "flake8-builtins",
-            "flake8-eradicate", "flake8-comprehensions", "flake8-mutable", "flake8-print",
-            "flake8-pytest-style", "flake8-requirements", "pep8-naming", "flake8-rst-docstrings"]
+            "black", "blacken_docs", "mypy", "types-python-dateutil",
+            "types-requests", ]
 eta_x = ["gymnasium", "torch", "stable_baselines3", "tensorboard", "pyomo"]
 examples = ["matplotlib", "keyboard", "pygame", "pyglet", "onnxruntime"]
 
@@ -121,43 +106,10 @@ examples = ["matplotlib", "keyboard", "pygame", "pyglet", "onnxruntime"]
 
 [tool.black]
 include = "\\.pyi?$|^eta_utility/|^test/"
-exclude = "\\.xlsx?$|\\.fmu?$|test_resources/|__pycache__/|_version.py$"
+exclude = "\\.xlsx?$|\\.fmu?$|test_resources/|__pycache__/|_version.py|.venv/$"
 line_length = 120
 target_version = ["py39","py310", "py311"]
 
-[tool.isort]
-profile = "black"
-multi_line_output = 3
-
-[tool.flake8]
-format = "default"
-extend_exclude = [
-    "docs/conf.py",
-    "build",
-    "dist",
-    ".*/",
-    "venv*/",
-    ".venv*/",
-    "*.mypy*/",
-    "poetry.lock"
-]
-max_line_length = 120
-max_complexity = 20
-indent_size = 4
-extend_ignore = [
-    # Black introduces ' : ' whitespaces around colons.
-    "E203",
-    # Some ReST keywords are specific to sphinx and will not be recognized correctly:
-    "RST303",
-    "RST304",
-    # Warnings about fixtures without return values are broken:
-    "PT019",
-    # Temporary fix for missing 'asyncua' import (we are using asyncua-fork-for-eta-utility))
-    "I900",
-]
-per_file_ignores = [
-    "__init__.py: F401"
-]
 
 [tool.mypy]
 python_version = 3.9
@@ -189,7 +141,7 @@ module = [
     "keyboard.*",
     "onnxruntime.*",
     "matplotlib.*",
-    "torch.ao.nn.*",
+    "torch.*",
     "asyncua.*",
     "wetterdienst.*"
 ]
@@ -227,3 +179,60 @@ exclude_lines = [
     'raise NotImplementedError',
     'pass',
 ]
+
+[tool.ruff]
+include = ["pyproject.toml", "eta_utility/**/*.py", "test/**/*.py", "examples/**/*.py"]
+
+line-length = 120
+indent-width = 4
+
+required-version = ">=0.4.0"
+target-version= "py39"
+
+# Only fix with $ruff check --fix
+fix = false
+
+[tool.ruff.lint]
+select = [
+    "F", # Pyflakes
+    "E", "W",# Pycodestyle, Error and Warning
+    "I", # Isort
+    "N", # Pep8-naming conventions
+    "UP", # Pyupgrade
+    "ASYNC", # flake8-asyncio
+    "COM", # flake8-commas
+    "C4", # flake8-comprehensions
+    "FA", # flake8-future-annotations
+    "T20", # flake8-print
+    "INP", # flake8-no-pep420
+    "LOG", # flake8-logging
+    "NPY", # NumPy-specific
+
+    # Consider fixing these:
+    "PT", # flake8-pytest-style
+    "RUF", # Ruff
+    "SIM", # flake8-simplify
+    # "DTZ", # flake8-datetimez
+    # "D", # pydocstyle
+    # "C", # McCabe complexity
+    "PL", # Pylint
+    ]
+
+ignore = [
+    "SIM105",
+    "PLR2004",  # Pylint: magic values
+    # Recommended to ignore as they conflict with the formatter
+    "W191", "E111", "E114", "E117", "D206", "D300", "COM812", "COM819",
+]
+
+
+[tool.ruff.lint.extend-per-file-ignores]  # TODO: Consider rechecking the following rules
+"__init__.py" = ["F401", "D104"]
+"test/*" = ["INP001", "RUF012"]
+"examples/*" = ["INP001"]
+
+[tool.ruff.lint.pylint]
+max-args = 17
+max-branches = 24
+max-statements = 64
+max-returns = 9

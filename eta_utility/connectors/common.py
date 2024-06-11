@@ -1,6 +1,5 @@
-""" This module implements some commonly used connector functions that are protocol independent.
+"""This module implements some commonly used connector functions that are protocol independent."""
 
-"""
 from __future__ import annotations
 
 from collections.abc import Sized

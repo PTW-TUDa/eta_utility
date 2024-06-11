@@ -153,7 +153,7 @@ class TestServerOperations:
 
         if isinstance(value, str):
             assert result[node.name].iloc[0] == value
-        elif node.mb_register == "coils" or node.mb_register == "discrete_input":
+        elif node.mb_register in ("coils", "discrete_input"):
             if len(value) > 1:
                 for idx, _ in enumerate(value):
                     assert result[f"{node.name}_{idx}"].iloc[0] == value[idx]

@@ -104,27 +104,12 @@ update-cache:
     <<: *poetry_cache
     policy: pull-push
 
-isort:
+ruff:
   stage: check
   script:
-    - isort --version
-    - isort -c -v .
-
-black:
-  stage: check
-  script:
-    - black --version
-    - black --check --config pyproject.toml eta_utility/ test/
-
-flake8:
-  stage: check
-  script:
-    - pip install flake8-json  # Necessary to output codeclimate format
-    - flake8 --version
-    - flake8 --toml-config=pyproject.toml --format=codeclimate --tee --output-file=flake8.json eta_utility examples test
-  artifacts:
-    reports:
-      codequality: flake8.json
+    - ruff --version
+    - ruff check
+    - ruff format
 
 mypy:
   stage: check

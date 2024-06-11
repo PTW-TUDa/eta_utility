@@ -1,6 +1,5 @@
-""" Base classes for the connectors
+"""Base classes for the connectors"""
 
-"""
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -19,7 +18,7 @@ from eta_utility.util import ensure_timezone, round_timestamp
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
-    from typing import Any
+    from typing import Any, ClassVar
     from urllib.parse import ParseResult
 
     from eta_utility.type_hints import TimeStep
@@ -65,7 +64,7 @@ class SubscriptionHandler(ABC):
                     f"timestamp is given as pd.DatetimeIndex."
                 )
         # timestamp as int or timedelta:
-        elif isinstance(timestamp, int) or isinstance(timestamp, timedelta):
+        elif isinstance(timestamp, (int, timedelta)):
             if isinstance(timestamp, int):
                 timestamp = timedelta(seconds=timestamp)
             if timestamp < timedelta(seconds=0):
@@ -124,8 +123,8 @@ class Connection(ABC, Generic[N]):
     :param nodes: List of nodes to select as a standard case.
     """
 
-    _registry = {}  # type: ignore
-    _PROTOCOL: str = field(repr=False, eq=False, order=False)
+    _registry: ClassVar[dict[str, type[Connection]]] = {}
+    _PROTOCOL: ClassVar[str] = field(repr=False, eq=False, order=False)
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Store subclass definitions to instantiate based on protocol."""
@@ -155,7 +154,7 @@ class Connection(ABC, Generic[N]):
 
         # Get username and password either from the arguments, from the parsed URL string or from a Node object
         node = next(iter(self.selected_nodes)) if len(self.selected_nodes) > 0 else None
-        if type(usr) is not str and usr is not None:
+        if usr is not None and not isinstance(usr, str):
             raise TypeError("Username should be a string value.")
         elif usr is not None:
             self.usr = usr
@@ -164,7 +163,7 @@ class Connection(ABC, Generic[N]):
         elif node is not None:
             self.usr = node.usr
 
-        if type(pwd) is not str and pwd is not None:
+        if pwd is not None and not isinstance(pwd, str):
             raise TypeError("Password should be a string value.")
         elif pwd is not None:
             self.pwd = pwd

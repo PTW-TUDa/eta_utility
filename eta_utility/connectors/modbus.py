@@ -1,5 +1,5 @@
-""" Utilities for connecting to modbus servers
-"""
+"""Utilities for connecting to modbus servers"""
+
 from __future__ import annotations
 
 import asyncio
@@ -9,8 +9,8 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pandas as pd
-from pyModbusTCP import constants as mb_const  # noqa: I900
-from pyModbusTCP.client import ModbusClient  # noqa: I900
+from pyModbusTCP import constants as mb_const
+from pyModbusTCP.client import ModbusClient
 
 from eta_utility import get_logger
 from eta_utility.connectors.node import NodeModbus
@@ -23,9 +23,10 @@ from eta_utility.connectors.util import (
 )
 
 if TYPE_CHECKING:
-    from typing import Any
     from collections.abc import Generator, Mapping
-    from eta_utility.type_hints import TimeStep, Nodes
+    from typing import Any
+
+    from eta_utility.type_hints import Nodes, TimeStep
 
 from .base_classes import Connection, SubscriptionHandler
 
@@ -79,7 +80,7 @@ class ModbusConnection(Connection[NodeModbus], protocol="modbus"):
         else:
             raise ValueError(
                 "Tried to initialize ModbusConnection from a node that does not specify modbus as its"
-                "protocol: {}.".format(node.name)
+                f"protocol: {node.name}."
             )
 
     def read(self, nodes: Nodes[NodeModbus] | None = None) -> pd.DataFrame:
@@ -270,7 +271,7 @@ class ModbusConnection(Connection[NodeModbus], protocol="modbus"):
         except socket.timeout as e:
             raise ConnectionError(f"Host timeout: {self.url}") from e
         except (RuntimeError, ConnectionError) as e:
-            raise ConnectionError(f"Connection Error: {self.url}, Error: {str(e)}") from e
+            raise ConnectionError(f"Connection Error: {self.url}, Error: {e!s}") from e
         else:
             if self.connection.is_open:
                 self._retry.success()

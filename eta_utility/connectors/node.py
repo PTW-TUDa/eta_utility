@@ -1,6 +1,5 @@
-""" This module implements the node class, which is used to parametrize connections
+"""This module implements the node class, which is used to parametrize connections"""
 
-"""
 from __future__ import annotations
 
 import enum
@@ -22,7 +21,7 @@ from eta_utility import dict_get_any, get_logger, url_parse
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-    from typing import Any, Callable
+    from typing import Any, Callable, ClassVar, Final
     from urllib.parse import ParseResult
 
     from eta_utility.type_hints import Path
@@ -126,7 +125,7 @@ class Node(metaclass=NodeMeta):
         default=None, converter=converters.optional(_dtype_converter), kw_only=True, repr=False, eq=False, order=False
     )
 
-    _registry = {}  # type: ignore
+    _registry: ClassVar = {}
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Store subclass definitions to instantiate based on protocol."""
@@ -845,7 +844,7 @@ class NodeWetterdienstObservation(NodeWetterdienst, protocol="wetterdienst_obser
             31536000: "ANNUAL",
         }
         interval = int(interval.total_seconds()) if isinstance(interval, timedelta) else int(interval)
-        if interval not in resolutions.keys():
+        if interval not in resolutions:
             raise ValueError(f"Interval {interval} not supported. Must be one of {list(resolutions.keys())}")
         return resolutions[interval]
 
@@ -889,24 +888,11 @@ class NodeWetterdienstPrediction(NodeWetterdienst, protocol="wetterdienst_predic
             raise TypeError(f"Could not convert all types for node {name}.")
 
 
-class NodeEmonio(Node, protocol="emonio"):
-    """
-    Node for the emonio. The parameter to read is specified by the name of the node.
-    Available parameters are defined in the parameter_map class attribute.
-    Additionally, the phase of the parameter can be specified, with 'a', 'b', 'c' or 'abc'.
+class EmonioConstants:
+    """Dict constants for the Emonio API."""
 
-    https://wiki.emonio.de/de/Emonio_P3
-    """
-
-    #: Modbus address of the parameter to read
-    address: int = field(default=-1, kw_only=True, converter=int)
-    #: Phase of the parameter (a, b, c). If not set, all phases are read
-    phase: str = field(
-        default="abc", kw_only=True, converter=_lower_str, validator=validators.in_({"a", "b", "c", "abc"})
-    )
-
-    # Mapping of parameters to addresses
-    parameter_map = {
+    #: Mapping of parameters to addresses
+    PARAMETER_MAP: Final[dict[int, list[str]]] = {
         0: ["VRMS", "V_RMS", "Voltage", "V", "Spannung"],
         2: ["IRMS", "I_RMS", "Current", "I", "Strom"],
         4: ["WATT", "Power", "W", "Leistung", "Wirkleistung"],
@@ -924,15 +910,34 @@ class NodeEmonio(Node, protocol="emonio"):
         500: ["Temp", "degree", "Temperature", "°C", "Temperatur"],
         800: ["Impulse", "Impuls"],
     }
-    # Mapping of phases to address offsets
-    phase_map = {
+    #: Create dictionary with all upper cased parameters
+    UPPER_CASED: Final[dict[int, list[str]]] = {
+        adr: [par.upper() for par in par_list] for (adr, par_list) in PARAMETER_MAP.items()
+    }
+    #: Mapping of phases to address offsets
+    PHASE_MAP: Final[dict[str, int]] = {
         "a": 0,
         "b": 100,
         "c": 200,
         "abc": 300,
     }
-    # Create dictionary with all upper cased parameters
-    upper_cased = {adr: [par.upper() for par in par_list] for (adr, par_list) in parameter_map.items()}
+
+
+class NodeEmonio(Node, protocol="emonio"):
+    """
+    Node for the emonio. The parameter to read is specified by the name of the node.
+    Available parameters are defined in the parameter_map class attribute.
+    Additionally, the phase of the parameter can be specified, with 'a', 'b', 'c' or 'abc'.
+
+    https://wiki.emonio.de/de/Emonio_P3
+    """
+
+    #: Modbus address of the parameter to read
+    address: int = field(default=-1, kw_only=True, converter=int)
+    #: Phase of the parameter (a, b, c). If not set, all phases are read
+    phase: str = field(
+        default="abc", kw_only=True, converter=_lower_str, validator=validators.in_({"a", "b", "c", "abc"})
+    )
 
     def __attrs_post_init__(self) -> None:
         """Ensure that all required parameters are present and valid."""
@@ -946,9 +951,9 @@ class NodeEmonio(Node, protocol="emonio"):
         _parameter = self.address % 100
         _phase = self.address // 100 * 100
         # Validate address
-        if self.address == 500 or self.address == 800:
+        if self.address in {500, 800}:
             pass
-        elif _parameter not in self.parameter_map or _phase not in self.phase_map.values():
+        elif _parameter not in EmonioConstants.PARAMETER_MAP or _phase not in EmonioConstants.PHASE_MAP.values():
             raise ValueError(f"Address {self.address} for node {self.name} is not valid.")
         elif _parameter >= 20 and _parameter <= 30 and _phase == 300:
             raise ValueError("Phase must be set for MIN/MAX values")
@@ -961,10 +966,10 @@ class NodeEmonio(Node, protocol="emonio"):
         parameter: int | None = None
         phase: int | None = None
         # Try to find matching parameter for the name
-        for address in self.upper_cased:
+        for address in EmonioConstants.UPPER_CASED:
             # e.g. Server1.Voltage -> VOLTAGE
             parameter_str = self.name.split(".")[-1].upper()
-            if parameter_str in self.upper_cased[address]:
+            if parameter_str in EmonioConstants.UPPER_CASED[address]:
                 parameter = address
                 log.debug(f"Parameter {parameter_str} found at address {address}")
                 break
@@ -973,11 +978,11 @@ class NodeEmonio(Node, protocol="emonio"):
             raise ValueError(f"Parameter for node {self.name} not found, name is not valid.")
 
         # Temperature and Impulse values do not have a phase
-        if parameter == 500 or parameter == 800:
+        if parameter in (500, 800):
             return parameter
 
         # Phase is set to 0, 100, 200 or 300. (300 is default)
-        phase = self.phase_map[self.phase]
+        phase = EmonioConstants.PHASE_MAP[self.phase]
 
         # Return correct address (by adding the phase offset to the parameter)
         return parameter + phase

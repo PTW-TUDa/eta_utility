@@ -49,10 +49,11 @@ class PendulumControl(RuleBased):
         th_dot = observation[2]
 
         # Control rules, can you find a better one? :)
+        torque = abs(cos_th) * th_dot
         if cos_th < abs(0.3):
-            torque = 0.3 * abs(cos_th) * th_dot
+            torque *= 0.3
         else:
-            torque = -1.5 * abs(cos_th) * th_dot
+            torque *= -1.5
 
         action: np.ndarray = np.fromiter([torque], dtype=np.floating)
 

@@ -23,7 +23,7 @@ def create_node(endpoint: str, name: str = "Node1") -> Node:
     )
 
 
-@pytest.fixture()
+@pytest.fixture(autouse=True)
 def _local_requests(monkeypatch, config_entsoe):
     if ENTSOE_TOKEN == "":
         monkeypatch.setattr(requests, "post", Postable(config_entsoe["path"]))
@@ -35,7 +35,7 @@ multiple_nodes_expected = [
 ]
 
 
-def test_entsoe_price_ahead(_local_requests):
+def test_entsoe_price_ahead():
     node = create_node("Price")
 
     server = ENTSOEConnection.from_node(node, api_token=ENTSOE_TOKEN)
@@ -50,7 +50,7 @@ def test_entsoe_price_ahead(_local_requests):
     assert node.name in res.columns.get_level_values(0)[0]
 
 
-def test_entsoe_actual_generation_per_type(_local_requests):
+def test_entsoe_actual_generation_per_type():
     node = create_node("ActualGenerationPerType")
 
     server = ENTSOEConnection.from_node(node, api_token=ENTSOE_TOKEN)
@@ -65,7 +65,7 @@ def test_entsoe_actual_generation_per_type(_local_requests):
     assert node.name in res.columns.get_level_values(0)[0]
 
 
-def test_entsoe_timezone(_local_requests):
+def test_entsoe_timezone():
     node = create_node("Price", "Node1")
 
     server = ENTSOEConnection.from_node(node, api_token=ENTSOE_TOKEN)
@@ -90,7 +90,7 @@ def test_entsoe_timezone(_local_requests):
 
 
 @pytest.mark.parametrize(("nodes", "number_of_columns_per_node"), multiple_nodes_expected)
-def test_multiple_nodes(_local_requests, nodes, number_of_columns_per_node):
+def test_multiple_nodes(nodes, number_of_columns_per_node):
     "Check if multiple nodes return a dataframe with all nodes concatenated"
 
     from_datetime = datetime.strptime("2022-02-15T13:18:12", "%Y-%m-%dT%H:%M:%S")
@@ -106,7 +106,7 @@ def test_multiple_nodes(_local_requests, nodes, number_of_columns_per_node):
 
 
 @pytest.mark.parametrize("interval", [1, 2, 3])
-def test_interval(_local_requests, interval):
+def test_interval(interval):
     """Considering interval of one second, should return
     the number of seconds between from_time and to_time
     """
@@ -127,7 +127,7 @@ def test_interval(_local_requests, interval):
 
 
 @pytest.mark.parametrize("end_time", ["2022-02-15T23:30:00", "2022-02-16T23:00:00", "2022-02-16T22:59:00"])
-def test_multiple_days(_local_requests, end_time):
+def test_multiple_days(end_time):
     """Entsoe delivers multiple days in different TimeSeries-tags.
     Check if these timeseries are concatenated correctly.
     """

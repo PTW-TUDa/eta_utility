@@ -13,7 +13,8 @@ except ModuleNotFoundError:
         name="pygame",
     )
 else:
-    from gymnasium.envs.classic_control.pendulum import angle_normalize, PendulumEnv as GymPendulum
+    from gymnasium.envs.classic_control.pendulum import PendulumEnv as GymPendulum
+    from gymnasium.envs.classic_control.pendulum import angle_normalize
 
 from eta_utility import get_logger
 from eta_utility.eta_x.envs import BaseEnv, StateConfig, StateVar
@@ -134,9 +135,9 @@ class PendulumEnv(BaseEnv, GymPendulum):
         self.last_u = self.state["torque"]  # for rendering
 
         # Calculate state of the pendulum
-        u, g, m, l, dt = self.state["torque"], self.g, self.mass, self.length, self.sampling_time
+        u, g, m, length, dt = self.state["torque"], self.g, self.mass, self.length, self.sampling_time
 
-        newthdot = thdot + (3 * g / (2 * l) * np.sin(th) + 3.0 / (m * l**2) * u) * dt
+        newthdot = thdot + (3 * g / (2 * length) * np.sin(th) + 3.0 / (m * length**2) * u) * dt
         newthdot = np.clip(newthdot, -self.max_speed, self.max_speed)
         newth = th + newthdot * dt
 

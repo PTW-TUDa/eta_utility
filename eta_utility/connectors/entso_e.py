@@ -1,6 +1,7 @@
-""" Utility functions for connecting to the ENTSO-E Transparency database and for reading data. This connector
+"""Utility functions for connecting to the ENTSO-E Transparency database and for reading data. This connector
 does not have the ability to write data.
 """
+
 from __future__ import annotations
 
 import concurrent.futures
@@ -18,8 +19,9 @@ from eta_utility.timeseries import df_resample, df_time_slice
 from eta_utility.util import dict_search, round_timestamp
 
 if TYPE_CHECKING:
-    from typing import Any
     from collections.abc import Mapping
+    from typing import Any, Final
+
     from eta_utility.type_hints import Nodes, TimeStep
 
 from .base_classes import BaseSeriesConnection, SubscriptionHandler
@@ -72,7 +74,7 @@ class ENTSOEConnection(BaseSeriesConnection[NodeEntsoE], protocol="entsoe"):
         else:
             raise ValueError(
                 "Tried to initialize ENTSOEConnection from a node that does not specify entso-e as its"
-                "protocol: {}.".format(node.name)
+                f"protocol: {node.name}."
             )
 
     def read(self, nodes: Nodes[NodeEntsoE] | None = None) -> pd.DataFrame:
@@ -158,10 +160,10 @@ class ENTSOEConnection(BaseSeriesConnection[NodeEntsoE], protocol="entsoe"):
             s = pd.Series(data=ts_data, index=datetime_range, name=col_name)
             s.index = s.index.tz_localize(tz="UTC")  # ENTSO-E returns always UTC
 
-            if resolution not in data.keys():
+            if resolution not in data:
                 data[resolution] = {}
 
-            if col_name not in data[resolution].keys():
+            if col_name not in data[resolution]:
                 data[resolution][col_name] = []
 
             data[resolution][col_name].append(s.astype(float))
@@ -203,7 +205,7 @@ class ENTSOEConnection(BaseSeriesConnection[NodeEntsoE], protocol="entsoe"):
 
             df_dict = {}
             # All resolutions are resampled separatly and concatenated to one dataframe in the end
-            for resolution in data.keys():
+            for resolution in data:
                 data_resolution = {
                     f"{node.name}_{column}": pd.concat(series) for column, series in data[resolution].items()
                 }
@@ -319,10 +321,9 @@ class _ConnectionConfiguration:
     """
 
     #: XML Namespace for the API
-    _xmlns: str = "urn:iec62325.351:tc57wg16:451-5:statusrequestdocument:4:0"
-
+    _XMLNS: Final[str] = "urn:iec62325.351:tc57wg16:451-5:statusrequestdocument:4:0"
     #: bidding zones is a mapping of three letter iso country codes to bidding zones.
-    _bidding_zones = {
+    _BIDDING_ZONES: Final[dict[str, str]] = {
         "DEU": "10Y1001A1001A83F",
         "DEU-AUT-LUX": "10Y1001A1001A63L",
         "ALB": "10YAL-KESH-----5",
@@ -395,7 +396,7 @@ class _ConnectionConfiguration:
         "UKR": "10Y1001C--00003F",
     }
 
-    _market_agreements = {
+    _MARKET_AGREEMENTS: Final[dict[str, str]] = {
         "Daily": "A01",
         "Weekly": "A02",
         "Monthly": "A03",
@@ -406,19 +407,19 @@ class _ConnectionConfiguration:
         "Hourly": "A13",
     }
 
-    _auction_types = {
+    _AUCTION_TYPES: Final[dict[str, str]] = {
         "Implicit": "A01",
         "Explicit": "A02",
     }
 
-    _auction_categories = {
+    _AUCTION_CATEGORIES: Final[dict[str, str]] = {
         "Base": "A01",
         "Peak": "A02",
         "Off Peak": "A03",
         "Hourly": "A04",
     }
 
-    _psr_types = {
+    _PSR_TYPES: Final[dict[str, str]] = {
         "Mixed": "A03",
         "Generation": "A04",
         "Load": "A05",
@@ -448,7 +449,7 @@ class _ConnectionConfiguration:
         "Transformer": "B24",
     }
 
-    _business_types = {
+    _BUSINESS_TYPES: Final[dict[str, str]] = {
         "General Capacity Information": "A25",
         "Already allocated capacity (AAC)": "A29",
         "Requested capacity (without price)": "A43",
@@ -477,7 +478,7 @@ class _ConnectionConfiguration:
         "Actual reserve capacity": "C24",
     }
 
-    _process_types = {
+    _PROCESS_TYPES: Final[dict[str, str]] = {
         "Day ahead": "A01",
         "Intra day incremental": "A02",
         "Realised": "A16",
@@ -494,7 +495,7 @@ class _ConnectionConfiguration:
         "Frequency restoration reserve": "A56",
     }
 
-    _doc_states = {
+    _DOC_STATES: Final[dict[str, str]] = {
         "Intermediate": "A01",
         "Final": "A02",
         "Active": "A05",
@@ -503,7 +504,7 @@ class _ConnectionConfiguration:
         "Estimated": "X01",
     }
 
-    _doc_types = {
+    _DOC_TYPES: Final[dict[str, str]] = {
         "FinalisedSchedule": "A09",
         "AggregatedEnergyDataReport": "A11",
         "AcquiringSystemOperatorReserveSchedule": "A15",
@@ -556,7 +557,7 @@ class _ConnectionConfiguration:
         :param to_time: End time
         :return: Dictionary with parameters
         """
-        if node.endpoint not in self._doc_types:
+        if node.endpoint not in self._DOC_TYPES:
             raise ValueError(f"Unsupported endpoint for ENTSO-E connection: {node.endpoint}.")
 
         params = {"DocumentType": node.endpoint}
@@ -590,7 +591,7 @@ class _ConnectionConfiguration:
         """
         now = datetime.utcnow()
         # Prepare XML Header data
-        data = E("StatusRequest_MarketDocument", xmlns=self._xmlns)
+        data = E("StatusRequest_MarketDocument", xmlns=self._XMLNS)
         data.append(E("mRID", f"Request_{now.isoformat(sep='T', timespec='seconds')}"))
         data.append(E("type", "A59"))
         data.append(E("sender_MarketParticipant.mRID", "10X1001A1001A450", codingScheme="A01"))
@@ -606,31 +607,31 @@ class _ConnectionConfiguration:
 
         :return: tree with parameters
         """
-        if parameter == "Contract_MarketAgreement.Type" or parameter == "Type_MarketAgreement.Type":
-            value = self._market_agreements[value]
+        if parameter in {"Contract_MarketAgreement.Type", "Type_MarketAgreement.Type"}:
+            value = self._MARKET_AGREEMENTS[value]
         elif parameter == "Auction.Type":
-            value = self._auction_types[value]
+            value = self._AUCTION_TYPES[value]
         elif parameter == "Auction.Category":
-            value = self._auction_categories[value]
+            value = self._AUCTION_CATEGORIES[value]
         elif parameter == "PsrType":
-            value = self._psr_types[value]
+            value = self._PSR_TYPES[value]
         elif parameter == "BusinessType":
-            value = self._business_types[value]
+            value = self._BUSINESS_TYPES[value]
         elif parameter == "ProcessType":
-            value = self._process_types[value]
+            value = self._PROCESS_TYPES[value]
         elif parameter == "DocStatus":
-            value = self._doc_states[value]
+            value = self._DOC_STATES[value]
         elif parameter == "DocumentType":
-            value = self._doc_types[value]
+            value = self._DOC_TYPES[value]
         elif parameter in {"In_Domain", "Out_Domain"}:
-            value = self._bidding_zones[value]
+            value = self._BIDDING_ZONES[value]
 
         return E("AttributeInstanceComponent", E("attribute", parameter), E("attributeValue", value))
 
     @property
     def psr_types(self) -> dict[str, str]:
-        return self._psr_types
+        return self._PSR_TYPES
 
     @property
     def doc_types(self) -> dict[str, str]:
-        return self._doc_types
+        return self._DOC_TYPES

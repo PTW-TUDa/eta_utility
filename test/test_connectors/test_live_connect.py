@@ -29,7 +29,7 @@ def setup_live_connect(config_live_connect, nodes_from_config):
     server.create_nodes(nodes_from_config)
     server.allow_remote_admin(True)
 
-    config = json_import(config_live_connect["file"])  # noqa:F405
+    config = json_import(config_live_connect["file"])
     config["system"][0]["servers"]["glt"]["url"] = f"{socket.gethostbyname(socket.gethostname())}:4840"
 
     connector = LiveConnect.from_dict(**config)

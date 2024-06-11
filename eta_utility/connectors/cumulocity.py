@@ -16,6 +16,7 @@ from eta_utility.connectors.node import NodeCumulocity
 
 if TYPE_CHECKING:
     from typing import Any
+
     from eta_utility.type_hints import Nodes, TimeStep
 
 from .base_classes import BaseSeriesConnection, SubscriptionHandler
@@ -76,7 +77,7 @@ class CumulocityConnection(BaseSeriesConnection[NodeCumulocity], protocol="cumul
         else:
             raise ValueError(
                 "Tried to initialize CumulocityConnection from a node that does not specify cumulocity as its"
-                "protocol: {}.".format(node.name)
+                f"protocol: {node.name}."
             )
 
     def read(self, nodes: Nodes[NodeCumulocity] | None = None) -> pd.DataFrame:
@@ -127,10 +128,7 @@ class CumulocityConnection(BaseSeriesConnection[NodeCumulocity], protocol="cumul
 
             # iterate over values to upload
             for idx in values.index:
-                if node.fragment == "":
-                    fragment_name = values.name
-                else:
-                    fragment_name = node.fragment
+                fragment_name = node.fragment if node.fragment != "" else values.name
 
                 payload = {
                     "source": {"id": node.device_id},
@@ -217,7 +215,7 @@ class CumulocityConnection(BaseSeriesConnection[NodeCumulocity], protocol="cumul
                 data_list.append(data_tmp)
 
                 # Stopping criteria for data collection
-                if data_tmp.empty or "next" not in response.keys():
+                if data_tmp.empty or "next" not in response:
                     data = pd.concat(data_list)
                     break
                 else:
@@ -331,7 +329,7 @@ class CumulocityConnection(BaseSeriesConnection[NodeCumulocity], protocol="cumul
             for r in response["measurements"]:
                 if r["id"] not in data_list:
                     data_list.append(r["id"])
-            if "next" not in response.keys() or response["measurements"] == []:
+            if "next" not in response or response["measurements"] == []:
                 break
             else:
                 request_url = response["next"]
@@ -421,7 +419,7 @@ class CumulocityConnection(BaseSeriesConnection[NodeCumulocity], protocol="cumul
             elif response.status_code == 403:
                 error = f"{error}: You are not authorized to access the API."
             elif response.status_code == 404:
-                error = f"{error}: Endpoint not found '{str(endpoint)}'"
+                error = f"{error}: Endpoint not found '{endpoint!s}'"
             elif response.status_code == 500:
                 error = f"{error}: Internal error: request could not be processed."
             elif response.status_code == 503:

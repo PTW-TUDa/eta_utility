@@ -1,6 +1,7 @@
-""" The script can be used to read data from different servers in the ETA-Factory.
+"""The script can be used to read data from different servers in the ETA-Factory.
 It can write output to CSV files and/or publish to a different OPC UA server.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -141,9 +142,10 @@ def execution_loop(
                 pass
 
         subscription_handler.register(sub_handlers.CsvSubHandler(output_file, write_interval=write_interval))
-
     loop = asyncio.get_event_loop()
-    loop.create_task(logger(10))
+    task = loop.create_task(logger(10))
+    background_tasks = set()
+    background_tasks.add(task)
 
     try:
         for host, connection in connections.items():

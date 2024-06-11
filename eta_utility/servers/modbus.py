@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 import pandas as pd
-from pyModbusTCP.server import ModbusServer as BaseModbusServer  # noqa: I900
+from pyModbusTCP.server import ModbusServer as BaseModbusServer
 
 from eta_utility import ensure_timezone, get_logger, url_parse
 from eta_utility.connectors.node import NodeModbus
@@ -105,7 +105,7 @@ class ModbusServer:
             else:
                 raise ValueError(f"The specified register type is not supported: {node.mb_register}")
 
-            if val.ok and (node.mb_register == "holding" or node.mb_register == "input"):
+            if val.ok and (node.mb_register in ("holding", "input")):
                 byteorder = "big" if self._big_endian else "little"
                 results[node.name] = decode_modbus_value(val.data, byteorder, node.dtype, node.mb_wordorder)
             elif val.ok and isinstance(val.data, list):

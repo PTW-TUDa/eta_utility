@@ -5,10 +5,10 @@ import pandas as pd
 import pytest
 
 from eta_utility.eta_x.common import episode_results_path
-from examples.damped_oscillator.main import (  # noqa: I900
+from examples.damped_oscillator.main import (
     experiment_conventional as ex_oscillator,
 )
-from examples.damped_oscillator.main import (  # noqa: I900
+from examples.damped_oscillator.main import (
     get_path as get_oscillator_path,
 )
 

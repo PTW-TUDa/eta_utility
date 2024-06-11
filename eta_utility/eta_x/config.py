@@ -384,11 +384,13 @@ class ConfigOptSettings:
     seed: int | None = field(default=None, converter=converters.optional(int))
     #: Logging verbosity of the framework (default: 2).
     verbose: int = field(
-        default=2, converter=converters.pipe(converters.default_if_none(2), int)  # type: ignore
+        default=2,
+        converter=converters.pipe(converters.default_if_none(2), int),  # type: ignore
     )  # mypy currently does not recognize converters.default_if_none
     #: Number of vectorized environments to instantiate (if not using DummyVecEnv) (default: 1).
     n_environments: int = field(
-        default=1, converter=converters.pipe(converters.default_if_none(1), int)  # type: ignore
+        default=1,
+        converter=converters.pipe(converters.default_if_none(1), int),  # type: ignore
     )  # mypy currently does not recognize converters.default_if_none
 
     #: Number of episodes to execute when the agent is playing (default: None).
@@ -397,15 +399,18 @@ class ConfigOptSettings:
     n_episodes_learn: int | None = field(default=None, converter=converters.optional(int))
     #: Flag to determine whether the interaction env is used or not (default: False).
     interact_with_env: bool = field(
-        default=False, converter=converters.pipe(converters.default_if_none(False), bool)  # type: ignore
+        default=False,
+        converter=converters.pipe(converters.default_if_none(False), bool),  # type: ignore
     )  # mypy currently does not recognize converters.default_if_none
     #: How often to save the model during training (default: 10 - after every ten episodes).
     save_model_every_x_episodes: int = field(
-        default=10, converter=converters.pipe(converters.default_if_none(1), int)  # type: ignore
+        default=10,
+        converter=converters.pipe(converters.default_if_none(1), int),  # type: ignore
     )  # mypy currently does not recognize converters.default_if_none
     #: How many episodes to pass between each render call (default: 10 - after every ten episodes).
     plot_interval: int = field(
-        default=10, converter=converters.pipe(converters.default_if_none(1), int)  # type: ignore
+        default=10,
+        converter=converters.pipe(converters.default_if_none(1), int),  # type: ignore
     )  # mypy currently does not recognize converters.default_if_none
 
     #: Duration of an episode in seconds (can be a float value).
@@ -440,7 +445,8 @@ class ConfigOptSettings:
 
     #: Flag which is true if the log output should be written to a file
     log_to_file: bool = field(
-        default=False, converter=converters.pipe(converters.default_if_none(False), bool)  # type: ignore
+        default=False,
+        converter=converters.pipe(converters.default_if_none(False), bool),  # type: ignore
     )
 
     def __attrs_post_init__(self) -> None:
