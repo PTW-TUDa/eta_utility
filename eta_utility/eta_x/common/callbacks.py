@@ -31,9 +31,8 @@ class CallbackEnvironment:
         :param env: Instance of the environment where the callback was triggered.
         """
         log.info(
-            "Environment callback triggered (env_id = {}, n_episodes = {}, run_name = {}.".format(
-                env.env_id, env.n_episodes, env.run_name
-            )
+            "Environment callback triggered "
+            f"(env_id = {env.env_id}, n_episodes = {env.n_episodes}, run_name = {env.run_name}."
         )
 
         # render first episode

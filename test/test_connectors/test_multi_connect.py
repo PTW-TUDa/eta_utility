@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 import requests
-from pyModbusTCP import client as mbclient  # noqa: I900
+from pyModbusTCP import client as mbclient
 
 from eta_utility.connectors import CsvSubHandler, Node
 from eta_utility.connectors.base_classes import BaseConnection
@@ -22,20 +22,20 @@ ip = "127.95.11.183"  # local ip address
 port = 48050
 
 
-@pytest.fixture()
+@pytest.fixture(autouse=True)
 def local_server():
     server = OpcUaServer(5, ip=ip, port=port)
     yield server
     server.stop()
 
 
-@pytest.fixture()
+@pytest.fixture(autouse=True)
 def _mock_client(monkeypatch):
     monkeypatch.setattr(mbclient, "ModbusClient", MockModbusClient)
     monkeypatch.setattr(requests, "request", request)
 
 
-def test_multi_connect(config_nodes_file, config_eneffco, _mock_client, local_server, temp_dir):
+def test_multi_connect(config_nodes_file, config_eneffco, temp_dir):
     nodes = Node.from_excel(config_nodes_file["file"], config_nodes_file["sheet"])
 
     connections = BaseConnection.from_nodes(

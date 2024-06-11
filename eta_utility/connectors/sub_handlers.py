@@ -19,9 +19,10 @@ from eta_utility import get_logger
 from eta_utility.connectors.node import Node
 
 if TYPE_CHECKING:
-    from typing import Any, Deque, TextIO
     from collections.abc import Sequence
     from types import TracebackType
+    from typing import Any, TextIO
+
     from eta_utility.type_hints import Number, Path, TimeStep
 
 from .base_classes import SubscriptionHandler
@@ -195,8 +196,8 @@ class _CSVFileDB(AbstractContextManager):
         #: Ending position of the header in the file stream (used for extending the header).
         self._endof_header: int = 0
         #: Write buffer.
-        self._buffer: Deque[dict[str, str]] = deque()
-        self._timebuffer: Deque[datetime] = deque()
+        self._buffer: deque[dict[str, str]] = deque()
+        self._timebuffer: deque[datetime] = deque()
         #: Latest timestamp in the write-buffer.
         self._latest_ts: datetime = datetime.fromtimestamp(10000, tz=tz.tzlocal())
         #: Latest known value for each of the names in the header.
@@ -332,9 +333,8 @@ class _CSVFileDB(AbstractContextManager):
                 # Store current position for next insertion, then read next chunk
                 nextpos_insert = self._file.tell()
                 chunk = newchunk
-            else:
-                self._file.seek(nextpos_insert)
-                self._file.write(chunk)
+            self._file.seek(nextpos_insert)
+            self._file.write(chunk)
 
         return pos
 
@@ -358,7 +358,7 @@ class _CSVFileDB(AbstractContextManager):
             raise RuntimeError("Enter context manager before trying to write to CSVFileDB.")
 
         # Check whether the file size limit is exceeded to initiate switching to a new file.
-        size_limit_exceeded = True if self.filepath.stat().st_size > self.file_size_limit else False
+        size_limit_exceeded = self.filepath.stat().st_size > self.file_size_limit
 
         # Determine how large the buffer should be, depending on whether data is being flushed to file or preparing to
         # switch to a new file.

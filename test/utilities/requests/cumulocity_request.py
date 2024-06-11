@@ -33,17 +33,10 @@ def request(method, url, **kwargs):
                         assert fragment == "P"
                     else:
                         fragment = ""
-                    if "currentPage" in url:
-                        current_page = url.split("currentPage=", 1)[1]
-                    else:
-                        current_page = "1"
+                    current_page = url.split("currentPage=", 1)[1] if "currentPage" in url else "1"
                 except IndexError:
                     device_id = ""
-                if device_id == "1234" and current_page == "1":
-                    # Return data for id: 1234 and fragment: P
-                    return Response(data, 200)
-
-                elif device_id == "1235" and current_page == "1":
+                if device_id == "1234" and current_page == "1" or device_id == "1235" and current_page == "1":
                     # Return data for id: 1234 and fragment: P
                     return Response(data, 200)
 
@@ -61,7 +54,7 @@ def request(method, url, **kwargs):
                     "Power": {"P": {"unit": "W", "value": 1}},
                 }
 
-                if "data" in kwargs.keys():
+                if "data" in kwargs:
                     if payload_true == json.loads(kwargs.get("data")):
                         return Response(status_code=200)
                     else:
@@ -74,8 +67,8 @@ def request(method, url, **kwargs):
                     raise Exception("Request had no payload.")
 
             elif "/inventory/managedObjects" in url:
-                assert "data" in kwargs.keys()
-                assert "name" in json.loads(kwargs.get("data")).keys()
-                assert "c8y_IsDevice" in json.loads(kwargs.get("data")).keys()
+                assert "data" in kwargs
+                assert "name" in json.loads(kwargs.get("data"))
+                assert "c8y_IsDevice" in json.loads(kwargs.get("data"))
                 assert json.loads(kwargs.get("data"))["name"] == "Device1"
                 return Response(status_code=200)

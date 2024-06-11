@@ -1,6 +1,5 @@
-""" The OPC UA module provides utilities for the flexible creation of OPC UA connections.
+"""The OPC UA module provides utilities for the flexible creation of OPC UA connections."""
 
-"""
 from __future__ import annotations
 
 import asyncio
@@ -31,16 +30,15 @@ from eta_utility.connectors.node import NodeOpcUa
 from .util import IntervalChecker, RetryWaiter
 
 if TYPE_CHECKING:
-    from typing import Any
     from collections.abc import Generator, Mapping, Sequence
+    from typing import Any
 
     # Sync import
     from asyncua.sync import SyncNode as SyncOpcNode
 
     # Async import
     # FIXME: add async import: from asyncua import Node as asyncSyncOpcNode
-
-    from eta_utility.type_hints import TimeStep, Nodes
+    from eta_utility.type_hints import Nodes, TimeStep
 
 from .base_classes import Connection, SubscriptionHandler
 
@@ -108,7 +106,7 @@ class OpcUaConnection(Connection[NodeOpcUa], protocol="opcua"):
         else:
             raise ValueError(
                 "Tried to initialize OpcUaConnection from a node that does not specify opcua as its"
-                "protocol: {}.".format(node.name)
+                f"protocol: {node.name}."
             )
 
     @classmethod
@@ -161,9 +159,8 @@ class OpcUaConnection(Connection[NodeOpcUa], protocol="opcua"):
                 raise ConnectionError(str(e)) from e
 
         values: dict[str, list] = {}
-        with self._connection():
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                results = executor.map(read_node, _nodes)
+        with self._connection(), concurrent.futures.ThreadPoolExecutor() as executor:
+            results = executor.map(read_node, _nodes)
         for result in results:
             values.update(result)
 
@@ -203,11 +200,10 @@ class OpcUaConnection(Connection[NodeOpcUa], protocol="opcua"):
         def create_object(parent: SyncOpcNode, child: NodeOpcUa) -> SyncOpcNode:
             children: list[SyncOpcNode] = asyncua.sync._to_sync(parent.tloop, parent.get_children())
             for obj in children:
-                ident = obj.nodeid.Identifier if type(obj.nodeid.Identifier) is str else obj.nodeid.Identifier
+                ident = obj.nodeid.Identifier if isinstance(obj.nodeid.Identifier, str) else obj.nodeid.Identifier
                 if child.opc_path_str == ident:
                     return obj
-            else:
-                return asyncua.sync._to_sync(parent.tloop, parent.add_object(child.opc_id, child.opc_name))
+            return asyncua.sync._to_sync(parent.tloop, parent.add_object(child.opc_id, child.opc_name))
 
         _nodes = self._validate_nodes(nodes)
 
@@ -479,7 +475,7 @@ class OpcUaConnection(Connection[NodeOpcUa], protocol="opcua"):
         except ConCancelledError as e:
             raise ConnectionError(f"Connection cancelled by host: {self.url}") from e
         except (RuntimeError, ConnectionError) as e:
-            raise ConnectionError(f"OPC Connection Error: {self.url}: {str(e)}") from e
+            raise ConnectionError(f"OPC Connection Error: {self.url}: {e!s}") from e
         else:
             log.debug(f"Connected to OPC UA server: {self.url}")
             self._connected = True

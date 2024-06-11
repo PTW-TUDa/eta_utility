@@ -1,7 +1,9 @@
-""" Initiate live connections that automate certain tasks associated with the creation of such connections."""
+"""Initiate live connections that automate certain tasks associated with the creation of such connections."""
+
 from __future__ import annotations
 
 import pathlib
+import sys
 import time
 from collections.abc import Mapping, Sequence
 from concurrent.futures import TimeoutError as ConTimeoutError
@@ -263,7 +265,7 @@ class LiveConnect(AbstractContextManager):
 
             if flatten:
                 for key, sys_val in vals.items():
-                    if sys_val and key not in self._nodes.keys():
+                    if sys_val and key not in self._nodes:
                         missing_keys.add(key)
             else:
                 for key, sys_val in vals.items():
@@ -300,8 +302,8 @@ class LiveConnect(AbstractContextManager):
         files = [files] if not isinstance(files, Sequence) else files
 
         config: dict[str, list[Any]] = {"system": []}
-        for file in files:
-            file = pathlib.Path(file) if not isinstance(file, pathlib.Path) else file
+        for file_path in files:
+            file = pathlib.Path(file_path) if not isinstance(file_path, pathlib.Path) else file_path
             result = json_import(file)
             if not isinstance(result, dict):
                 raise TypeError(f"JSON file {file} must define a dictionary of options.")
@@ -375,7 +377,7 @@ class LiveConnect(AbstractContextManager):
                                 errors = True
         if errors:
             log.error("Not all required config parameters were found. Exiting.")
-            exit(1)
+            sys.exit(1)  # TODO: rewrite
 
     @classmethod
     def _read_config(
@@ -419,9 +421,9 @@ class LiveConnect(AbstractContextManager):
             if "set_value" in system and system["set_value"] is not None:
                 _set_values[system["name"]] = system["set_value"].copy()
                 _set_values[system["name"]]["name"] = f"{system['name']}.{system['set_value']['name']}"  # type: ignore
-                _set_values[system["name"]][
-                    "node"
-                ] = f"{system['name']}.{system['set_value'].get('node', system['set_value']['name'])}"  # type: ignore
+                _set_values[system["name"]]["node"] = (  # type: ignore
+                    f"{system['name']}.{system['set_value'].get('node', system['set_value']['name'])}"
+                )
             else:
                 _set_values[system["name"]] = None
 
@@ -439,10 +441,8 @@ class LiveConnect(AbstractContextManager):
                 _observe.extend(f"{system['name']}.{name}" for name in system["observe"])
 
             # Convert actions
-            for action in {"init", "close", "activate", "deactivate"}:
-                if "actions" not in system:
-                    _actions[action][system["name"]] = None
-                elif action not in system["actions"] or system["actions"][action] is None:
+            for action in ("init", "close", "activate", "deactivate"):
+                if "actions" not in system or action not in system["actions"] or system["actions"][action] is None:
                     _actions[action][system["name"]] = None
                 else:
                     act = {}
@@ -550,7 +550,7 @@ class LiveConnect(AbstractContextManager):
             _nodes = dict(nodes)
 
         # Sort nodes to be written by connection
-        writes: dict[str, dict[Node, Any]] = {url: {} for url in self._connections.keys()}
+        writes: dict[str, dict[Node, Any]] = {url: {} for url in self._connections}
         for name, value in _nodes.items():
             n = f"{self.name}.{name}" if "." not in name and self.name is not None else name
             writes[self._connection_map[n]][self._nodes[n]] = value
@@ -575,7 +575,7 @@ class LiveConnect(AbstractContextManager):
         :return: Dictionary of the most current node values.
         """
         # Sort nodes to be read by connection
-        node_readings: dict[str, list[Node]] = {url: [] for url in self._connections.keys()}
+        node_readings: dict[str, list[Node]] = {url: [] for url in self._connections}
         _error = False
         for name in nodes:
             n = f"{self.name}.{name}" if "." not in name and self.name is not None else name

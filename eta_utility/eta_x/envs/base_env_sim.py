@@ -129,7 +129,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         step_inputs = []
         for key in self.state_config.ext_inputs:
             try:
-                if type(state[key]) is bool:
+                if isinstance(state[key], bool):
                     step_inputs.append(state[key])
                 else:
                     step_inputs.append(
@@ -137,7 +137,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
                         - self.state_config.ext_scale[key]["add"]
                     )
             except KeyError as e:
-                raise KeyError(f"{str(e)} is unavailable in environment state.") from e
+                raise KeyError(f"{e!s} is unavailable in environment state.") from e
 
         sim_time_start = time.time()
 

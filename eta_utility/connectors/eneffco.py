@@ -1,5 +1,5 @@
-""" Utility functions for connecting to the EnEffCo database and reading data.
-"""
+"""Utility functions for connecting to the EnEffCo database and reading data."""
+
 from __future__ import annotations
 
 import asyncio
@@ -16,8 +16,9 @@ from eta_utility import get_logger
 from eta_utility.connectors.node import NodeEnEffCo
 
 if TYPE_CHECKING:
-    from typing import Any
     from collections.abc import Sequence
+    from typing import Any
+
     from eta_utility.type_hints import Nodes, TimeStep
 
 from .base_classes import BaseSeriesConnection, SubscriptionHandler
@@ -79,7 +80,7 @@ class EnEffCoConnection(BaseSeriesConnection[NodeEnEffCo], protocol="eneffco"):
         else:
             raise ValueError(
                 "Tried to initialize EnEffCoConnection from a node that does not specify eneffco as its"
-                "protocol: {}.".format(node.name)
+                f"protocol: {node.name}."
             )
 
     @classmethod
@@ -116,7 +117,7 @@ class EnEffCoConnection(BaseSeriesConnection[NodeEnEffCo], protocol="eneffco"):
         :param values: Dictionary of nodes and data to write {node: value}.
         :param time_interval: Interval between datapoints (i.e. between "From" and "To" in EnEffCo Upload) (default 1s).
         """
-        nodes = self._validate_nodes(values.keys())
+        nodes = self._validate_nodes(list(values.keys()))
 
         if time_interval is None:
             time_interval = timedelta(seconds=1)
@@ -147,17 +148,17 @@ class EnEffCoConnection(BaseSeriesConnection[NodeEnEffCo], protocol="eneffco"):
         :return upload_data: String from dictionary in the format for the upload to EnEffCo.
         """
 
-        if isinstance(data, dict) or isinstance(data, pd.Series):
+        if isinstance(data, (dict, pd.Series)):
             upload_data: dict[str, list[Any]] = {"Values": []}
             for time, val in data.items():
                 # Only write values if they are not nan
                 if not np.isnan(val):
-                    time = self._assert_tz_awareness(time).astimezone(timezone.utc)
+                    aware_time = self._assert_tz_awareness(time).astimezone(timezone.utc)
                     upload_data["Values"].append(
                         {
                             "Value": float(val),
-                            "From": time.strftime("%Y-%m-%d %H:%M:%SZ"),
-                            "To": (time + time_interval).strftime("%Y-%m-%d %H:%M:%SZ"),
+                            "From": aware_time.strftime("%Y-%m-%d %H:%M:%SZ"),
+                            "To": (aware_time + time_interval).strftime("%Y-%m-%d %H:%M:%SZ"),
                         }
                     )
 
@@ -217,13 +218,13 @@ class EnEffCoConnection(BaseSeriesConnection[NodeEnEffCo], protocol="eneffco"):
         nodes = self._validate_nodes(nodes)
 
         def read_node(node: NodeEnEffCo) -> pd.DataFrame:
-            request_url = "datapoint/{}/value?from={}&to={}&timeInterval={}&includeNanValues=True".format(
-                self.id_from_code(node.eneffco_code),
-                self.timestr_from_datetime(from_time),
-                self.timestr_from_datetime(to_time),
-                str(int(_interval.total_seconds())),
+            request_url = (
+                f"datapoint/{self.id_from_code(node.eneffco_code)}/value?"
+                f"from={self.timestr_from_datetime(from_time)}&"
+                f"to={self.timestr_from_datetime(to_time)}&"
+                f"timeInterval={int(_interval.total_seconds())!s}&"
+                "includeNanValues=True"
             )
-
             response = self._raw_request("GET", request_url).json()
 
             data = pd.DataFrame(
@@ -365,11 +366,10 @@ class EnEffCoConnection(BaseSeriesConnection[NodeEnEffCo], protocol="eneffco"):
                 return self._node_ids_raw.loc[self._node_ids_raw["Code"] == code, "Id"].values.item()
             else:
                 raise ValueError(f"Code {code} does not exist on server {self.url}.")
+        elif len(self._node_ids.loc[self._node_ids["Code"] == code, "Id"]) > 0:
+            return self._node_ids.loc[self._node_ids["Code"] == code, "Id"].values.item()
         else:
-            if len(self._node_ids.loc[self._node_ids["Code"] == code, "Id"]) > 0:
-                return self._node_ids.loc[self._node_ids["Code"] == code, "Id"].values.item()
-            else:
-                raise ValueError(f"Code {code} does not exist on server {self.url}.")
+            raise ValueError(f"Code {code} does not exist on server {self.url}.")
 
     def timestr_from_datetime(self, dt: datetime) -> str:
         """Create an EnEffCo compatible time string.

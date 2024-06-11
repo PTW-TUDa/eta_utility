@@ -111,11 +111,11 @@ def install_julia() -> None:
         raise ImportError(JULIA_NOT_FOUND_MSG)
 
     try:
-        import julia  # noqa: I900
+        import julia
     except ImportError:
         subprocess.check_call([sys.executable, "-m", "pip", "install", "julia"])
 
-        import julia  # noqa: I900
+        import julia
 
     # Set environment variable to determine the correct python environment to use when calling back into
     # python from julia
@@ -141,7 +141,7 @@ def check_julia_package() -> bool:
         raise ImportError(JULIA_NOT_FOUND_MSG)
 
     try:
-        import julia  # noqa: I900
+        import julia
     except ModuleNotFoundError:
         raise ImportError(
             "Could not find the python julia package. Please run the command: install-julia "
@@ -149,7 +149,7 @@ def check_julia_package() -> bool:
         )
 
     try:
-        from julia import ju_extensions  # noqa: I900 F401
+        from julia import ju_extensions  # noqa: F401
     except julia.core.UnsupportedPythonError:
         raise ImportError(
             "PyCall for Julia is installed for a different python binary than you are currently "

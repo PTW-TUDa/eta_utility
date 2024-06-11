@@ -21,6 +21,8 @@ from eta_utility.connectors.node import NodeOpcUa
 from eta_utility.servers import OpcUaServer
 
 if TYPE_CHECKING:
+    from typing import Final
+
     from eta_utility.type_hints import Path, TimeStep
 
 log = get_logger(level=1)
@@ -28,16 +30,16 @@ log = get_logger(level=1)
 
 class Config:
     #: Inference interval.
-    interval: int = 1
+    INTERVAL: Final[int] = 1
     #: Path to the trained inference model.
-    path_model: pathlib.Path = pathlib.Path(__file__).parent / "resources/emag_gt_forecast.onnx"
+    PATH_MODEL: Final[pathlib.Path] = pathlib.Path(__file__).parent / "resources/emag_gt_forecast.onnx"
     #: Shape of the inputs provided to the model.
-    input_shape: list[int] = [1, 5, 20, 9]
+    INPUT_SHAPE: Final[list[int]] = [1, 5, 20, 9]
 
     #: Path to a csv file containing normalization data.
-    path_normalization_data: pathlib.Path = pathlib.Path(__file__).parent / "resources/features_max_min.csv"
+    PATH_NORMALIZATION_DATA: Final[pathlib.Path] = pathlib.Path(__file__).parent / "resources/features_max_min.csv"
     #: Names of features used for normalization.
-    features_normalization: list[str] = [
+    FEATURES_NORMALIZATION: Final[list[str]] = [
         "WZM_VLC-100GT.972.Elek_P.L1-4",
         "WZM_VLC-100GT.972.Elek_P.KSS",
         "WZM_VLC-100GT.972.Elek_P.Ax_C1",
@@ -50,9 +52,9 @@ class Config:
     ]
 
     #: OPC Server and nodes for the input features.
-    opc_server: dict[str, str | int] = {"ip": "localhost", "port": 48050}
+    OPC_SERVER: Final[dict[str, str | int]] = {"ip": "localhost", "port": 48050}
     #: Nodes to use as input features.
-    nodes: list[str] = [
+    NODES: Final[list[str]] = [
         "ns=2;s=Application.GbIL4EE.powerMain",
         "ns=2;s=Application.GbIL4EE.rpowerKSS_System_ND",
         "ns=2;s=Application.GbIL4EE.powerC1",
@@ -62,10 +64,10 @@ class Config:
         "ns=2;s=Application.GbIL4EE.powerX1",
         "ns=2;s=Application.GbIL4EE.powerZ1",
     ]
-    local_file: pathlib.Path = pathlib.Path(__file__).parent / "resources/input_features_local.csv"
+    LOCAL_FILE: Final[pathlib.Path] = pathlib.Path(__file__).parent / "resources/input_features_local.csv"
 
     #: Name of the node for publishing the resulting data.
-    publish_name: str = "ns=6;s=EMAG-GT-forecast.electric_power_100s"
+    PUBLISH_NAME: Final[str] = "ns=6;s=EMAG-GT-forecast.electric_power_100s"
 
 
 def main() -> None:
@@ -78,25 +80,29 @@ def forecasting() -> None:
 
     # load maximal and minimal values of the features for normalization
     features_max, features_min = load_normalization_params(
-        Config.path_normalization_data, Config.features_normalization
+        Config.PATH_NORMALIZATION_DATA, Config.FEATURES_NORMALIZATION
     )
 
     # Create input connections
     connection = OpcUaConnection.from_ids(
-        Config.nodes, f"opc.tcp://{Config.opc_server['ip']}:{Config.opc_server['port']}"
+        Config.NODES, f"opc.tcp://{Config.OPC_SERVER['ip']}:{Config.OPC_SERVER['port']}"
     )
-    sub_handler = DFSubHandler(write_interval=Config.interval, size_limit=100, auto_fillna=False)
-    connection.subscribe(sub_handler, interval=Config.interval)
+    sub_handler = DFSubHandler(write_interval=Config.INTERVAL, size_limit=100, auto_fillna=False)
+    connection.subscribe(sub_handler, interval=Config.INTERVAL)
 
     # Create loop and inference tasks
     loop = asyncio.get_event_loop()
     data_queue: asyncio.Queue = asyncio.Queue()
-    loop.create_task(read_data_loop(sub_handler, data_queue, Config.input_shape[-1], Config.interval))
-    loop.create_task(
+
+    running_tasks = set()
+    read_data_task = loop.create_task(read_data_loop(sub_handler, data_queue, Config.INPUT_SHAPE[-1], Config.INTERVAL))
+    running_tasks.add(read_data_task)
+    inference_task = loop.create_task(
         inference_loop(
-            Config.path_model, data_queue, Config.publish_name, Config.input_shape, features_min, features_max
+            Config.PATH_MODEL, data_queue, Config.PUBLISH_NAME, Config.INPUT_SHAPE, features_min, features_max
         )
     )
+    running_tasks.add(inference_task)
 
     try:
         log.info("Starting processing loop.")
@@ -107,21 +113,21 @@ def forecasting() -> None:
 
 
 async def local_server() -> None:
-    data = pd.read_csv(Config.local_file, sep=";", decimal=",")
+    data = pd.read_csv(Config.LOCAL_FILE, sep=";", decimal=",")
     current_line = 0
 
     # initialize the server
     nodes = [
         NodeOpcUa(
             name=name,
-            url=f"opc.tcp://{Config.opc_server['ip']}:{Config.opc_server['port']}",
+            url=f"opc.tcp://{Config.OPC_SERVER['ip']}:{Config.OPC_SERVER['port']}",
             protocol="opcua",
             opc_id=name,
             dtype="float",
         )
         for name in data.columns
     ]
-    server = OpcUaServer(namespace=2, ip=str(Config.opc_server["ip"]), port=int(Config.opc_server["port"]))
+    server = OpcUaServer(namespace=2, ip=str(Config.OPC_SERVER["ip"]), port=int(Config.OPC_SERVER["port"]))
     server.create_nodes(nodes)
     node_map: dict[str, NodeOpcUa] = name_map_from_node_sequence(nodes)
     while True:

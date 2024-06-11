@@ -59,7 +59,7 @@ class MathSolver(BaseAlgorithm):
         # Set default values for superclass arguments
         kwargs.setdefault("learning_rate", 0)
 
-        for key in kwargs.keys():
+        for key in kwargs:
             # Find arguments which are meant for the BaseAlgorithm class and extract them into super_args
             if key in {
                 "policy_base",
@@ -134,10 +134,10 @@ class MathSolver(BaseAlgorithm):
         solver = pyo.SolverFactory(self.solver_name)
         solver.options.update(self.solver_options)  # Adjust solver settings
 
-        _tee = True if log.level / 10 <= 1 else False
+        _tee: bool = bool(log.level / 10 <= 1)
         result = solver.solve(self.model, symbolic_solver_labels=True, tee=_tee)
         if _tee:
-            print("\n")  # noqa: T001, T201 (print is ok here, because cplex prints directly to console).
+            print("\n")  # noqa: T201 (print is ok here, because cplex prints directly to console).
         log.debug(
             "Problem information: \n"
             "\t+----------------------------------+\n"

@@ -373,7 +373,8 @@ class TestConnectorSubscriptions:
 
         asyncio.get_event_loop().create_task(write_loop(server, local_nodes, self.values))
 
-    def test_subscribe_interrupted(self, local_nodes, _write_nodes_interrupt, caplog):
+    @pytest.mark.usefixtures("_write_nodes_interrupt")
+    def test_subscribe_interrupted(self, local_nodes, caplog):
         log = get_logger()
         log.propagate = True
 
@@ -477,7 +478,8 @@ class TestConnectorSubscriptionsIntervalChecker:
 
         asyncio.get_event_loop().create_task(write_loop(server, local_nodes_interval_checking, self.values))
 
-    def test_subscribe_interval_checking(self, local_nodes_interval_checking, _write_nodes_interval_checking, caplog):
+    @pytest.mark.usefixtures("_write_nodes_interval_checking")
+    def test_subscribe_interval_checking(self, local_nodes_interval_checking, caplog):
         log = get_logger()
         log.propagate = True
 
