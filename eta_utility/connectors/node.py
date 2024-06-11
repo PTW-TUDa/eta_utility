@@ -348,7 +348,7 @@ class NodeLocal(Node, protocol="local"):
 
     @classmethod
     def _from_dict(cls, dikt: dict[str, Any]) -> NodeLocal:
-        """Create a modblocalus node from a dictionary of node information.
+        """Create a local node from a dictionary of node information.
 
         :param dikt: dictionary with node information.
         :return: NodeLocal object.
