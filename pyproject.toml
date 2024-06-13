@@ -194,28 +194,20 @@ fix = false
 
 [tool.ruff.lint]
 select = [
-    "F", # Pyflakes
-    "E", "W",# Pycodestyle, Error and Warning
-    "I", # Isort
-    "N", # Pep8-naming conventions
-    "UP", # Pyupgrade
-    "ASYNC", # flake8-asyncio
-    "COM", # flake8-commas
-    "C4", # flake8-comprehensions
-    "FA", # flake8-future-annotations
-    "T20", # flake8-print
-    "INP", # flake8-no-pep420
-    "LOG", # flake8-logging
-    "NPY", # NumPy-specific
+    "F",       # Pyflakes
+    "E", "W",  # Pycodestyle, Error and Warning
+    "I",       # Isort
+    "N",       # Pep8-naming conventions
+    "UP",      # Pyupgrade
+    "PL",      # Pylint
+    "RUF",     # Ruff
+    "NPY",     # NumPy-specific
 
-    # Consider fixing these:
-    "PT", # flake8-pytest-style
-    "RUF", # Ruff
-    "SIM", # flake8-simplify
-    # "DTZ", # flake8-datetimez
-    # "D", # pydocstyle
-    # "C", # McCabe complexity
-    "PL", # Pylint
+    # Flake8:
+    # asyncio, commas, comprehensions, eradicate, future-annotations,
+    # logging, no-pep420, print, pytest-style, simplify
+    "ASYNC","COM", "C4", "ERA", "FA", "LOG", "INP", "T20", "PT", "SIM",
+
     ]
 
 ignore = [
@@ -226,10 +218,13 @@ ignore = [
 ]
 
 
-[tool.ruff.lint.extend-per-file-ignores]  # TODO: Consider rechecking the following rules
-"__init__.py" = ["F401", "D104"]
-"test/*" = ["INP001", "RUF012"]
-"examples/*" = ["INP001"]
+[tool.ruff.lint.extend-per-file-ignores]
+"__init__.py" = ["PLC0414"]
+"test/*" = ["RUF012"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+force-wrap-aliases = true
 
 [tool.ruff.lint.pylint]
 max-args = 17

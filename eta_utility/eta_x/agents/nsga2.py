@@ -15,8 +15,10 @@ from eta_utility import get_logger
 from eta_utility.util_julia import check_julia_package
 
 if check_julia_package():
-    from julia import Main as Jl
-    from julia import ju_extensions
+    from julia import (
+        Main as Jl,
+        ju_extensions,
+    )
     from julia.ju_extensions.Agents import Nsga2 as ju_NSGA2
 
 if TYPE_CHECKING:

@@ -6,15 +6,11 @@ import pytest
 from examples.cyber_physical_system.main import get_path as get_cps_path
 from examples.damped_oscillator.main import (
     experiment_conventional as ex_oscillator,
-)
-from examples.damped_oscillator.main import (
     get_path as get_oscillator_path,
 )
 from examples.pendulum.main import (
     conventional as ex_pendulum_conventional,
-)
-from examples.pendulum.main import get_path as get_pendulum_path
-from examples.pendulum.main import (
+    get_path as get_pendulum_path,
     machine_learning as ex_pendulum_learning,
 )
 

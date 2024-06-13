@@ -377,7 +377,7 @@ class LiveConnect(AbstractContextManager):
                                 errors = True
         if errors:
             log.error("Not all required config parameters were found. Exiting.")
-            sys.exit(1)  # TODO: rewrite
+            sys.exit(1)
 
     @classmethod
     def _read_config(
