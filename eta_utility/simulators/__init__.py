@@ -1,1 +1,4 @@
-from .fmu import FMU2MESlave, FMUSimulator
+from .fmu import (
+    FMU2MESlave as FMU2MESlave,
+    FMUSimulator as FMUSimulator,
+)

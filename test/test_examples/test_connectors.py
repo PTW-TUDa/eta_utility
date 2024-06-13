@@ -101,7 +101,7 @@ class TestEmonio:
             server._server.data_bank.set_discrete_inputs(0, [1])
             yield server
 
-    values = [230, 1]
+    values = (230, 1)
 
     def test_live(self, server, url):
         result = live_from_dict(url)

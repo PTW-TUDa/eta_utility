@@ -13,8 +13,10 @@ except ModuleNotFoundError:
         name="pygame",
     )
 else:
-    from gymnasium.envs.classic_control.pendulum import PendulumEnv as GymPendulum
-    from gymnasium.envs.classic_control.pendulum import angle_normalize
+    from gymnasium.envs.classic_control.pendulum import (
+        PendulumEnv as GymPendulum,
+        angle_normalize,
+    )
 
 from eta_utility import get_logger
 from eta_utility.eta_x.envs import BaseEnv, StateConfig, StateVar

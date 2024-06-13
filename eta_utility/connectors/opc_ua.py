@@ -5,8 +5,10 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import socket
-from concurrent.futures import CancelledError as ConCancelledError
-from concurrent.futures import TimeoutError as ConTimeoutError
+from concurrent.futures import (
+    CancelledError as ConCancelledError,
+    TimeoutError as ConTimeoutError,
+)
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
