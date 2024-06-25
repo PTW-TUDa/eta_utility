@@ -15,7 +15,7 @@ import numpy as np
 
 from eta_utility import get_logger, json_import
 from eta_utility.connectors import name_map_from_node_sequence
-from eta_utility.connectors.base_classes import BaseConnection
+from eta_utility.connectors.base_classes import Connection
 from eta_utility.connectors.node import Node
 
 if TYPE_CHECKING:
@@ -131,7 +131,7 @@ class LiveConnect(AbstractContextManager):
         #: Name of the system.
         self.name: str | None = name.strip() if name is not None else None
         #: Connection objects to the resources.
-        self._connections: dict[str, BaseConnection] = BaseConnection.from_nodes(nodes)
+        self._connections: dict[str, Connection] = Connection.from_nodes(nodes)
 
         #: Mapping of all nodes.
         self._nodes: dict[str, Node] = name_map_from_node_sequence(nodes)

@@ -24,12 +24,12 @@ if TYPE_CHECKING:
 
     from eta_utility.type_hints import Nodes, TimeStep
 
-from .base_classes import BaseSeriesConnection, SubscriptionHandler
+from .base_classes import SeriesConnection, SubscriptionHandler
 
 log = get_logger("connectors.entso-e")
 
 
-class ENTSOEConnection(BaseSeriesConnection[NodeEntsoE], protocol="entsoe"):
+class ENTSOEConnection(SeriesConnection[NodeEntsoE], protocol="entsoe"):
     """
     ENTSOEConnection is a class to download and upload multiple features from and to the ENTSO-E transparency platform
     database as timeseries. The platform contains data about the european electricity markets.

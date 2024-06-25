@@ -10,6 +10,7 @@ from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.vec_env import VecEnv, VecNormalize
 
 from eta_utility import get_logger
+from eta_utility.util import deprecated
 
 if TYPE_CHECKING:
     import io
@@ -244,7 +245,7 @@ class MathSolver(BaseAlgorithm):
         tb_log_name: str = "run",
         reset_num_timesteps: bool = True,
         progress_bar: bool = False,
-    ) -> MPCBasic:
+    ) -> MathSolver:
         """The MPC approach cannot learn a new model. Specify the model attribute as a pyomo Concrete model instead,
         to use the prediction function of this agent.
 
@@ -269,7 +270,7 @@ class MathSolver(BaseAlgorithm):
         print_system_info: bool = False,
         force_reset: bool = True,
         **kwargs: Any,
-    ) -> MPCBasic:
+    ) -> MathSolver:
         """
         Load the model from a zip-file.
         Warning: ``load`` re-creates the model from scratch, it does not update it in-place!
@@ -288,10 +289,11 @@ class MathSolver(BaseAlgorithm):
         """
         if env is None:
             raise ValueError("Parameter env must be specified.")
-        model: MPCBasic = super().load(path, env, device, custom_objects, print_system_info, force_reset, **kwargs)
+        model: MathSolver = super().load(path, env, device, custom_objects, print_system_info, force_reset, **kwargs)
 
         return model
 
 
-# Keep compatibility with old name MPCBasic
-MPCBasic = MathSolver
+@deprecated("Use `MathSolver` instead of `MPCBasic`.")
+class MPCBasic(MathSolver):
+    """Deprecated MPCBasic class. Use `MathSolver` instead."""

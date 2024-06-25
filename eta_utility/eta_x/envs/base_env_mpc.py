@@ -207,7 +207,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         assert self._concrete_model is not None, (
             "Access the 'model' attribute or call reset at least once before "
             "trying to use the environment. This initializes the model and "
-            "should be done automatically when using the MPCBasic Algorithm."
+            "should be done automatically when using the MathSolver agent."
         )
 
         observations = self.update()
@@ -238,7 +238,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         assert self._concrete_model is not None, (
             "Access the 'model' attribute or call reset at least once before "
             "trying to use the environment. This initializes the model and "
-            "should be done automatically when using the MPCBasic Algorithm."
+            "should be done automatically when using the MathSolver agent."
         )
 
         # Update shift counter for rolling MPC approach
@@ -544,7 +544,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         assert self._concrete_model is not None, (
             "Access the 'model' attribute or call reset at least once before "
             "trying to use the environment. This initializes the model and "
-            "should be done automatically when using the MPCBasic Algorithm."
+            "should be done automatically when using the MathSolver agent."
         )
 
         # append string to non indexed values that are used to set indexed parameters.
@@ -590,7 +590,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         assert self._concrete_model is not None, (
             "Access the 'model' attribute or call reset at least once before "
             "trying to use the environment. This initializes the model and "
-            "should be done automatically when using the MPCBasic Algorithm."
+            "should be done automatically when using the MathSolver agent."
         )
         solution = {}
 

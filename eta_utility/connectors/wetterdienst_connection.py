@@ -23,14 +23,14 @@ from eta_utility.connectors.node import (
     NodeWetterdienstPrediction,
 )
 
-from .base_classes import BaseSeriesConnection, SubscriptionHandler
+from .base_classes import SeriesConnection, SubscriptionHandler
 
 log = get_logger("connectors.wetterdienst")
 
 NW = TypeVar("NW", bound=NodeWetterdienst)
 
 
-class WetterdienstConnection(Generic[NW], BaseSeriesConnection[NW], ABC):
+class WetterdienstConnection(Generic[NW], SeriesConnection[NW], ABC):
     """
     The WetterdienstConnection class is a connector to the Wetterdienst API for retrieving weather data.
     This class is an abstract base class and should not be used directly. Instead, use the subclasses
