@@ -99,7 +99,7 @@ def scenario_from_csv(
     else:
         _interpolation_method = list(interpolation_method)
 
-    # scaling needs to be a list, so on case of None create a list of Nones
+    # scaling needs to be a list, so in case of None create a list of Nones
     if not isinstance(scaling_factors, Sequence):
         if len(_paths) > 1:
             raise ValueError("The scaling factors need to be defined for each path")
@@ -110,7 +110,7 @@ def scenario_from_csv(
     else:
         _scaling_factors = list(scaling_factors)
 
-    # time conversion string needs to be a list, so on case of None create a list of Nones
+    # time conversion string needs to be a list, so in case of None create a list of Nones
     if isinstance(time_conversion_str, str):
         _time_conversion_str = [time_conversion_str] * len(_paths)
     elif len(time_conversion_str) != len(_paths):
@@ -119,7 +119,7 @@ def scenario_from_csv(
         _time_conversion_str = list(time_conversion_str)
 
     # columns to consider as datetime values (infer_datetime_from)
-    # needs to be a list, so on case of None create a list of Nones
+    # needs to be a list, so in case of None create a list of Nones
     if isinstance(infer_datetime_from, str):
         _infer_datetime_from: list[str | Sequence[int]] = [infer_datetime_from] * len(_paths)
     else:
