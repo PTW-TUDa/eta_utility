@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Sized
 from typing import TYPE_CHECKING, TypeVar
 
-from eta_utility.connectors.base_classes import BaseConnection
+from eta_utility.connectors.base_classes import Connection
 from eta_utility.connectors.node import Node
 
 if TYPE_CHECKING:
@@ -23,7 +23,7 @@ def connections_from_nodes(
     key_cert: KeyCertPair | None = None,
 ) -> dict[str, Any]:
     """The functionality of this function is outdated,
-    instead use directly the from_node function of BaseConnection
+    instead use directly the from_node function of Connection
 
     Take a list of nodes and return a list of connections.
 
@@ -34,7 +34,7 @@ def connections_from_nodes(
     :param key_cert: Key and certificate pair object from eta_utility for authorization with servers.
     :return: Dictionary of connection objects {hostname: connection}.
     """
-    return BaseConnection.from_nodes(nodes, usr=usr, pwd=pwd, api_token=eneffco_api_token, key_cert=key_cert)
+    return Connection.from_nodes(nodes, usr=usr, pwd=pwd, api_token=eneffco_api_token, key_cert=key_cert)
 
 
 N = TypeVar("N", bound=Node)

@@ -11,7 +11,7 @@ import pathlib
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
-from eta_utility.connectors.base_classes import BaseConnection
+from eta_utility.connectors.base_classes import Connection
 
 try:
     import keyboard
@@ -125,7 +125,7 @@ def execution_loop(
     log.setLevel(verbosity * 10)
 
     nodes = Node.from_excel(nodes_file, nodes_sheet)
-    connections = BaseConnection.from_nodes(nodes, usr=eneffco_usr, pwd=eneffco_pw, api_token=eneffco_api_token)
+    connections = Connection.from_nodes(nodes, usr=eneffco_usr, pwd=eneffco_pw, api_token=eneffco_api_token)
 
     # Start handler
     subscription_handler = sub_handlers.MultiSubHandler()

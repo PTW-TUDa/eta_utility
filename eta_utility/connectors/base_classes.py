@@ -14,7 +14,7 @@ from dateutil import tz
 from eta_utility import url_parse
 from eta_utility.connectors.node import Node
 from eta_utility.type_hints.types_connectors import N, Nodes
-from eta_utility.util import ensure_timezone, round_timestamp
+from eta_utility.util import deprecated, ensure_timezone, round_timestamp
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -182,9 +182,7 @@ class Connection(ABC, Generic[N]):
         self.exc: BaseException | None = None
 
     @classmethod
-    def from_node(
-        cls, node: Nodes[Node], usr: str | None = None, pwd: str | None = None, **kwargs: Any
-    ) -> BaseConnection:
+    def from_node(cls, node: Nodes[Node], usr: str | None = None, pwd: str | None = None, **kwargs: Any) -> Connection:
         """Return a single connection for nodes with the same url netloc.
           Initialize the connection object from a node object. When a list of Node objects is provided,
           from_node checks if all nodes match the same connection; it throws an error if they don't.
@@ -193,7 +191,7 @@ class Connection(ABC, Generic[N]):
         :param node: Node to initialize from.
         :param kwargs: Other arguments are ignored.
         :raises: ValueError: if not all nodes match the same connection.
-        :return: BaseConnection object
+        :return: Connection object
         """
         # Make sure nodes is always a set of nodes
         nodes = {node} if not isinstance(node, Iterable) else set(node)
@@ -216,7 +214,7 @@ class Connection(ABC, Generic[N]):
         return connection
 
     @classmethod
-    def from_nodes(cls, nodes: Nodes[Node], **kwargs: Any) -> dict[str, BaseConnection]:
+    def from_nodes(cls, nodes: Nodes[Node], **kwargs: Any) -> dict[str, Connection]:
         """Returns a dictionary of connections for nodes with the same url netloc.
           This method handles different Connections, unlike from_node().
           The keys of the dictionary are the netlocs of the nodes and
@@ -225,9 +223,9 @@ class Connection(ABC, Generic[N]):
 
         :param nodes: List of nodes to initialize from.
         :param kwargs: Other arguments are ignored.
-        :return: Dictionary of BaseConnection objects with the netloc as key.
+        :return: Dictionary of Connection objects with the netloc as key.
         """
-        connections: dict[str, BaseConnection] = {}
+        connections: dict[str, Connection] = {}
         nodes = {nodes} if not isinstance(nodes, Iterable) else set(nodes)
 
         for node in nodes:
@@ -244,7 +242,7 @@ class Connection(ABC, Generic[N]):
 
     @classmethod
     @abstractmethod
-    def _from_node(cls, node: N, **kwargs: Any) -> BaseConnection:
+    def _from_node(cls, node: N, **kwargs: Any) -> Connection:
         """Initialize the object from a node with corresponding protocol
 
         :return: Initialized connection object.
@@ -316,11 +314,12 @@ class Connection(ABC, Generic[N]):
         return _nodes
 
 
-# Keep compatibility with old name BaseConnection
-BaseConnection = Connection
+@deprecated("Use `Connection` instead.")
+class BaseConnection(Connection[N], ABC):
+    """Deprecated BaseConnection class. Use Connection instead."""
 
 
-class BaseSeriesConnection(Connection[N], ABC):
+class SeriesConnection(Connection[N], ABC):
     """Connection object for protocols with the ability to provide access to timeseries data.
 
     :param url: URL of the server to connect to.
@@ -375,3 +374,8 @@ class BaseSeriesConnection(Connection[N], ABC):
         :param kwargs: Any additional arguments required by subclasses.
         """
         pass
+
+
+@deprecated("Use `SeriesConnection` instead.")
+class BaseSeriesConnection(SeriesConnection[N], ABC):
+    """Deprecated BaseSeriesConnection class. Use SeriesConnection instead."""

@@ -21,12 +21,12 @@ if TYPE_CHECKING:
 
     from eta_utility.type_hints import Nodes, TimeStep
 
-from .base_classes import BaseSeriesConnection, SubscriptionHandler
+from .base_classes import SeriesConnection, SubscriptionHandler
 
 log = get_logger("connectors.eneffco")
 
 
-class EnEffCoConnection(BaseSeriesConnection[NodeEnEffCo], protocol="eneffco"):
+class EnEffCoConnection(SeriesConnection[NodeEnEffCo], protocol="eneffco"):
     """
     EnEffCoConnection is a class to download and upload multiple features from and to the EnEffCo database as
     timeseries.
