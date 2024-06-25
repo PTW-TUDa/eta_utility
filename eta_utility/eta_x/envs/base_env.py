@@ -125,7 +125,7 @@ class BaseEnv(Env, abc.ABC):
         #: Current step of the model (total over all episodes).
         self.n_steps_longtime: int = 0
         #: Render mode for rendering the environment
-        self.render_mode: str | None | None = render_mode
+        self.render_mode: str | None = render_mode
 
         # Set some standard environment settings
         #: Duration of one episode in seconds.
