@@ -1,5 +1,3 @@
-import socket
-
 import pandas as pd
 import pytest
 import requests
@@ -82,8 +80,8 @@ def test_example_read_wetterdienst():
 
 class TestEmonio:
     @pytest.fixture(scope="class")
-    def url(self, config_modbus_port):
-        return f"{socket.gethostbyname(socket.gethostname())}:{config_modbus_port}"
+    def url(self, config_modbus_port, config_host_ip):
+        return f"{config_host_ip}:{config_modbus_port}"
 
     @pytest.fixture(scope="class")
     def nodes(self, url) -> list[Node]:

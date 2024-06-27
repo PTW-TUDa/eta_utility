@@ -46,10 +46,7 @@ def test_check_access(config_eneffco):
     except Exception as e:
         pytest.fail(str(e))
 
-    if result.status_code == 200:
-        assert True
-    else:
-        pytest.fail("Could not access eneffco server for testing.")
+    assert result.status_code == 200, "Could not access eneffco server for testing."
 
 
 def test_eneffco_read(config_eneffco):

@@ -1,5 +1,3 @@
-import socket
-
 import pytest
 
 from eta_utility import json_import
@@ -8,29 +6,29 @@ from eta_utility.servers import OpcUaServer
 
 
 @pytest.fixture()
-def nodes_from_config(config_live_connect):
+def nodes_from_config(config_live_connect, config_host_ip):
     config = json_import(config_live_connect["file"])
 
     # Combine config for nodes with server config
     for n in config["system"][0]["nodes"]:
         server = config["system"][0]["servers"][n["server"]]
         if "usr" in server and "pwd" in server:
-            n["url"] = f"https://{server['usr']}:{server['pwd']}@{socket.gethostbyname(socket.gethostname())}:4840"
+            n["url"] = f"https://{server['usr']}:{server['pwd']}@{config_host_ip}:4840"
         else:
-            n["url"] = f"https://{socket.gethostbyname(socket.gethostname())}:4840"
+            n["url"] = f"https://{config_host_ip}:4840"
         n["protocol"] = server["protocol"]
 
     return Node.from_dict(config["system"][0]["nodes"])
 
 
 @pytest.fixture()
-def setup_live_connect(config_live_connect, nodes_from_config):
+def setup_live_connect(config_live_connect, nodes_from_config, config_host_ip):
     server = OpcUaServer(6)
     server.create_nodes(nodes_from_config)
     server.allow_remote_admin(True)
 
     config = json_import(config_live_connect["file"])
-    config["system"][0]["servers"]["glt"]["url"] = f"{socket.gethostbyname(socket.gethostname())}:4840"
+    config["system"][0]["servers"]["glt"]["url"] = f"{config_host_ip}:4840"
 
     connector = LiveConnect.from_dict(**config)
 

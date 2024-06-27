@@ -1,5 +1,3 @@
-import socket
-
 import pytest
 
 from eta_utility.connectors import Node
@@ -46,14 +44,14 @@ nodes = (
 
 
 @pytest.fixture(scope="module")
-def local_nodes(config_modbus_port):
+def local_nodes(config_modbus_port, config_host_ip):
     _nodes = []
     for node in nodes:
         _nodes.extend(
             Node.from_dict(
                 {
                     **node,
-                    "ip": socket.gethostbyname(socket.gethostname()),
+                    "ip": config_host_ip,
                     "port": config_modbus_port,
                     "protocol": "modbus",
                     "mb_byteorder": "big",
@@ -85,8 +83,8 @@ def test_init_with(config_modbus_port):
 
 class TestServerOperations:
     @pytest.fixture(scope="class")
-    def server(self, config_modbus_port):
-        with ModbusServer(ip=socket.gethostbyname(socket.gethostname()), port=config_modbus_port) as server:
+    def server(self, config_modbus_port, config_host_ip):
+        with ModbusServer(ip=config_host_ip, port=config_modbus_port) as server:
             yield server
 
     def test_active(self, server):

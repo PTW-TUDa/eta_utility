@@ -56,7 +56,6 @@ lxml = "^4.9.3"
 requests = "^2.31.0"
 pymodbustcp = "==0.2.0"
 cryptography = "^41.0.4"
-fmpy = "^0.3.5"
 wetterdienst = {version="~0.82.0", python="^3.9"}  # breaking changes expected
 
 
@@ -89,16 +88,19 @@ blacken_docs = {version = "~1.16", optional = true}
 mypy = {version = "~1.9", optional = true}
 types-python-dateutil = {version = "^2.8.19.14", optional = true}
 types-requests = {version = "^2.31.0.4", optional = true}
+types-pytz = {version = "^2024.1.0.20240203", optional = true}
 # Ruff
 ruff = "^0.4.4"
 
+requests-cache = "^1.2.0"
+fmpy = "0.3.19"
 
 [tool.poetry.extras]
 develop = ["gymnasium", "torch", "stable_baselines3", "tensorboard", "pyomo",     # include eta_x
             "matplotlib", "keyboard", "pygame", "pyglet", "onnxruntime",    # include examples
             "pytest", "pytest-cov", "openpyxl", "sphinx", "sphinx-rtd-theme", "sphinx-copybutton", "pre-commit",
             "black", "blacken_docs", "mypy", "types-python-dateutil",
-            "types-requests", ]
+            "types-requests", "types-pytz", ]
 eta_x = ["gymnasium", "torch", "stable_baselines3", "tensorboard", "pyomo"]
 examples = ["matplotlib", "keyboard", "pygame", "pyglet", "onnxruntime"]
 
@@ -112,7 +114,7 @@ target_version = ["py39","py310", "py311"]
 
 
 [tool.mypy]
-python_version = 3.9
+python_version = "3.9"
 files = ["eta_utility", "examples"]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
@@ -143,7 +145,8 @@ module = [
     "matplotlib.*",
     "torch.*",
     "asyncua.*",
-    "wetterdienst.*"
+    "wetterdienst.*",
+    "requests_cache.*",
 ]
 ignore_missing_imports = true
 [[tool.mypy.overrides]]

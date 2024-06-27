@@ -638,14 +638,14 @@ class ConfigOptRun:
             for p in reversed(self.path_results.parents):
                 if not p.is_dir():
                     p.mkdir()
-                    log.info(f"Directory created successfully: \n\t {p}")
+                    log.info(f"Directory created: \n\t {p}")
             self.path_results.mkdir()
-            log.info(f"Directory created successfully: \n\t {self.path_results}")
+            log.info(f"Directory created: \n\t {self.path_results}")
 
         if not self.path_series_results.is_dir():
             log.debug("Path for result series doesn't exist on your OS. Trying to create directories.")
             self.path_series_results.mkdir()
-            log.info(f"Directory created successfully: \n\t {self.path_series_results}")
+            log.info(f"Directory created: \n\t {self.path_series_results}")
 
     def set_env_info(self, env: type[BaseEnv]) -> None:
         """Set the environment information of the optimization run to represent the given environment.

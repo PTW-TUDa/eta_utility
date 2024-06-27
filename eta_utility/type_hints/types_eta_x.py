@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Optional, Union
 
 import numpy as np
-from stable_baselines3.common.type_aliases import (  # noqa:F401  # noqa:F401
+from stable_baselines3.common.type_aliases import (  # noqa:F401
     GymEnv,
     GymObs as ObservationType,
     GymResetReturn as ResetResult,

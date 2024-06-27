@@ -44,7 +44,11 @@ class OpcUaServer:
         #: URL of the OPC UA Server.
         self.url: str
         if ip is None:
-            self.url = f"opc.tcp://{socket.gethostbyname(socket.gethostname())}:{port}"
+            try:
+                host = socket.gethostbyname(socket.gethostname())
+            except socket.gaierror:
+                host = "127.0.0.1"
+            self.url = f"opc.tcp://{host}:{port}"
         else:
             self.url = f"opc.tcp://{ip}:{port}"
         log.info(f"Server Address is {self.url}")
