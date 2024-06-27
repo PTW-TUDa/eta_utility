@@ -1,13 +1,14 @@
-""" The OPC UA module provides utilities for the flexible creation of OPC UA connections.
+"""The OPC UA module provides utilities for the flexible creation of OPC UA connections."""
 
-"""
 from __future__ import annotations
 
 import asyncio
 import concurrent.futures
 import socket
-from concurrent.futures import CancelledError as ConCancelledError
-from concurrent.futures import TimeoutError as ConTimeoutError
+from concurrent.futures import (
+    CancelledError as ConCancelledError,
+    TimeoutError as ConTimeoutError,
+)
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
@@ -26,28 +27,27 @@ from asyncua.sync import Client, Subscription
 from asyncua.ua import SecurityPolicy, uaerrors
 
 from eta_utility import KeyCertPair, Suppressor, get_logger
-from eta_utility.connectors.node import Node, NodeOpcUa
+from eta_utility.connectors.node import NodeOpcUa
 
 from .util import IntervalChecker, RetryWaiter
 
 if TYPE_CHECKING:
-    from typing import Any
     from collections.abc import Generator, Mapping, Sequence
+    from typing import Any
 
     # Sync import
     from asyncua.sync import SyncNode as SyncOpcNode
 
     # Async import
     # FIXME: add async import: from asyncua import Node as asyncSyncOpcNode
+    from eta_utility.type_hints import Nodes, TimeStep
 
-    from eta_utility.type_hints import AnyNode, Nodes, TimeStep
-
-from .base_classes import BaseConnection, SubscriptionHandler
+from .base_classes import Connection, SubscriptionHandler
 
 log = get_logger("connectors.opcua")
 
 
-class OpcUaConnection(BaseConnection, protocol="opcua"):
+class OpcUaConnection(Connection[NodeOpcUa], protocol="opcua"):
     """The OPC UA Connection class allows reading and writing from and to OPC UA servers. Additionally,
     it implements a subscription method, which reads continuously in a specified interval.
 
@@ -63,7 +63,7 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
         usr: str | None = None,
         pwd: str | None = None,
         *,
-        nodes: Nodes | None = None,
+        nodes: Nodes[NodeOpcUa] | None = None,
         key_cert: KeyCertPair | None = None,
         **kwargs: Any,
     ) -> None:
@@ -91,7 +91,7 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
 
     @classmethod
     def _from_node(
-        cls, node: AnyNode, usr: str | None = None, pwd: str | None = None, **kwargs: Any
+        cls, node: NodeOpcUa, usr: str | None = None, pwd: str | None = None, **kwargs: Any
     ) -> OpcUaConnection:
         """Initialize the connection object from an OpcUa protocol Node object.
 
@@ -108,7 +108,7 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
         else:
             raise ValueError(
                 "Tried to initialize OpcUaConnection from a node that does not specify opcua as its"
-                "protocol: {}.".format(node.name)
+                f"protocol: {node.name}."
             )
 
     @classmethod
@@ -127,10 +127,10 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
         :param pwd: Password in OPC UA for login.
         :return: OpcUaConnection object.
         """
-        nodes = [Node(name=opc_id, usr=usr, pwd=pwd, url=url, protocol="opcua", opc_id=opc_id) for opc_id in ids]
+        nodes = [NodeOpcUa(name=opc_id, usr=usr, pwd=pwd, url=url, protocol="opcua", opc_id=opc_id) for opc_id in ids]
         return cls(nodes[0].url, usr, pwd, nodes=nodes)
 
-    def read(self, nodes: Nodes | None = None) -> pd.DataFrame:
+    def read(self, nodes: Nodes[NodeOpcUa] | None = None) -> pd.DataFrame:
         """
         Read some manually selected values from OPC UA capable controller.
 
@@ -161,15 +161,14 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
                 raise ConnectionError(str(e)) from e
 
         values: dict[str, list] = {}
-        with self._connection():
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                results = executor.map(read_node, _nodes)
+        with self._connection(), concurrent.futures.ThreadPoolExecutor() as executor:
+            results = executor.map(read_node, _nodes)
         for result in results:
             values.update(result)
 
         return pd.DataFrame(values, index=[self._assert_tz_awareness(datetime.now())])
 
-    def write(self, values: Mapping[AnyNode, Any]) -> None:
+    def write(self, values: Mapping[NodeOpcUa, Any]) -> None:
         """
         Writes some manually selected values on OPC UA capable controller.
 
@@ -193,7 +192,7 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
                 except RuntimeError as e:
                     raise ConnectionError(str(e)) from e
 
-    def create_nodes(self, nodes: Nodes) -> None:
+    def create_nodes(self, nodes: Nodes[NodeOpcUa]) -> None:
         """Create nodes on the server from a list of nodes. This will try to create the entire node path.
 
         :param nodes: List or set of nodes to create.
@@ -203,11 +202,10 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
         def create_object(parent: SyncOpcNode, child: NodeOpcUa) -> SyncOpcNode:
             children: list[SyncOpcNode] = asyncua.sync._to_sync(parent.tloop, parent.get_children())
             for obj in children:
-                ident = obj.nodeid.Identifier if type(obj.nodeid.Identifier) is str else obj.nodeid.Identifier
+                ident = obj.nodeid.Identifier if isinstance(obj.nodeid.Identifier, str) else obj.nodeid.Identifier
                 if child.opc_path_str == ident:
                     return obj
-            else:
-                return asyncua.sync._to_sync(parent.tloop, parent.add_object(child.opc_id, child.opc_name))
+            return asyncua.sync._to_sync(parent.tloop, parent.add_object(child.opc_id, child.opc_name))
 
         _nodes = self._validate_nodes(nodes)
 
@@ -246,7 +244,7 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
                 except RuntimeError as e:
                     raise ConnectionError(str(e)) from e
 
-    def delete_nodes(self, nodes: Nodes) -> None:
+    def delete_nodes(self, nodes: Nodes[NodeOpcUa]) -> None:
         """Delete the given nodes and their parents (if the parents do not have other children).
 
         :param nodes: List or set of nodes to be deleted.
@@ -278,7 +276,9 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
                 except RuntimeError as e:
                     raise ConnectionError(str(e)) from e
 
-    def subscribe(self, handler: SubscriptionHandler, nodes: Nodes | None = None, interval: TimeStep = 1) -> None:
+    def subscribe(
+        self, handler: SubscriptionHandler, nodes: Nodes[NodeOpcUa] | None = None, interval: TimeStep = 1
+    ) -> None:
         """Subscribe to nodes and call handler when new data is available. Basic architecture of the subscription is
         the client- server communication via subscription notify. This function works asynchronously. Subscriptions
         must always be closed using the close_sub function (use try, finally!).
@@ -477,7 +477,7 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
         except ConCancelledError as e:
             raise ConnectionError(f"Connection cancelled by host: {self.url}") from e
         except (RuntimeError, ConnectionError) as e:
-            raise ConnectionError(f"OPC Connection Error: {self.url}: {str(e)}") from e
+            raise ConnectionError(f"OPC Connection Error: {self.url}: {e!s}") from e
         else:
             log.debug(f"Connected to OPC UA server: {self.url}")
             self._connected = True
@@ -523,7 +523,7 @@ class OpcUaConnection(BaseConnection, protocol="opcua"):
         finally:
             self._disconnect()
 
-    def _validate_nodes(self, nodes: Nodes | None) -> set[NodeOpcUa]:  # type: ignore
+    def _validate_nodes(self, nodes: Nodes[NodeOpcUa] | None) -> set[NodeOpcUa]:
         vnodes = super()._validate_nodes(nodes)
         _nodes = set()
         for node in vnodes:

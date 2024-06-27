@@ -71,13 +71,11 @@ def vectorize_environment(
 
     if "verbose" in env_settings and env_settings["verbose"] is not None:
         verbose = env_settings.pop("verbose")
-    else:
-        verbose = verbose
 
     # Create the vectorized environment
     def create_env(env_id: int) -> Env:
         env_id += 1
-        return env(env_id, config_run, verbose, callback, **env_settings)
+        return env(env_id=env_id, config_run=config_run, verbose=verbose, callback=callback, **env_settings)
 
     envs: VecEnv | VecNormalize
     envs = vectorizer([partial(create_env, i) for i in range(n)])
@@ -348,7 +346,7 @@ def is_vectorized_env(env: BaseEnv | VecEnv | VecNormalize | None) -> bool:
     if env is None:
         return False
 
-    return True if hasattr(env, "num_envs") else False
+    return hasattr(env, "num_envs")
 
 
 def is_env_closed(env: BaseEnv | VecEnv | VecNormalize | None) -> bool:

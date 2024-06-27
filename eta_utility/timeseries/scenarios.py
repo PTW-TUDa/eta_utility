@@ -92,14 +92,14 @@ def scenario_from_csv(
         _paths.append(path if isinstance(path, pathlib.Path) else pathlib.Path(path))
 
     # interpolation methods needs to be a list, so in case of None create a list of Nones
-    if type(interpolation_method) is str or not isinstance(interpolation_method, Sized):
+    if isinstance(interpolation_method, str) or not isinstance(interpolation_method, Sized):
         _interpolation_method = [interpolation_method] * len(_paths)
     elif len(interpolation_method) != len(_paths):
         raise ValueError("The number of interpolation methods does not match the number of paths.")
     else:
         _interpolation_method = list(interpolation_method)
 
-    # scaling needs to be a list, so on case of None create a list of Nones
+    # scaling needs to be a list, so in case of None create a list of Nones
     if not isinstance(scaling_factors, Sequence):
         if len(_paths) > 1:
             raise ValueError("The scaling factors need to be defined for each path")
@@ -110,7 +110,7 @@ def scenario_from_csv(
     else:
         _scaling_factors = list(scaling_factors)
 
-    # time conversion string needs to be a list, so on case of None create a list of Nones
+    # time conversion string needs to be a list, so in case of None create a list of Nones
     if isinstance(time_conversion_str, str):
         _time_conversion_str = [time_conversion_str] * len(_paths)
     elif len(time_conversion_str) != len(_paths):
@@ -119,7 +119,7 @@ def scenario_from_csv(
         _time_conversion_str = list(time_conversion_str)
 
     # columns to consider as datetime values (infer_datetime_from)
-    # needs to be a list, so on case of None create a list of Nones
+    # needs to be a list, so in case of None create a list of Nones
     if isinstance(infer_datetime_from, str):
         _infer_datetime_from: list[str | Sequence[int]] = [infer_datetime_from] * len(_paths)
     else:
@@ -129,8 +129,7 @@ def scenario_from_csv(
     if total_time is not None:
         total_time = total_time if isinstance(total_time, timedelta) else timedelta(seconds=total_time)
 
-    resample = True if resample_time is not None else False
-    if resample and resample_time is not None:
+    if resample_time is not None:
         _resample_time = resample_time if isinstance(resample_time, timedelta) else timedelta(seconds=resample_time)
     else:
         _resample_time = timedelta(seconds=0)
@@ -152,7 +151,7 @@ def scenario_from_csv(
             infer_datetime_from=_infer_datetime_from[i],
             time_conversion_str=_time_conversion_str[i],
         )
-        if resample:
+        if resample_time is not None:
             data = timeseries.df_resample(
                 data,
                 _resample_time,

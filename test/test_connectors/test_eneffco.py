@@ -34,25 +34,22 @@ async def stop_execution(sleep_time):
     raise KeyboardInterrupt
 
 
-@pytest.fixture()
+@pytest.fixture(autouse=True)
 def _local_requests(monkeypatch):
     monkeypatch.setattr(requests, "request", request)
 
 
-def test_check_access(_local_requests, config_eneffco):
+def test_check_access(config_eneffco):
     # Check access to see, whether anything responds
     try:
         result = requests.request("GET", config_eneffco["url"])
     except Exception as e:
         pytest.fail(str(e))
 
-    if result.status_code == 200:
-        assert True
-    else:
-        pytest.fail("Could not access eneffco server for testing.")
+    assert result.status_code == 200, "Could not access eneffco server for testing."
 
 
-def test_eneffco_read(_local_requests, config_eneffco):
+def test_eneffco_read(config_eneffco):
     """Test eneffco read function"""
 
     node = Node(
@@ -84,7 +81,7 @@ def test_eneffco_read(_local_requests, config_eneffco):
     assert len(res2.index) == 10
 
 
-def test_eneffco_read_info(_local_requests, config_eneffco, eneffco_nodes):
+def test_eneffco_read_info(config_eneffco, eneffco_nodes):
     """Test the read_info() method"""
     server = EnEffCoConnection(
         eneffco_nodes["node"].url,
@@ -99,7 +96,7 @@ def test_eneffco_read_info(_local_requests, config_eneffco, eneffco_nodes):
     assert len(res) > 0
 
 
-def test_eneffco_write(_local_requests, config_eneffco, eneffco_nodes):
+def test_eneffco_write(config_eneffco, eneffco_nodes):
     """Test writing a single node"""
     server = EnEffCoConnection(
         eneffco_nodes["node_write"].url,
@@ -111,7 +108,7 @@ def test_eneffco_write(_local_requests, config_eneffco, eneffco_nodes):
     server.write({eneffco_nodes["node"]: sample_series})
 
 
-def test_eneffco_subscribe_multi(_local_requests, config_eneffco, eneffco_nodes):
+def test_eneffco_subscribe_multi(config_eneffco, eneffco_nodes):
     """Test eneffco subscribe_series function; this needs network access"""
 
     # Test subscribing nodes with multiple time steps
@@ -138,7 +135,7 @@ def test_eneffco_subscribe_multi(_local_requests, config_eneffco, eneffco_nodes)
         handler.close()
 
 
-def test_connection_from_node_ids(_local_requests, config_eneffco):
+def test_connection_from_node_ids(config_eneffco):
     server = EnEffCoConnection.from_ids(
         ids=["CH1.Elek_U.L1-N", "Pu3.425.ThHy_Q"],
         url=config_eneffco["url"],

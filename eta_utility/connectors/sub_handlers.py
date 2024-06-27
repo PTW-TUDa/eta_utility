@@ -16,12 +16,14 @@ import pandas as pd
 from dateutil import tz
 
 from eta_utility import get_logger
+from eta_utility.connectors.node import Node
 
 if TYPE_CHECKING:
-    from typing import Any, Deque, TextIO
     from collections.abc import Sequence
     from types import TracebackType
-    from eta_utility.type_hints import AnyNode, Number, Path, TimeStep
+    from typing import Any, TextIO
+
+    from eta_utility.type_hints import Number, Path, TimeStep
 
 from .base_classes import SubscriptionHandler
 
@@ -48,7 +50,7 @@ class MultiSubHandler(SubscriptionHandler):
 
         self._handlers.append(sub_handler)
 
-    def push(self, node: AnyNode, value: Any, timestamp: datetime | None = None) -> None:
+    def push(self, node: Node, value: Any, timestamp: datetime | None = None) -> None:
         """Receive data from a subcription. This should contain the node that was requested, a value and a timestemp
         when data was received. Push data to all registered sub-handlers.
 
@@ -99,7 +101,7 @@ class CsvSubHandler(SubscriptionHandler):
         self._thread: threading.Thread = threading.Thread(target=self._run)
         self._thread.start()
 
-    def push(self, node: AnyNode, value: Any, timestamp: datetime | None = None) -> None:
+    def push(self, node: Node, value: Any, timestamp: datetime | None = None) -> None:
         """Receive data from a subcription. THis should contain the node that was requested, a value and a timestemp
         when data was received. If the timestamp is not provided, current time will be used.
 
@@ -194,8 +196,8 @@ class _CSVFileDB(AbstractContextManager):
         #: Ending position of the header in the file stream (used for extending the header).
         self._endof_header: int = 0
         #: Write buffer.
-        self._buffer: Deque[dict[str, str]] = deque()
-        self._timebuffer: Deque[datetime] = deque()
+        self._buffer: deque[dict[str, str]] = deque()
+        self._timebuffer: deque[datetime] = deque()
         #: Latest timestamp in the write-buffer.
         self._latest_ts: datetime = datetime.fromtimestamp(10000, tz=tz.tzlocal())
         #: Latest known value for each of the names in the header.
@@ -331,9 +333,8 @@ class _CSVFileDB(AbstractContextManager):
                 # Store current position for next insertion, then read next chunk
                 nextpos_insert = self._file.tell()
                 chunk = newchunk
-            else:
-                self._file.seek(nextpos_insert)
-                self._file.write(chunk)
+            self._file.seek(nextpos_insert)
+            self._file.write(chunk)
 
         return pos
 
@@ -357,7 +358,7 @@ class _CSVFileDB(AbstractContextManager):
             raise RuntimeError("Enter context manager before trying to write to CSVFileDB.")
 
         # Check whether the file size limit is exceeded to initiate switching to a new file.
-        size_limit_exceeded = True if self.filepath.stat().st_size > self.file_size_limit else False
+        size_limit_exceeded = self.filepath.stat().st_size > self.file_size_limit
 
         # Determine how large the buffer should be, depending on whether data is being flushed to file or preparing to
         # switch to a new file.
@@ -453,7 +454,7 @@ class DFSubHandler(SubscriptionHandler):
     :param write_interval: Interval between index values in the data frame (value to which time is rounded).
     :param size_limit: Number of rows to keep in memory.
     :param auto_fillna: If True, missing values in self._data are filled with the pandas-method
-                        df.fillna(method='ffill') each time self.data is called.
+                        df.ffill() each time self.data is called.
     """
 
     def __init__(self, write_interval: TimeStep = 1, size_limit: int = 100, auto_fillna: bool = True) -> None:
@@ -465,7 +466,7 @@ class DFSubHandler(SubscriptionHandler):
 
     def push(
         self,
-        node: AnyNode,
+        node: Node,
         value: Any | pd.Series | Sequence[Any],
         timestamp: datetime | pd.DatetimeIndex | TimeStep | None = None,
     ) -> None:
@@ -530,7 +531,7 @@ class DFSubHandler(SubscriptionHandler):
         """This contains the interval dataframe and will return a copy of that."""
         self._data_lock.acquire()
         if self.auto_fillna:
-            self._data.fillna(method="ffill", inplace=True)
+            self._data.ffill(inplace=True)
         data = self._data.replace(-np.inf, np.nan, inplace=False)
         self._data_lock.release()
         return data

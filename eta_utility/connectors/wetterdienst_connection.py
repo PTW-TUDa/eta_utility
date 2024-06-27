@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 import pandas as pd
 from wetterdienst import Settings
@@ -9,9 +9,10 @@ from wetterdienst.provider.dwd.mosmix.api import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation.api import DwdObservationRequest
 
 if TYPE_CHECKING:
-    from typing import Any
     from collections.abc import Mapping
-    from eta_utility.type_hints import AnyNode, Nodes, TimeStep
+    from typing import Any
+
+    from eta_utility.type_hints import Nodes, TimeStep
 
 from datetime import datetime, timedelta
 
@@ -22,14 +23,18 @@ from eta_utility.connectors.node import (
     NodeWetterdienstPrediction,
 )
 
-from .base_classes import BaseSeriesConnection, SubscriptionHandler
+from .base_classes import SeriesConnection, SubscriptionHandler
 
 log = get_logger("connectors.wetterdienst")
 
+NW = TypeVar("NW", bound=NodeWetterdienst)
 
-class WetterdienstConnection(BaseSeriesConnection, ABC):
+
+class WetterdienstConnection(Generic[NW], SeriesConnection[NW], ABC):
     """
     The WetterdienstConnection class is a connector to the Wetterdienst API for retrieving weather data.
+    This class is an abstract base class and should not be used directly. Instead, use the subclasses
+    :class:`WetterdienstObservationConnection` and :class:`WetterdienstPredictionConnection`.
 
     :param url: The base URL of the Wetterdienst API
     :param nodes: Nodes to select in connection
@@ -39,7 +44,7 @@ class WetterdienstConnection(BaseSeriesConnection, ABC):
     def __init__(
         self,
         *,
-        nodes: Nodes | None = None,
+        nodes: Nodes[NW] | None = None,
         settings: Settings | None = None,
         **kwargs: Any,
     ) -> None:
@@ -50,24 +55,26 @@ class WetterdienstConnection(BaseSeriesConnection, ABC):
         super().__init__("https://opendata.dwd.de/", nodes=nodes)  # dummy url
 
     @classmethod
-    def _from_node(cls, node: AnyNode, **kwargs: Any) -> WetterdienstConnection:
+    def _from_node(cls, node: NW, **kwargs: Any) -> WetterdienstConnection:
         """Initialize the connection object from an wetterdienst protocol node object
 
         :param node: Node to initialize from
         :param kwargs: Extra keyword arguments
         """
-        return cls(nodes=[node])
+        return cls(nodes=[node], **kwargs)
 
     @abstractmethod
     def read_series(
         self,
         from_time: datetime,
         to_time: datetime,
-        nodes: Nodes | None = None,
+        nodes: Nodes[NW] | None = None,
         interval: TimeStep = 60,
         **kwargs: Any,
     ) -> pd.DataFrame:
-        """Asbtract base method for read_series(). Is fully implemented in subclasses.
+        """Abstract base method for read_series(). Is fully implemented in
+        :func:`~wetterdienst.WetterdienstObservationConnection.read_series` and
+        :func:`~wetterdienst.WetterdienstPredictionConnection.read_series`.
 
         :param nodes: List of nodes to read values from.
         :param from_time: Starting time to begin reading (included in output).
@@ -81,7 +88,7 @@ class WetterdienstConnection(BaseSeriesConnection, ABC):
                 f"Timezone of from_time and to_time are different. Using from_time timezone: {from_time.tzinfo}"
             )
 
-    def read(self, nodes: Nodes | None = None) -> pd.DataFrame:
+    def read(self, nodes: Nodes[NW] | None = None) -> pd.DataFrame:
         """
         .. warning::
             Cannot read single values from the Wetterdienst API. Use read_series instead
@@ -91,7 +98,7 @@ class WetterdienstConnection(BaseSeriesConnection, ABC):
         """
         raise NotImplementedError("Cannot read single values from the Wetterdienst API. Use read_series instead")
 
-    def write(self, values: Mapping[AnyNode, Mapping[datetime, Any]], time_interval: timedelta | None = None) -> None:
+    def write(self, values: Mapping[NW, Any], time_interval: timedelta | None = None) -> None:
         """
         .. warning::
             Cannot write to the Wetterdienst API.
@@ -101,7 +108,7 @@ class WetterdienstConnection(BaseSeriesConnection, ABC):
         """
         raise NotImplementedError("Cannot write to the Wetterdienst API.")
 
-    def subscribe(self, handler: SubscriptionHandler, nodes: Nodes | None = None, interval: TimeStep = 1) -> None:
+    def subscribe(self, handler: SubscriptionHandler, nodes: Nodes[NW] | None = None, interval: TimeStep = 1) -> None:
         """Subscribe to nodes and call handler when new data is available. This will return only the
         last available values.
 
@@ -116,7 +123,7 @@ class WetterdienstConnection(BaseSeriesConnection, ABC):
         handler: SubscriptionHandler,
         req_interval: TimeStep,
         offset: TimeStep | None = None,
-        nodes: Nodes | None = None,
+        nodes: Nodes[NW] | None = None,
         interval: TimeStep = 1,
         data_interval: TimeStep = 1,
         **kwargs: Any,
@@ -168,17 +175,20 @@ class WetterdienstConnection(BaseSeriesConnection, ABC):
         return result_df
 
 
-class WetterdienstObservationConnection(WetterdienstConnection, protocol="wetterdienst_observation"):
+class WetterdienstObservationConnection(
+    WetterdienstConnection[NodeWetterdienstObservation], protocol="wetterdienst_observation"
+):
     """
     The WetterdienstObservationConnection class is a connector to the Wetterdienst API
-    for retrieving weather observation data.
+    for retrieving weather observation data. Data can only be read with
+    :func:`~wetterdienst.WetterdienstObservationConnection.read_series`.
     """
 
     def read_series(
         self,
         from_time: datetime,
         to_time: datetime,
-        nodes: Nodes | None = None,
+        nodes: Nodes[NodeWetterdienstObservation] | None = None,
         interval: TimeStep = 60,
         **kwargs: Any,
     ) -> pd.DataFrame:
@@ -198,7 +208,7 @@ class WetterdienstObservationConnection(WetterdienstConnection, protocol="wetter
 
         def _read_node(node: NodeWetterdienstObservation) -> pd.Dataframe:
             # Get the resolution for the node from the interval
-            resolution = NodeWetterdienstObservation.convert_interval_to_resolution(node.interval)  # type: ignore
+            resolution = NodeWetterdienstObservation.convert_interval_to_resolution(node.interval)
             # Create a request object for the node
             request = DwdObservationRequest(
                 parameter=node.parameter,
@@ -213,7 +223,7 @@ class WetterdienstObservationConnection(WetterdienstConnection, protocol="wetter
         # As a result, we have to call the _read_node method directly, which causes type errors.
         results = []
         for node in nodes:
-            results.append(_read_node(node))  # type: ignore
+            results.append(_read_node(node))
         result = pd.concat(results, axis=1, sort=False)
 
         # Convert the data to the requested interval
@@ -222,17 +232,20 @@ class WetterdienstObservationConnection(WetterdienstConnection, protocol="wetter
         return result
 
 
-class WetterdienstPredictionConnection(WetterdienstConnection, protocol="wetterdienst_prediction"):
+class WetterdienstPredictionConnection(
+    WetterdienstConnection[NodeWetterdienstPrediction], protocol="wetterdienst_prediction"
+):
     """
     The WetterdienstPredictionConnection class is a connector to the Wetterdienst API
-    for retrieving weather prediction data (MOSMIX).
+    for retrieving weather prediction data (MOSMIX). Data can only be read with
+    :func:`~wetterdienst.WetterdienstPredictionConnection.read_series`.
     """
 
     def read_series(
         self,
         from_time: datetime,
         to_time: datetime,
-        nodes: Nodes | None = None,
+        nodes: Nodes[NodeWetterdienstPrediction] | None = None,
         interval: TimeStep = 0,
         **kwargs: Any,
     ) -> pd.DataFrame:
@@ -264,7 +277,7 @@ class WetterdienstPredictionConnection(WetterdienstConnection, protocol="wetterd
         # As a result, we have to call the _read_node method directly, which causes type errors.
         results = []
         for node in nodes:
-            results.append(_read_node(node))  # type: ignore
+            results.append(_read_node(node))
         result = pd.concat(results, axis=1, sort=False)
 
         return result

@@ -150,7 +150,7 @@ class DampedOscillatorEnv(BaseEnvSim):
         linestyles = [":", "--", "-"]
 
         def greys(x: int) -> tuple[float, ...]:
-            return tuple([(x / 4) for _ in range(3)]) + (1,)
+            return (*tuple([(x / 4) for _ in range(3)]), 1)
 
         fig, ax = plt.subplots(1, 1, figsize=(7, 3.5))
         fig.set_layout_engine("tight")

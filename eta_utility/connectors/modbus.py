@@ -1,5 +1,5 @@
-""" Utilities for connecting to modbus servers
-"""
+"""Utilities for connecting to modbus servers"""
+
 from __future__ import annotations
 
 import asyncio
@@ -9,8 +9,8 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pandas as pd
-from pyModbusTCP import constants as mb_const  # noqa: I900
-from pyModbusTCP.client import ModbusClient  # noqa: I900
+from pyModbusTCP import constants as mb_const
+from pyModbusTCP.client import ModbusClient
 
 from eta_utility import get_logger
 from eta_utility.connectors.node import NodeModbus
@@ -23,16 +23,17 @@ from eta_utility.connectors.util import (
 )
 
 if TYPE_CHECKING:
-    from typing import Any
     from collections.abc import Generator, Mapping
-    from eta_utility.type_hints import AnyNode, Nodes, TimeStep
+    from typing import Any
 
-from .base_classes import BaseConnection, SubscriptionHandler
+    from eta_utility.type_hints import Nodes, TimeStep
+
+from .base_classes import Connection, SubscriptionHandler
 
 log = get_logger("connectors.modbus")
 
 
-class ModbusConnection(BaseConnection, protocol="modbus"):
+class ModbusConnection(Connection[NodeModbus], protocol="modbus"):
     """The Modbus Connection class allows reading and writing from and to Modbus servers and clients. Additionally,
     it implements a subscription service, which reads continuously in a specified interval.
 
@@ -42,7 +43,9 @@ class ModbusConnection(BaseConnection, protocol="modbus"):
     :param nodes: List of nodes to use for all operations.
     """
 
-    def __init__(self, url: str, usr: str | None = None, pwd: str | None = None, *, nodes: Nodes | None = None) -> None:
+    def __init__(
+        self, url: str, usr: str | None = None, pwd: str | None = None, *, nodes: Nodes[NodeModbus] | None = None
+    ) -> None:
         super().__init__(url, usr, pwd, nodes=nodes)
 
         if self._url.scheme != "modbus.tcp":
@@ -61,7 +64,7 @@ class ModbusConnection(BaseConnection, protocol="modbus"):
 
     @classmethod
     def _from_node(
-        cls, node: AnyNode, usr: str | None = None, pwd: str | None = None, **kwargs: Any
+        cls, node: NodeModbus, usr: str | None = None, pwd: str | None = None, **kwargs: Any
     ) -> ModbusConnection:
         """Initialize the connection object from a modbus protocol node object.
 
@@ -77,10 +80,10 @@ class ModbusConnection(BaseConnection, protocol="modbus"):
         else:
             raise ValueError(
                 "Tried to initialize ModbusConnection from a node that does not specify modbus as its"
-                "protocol: {}.".format(node.name)
+                f"protocol: {node.name}."
             )
 
-    def read(self, nodes: Nodes | None = None) -> pd.DataFrame:
+    def read(self, nodes: Nodes[NodeModbus] | None = None) -> pd.DataFrame:
         """Read some manually selected nodes from Modbus server.
 
         :param nodes: List of nodes to read from.
@@ -94,12 +97,12 @@ class ModbusConnection(BaseConnection, protocol="modbus"):
             results = {node: self._read_mb_value(node) for node in _nodes}
 
         for node, result in results.items():
-            value = decode_modbus_value(result, node.mb_byteorder, node.dtype)
+            value = decode_modbus_value(result, node.mb_byteorder, node.dtype, node.mb_wordorder)
             values[node.name] = value
 
         return pd.DataFrame(values, index=[self._assert_tz_awareness(datetime.now())])
 
-    def write(self, values: Mapping[AnyNode, Any]) -> None:
+    def write(self, values: Mapping[NodeModbus, Any]) -> None:
         """Write some manually selected values on Modbus capable controller.
 
         .. warning::
@@ -118,7 +121,9 @@ class ModbusConnection(BaseConnection, protocol="modbus"):
 
                 self._write_mb_value(node, bits)
 
-    def subscribe(self, handler: SubscriptionHandler, nodes: Nodes | None = None, interval: TimeStep = 1) -> None:
+    def subscribe(
+        self, handler: SubscriptionHandler, nodes: Nodes[NodeModbus] | None = None, interval: TimeStep = 1
+    ) -> None:
         """Subscribe to nodes and call handler when new data is available. Basic architecture of the subscription is
         the client- server communication. This function works asynchronously.
 
@@ -185,7 +190,7 @@ class ModbusConnection(BaseConnection, protocol="modbus"):
                         continue
 
                     if result is not None:
-                        _result = decode_modbus_value(result, node.mb_byteorder, node.dtype)
+                        _result = decode_modbus_value(result, node.mb_byteorder, node.dtype, node.mb_wordorder)
 
                         time = self._assert_tz_awareness(datetime.now())
 
@@ -266,7 +271,7 @@ class ModbusConnection(BaseConnection, protocol="modbus"):
         except socket.timeout as e:
             raise ConnectionError(f"Host timeout: {self.url}") from e
         except (RuntimeError, ConnectionError) as e:
-            raise ConnectionError(f"Connection Error: {self.url}, Error: {str(e)}") from e
+            raise ConnectionError(f"Connection Error: {self.url}, Error: {e!s}") from e
         else:
             if self.connection.is_open:
                 self._retry.success()
@@ -305,7 +310,7 @@ class ModbusConnection(BaseConnection, protocol="modbus"):
         else:
             raise ConnectionError(f"Unknown ModbusError at {self.url}")
 
-    def _validate_nodes(self, nodes: Nodes | None) -> set[NodeModbus]:  # type: ignore
+    def _validate_nodes(self, nodes: Nodes[NodeModbus] | None) -> set[NodeModbus]:
         vnodes = super()._validate_nodes(nodes)
         _nodes = set()
         for node in vnodes:

@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 from eta_utility.connectors import Node, WetterdienstConnection
 
 pred_nodes = [
@@ -52,6 +54,7 @@ obsv_nodes = [
 
 
 class TestWetterdienstConnection:
+    @pytest.mark.skip(reason="wetterdienst API for observations is not working properly.")
     def test_observation(self):
         connector = WetterdienstConnection.from_node(obsv_nodes)
 

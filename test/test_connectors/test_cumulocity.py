@@ -37,12 +37,12 @@ async def stop_execution(sleep_time):
     raise KeyboardInterrupt
 
 
-@pytest.fixture()
+@pytest.fixture(autouse=True)
 def _local_requests(monkeypatch):
     monkeypatch.setattr(requests, "request", request)
 
 
-def test_check_access(_local_requests, config_cumulocity):
+def test_check_access(config_cumulocity):
     # Check access to see, whether anything responds
     try:
         result = requests.request("GET", config_cumulocity["url"])
@@ -55,7 +55,7 @@ def test_check_access(_local_requests, config_cumulocity):
         pytest.fail("Could not access cumulocity server for testing.")
 
 
-def test_cumulocity_read(_local_requests, config_cumulocity, cumulocity_nodes):
+def test_cumulocity_read(config_cumulocity, cumulocity_nodes):
     """Test cumulocity read function"""
 
     # Test reading a single node
@@ -83,7 +83,7 @@ def test_cumulocity_read(_local_requests, config_cumulocity, cumulocity_nodes):
     assert len(res2.index) == 1
 
 
-def test_cumulocity_subscribe_multi(_local_requests, config_cumulocity, cumulocity_nodes):
+def test_cumulocity_subscribe_multi(config_cumulocity, cumulocity_nodes):
     """Test cumulocity subscribe_series function."""
 
     # Test subscribing nodes with multiple time steps
@@ -113,7 +113,7 @@ def test_cumulocity_subscribe_multi(_local_requests, config_cumulocity, cumuloci
         handler.close()
 
 
-def test_cumulocity_create_device(_local_requests, config_cumulocity, cumulocity_nodes):
+def test_cumulocity_create_device(config_cumulocity, cumulocity_nodes):
     """Test cumulocity create device function."""
 
     CumulocityConnection.create_device(
@@ -125,7 +125,7 @@ def test_cumulocity_create_device(_local_requests, config_cumulocity, cumulocity
     )
 
 
-def test_cumulocity_get_measurement_ids_by_device(_local_requests, config_cumulocity, cumulocity_nodes):
+def test_cumulocity_get_measurement_ids_by_device(config_cumulocity, cumulocity_nodes):
     """Test cumulocity get measurement ids by device function."""
 
     measurement_ids = CumulocityConnection.get_measurement_ids_by_device(
@@ -138,7 +138,7 @@ def test_cumulocity_get_measurement_ids_by_device(_local_requests, config_cumulo
     assert measurement_ids == [str(c) for c in list(range(1, 29))]
 
 
-def test_cumulocity_write(_local_requests, config_cumulocity, cumulocity_nodes):
+def test_cumulocity_write(config_cumulocity, cumulocity_nodes):
     """Test cumulocity write functionality."""
 
     server = CumulocityConnection(

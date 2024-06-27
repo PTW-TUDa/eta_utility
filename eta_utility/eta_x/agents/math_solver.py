@@ -10,6 +10,7 @@ from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.vec_env import VecEnv, VecNormalize
 
 from eta_utility import get_logger
+from eta_utility.util import deprecated
 
 if TYPE_CHECKING:
     import io
@@ -59,7 +60,7 @@ class MathSolver(BaseAlgorithm):
         # Set default values for superclass arguments
         kwargs.setdefault("learning_rate", 0)
 
-        for key in kwargs.keys():
+        for key in kwargs:
             # Find arguments which are meant for the BaseAlgorithm class and extract them into super_args
             if key in {
                 "policy_base",
@@ -134,10 +135,10 @@ class MathSolver(BaseAlgorithm):
         solver = pyo.SolverFactory(self.solver_name)
         solver.options.update(self.solver_options)  # Adjust solver settings
 
-        _tee = True if log.level / 10 <= 1 else False
+        _tee: bool = bool(log.level / 10 <= 1)
         result = solver.solve(self.model, symbolic_solver_labels=True, tee=_tee)
         if _tee:
-            print("\n")  # noqa: T001, T201 (print is ok here, because cplex prints directly to console).
+            print("\n")  # noqa: T201 (print is ok here, because cplex prints directly to console).
         log.debug(
             "Problem information: \n"
             "\t+----------------------------------+\n"
@@ -244,7 +245,7 @@ class MathSolver(BaseAlgorithm):
         tb_log_name: str = "run",
         reset_num_timesteps: bool = True,
         progress_bar: bool = False,
-    ) -> MPCBasic:
+    ) -> MathSolver:
         """The MPC approach cannot learn a new model. Specify the model attribute as a pyomo Concrete model instead,
         to use the prediction function of this agent.
 
@@ -269,7 +270,7 @@ class MathSolver(BaseAlgorithm):
         print_system_info: bool = False,
         force_reset: bool = True,
         **kwargs: Any,
-    ) -> MPCBasic:
+    ) -> MathSolver:
         """
         Load the model from a zip-file.
         Warning: ``load`` re-creates the model from scratch, it does not update it in-place!
@@ -288,10 +289,11 @@ class MathSolver(BaseAlgorithm):
         """
         if env is None:
             raise ValueError("Parameter env must be specified.")
-        model: MPCBasic = super().load(path, env, device, custom_objects, print_system_info, force_reset, **kwargs)
+        model: MathSolver = super().load(path, env, device, custom_objects, print_system_info, force_reset, **kwargs)
 
         return model
 
 
-# Keep compatibility with old name MPCBasic
-MPCBasic = MathSolver
+@deprecated("Use `MathSolver` instead of `MPCBasic`.")
+class MPCBasic(MathSolver):
+    """Deprecated MPCBasic class. Use `MathSolver` instead."""

@@ -9,19 +9,20 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
+from eta_utility.connectors.node import Node
 from eta_utility.util import ensure_timezone
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
-    from typing import Any, Callable
+    from typing import Any, Callable, Final
 
-    from eta_utility.type_hints import AnyNode, TimeStep
+    from eta_utility.type_hints import TimeStep
 
 
 class RetryWaiter:
     """Helper class which keeps track of waiting time before retrying a connection."""
 
-    values = [0, 1, 3, 5, 5, 10, 20, 30, 40, 60]
+    VALUES: Final[list[int]] = [0, 1, 3, 5, 5, 10, 20, 30, 40, 60]
 
     def __init__(self) -> None:
         self.counter = 0
@@ -37,10 +38,10 @@ class RetryWaiter:
     @property
     def wait_time(self) -> int:
         """Return the time to wait for."""
-        if self.counter >= len(self.values) - 1:
-            return self.values[-1]
+        if self.counter >= len(self.VALUES) - 1:
+            return self.VALUES[-1]
         else:
-            return self.values[self.counter]
+            return self.VALUES[self.counter]
 
     def wait(self) -> None:
         """Wait/sleep synchronously."""
@@ -51,7 +52,9 @@ class RetryWaiter:
         await async_sleep(self.wait_time)
 
 
-def decode_modbus_value(value: Sequence[int], byteorder: str, type_: Callable | None = None) -> Any:
+def decode_modbus_value(
+    value: Sequence[int], byteorder: str, type_: Callable | None = None, wordorder: str = "big"
+) -> Any:
     r"""Method to decode incoming modbus values. Strings are always decoded as utf-8 values. If you do not
     want this behaviour specify 'bytes' as the data type.
 
@@ -62,13 +65,44 @@ def decode_modbus_value(value: Sequence[int], byteorder: str, type_: Callable | 
                   format strings (default: f).
     :return: Decoded value as a python type.
     """
-    if byteorder == "little":
-        bo = "<"
-    elif byteorder == "big":
-        bo = ">"
-    else:
+    if byteorder not in ("little", "big"):
         raise ValueError(f"Specified an invalid byteorder: '{byteorder}'")
+    if wordorder not in ("little", "big"):
+        raise ValueError(f"Specified an invalid wordorder: '{wordorder}'")
 
+    bo = "<" if byteorder == "little" else ">"
+
+    # Swap words if word order is little endian
+    if type_ in (int, float) and wordorder == "little":
+        value = value[::-1]
+
+    dtype, _len = _get_decode_params(value, type_)
+
+    # Boolean values don't need decoding
+    if type_ is bool:
+        return bool(value[0])
+
+    # Determine the format strings for packing and unpacking the received byte sequences. These format strings
+    # depend on the endianness (determined by bo), the length of the value in bytes and the data type.
+    pack = f">{len(value):1d}H"
+    unpack = f"{bo}{_len}{dtype}"
+
+    # Convert the value into the appropriate format
+    val = struct.unpack(unpack, struct.pack(pack, *value))[0]
+    if type_ is str:
+        try:
+            val = type_(val, "utf-8")
+        except UnicodeDecodeError:
+            val = ""
+    elif type_ is not None:
+        val = type_(val)
+    else:
+        val = float(val)
+
+    return val
+
+
+def _get_decode_params(value: Sequence[int], type_: Callable | None = None) -> tuple[str, int]:
     if type_ is str or type_ is bytes:
         dtype = "s"
         _len = len(value) * 2
@@ -94,24 +128,7 @@ def decode_modbus_value(value: Sequence[int], byteorder: str, type_: Callable | 
     else:
         raise ValueError(f"The given modbus data type was not recognized: {type_}")
 
-    # Determine the format strings for packing and unpacking the received byte sequences. These format strings
-    # depend on the endianness (determined by bo), the length of the value in bytes and the data type.
-    pack = f">{len(value):1d}H"
-    unpack = f"{bo}{_len}{dtype}"
-
-    # Convert the value into the appropriate format
-    val = struct.unpack(unpack, struct.pack(pack, *value))[0]
-    if type_ is str:
-        try:
-            val = type_(val, "utf-8")
-        except UnicodeDecodeError:
-            val = ""
-    elif type_ is not None:
-        val = type_(val)
-    else:
-        val = float(val)
-
-    return val
+    return dtype, _len
 
 
 def encode_bits(
@@ -134,10 +151,7 @@ def encode_bits(
         value = type_(value)
 
     if isinstance(value, int):
-        if value < 0:
-            _types = {1: "b", 2: "h", 4: "i", 8: "q"}
-        else:
-            _types = {1: "B", 2: "H", 4: "I", 8: "Q"}
+        _types = {1: "b", 2: "h", 4: "i", 8: "q"} if value < 0 else {1: "B", 2: "H", 4: "I", 8: "Q"}
         try:
             _type = _types[byte_length]
         except KeyError:
@@ -203,14 +217,14 @@ class IntervalChecker:
 
     def __init__(self) -> None:
         #: Dictionary that stores the value and the time for checking changes and the time interval
-        self.node_latest_values: dict[AnyNode, list] = {}
+        self.node_latest_values: dict[Node, list] = {}
 
         #: :py:func:`eta_utility.util.ensure_timezone`
         self._assert_tz_awareness = ensure_timezone
 
     def push(
         self,
-        node: AnyNode,
+        node: Node,
         value: Any | pd.Series | Sequence[Any],
         timestamp: datetime | pd.DatetimeIndex | TimeStep | None = None,
     ) -> None:

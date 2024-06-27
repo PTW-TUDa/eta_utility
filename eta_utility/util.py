@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import csv
+import functools
 import io
 import json
 import locale
@@ -12,6 +13,7 @@ import pathlib
 import re
 import socket
 import sys
+import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
@@ -31,7 +33,7 @@ if TYPE_CHECKING:
     import types
     from collections.abc import Generator
     from tempfile import _TemporaryFileWrapper
-    from typing import Any
+    from typing import Any, Callable
     from urllib.parse import ParseResult
 
     from .type_hints import Path, PrivateKey
@@ -52,7 +54,7 @@ LOG_FORMATS = {
 def get_logger(
     name: str | None = None,
     level: int | None = None,
-    format: str | None = None,  # noqa: A002
+    format: str | None = None,
 ) -> logging.Logger:
     """Get eta_utility specific logger.
 
@@ -93,7 +95,7 @@ def get_logger(
         from eta_utility.util_julia import julia_extensions_available
 
         if julia_extensions_available():
-            from julia import ju_extensions  # noqa: I900
+            from julia import ju_extensions
 
             if format is not None:
                 ju_extensions.set_logger(log.level, format)
@@ -106,7 +108,7 @@ def get_logger(
 def log_add_filehandler(
     filename: Path,
     level: int | None = None,
-    format: str | None = None,  # noqa: A002
+    format: str | None = None,
 ) -> logging.Logger:
     """Add a file handler to the logger to save the log output.
 
@@ -117,7 +119,7 @@ def log_add_filehandler(
     :return: The *FileHandler* logger.
     """
     log = logging.getLogger(LOG_PREFIX)
-    _format = format if format in LOG_FORMATS else LOG_FORMATS["time"]
+    _format = LOG_FORMATS[format] if format in LOG_FORMATS else LOG_FORMATS["time"]
     _filename = filename if isinstance(filename, pathlib.Path) else pathlib.Path(filename)
 
     filehandler = logging.FileHandler(filename=_filename)
@@ -133,7 +135,7 @@ def log_add_filehandler(
 
 def log_add_streamhandler(
     level: int | None = None,
-    format: str | None = None,  # noqa: A002
+    format: str | None = None,
 ) -> logging.Logger:
     """Add a stream handler to the logger to show the log output.
 
@@ -282,10 +284,7 @@ def deep_mapping_update(
     :param overrides: Mapping with new values to integrate into the new mapping.
     :return: New Mapping with values from the source and overrides combined.
     """
-    if not isinstance(source, Mapping):
-        output = {}
-    else:
-        output = dict(copy.deepcopy(source))
+    output = dict(copy.deepcopy(source)) if isinstance(source, Mapping) else {}
 
     for key, value in overrides.items():
         if isinstance(value, Mapping):
@@ -384,6 +383,39 @@ def round_timestamp(dt_value: datetime, interval: float = 1, ensure_tz: bool = T
     return datetime.fromtimestamp(rounded_timestamp, tz=timezone_store)
 
 
+def deprecated(message: str) -> Callable:
+    """
+    This is a decorator which can be used to mark functions
+    or classes as deprecated. It will result in a warning being emitted
+    when the function or class is used.
+
+    :param message: Message to be displayed when the function is called.
+    """
+
+    def decorator(func_or_class: Callable | type) -> Callable | type:
+        if isinstance(func_or_class, type):
+            # If applied to a class
+            orig_init = func_or_class.__init__  # type: ignore
+
+            @functools.wraps(orig_init)
+            def new_init(self: Any, *args: Any, **kwargs: Any) -> None:
+                warnings.warn(f"{func_or_class.__name__} is deprecated: {message}", DeprecationWarning, stacklevel=2)
+                orig_init(self, *args, **kwargs)
+
+            func_or_class.__init__ = new_init  # type: ignore
+            return func_or_class
+        else:
+            # If applied to a function
+            @functools.wraps(func_or_class)
+            def new_func(*args: Any, **kwargs: Any) -> Any:
+                warnings.warn(f"{func_or_class.__name__} is deprecated: {message}", DeprecationWarning, stacklevel=2)
+                return func_or_class(*args, **kwargs)
+
+            return new_func
+
+    return decorator
+
+
 class KeyCertPair(ABC):
     """KeyCertPair is a wrapper for an RSA private key file and a corresponding x509 certificate. Implementations
     provide a contextmanager "tempfiles", which provides access to the certificate files and the
@@ -472,10 +504,8 @@ class SelfsignedKeyCertPair(KeyCertPair):
             locale.setlocale(locale.LC_ALL, "")
             # extract country
             country = locale.getlocale()[0]
-            if country:
-                country = country.split("_")[-1]
-            else:
-                country = ""
+
+            country = country.split("_")[-1] if country else ""
 
         if province is None:
             province = ""

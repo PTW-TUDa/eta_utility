@@ -1,6 +1,7 @@
-""" Simple helpers for reading timeseries data from a csv file and getting slices or resampled data. This module
+"""Simple helpers for reading timeseries data from a csv file and getting slices or resampled data. This module
 handles data using pandas dataframe objects.
 """
+
 from __future__ import annotations
 
 import csv
@@ -58,21 +59,19 @@ def df_from_csv(
     conversion_string = None
     infer_datetime_format = False
     parse_dates = False
-    if type(infer_datetime_from) is str and infer_datetime_from == "dates":
-        infer_datetime_format = True
-    elif type(infer_datetime_from) is str and infer_datetime_from == "string":
-        conversion_string = time_conversion_str
-    elif type(infer_datetime_from) in {list, tuple}:
+    if isinstance(infer_datetime_from, str):
+        infer_datetime_format = infer_datetime_from == "dates"
+        conversion_string = time_conversion_str if infer_datetime_from == "string" else None
+    elif isinstance(infer_datetime_from, (list, tuple)):
         if not len(infer_datetime_from) == 2:
             raise ValueError(
-                "Field for date format must be specified in the format ['row', 'col']. "
-                "Got {}".format(infer_datetime_from)
+                "Field for date format must be specified in the format ['row', 'col']. " f"Got {infer_datetime_from}"
             )
 
     else:
         raise ValueError(
             "infer_datetime_from must be one of 'dates', 'string', or a tuple of ('row', 'col'), "
-            "Got: {}".format(infer_datetime_from)
+            f"Got: {infer_datetime_from}"
         )
 
     # Read names from header and format them such that they can be used easily as dataframe indices.
@@ -81,7 +80,7 @@ def df_from_csv(
         reader = csv.reader(f, delimiter=delimiter)
         try:
             first_line = next(reader)
-            if isinstance(infer_datetime_from, list) or isinstance(infer_datetime_from, tuple):
+            if isinstance(infer_datetime_from, (list, tuple)):
                 if infer_datetime_from[0] > 0:
                     for _ in range(1, infer_datetime_from[0]):
                         conversion_line = next(reader)
@@ -90,8 +89,8 @@ def df_from_csv(
                 conversion_string = "%" + conversion_line[infer_datetime_from[1]].split("%", 1)[1].strip()
         except StopIteration:
             raise EOFError(
-                "The CSV file does not contain the specified date format field {}. \n"
-                "File path: {}".format(infer_datetime_from, path)
+                f"The CSV file does not contain the specified date format field {infer_datetime_from}. \n"
+                f"File path: {path}"
             )
 
         # Find number of fields, names of fields and a conversion string for time
@@ -105,11 +104,7 @@ def df_from_csv(
 
     def converter(val: str) -> float:
         val = str(val).strip().replace(" ", "").replace(",", ".")
-        if len(val) > 0:
-            fval = float(val)
-        else:
-            fval = float("nan")
-        return fval
+        return float(val) if len(val) > 0 else float("nan")
 
     data = pd.read_csv(
         path,
@@ -229,11 +224,11 @@ def df_resample(
     :param missing_data: Specify a method for handling missing data values. If this is not specified, missing data
                          will not be handled. All missing data handling functions for pandas dataframes are valid.
                          See also: https://pandas.pydata.org/docs/reference/frame.html#missing-data-handling. Some
-                         examples: 'interpolate', 'fillna' (default: asfreq).
+                         examples: 'interpolate', 'ffill' (default: asfreq).
     :return: Copy of the DataFrame.
     """
-    if missing_data == "fillna":
-        interpolation_method = op.methodcaller(missing_data, method="pad")
+    if missing_data in {"fillna", "ffill"}:
+        interpolation_method = op.methodcaller("ffill")
     elif missing_data == "interpolate":
         interpolation_method = op.methodcaller(missing_data, method="time")
     elif missing_data is None:
@@ -252,7 +247,7 @@ def df_resample(
         delta = str(
             periods_deltas[0].total_seconds() if isinstance(periods_deltas[0], timedelta) else periods_deltas[0]
         )
-        new_df = interpolation_method(df.resample(str(delta) + "S"))
+        new_df = interpolation_method(df.resample(str(delta) + "s"))
     else:
         new_df = pd.DataFrame()
         total_periods = 0
@@ -266,7 +261,7 @@ def df_resample(
             new_df = pd.concat(
                 df,
                 interpolation_method(
-                    df.iloc[total_periods : periods_deltas[key]].resample(str(delta) + "S")  # type: ignore
+                    df.iloc[total_periods : periods_deltas[key]].resample(str(delta) + "s")  # type: ignore
                 ),
             )
             total_periods += periods_deltas[key]  # type: ignore

@@ -125,7 +125,7 @@ class BaseEnv(Env, abc.ABC):
         #: Current step of the model (total over all episodes).
         self.n_steps_longtime: int = 0
         #: Render mode for rendering the environment
-        self.render_mode: str | None | None = render_mode
+        self.render_mode: str | None = render_mode
 
         # Set some standard environment settings
         #: Duration of one episode in seconds.
@@ -229,7 +229,7 @@ class BaseEnv(Env, abc.ABC):
             prefix.append(path.get("prefix", None))
             int_methods.append(path.get("interpolation_method", None))
             scale_factors.append(path.get("scale_factors", None))
-            rename_cols.update(path.get("rename_cols", {})),
+            (rename_cols.update(path.get("rename_cols", {})),)
             infer_datetime_from.append(path.get("infer_datetime_cols", "string"))
             time_conversion_str.append(path.get("time_conversion_str", "%Y-%m-%d %H:%M"))
 

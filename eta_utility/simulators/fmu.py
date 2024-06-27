@@ -1,5 +1,5 @@
-""" The FMUSimulator class enables easy simulation of FMU files.
-"""
+"""The FMUSimulator class enables easy simulation of FMU files."""
+
 from __future__ import annotations
 
 import itertools as it
@@ -210,9 +210,9 @@ class FMUSimulator:
         #: Return dictionaries from the step and get_values functions instead of lists.
         self._return_dict: bool = False
         if return_type is None:
-            self._return_dict = False if names_inputs is not None and names_outputs is not None else True
+            self._return_dict = names_inputs is None or names_outputs is None
         else:
-            self._return_dict = False if return_type == "list" else True
+            self._return_dict = return_type != "list"
 
     @property
     def input_vars(self) -> list[str]:
@@ -430,7 +430,7 @@ class FMU2MESlave(FMU2Model):
 
     def setupExperiment(  # noqa: N802
         self,
-        tolerance: float | None = None,  # noqa:N803
+        tolerance: float | None = None,
         startTime: float = 0.0,  # noqa:N803
         stopTime: float | None = None,  # noqa:N803
         **kwargs: Any,

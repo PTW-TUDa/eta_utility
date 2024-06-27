@@ -1,5 +1,4 @@
 import asyncio
-import socket
 
 import pandas as pd
 import pytest
@@ -201,25 +200,23 @@ nodes = (
 
 
 @pytest.fixture(scope="class")
-def local_nodes(config_modbus_port):
+def local_nodes(config_modbus_port, config_host_ip):
     _nodes = []
     for node in nodes:
-        _nodes.extend(
-            Node.from_dict({**node, "ip": socket.gethostbyname(socket.gethostname()), "port": config_modbus_port})
-        )
+        _nodes.extend(Node.from_dict({**node, "ip": config_host_ip, "port": config_modbus_port}))
 
     return _nodes
 
 
 class TestConnectorOperations:
     @pytest.fixture(scope="class", autouse=True)
-    def server(self, config_modbus_port):
-        with ModbusServer(ip=socket.gethostbyname(socket.gethostname()), port=config_modbus_port) as server:
+    def server(self, config_modbus_port, config_host_ip):
+        with ModbusServer(ip=config_host_ip, port=config_modbus_port) as server:
             yield server
 
     @pytest.fixture(scope="class")
     def connection(self, local_nodes):
-        connection = ModbusConnection.from_node(local_nodes[0])
+        connection = ModbusConnection.from_node(local_nodes)
         return connection
 
     values = ((0, 1.5), (1, 5), (2, " something"))
@@ -254,14 +251,14 @@ class TestConnectorOperations:
 
 class TestConnectorOperationsLittleEndian:
     @pytest.fixture(scope="class")
-    def local_nodes(self, config_modbus_port):
+    def local_nodes(self, config_modbus_port, config_host_ip):
         _nodes = []
         for node in nodes:
             _nodes.extend(
                 Node.from_dict(
                     {
                         **node,
-                        "ip": socket.gethostbyname(socket.gethostname()),
+                        "ip": config_host_ip,
                         "port": config_modbus_port,
                         "mb_byteorder": "little",
                     }
@@ -271,10 +268,8 @@ class TestConnectorOperationsLittleEndian:
         return _nodes
 
     @pytest.fixture(scope="class", autouse=True)
-    def server(self, config_modbus_port):
-        with ModbusServer(
-            ip=socket.gethostbyname(socket.gethostname()), big_endian=False, port=config_modbus_port
-        ) as server:
+    def server(self, config_modbus_port, config_host_ip):
+        with ModbusServer(ip=config_host_ip, big_endian=False, port=config_modbus_port) as server:
             yield server
 
     @pytest.fixture(scope="class")
@@ -315,8 +310,8 @@ class TestConnectorSubscriptions:
     }
 
     @pytest.fixture(scope="class", autouse=True)
-    def server(self, local_nodes, config_modbus_port):
-        with ModbusServer(ip=socket.gethostbyname(socket.gethostname()), port=config_modbus_port) as server:
+    def server(self, local_nodes, config_modbus_port, config_host_ip):
+        with ModbusServer(ip=config_host_ip, port=config_modbus_port) as server:
             yield server
 
     async def write_loop(self, server, local_nodes, values):
@@ -326,9 +321,9 @@ class TestConnectorSubscriptions:
             await asyncio.sleep(0.5)
 
     def test_subscribe(self, local_nodes, server):
-        connection = ModbusConnection.from_node(local_nodes[0], usr="admin", pwd="0")
+        connection = ModbusConnection.from_node(local_nodes, usr="admin", pwd="0")
         handler = DFSubHandler(write_interval=0.5)
-        connection.subscribe(handler, nodes=local_nodes, interval=0.5)
+        connection.subscribe(handler, interval=0.5)
 
         loop = asyncio.get_event_loop()
         loop.run_until_complete(self.write_loop(server, local_nodes, self.values))
@@ -373,13 +368,14 @@ class TestConnectorSubscriptions:
 
         asyncio.get_event_loop().create_task(write_loop(server, local_nodes, self.values))
 
-    def test_subscribe_interrupted(self, local_nodes, _write_nodes_interrupt, caplog):
+    @pytest.mark.usefixtures("_write_nodes_interrupt")
+    def test_subscribe_interrupted(self, local_nodes, caplog):
         log = get_logger()
         log.propagate = True
 
-        connection = ModbusConnection.from_node(local_nodes[0], usr="admin", pwd="0")
+        connection = ModbusConnection.from_node(local_nodes, usr="admin", pwd="0")
         handler = DFSubHandler(write_interval=1)
-        connection.subscribe(handler, nodes=local_nodes, interval=1)
+        connection.subscribe(handler, interval=1)
 
         loop = asyncio.get_event_loop()
         loop.run_until_complete(stop_execution(25))
@@ -436,12 +432,10 @@ nodes_interval_to_check = (
 
 
 @pytest.fixture(scope="class")
-def local_nodes_interval_checking(config_modbus_port):
+def local_nodes_interval_checking(config_modbus_port, config_host_ip):
     _nodes = []
     for node in nodes_interval_to_check:
-        _nodes.extend(
-            Node.from_dict({**node, "ip": socket.gethostbyname(socket.gethostname()), "port": config_modbus_port})
-        )
+        _nodes.extend(Node.from_dict({**node, "ip": config_host_ip, "port": config_modbus_port}))
 
     return _nodes
 
@@ -458,8 +452,8 @@ class TestConnectorSubscriptionsIntervalChecker:
     }
 
     @pytest.fixture(scope="class", autouse=True)
-    def server(self, local_nodes_interval_checking, config_modbus_port):
-        with ModbusServer(ip=socket.gethostbyname(socket.gethostname()), port=config_modbus_port) as server:
+    def server(self, local_nodes_interval_checking, config_modbus_port, config_host_ip):
+        with ModbusServer(ip=config_host_ip, port=config_modbus_port) as server:
             yield server
 
     @pytest.fixture()
@@ -477,13 +471,14 @@ class TestConnectorSubscriptionsIntervalChecker:
 
         asyncio.get_event_loop().create_task(write_loop(server, local_nodes_interval_checking, self.values))
 
-    def test_subscribe_interval_checking(self, local_nodes_interval_checking, _write_nodes_interval_checking, caplog):
+    @pytest.mark.usefixtures("_write_nodes_interval_checking")
+    def test_subscribe_interval_checking(self, local_nodes_interval_checking, caplog):
         log = get_logger()
         log.propagate = True
 
-        connection = ModbusConnection.from_node(local_nodes_interval_checking[0], usr="admin", pwd="0")
+        connection = ModbusConnection.from_node(local_nodes_interval_checking, usr="admin", pwd="0")
         handler = DFSubHandler(write_interval=1)
-        connection.subscribe(handler, nodes=local_nodes_interval_checking, interval=1)
+        connection.subscribe(handler, interval=1)
 
         loop = asyncio.get_event_loop()
         loop.run_until_complete(stop_execution(10))

@@ -60,10 +60,10 @@ class BaseEnvLive(BaseEnv, abc.ABC):
         **kwargs: Any,
     ) -> None:
         super().__init__(
-            env_id,
-            config_run,
-            verbose,
-            callback,
+            env_id=env_id,
+            config_run=config_run,
+            verbose=verbose,
+            callback=callback,
             scenario_time_begin=scenario_time_begin,
             scenario_time_end=scenario_time_end,
             episode_duration=episode_duration,

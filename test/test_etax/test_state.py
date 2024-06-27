@@ -7,6 +7,10 @@ from eta_utility.eta_x.envs.state import StateConfig, StateVar
 
 class TestStateConfig:
     @pytest.fixture(scope="class")
+    def state_var_ext(self):
+        return StateVar("foo", is_ext_input=True)
+
+    @pytest.fixture(scope="class")
     def state_config(self):
         conf = StateConfig()
         conf.vars = {
@@ -45,3 +49,6 @@ class TestStateConfig:
     ):
         foo = state_config_nan.continuous_observation_space()
         assert foo == Box(low=np.array([-np.inf]), high=np.array([np.inf], dtype=np.float32))
+
+    def test_state_var_ext_id_should_be_name_by_default(self, state_var_ext):
+        assert state_var_ext.ext_id == state_var_ext.name

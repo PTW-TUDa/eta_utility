@@ -44,14 +44,14 @@ class StateVar:
     is_agent_action: bool = field(
         kw_only=True,
         default=False,
-        converter=converters.pipe(converters.default_if_none(False), bool)  # type: ignore
+        converter=converters.pipe(converters.default_if_none(False), bool),  # type: ignore
         # mypy does not recognize default_if_none
     )
     #: Should the agent be allowed to observe the value of this variable? (default: False).
     is_agent_observation: bool = field(
         kw_only=True,
         default=False,
-        converter=converters.pipe(converters.default_if_none(False), bool)  # type: ignore
+        converter=converters.pipe(converters.default_if_none(False), bool),  # type: ignore
         # mypy does not recognize default_if_none
     )
 
@@ -59,40 +59,40 @@ class StateVar:
     add_to_state_log: bool = field(
         kw_only=True,
         default=True,
-        converter=converters.pipe(converters.default_if_none(True), bool)  # type: ignore
+        converter=converters.pipe(converters.default_if_none(True), bool),  # type: ignore
         # mypy does not recognize default_if_none
     )
 
     #: Name or identifier (order) of the variable in the external interaction model
-    #: (e.g.: environment or FMU) (default: None).
+    #: (e.g.: environment or FMU) (default: StateVar.name if (is_ext_input or is_ext_output) else None).
     ext_id: str | int | None = field(kw_only=True, default=None, validator=validators.optional(_valid_id))
 
     #: Should this variable be passed to the external model as an input? (default: False).
     is_ext_input: bool = field(
         kw_only=True,
         default=False,
-        converter=converters.pipe(converters.default_if_none(False), bool)  # type: ignore
+        converter=converters.pipe(converters.default_if_none(False), bool),  # type: ignore
         # mypy does not recognize default_if_none
     )
     #: Should this variable be parsed from the external model output? (default: False).
     is_ext_output: bool = field(
         kw_only=True,
         default=False,
-        converter=converters.pipe(converters.default_if_none(False), bool)  # type: ignore
+        converter=converters.pipe(converters.default_if_none(False), bool),  # type: ignore
         # mypy does not recognize default_if_none
     )
     #: Value to add to the output from an external model (default: 0).
     ext_scale_add: float = field(
         kw_only=True,
         default=0,
-        converter=converters.pipe(converters.default_if_none(0), float)  # type: ignore
+        converter=converters.pipe(converters.default_if_none(0), float),  # type: ignore
         # mypy does not recognize default_if_none
     )
     #: Value to multiply to the output from an external model (default: 1).
     ext_scale_mult: float = field(
         kw_only=True,
         default=1,
-        converter=converters.pipe(converters.default_if_none(1), float)  # type: ignore
+        converter=converters.pipe(converters.default_if_none(1), float),  # type: ignore
         # mypy does not recognize default_if_none
     )
 
@@ -102,21 +102,21 @@ class StateVar:
     from_interact: bool = field(
         kw_only=True,
         default=False,
-        converter=converters.pipe(converters.default_if_none(False), bool)  # type: ignore
+        converter=converters.pipe(converters.default_if_none(False), bool),  # type: ignore
         # mypy does not recognize default_if_none
     )
     #: Value to add to the value read from an interaction (default: 0).
     interact_scale_add: float = field(
         kw_only=True,
         default=0,
-        converter=converters.pipe(converters.default_if_none(0), float)  # type: ignore
+        converter=converters.pipe(converters.default_if_none(0), float),  # type: ignore
         # mypy does not recognize default_if_none
     )
     #: Value to multiply to the value read from  an interaction (default: 1).
     interact_scale_mult: float = field(
         kw_only=True,
         default=1,
-        converter=converters.pipe(converters.default_if_none(1), float)  # type: ignore
+        converter=converters.pipe(converters.default_if_none(1), float),  # type: ignore
         # mypy does not recognize default_if_none
     )
 
@@ -128,21 +128,21 @@ class StateVar:
     from_scenario: bool = field(
         kw_only=True,
         default=False,
-        converter=converters.pipe(converters.default_if_none(False), bool)  # type: ignore
+        converter=converters.pipe(converters.default_if_none(False), bool),  # type: ignore
         # mypy does not recognize default_if_none
     )
     #: Value to add to the value read from a scenario file (default: 0).
     scenario_scale_add: float = field(
         kw_only=True,
         default=0,
-        converter=converters.pipe(converters.default_if_none(0), float)  # type: ignore
+        converter=converters.pipe(converters.default_if_none(0), float),  # type: ignore
         # mypy does not recognize default_if_none
     )
     #: Value to multiply to the value read from a scenario file (default: 1).
     scenario_scale_mult: float = field(
         kw_only=True,
         default=1,
-        converter=converters.pipe(converters.default_if_none(1), float)  # type: ignore
+        converter=converters.pipe(converters.default_if_none(1), float),  # type: ignore
         # mypy does not recognize default_if_none
     )
 
@@ -168,9 +168,14 @@ class StateVar:
     index: int = field(
         kw_only=True,
         default=0,
-        converter=converters.pipe(converters.default_if_none(0), int)  # type: ignore
+        converter=converters.pipe(converters.default_if_none(0), int),  # type: ignore
         # mypy does not recognize default_if_none
     )
+
+    def __attrs_post_init__(self) -> None:
+        if (self.is_ext_input or self.is_ext_output) and self.ext_id is None:
+            object.__setattr__(self, "ext_id", self.name)
+            log.info(f"Using name as ext_id for variable {self.name}")
 
     @classmethod
     def from_dict(cls, mapping: Mapping[str, Any] | pd.Series) -> StateVar:
@@ -390,13 +395,15 @@ class StateConfig:
         """
 
         valid_min = all(
-            state[name] >= self.vars[name].abort_condition_min for name in self.abort_conditions_min  # type: ignore
+            state[name] >= self.vars[name].abort_condition_min  # type: ignore
+            for name in self.abort_conditions_min
         )
         if not valid_min:
             log.warning("Minimum abort condition exceeded by at least one value.")
 
         valid_max = all(
-            state[name] <= self.vars[name].abort_condition_max for name in self.abort_conditions_max  # type: ignore
+            state[name] <= self.vars[name].abort_condition_max  # type: ignore
+            for name in self.abort_conditions_max
         )
         if not valid_max:
             log.warning("Maximum abort condition exceeded by at least one value.")
