@@ -1,6 +1,4 @@
 import pathlib
-from test.resources.agents.mpc_basic_env import MPCBasicEnv
-from test.resources.agents.rule_based import RuleBasedController
 
 import gymnasium
 import numpy as np
@@ -13,6 +11,8 @@ from eta_utility.eta_x.agents.math_solver import MathSolver
 from eta_utility.eta_x.common import NoPolicy
 from eta_utility.eta_x.envs import NoVecEnv
 from eta_utility.util_julia import julia_extensions_available
+from test.resources.agents.mpc_basic_env import MPCBasicEnv
+from test.resources.agents.rule_based import RuleBasedController
 
 if julia_extensions_available():
     from eta_utility.eta_x.agents.nsga2 import Nsga2

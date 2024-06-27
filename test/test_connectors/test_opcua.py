@@ -1,6 +1,5 @@
 import asyncio
 import datetime
-import socket
 
 import pandas as pd
 import pytest
@@ -241,23 +240,23 @@ nodes = (
 
 
 @pytest.fixture(scope="module")
-def local_nodes():
+def local_nodes(config_host_ip):
     _nodes = []
     for node in nodes:
-        _nodes.extend(Node.from_dict({**node, "ip": socket.gethostbyname(socket.gethostname())}))
+        _nodes.extend(Node.from_dict({**node, "ip": config_host_ip}))
 
     return _nodes
 
 
 class TestConnectorOperations:
     @pytest.fixture(scope="class", autouse=True)
-    def server(self):
-        with OpcUaServer(5, ip=socket.gethostbyname(socket.gethostname())) as server:
+    def server(self, config_host_ip):
+        with OpcUaServer(5, ip=config_host_ip) as server:
             yield server
 
     @pytest.fixture(scope="class")
     def connection(self, local_nodes):
-        connection: OpcUaConnection = OpcUaConnection.from_node(local_nodes[0], usr="admin", pwd="0")
+        connection: OpcUaConnection = OpcUaConnection.from_node(local_nodes, usr="admin", pwd="0")
         return connection
 
     def test_create_nodes(self, server: OpcUaServer, connection: OpcUaConnection, local_nodes):
@@ -334,8 +333,8 @@ class TestConnectorSubscriptions:
     }
 
     @pytest.fixture(scope="class", autouse=True)
-    def server(self, local_nodes):
-        with OpcUaServer(5, ip=socket.gethostbyname(socket.gethostname())) as server:
+    def server(self, local_nodes, config_host_ip):
+        with OpcUaServer(5, ip=config_host_ip) as server:
             server.create_nodes(local_nodes)
             yield server
 
@@ -346,9 +345,9 @@ class TestConnectorSubscriptions:
             await asyncio.sleep(0.5)
 
     def test_subscribe(self, local_nodes, server):
-        connection = OpcUaConnection.from_node(local_nodes[0], usr="admin", pwd="0")
+        connection = OpcUaConnection.from_node(local_nodes, usr="admin", pwd="0")
         handler = DFSubHandler(write_interval=0.5)
-        connection.subscribe(handler, nodes=local_nodes, interval=0.5)
+        connection.subscribe(handler, interval=0.5)
 
         loop = asyncio.get_event_loop()
         loop.run_until_complete(self.write_loop(server, local_nodes, self.values))
@@ -393,13 +392,14 @@ class TestConnectorSubscriptions:
 
         asyncio.get_event_loop().create_task(write_loop(server, local_nodes, self.values))
 
-    def test_subscribe_interrupted(self, local_nodes, _write_nodes_interrupt, caplog):
+    @pytest.mark.usefixtures("_write_nodes_interrupt")
+    def test_subscribe_interrupted(self, local_nodes, caplog):
         log = get_logger()
         log.propagate = True
 
-        connection: OpcUaConnection = OpcUaConnection.from_node(local_nodes[0], usr="admin", pwd="0")
+        connection: OpcUaConnection = OpcUaConnection.from_node(local_nodes, usr="admin", pwd="0")
         handler = DFSubHandler(write_interval=1)
-        connection.subscribe(handler, nodes=local_nodes, interval=1)
+        connection.subscribe(handler, interval=1)
 
         loop = asyncio.get_event_loop()
         loop.run_until_complete(stop_execution(25))
@@ -449,10 +449,10 @@ nodes_interval_to_check = (
 
 
 @pytest.fixture(scope="module")
-def local_nodes_interval_checking():
+def local_nodes_interval_checking(config_host_ip):
     _nodes = []
     for node in nodes_interval_to_check:
-        _nodes.extend(Node.from_dict({**node, "ip": socket.gethostbyname(socket.gethostname())}))
+        _nodes.extend(Node.from_dict({**node, "ip": config_host_ip}))
 
     return _nodes
 
@@ -477,8 +477,8 @@ class TestConnectorSubscriptionsIntervalChecker:
     }
 
     @pytest.fixture(scope="class", autouse=True)
-    def server(self, local_nodes_interval_checking):
-        with OpcUaServer(5, ip=socket.gethostbyname(socket.gethostname())) as server:
+    def server(self, local_nodes_interval_checking, config_host_ip):
+        with OpcUaServer(5, ip=config_host_ip) as server:
             server.create_nodes(local_nodes_interval_checking)
             yield server
 
@@ -497,10 +497,11 @@ class TestConnectorSubscriptionsIntervalChecker:
 
         asyncio.get_event_loop().create_task(write_loop(server, local_nodes_interval_checking, self.values))
 
-    def test_subscribe_interval_checking(self, local_nodes_interval_checking, _write_nodes_interval_checking, caplog):
-        connection: OpcUaConnection = OpcUaConnection.from_node(local_nodes_interval_checking[0], usr="admin", pwd="0")
+    @pytest.mark.usefixtures("_write_nodes_interval_checking")
+    def test_subscribe_interval_checking(self, local_nodes_interval_checking, caplog):
+        connection: OpcUaConnection = OpcUaConnection.from_node(local_nodes_interval_checking, usr="admin", pwd="0")
         handler = DFSubHandler(write_interval=1)
-        connection.subscribe(handler, nodes=local_nodes_interval_checking, interval=1)
+        connection.subscribe(handler, interval=1)
 
         loop = asyncio.get_event_loop()
         loop.run_until_complete(stop_execution(10))

@@ -15,9 +15,11 @@ from eta_utility import get_logger
 from eta_utility.util_julia import check_julia_package
 
 if check_julia_package():
-    from julia import Main as Jl  # noqa: I900
-    from julia import ju_extensions  # noqa: I900
-    from julia.ju_extensions.Agents import Nsga2 as ju_NSGA2  # noqa: I900
+    from julia import (
+        Main as Jl,
+        ju_extensions,
+    )
+    from julia.ju_extensions.Agents import Nsga2 as ju_NSGA2
 
 if TYPE_CHECKING:
     import io
@@ -25,7 +27,7 @@ if TYPE_CHECKING:
     from typing import Any, Callable
 
     import torch as th
-    from julia import _jlwrapper  # noqa: I900
+    from julia import _jlwrapper
     from stable_baselines3.common.callbacks import BaseCallback
     from stable_baselines3.common.policies import BasePolicy
     from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
@@ -584,10 +586,8 @@ class Nsga2(BaseAlgorithm):
         infos: list[dict[str, Any]] = []
 
         while retries < self.max_retries:
-            _observations, rewards, terminated, truncated, infos = self.env.step(
-                self._jl_get_actions(generation)
-            )  # type: ignore
-            dones = terminated | truncated  # type: ignore
+            _observations, rewards, terminated, truncated, infos = self.env.step(self._jl_get_actions(generation))  # type: ignore
+            dones = terminated | truncated
             self._update_info_buffer(infos, dones)
 
             # Ensure that there are always multiple rewards for every solution.

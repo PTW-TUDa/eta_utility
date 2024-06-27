@@ -28,10 +28,7 @@ class DirectControl(RuleBased):
         market_price = observation[2]
 
         # Set target temperature depending on the market price
-        if market_price <= 100.08:
-            temp_set = 273.15 + 65
-        else:
-            temp_set = 273.15 + 62
+        temp_set = 273.15 + (65 if market_price <= 100.08 else 62)
 
         # Three-point control for setting controlled variable ON/OFF of the tank heater
         actions: np.ndarray = np.zeros((1), dtype=float)

@@ -4,7 +4,7 @@ import pathlib
 from typing import TYPE_CHECKING
 
 from eta_utility import get_logger
-from eta_utility.connectors import Node
+from eta_utility.connectors.node import NodeOpcUa
 from eta_utility.eta_x import ETAx
 from eta_utility.servers import OpcUaServer
 
@@ -45,7 +45,7 @@ def experiment(root_path: pathlib.Path, overwrite: dict[str, Any] | None = None)
     experiment.play("cleaning_machine", "test_run")
 
 
-def local_nodes(definitions: Mapping[str, Mapping[str, str]]) -> list[Node]:
+def local_nodes(definitions: Mapping[str, Mapping[str, str]]) -> list[NodeOpcUa]:
     """Create the specified list of local nodes.
 
     :param definitions: Node definition mapping
@@ -55,13 +55,15 @@ def local_nodes(definitions: Mapping[str, Mapping[str, str]]) -> list[Node]:
 
     for name, node in definitions.items():
         nodes.append(
-            Node(name=name, url="opc.tcp://localhost:4840", protocol="opcua", opc_id=node["id"], dtype=node["dtype"])
+            NodeOpcUa(
+                name=name, url="opc.tcp://localhost:4840", protocol="opcua", opc_id=node["id"], dtype=node["dtype"]
+            )
         )
 
     return nodes
 
 
-def local_server(nodes: Sequence[Node]) -> OpcUaServer:
+def local_server(nodes: Sequence[NodeOpcUa]) -> OpcUaServer:
     """Create a local server with the specified nodes.
 
     :param Nodes: Sequence of nodes

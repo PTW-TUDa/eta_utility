@@ -54,7 +54,7 @@ class NoVecEnv(DummyVecEnv):
         self.keys, shapes, dtypes = obs_space_info(self.envs[0].observation_space)
 
         self.buf_obs = OrderedDict(
-            [(k, np.zeros((self.num_envs,) + tuple(shapes[k]), dtype=dtypes[k])) for k in self.keys]
+            [(k, np.zeros((self.num_envs, *tuple(shapes[k])), dtype=dtypes[k])) for k in self.keys]
         )
         self.buf_dones = np.zeros((self.num_envs,), dtype=bool)
         self.buf_rews = np.zeros((self.num_envs,), dtype=np.float32)

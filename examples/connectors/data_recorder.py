@@ -1,6 +1,7 @@
-""" The script can be used to read data from different servers in the ETA-Factory.
+"""The script can be used to read data from different servers in the ETA-Factory.
 It can write output to CSV files and/or publish to a different OPC UA server.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -9,6 +10,8 @@ import os
 import pathlib
 from datetime import timedelta
 from typing import TYPE_CHECKING
+
+from eta_utility.connectors.base_classes import Connection
 
 try:
     import keyboard
@@ -19,7 +22,7 @@ except ModuleNotFoundError:
         name="keyboard",
     )
 from eta_utility import get_logger
-from eta_utility.connectors import Node, connections_from_nodes, sub_handlers
+from eta_utility.connectors import Node, sub_handlers
 
 if TYPE_CHECKING:
     from eta_utility.type_hints import Path, TimeStep
@@ -122,7 +125,7 @@ def execution_loop(
     log.setLevel(verbosity * 10)
 
     nodes = Node.from_excel(nodes_file, nodes_sheet)
-    connections = connections_from_nodes(nodes, usr=eneffco_usr, pwd=eneffco_pw, eneffco_api_token=eneffco_api_token)
+    connections = Connection.from_nodes(nodes, usr=eneffco_usr, pwd=eneffco_pw, api_token=eneffco_api_token)
 
     # Start handler
     subscription_handler = sub_handlers.MultiSubHandler()
@@ -139,9 +142,10 @@ def execution_loop(
                 pass
 
         subscription_handler.register(sub_handlers.CsvSubHandler(output_file, write_interval=write_interval))
-
     loop = asyncio.get_event_loop()
-    loop.create_task(logger(10))
+    task = loop.create_task(logger(10))
+    background_tasks = set()
+    background_tasks.add(task)
 
     try:
         for host, connection in connections.items():

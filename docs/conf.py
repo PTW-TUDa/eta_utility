@@ -1,8 +1,9 @@
-""" Configuration file for the Sphinx documentation builder.
+"""Configuration file for the Sphinx documentation builder.
 This file only contains a selection of the most common options. For a full
 list see the documentation:
 https://www.sphinx-doc.org/en/master/usage/configuration.html
 """
+
 from __future__ import annotations
 
 import os
@@ -76,7 +77,7 @@ autosummary_generate = True
 
 linkcheck_ignore = [r"https://$", r"https://web-api.tp.entsoe.eu/"]
 linkcheck_allowed_redirects = {
-    r"https://eta-utility.readthedocs.io/": r"https://eta-utility.readthedocs.io/en/master/",
+    r"https://eta-utility.readthedocs.io/": r"https://eta-utility.readthedocs.io/en/main/",
     r"https://stable-baselines3.readthedocs.io/": r"https://stable-baselines3.readthedocs.io/en/master/",
 }
 linkcheck_anchors_ignore_for_url = (r"https://docs.python.org/",)

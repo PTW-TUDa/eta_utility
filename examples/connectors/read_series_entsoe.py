@@ -2,7 +2,8 @@ from datetime import datetime
 
 import pandas as pd
 
-from eta_utility.connectors import ENTSOEConnection, Node
+from eta_utility.connectors import ENTSOEConnection
+from eta_utility.connectors.node import NodeEntsoE
 
 
 def main() -> None:
@@ -15,7 +16,7 @@ def read_series() -> pd.DataFrame:
     entsoe_token = ""
 
     # Check out NodeEntsoE documentation for endpoint and bidding zone information
-    node = Node(
+    node = NodeEntsoE(
         "CH1.Elek_U.L1-N",
         "https://transparency.entsoe.eu/",
         "entsoe",

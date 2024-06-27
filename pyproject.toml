@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "eta-utility"
-version = "v3.1.0"
+version = "v3.2.0"
 description = "A framework for researching energy optimization of factory operations"
 authors = [
     "Technical University of Darmstadt, Institute for Production Management, Technology and Machine Tools (PTW). <info@ptw.tu-darmstadt.de>"
@@ -48,18 +48,16 @@ repository = "https://github.com/PTW-TUDa/eta_utility/"
 python = ">=3.9, <3.12"
 attrs = "^23.1.0"
 python-dateutil = "^2.8.2"
-numpy = {version= "~1.24.0"}
-pandas = {version= "~2.0.3"}
+numpy = {version= "~1.26.0"}
+pandas = {version= "~2.2.2"}
 xlrd = "^2.0.1"
 asyncua-fork-for-eta-utility = "==1.0.7"
 lxml = "^4.9.3"
 requests = "^2.31.0"
 pymodbustcp = "==0.2.0"
 cryptography = "^41.0.4"
-fmpy = "^0.3.5"
-wetterdienst = [{version="==0.72.0", python="^3.9"},  # breaking changes expected
-                #{version="==0.54.0", python=">=3.8.0, <3.9.0"}
-                ]
+wetterdienst = {version="~0.82.0", python="^3.9"}  # breaking changes expected
+
 
 # Specific requirements for eta_x
 gymnasium =  {version = "==0.29.1", optional=true} # no SemVer
@@ -86,35 +84,23 @@ sphinx-copybutton = {version = "^0.5.2", optional = true}
 pre-commit = {version = "^3.4.0", optional = true}
 black = {version = "~23.7", optional = true}
 blacken_docs = {version = "~1.16", optional = true}
-isort = {version = "~5.12", optional = true}
-pyupgrade = {version ="~3.10", optional = true}
 # MyPy requirements and typing packages
-mypy = {version = "~1.5", optional = true}
+mypy = {version = "~1.9", optional = true}
 types-python-dateutil = {version = "^2.8.19.14", optional = true}
 types-requests = {version = "^2.31.0.4", optional = true}
-# Linting / Flake8 requirements and linting packages
-flake8 = {version ="^6.0.0", optional = true}
-pyflakes = {version = "~3.1", optional = true}
-pycodestyle= {version = "~2.11.0", optional = true}
-flake8-pyproject= {version = "~1.2", optional = true}
-flake8-builtins = {version = "~2.1", optional = true}
-flake8-eradicate = {version = "~1.5", optional = true}
-flake8-comprehensions= {version = "~3.14", optional = true}
-flake8-mutable={version = "~1.2", optional = true}
-flake8-print={version = "^5.0", optional = true}
-flake8-pytest-style= {version= "~1.7", optional = true}
-flake8-requirements={version = "~1.7", optional = true}
-flake8-rst-docstrings = {version = "^0.3.0", optional = true}
-pep8-naming={version = "~0.13", optional = true}
+types-pytz = {version = "^2024.1.0.20240203", optional = true}
+# Ruff
+ruff = "^0.4.4"
+
+requests-cache = "^1.2.0"
+fmpy = "0.3.19"
 
 [tool.poetry.extras]
 develop = ["gymnasium", "torch", "stable_baselines3", "tensorboard", "pyomo",     # include eta_x
             "matplotlib", "keyboard", "pygame", "pyglet", "onnxruntime",    # include examples
             "pytest", "pytest-cov", "openpyxl", "sphinx", "sphinx-rtd-theme", "sphinx-copybutton", "pre-commit",
-            "black", "blacken_docs", "isort", "pyupgrade", "mypy", "types-python-dateutil",
-            "types-requests", "flake8", "pyflakes", "pycodestyle", "flake8-pyproject", "flake8-builtins",
-            "flake8-eradicate", "flake8-comprehensions", "flake8-mutable", "flake8-print",
-            "flake8-pytest-style", "flake8-requirements", "pep8-naming", "flake8-rst-docstrings"]
+            "black", "blacken_docs", "mypy", "types-python-dateutil",
+            "types-requests", "types-pytz", ]
 eta_x = ["gymnasium", "torch", "stable_baselines3", "tensorboard", "pyomo"]
 examples = ["matplotlib", "keyboard", "pygame", "pyglet", "onnxruntime"]
 
@@ -122,46 +108,13 @@ examples = ["matplotlib", "keyboard", "pygame", "pyglet", "onnxruntime"]
 
 [tool.black]
 include = "\\.pyi?$|^eta_utility/|^test/"
-exclude = "\\.xlsx?$|\\.fmu?$|test_resources/|__pycache__/|_version.py$"
+exclude = "\\.xlsx?$|\\.fmu?$|test_resources/|__pycache__/|_version.py|.venv/$"
 line_length = 120
 target_version = ["py39","py310", "py311"]
 
-[tool.isort]
-profile = "black"
-multi_line_output = 3
-
-[tool.flake8]
-format = "default"
-extend_exclude = [
-    "docs/conf.py",
-    "build",
-    "dist",
-    ".*/",
-    "venv*/",
-    ".venv*/",
-    "*.mypy*/",
-    "poetry.lock"
-]
-max_line_length = 120
-max_complexity = 20
-indent_size = 4
-extend_ignore = [
-    # Black introduces ' : ' whitespaces around colons.
-    "E203",
-    # Some ReST keywords are specific to sphinx and will not be recognized correctly:
-    "RST303",
-    "RST304",
-    # Warnings about fixtures without return values are broken:
-    "PT019",
-    # Temporary fix for missing 'asyncua' import (we are using asyncua-fork-for-eta-utility))
-    "I900",
-]
-per_file_ignores = [
-    "__init__.py: F401"
-]
 
 [tool.mypy]
-python_version = 3.9
+python_version = "3.9"
 files = ["eta_utility", "examples"]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
@@ -190,9 +143,10 @@ module = [
     "keyboard.*",
     "onnxruntime.*",
     "matplotlib.*",
-    "torch.ao.nn.*",
+    "torch.*",
     "asyncua.*",
-    "wetterdienst.*"
+    "wetterdienst.*",
+    "requests_cache.*",
 ]
 ignore_missing_imports = true
 [[tool.mypy.overrides]]
@@ -228,3 +182,55 @@ exclude_lines = [
     'raise NotImplementedError',
     'pass',
 ]
+
+[tool.ruff]
+include = ["pyproject.toml", "eta_utility/**/*.py", "test/**/*.py", "examples/**/*.py"]
+
+line-length = 120
+indent-width = 4
+
+required-version = ">=0.4.0"
+target-version= "py39"
+
+# Only fix with $ruff check --fix
+fix = false
+
+[tool.ruff.lint]
+select = [
+    "F",       # Pyflakes
+    "E", "W",  # Pycodestyle, Error and Warning
+    "I",       # Isort
+    "N",       # Pep8-naming conventions
+    "UP",      # Pyupgrade
+    "PL",      # Pylint
+    "RUF",     # Ruff
+    "NPY",     # NumPy-specific
+
+    # Flake8:
+    # asyncio, commas, comprehensions, eradicate, future-annotations,
+    # logging, no-pep420, print, pytest-style, simplify
+    "ASYNC","COM", "C4", "ERA", "FA", "LOG", "INP", "T20", "PT", "SIM",
+
+    ]
+
+ignore = [
+    "SIM105",
+    "PLR2004",  # Pylint: magic values
+    # Recommended to ignore as they conflict with the formatter
+    "W191", "E111", "E114", "E117", "D206", "D300", "COM812", "COM819",
+]
+
+
+[tool.ruff.lint.extend-per-file-ignores]
+"__init__.py" = ["PLC0414"]
+"test/*" = ["RUF012"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+force-wrap-aliases = true
+
+[tool.ruff.lint.pylint]
+max-args = 17
+max-branches = 24
+max-statements = 64
+max-returns = 9

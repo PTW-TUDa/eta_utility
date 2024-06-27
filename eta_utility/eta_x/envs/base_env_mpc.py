@@ -62,10 +62,10 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         **kwargs: Any,
     ) -> None:
         super().__init__(
-            env_id,
-            config_run,
-            verbose,
-            callback,
+            env_id=env_id,
+            config_run=config_run,
+            verbose=verbose,
+            callback=callback,
             scenario_time_begin=scenario_time_begin,
             scenario_time_end=scenario_time_end,
             episode_duration=episode_duration,
@@ -73,7 +73,6 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             render_mode=render_mode,
             **kwargs,
         )
-
         # Check configuration for MILP compatibility
         #: Total duration of one prediction/optimization run when used with the MPC agent.
         #: This is automatically set to the value of episode_duration if it is not supplied
@@ -208,7 +207,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         assert self._concrete_model is not None, (
             "Access the 'model' attribute or call reset at least once before "
             "trying to use the environment. This initializes the model and "
-            "should be done automatically when using the MPCBasic Algorithm."
+            "should be done automatically when using the MathSolver agent."
         )
 
         observations = self.update()
@@ -221,7 +220,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             self.state[obs] = observations[idx]
         self.state_log.append(self.state)
 
-        reward = pyo.value(list(self._concrete_model.component_objects(pyo.Objective))[0])
+        reward = pyo.value(next(self._concrete_model.component_objects(pyo.Objective)))
 
         # Render the environment at each step
         if self.render_mode is not None:
@@ -239,7 +238,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         assert self._concrete_model is not None, (
             "Access the 'model' attribute or call reset at least once before "
             "trying to use the environment. This initializes the model and "
-            "should be done automatically when using the MPCBasic Algorithm."
+            "should be done automatically when using the MathSolver agent."
         )
 
         # Update shift counter for rolling MPC approach
@@ -277,18 +276,14 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         # Log current time shift
         if self.n_steps + self.n_prediction_steps + 1 < len(self.timeseries.index):
             log.info(
-                "Current optimization time shift: {} of {} | Current scope: {} to {}".format(
-                    self.n_steps,
-                    self.n_episode_steps,
-                    self.timeseries.index[self.n_steps],
-                    self.timeseries.index[self.n_steps + self.n_prediction_steps + 1],
-                )
+                f"Current optimization time shift: {self.n_steps} of {self.n_episode_steps} | "
+                f"Current scope: {self.timeseries.index[self.n_steps]} "
+                f"to {self.timeseries.index[self.n_steps + self.n_prediction_steps + 1]}"
             )
         else:
             log.info(
-                "Current optimization time shift: {} of {}. Last optimization step reached.".format(
-                    self.n_steps, self.n_episode_steps
-                )
+                f"Current optimization time shift: {self.n_steps} of {self.n_episode_steps}."
+                " Last optimization step reached."
             )
 
         self._create_new_state(self.additional_state)
@@ -337,7 +332,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         try:
             self.render()
         except Exception as e:
-            log.error(f"Rendering partial results failed: {str(e)}")
+            log.error(f"Rendering partial results failed: {e!s}")
         self.reset()
 
     def reset(
@@ -501,20 +496,19 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
 
             return cts
 
-        if isinstance(_ts, pd.DataFrame) or isinstance(_ts, Mapping):
+        if isinstance(_ts, (pd.DataFrame, Mapping)):
             for key, t in _ts.items():
                 # Determine whether the timeseries should be returned, based on the timeseries name and the requested
                 #  component name.
-                if component_name is not None and "." in key and component_name in key.split("."):
-                    key = key.split(".")[-1]
-                elif component_name is not None and "." in key and component_name not in key.split("."):
+                if component_name is not None and "." in key and component_name not in key.split("."):
                     continue
+                split_key = key.split(".")[-1]
 
                 # Simple values do not need their index converted...
                 if not hasattr(t, "__len__") and np.isreal(t):
-                    output[key] = {None: t}
+                    output[split_key] = {None: t}
                 else:
-                    output[key] = convert_index(t, index)
+                    output[split_key] = convert_index(t, index)
 
         elif isinstance(_ts, pd.Series):
             # Determine whether the timeseries should be returned, based on the timeseries name and the requested
@@ -524,8 +518,8 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
                 and isinstance(_ts.name, str)
                 and "." in _ts.name
                 and component_name in _ts.name.split(".")
-            ):  # noqa
-                output[_ts.name.split(".")[-1]] = convert_index(_ts, index)  # noqa
+            ):
+                output[_ts.name.split(".")[-1]] = convert_index(_ts, index)
             elif component_name is None or "." not in _ts.name:
                 output[_ts.name] = convert_index(_ts, index)
 
@@ -550,7 +544,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         assert self._concrete_model is not None, (
             "Access the 'model' attribute or call reset at least once before "
             "trying to use the environment. This initializes the model and "
-            "should be done automatically when using the MPCBasic Algorithm."
+            "should be done automatically when using the MathSolver agent."
         )
 
         # append string to non indexed values that are used to set indexed parameters.
@@ -560,29 +554,26 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
                 component = self._concrete_model.component(param)
                 if (
                     component is not None
-                    and (
-                        component.is_indexed() or isinstance(component, pyo.Set) or isinstance(component, pyo.RangeSet)
-                    )
+                    and (component.is_indexed() or isinstance(component, (pyo.Set, pyo.RangeSet)))
                     and not isinstance(updated_params[param], Mapping)
                 ):
                     updated_params[str(param) + nonindex_param_append_string] = updated_params[param]
                     del updated_params[param]
 
         for parameter in self._concrete_model.component_objects():
-            if str(parameter) in updated_params.keys():
-                parameter_name = str(parameter)
-            else:
-                parameter_name = str(parameter).split(".")[
-                    -1
-                ]  # last entry is the parameter name for abstract models which are instanced
-            if parameter_name in updated_params.keys():
-                if isinstance(parameter, pyo_base.param.ScalarParam) or isinstance(parameter, pyo_base.var.ScalarVar):
+            parameter_name = str(parameter)
+            if parameter_name not in updated_params:
+                # last entry is the parameter name for abstract models which are instanced
+                parameter_name = parameter_name.split(".")[-1]
+
+            if parameter_name in updated_params:
+                if isinstance(parameter, (pyo_base.param.ScalarParam, pyo_base.var.ScalarVar)):
                     # update all simple parameters (single values)
                     parameter.value = updated_params[parameter_name]
                 elif isinstance(parameter, pyo_base.indexed_component.IndexedComponent):
                     # update all indexed parameters (time series)
                     if not isinstance(updated_params[parameter_name], Mapping):
-                        parameter[list(parameter)[0]] = updated_params[parameter_name]
+                        parameter[next(parameter)] = updated_params[parameter_name]
                     else:
                         for param_val in list(parameter):
                             parameter[param_val] = updated_params[parameter_name][param_val]
@@ -599,7 +590,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         assert self._concrete_model is not None, (
             "Access the 'model' attribute or call reset at least once before "
             "trying to use the environment. This initializes the model and "
-            "should be done automatically when using the MPCBasic Algorithm."
+            "should be done automatically when using the MathSolver agent."
         )
         solution = {}
 
@@ -610,11 +601,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
                 continue  # Only include names that where asked for
 
             # For simple variables we need just the values, for everything else we want time indexed dictionaries
-            if (
-                isinstance(com, pyo.ScalarVar)
-                or isinstance(com, pyo_base.objective.SimpleObjective)
-                or isinstance(com, pyo_base.param.ScalarParam)
-            ):
+            if isinstance(com, (pyo.ScalarVar, pyo_base.objective.SimpleObjective, pyo_base.param.ScalarParam)):
                 solution[com.name] = pyo.value(com)
             else:
                 solution[com.name] = {}
@@ -642,7 +629,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         ):
             return self.state_config.vars[component.name].low_value
 
-        if isinstance(component, pyo.Set) or isinstance(component, pyo.RangeSet):
+        if isinstance(component, (pyo.Set, pyo.RangeSet)):
             val = round(pyo.value(component.at(at)), 5)
         elif component.is_indexed() and (
             not hasattr(component, "stale") or (hasattr(component, "stale") and not component.stale)

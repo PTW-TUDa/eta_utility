@@ -8,6 +8,7 @@
 !*/resources/**/*.csv
 !*/resources/**/*.xls
 *_version.py
+!test/utilities/requests/*.json
 
 # results of example run
 examples/*/results
@@ -156,3 +157,6 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+
+# Requests Cache
+*.sqlite

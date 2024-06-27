@@ -1,11 +1,9 @@
-# flake8: noqa
-
 from datetime import datetime, timedelta
 
 import pandas as pd
 
-from eta_utility.connectors import Node
 from eta_utility.connectors.cumulocity import CumulocityConnection
+from eta_utility.connectors.node import NodeCumulocity
 
 # Params for example Cumulocity-Connection
 URL = "eta-iot-cumulocity.ptw.maschinenbau.tu-darmstadt.de"
@@ -16,7 +14,7 @@ USER = ""  # enter username here
 PASSWORD = ""  # enter your password here
 TENANT = "edge"
 
-cumu_node = Node(
+cumu_node = NodeCumulocity(
     "Cumulocity-Test-Node",
     URL,
     "cumulocity",
@@ -25,7 +23,7 @@ cumu_node = Node(
     fragment=FRAGMENT,
 )
 
-cumu_node2 = Node(
+cumu_node2 = NodeCumulocity(
     "Cumulocity-Test-Node2",
     URL,
     "cumulocity",
@@ -56,9 +54,10 @@ conn.write(values=data["P"], measurement_type="Power", unit="W", nodes=cumu_node
 ### Read Data ###
 # to read data you need to provide the nodes to read from and a timespan
 # again you can either provide the download nodes manually
-print(conn.read_series(from_time=t, to_time=t + timedelta(minutes=5), nodes=cumu_node))
+print(conn.read_series(from_time=t, to_time=t + timedelta(minutes=5), nodes=cumu_node))  # noqa
 
 ### Create Device ###
 # to create a device, additionally to your login information, you need to provide a device name
 DEVICE_NAME = ""
-# CumulocityConnection.create_device(url=URL, username=USER, password=PASSWORD, tenant=TENANT, device_name=DEVICE_NAME)
+# CumulocityConnection.create_device(url=URL,
+# username=USER, password=PASSWORD, tenant=TENANT, device_name=DEVICE_NAME)
