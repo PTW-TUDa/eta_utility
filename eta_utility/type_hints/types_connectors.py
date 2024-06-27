@@ -9,6 +9,7 @@ from eta_utility.connectors.node import (
     NodeEmonio,
     NodeEnEffCo,
     NodeEntsoE,
+    NodeForecastSolar,
     NodeLocal,
     NodeModbus,
     NodeOpcUa,
@@ -28,6 +29,7 @@ AnyNode = Union[
     NodeWetterdienstObservation,
     NodeWetterdienstPrediction,
     NodeEmonio,
+    NodeForecastSolar,
 ]
 # Generic Template for Nodes, N has to be a subclass of Node
 N = TypeVar("N", bound=Node)

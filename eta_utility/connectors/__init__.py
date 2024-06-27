@@ -6,6 +6,7 @@ from .cumulocity import CumulocityConnection as CumulocityConnection
 from .emonio import EmonioConnection as EmonioConnection
 from .eneffco import EnEffCoConnection as EnEffCoConnection
 from .entso_e import ENTSOEConnection as ENTSOEConnection
+from .forecast_solar import ForecastSolarConnection as ForecastSolarConnection
 from .live_connect import LiveConnect as LiveConnect
 from .modbus import ModbusConnection as ModbusConnection
 from .node import Node as Node

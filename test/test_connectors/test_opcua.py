@@ -1,6 +1,5 @@
 import asyncio
 import datetime
-import socket
 
 import pandas as pd
 import pytest
@@ -241,18 +240,18 @@ nodes = (
 
 
 @pytest.fixture(scope="module")
-def local_nodes():
+def local_nodes(config_host_ip):
     _nodes = []
     for node in nodes:
-        _nodes.extend(Node.from_dict({**node, "ip": socket.gethostbyname(socket.gethostname())}))
+        _nodes.extend(Node.from_dict({**node, "ip": config_host_ip}))
 
     return _nodes
 
 
 class TestConnectorOperations:
     @pytest.fixture(scope="class", autouse=True)
-    def server(self):
-        with OpcUaServer(5, ip=socket.gethostbyname(socket.gethostname())) as server:
+    def server(self, config_host_ip):
+        with OpcUaServer(5, ip=config_host_ip) as server:
             yield server
 
     @pytest.fixture(scope="class")
@@ -334,8 +333,8 @@ class TestConnectorSubscriptions:
     }
 
     @pytest.fixture(scope="class", autouse=True)
-    def server(self, local_nodes):
-        with OpcUaServer(5, ip=socket.gethostbyname(socket.gethostname())) as server:
+    def server(self, local_nodes, config_host_ip):
+        with OpcUaServer(5, ip=config_host_ip) as server:
             server.create_nodes(local_nodes)
             yield server
 
@@ -450,10 +449,10 @@ nodes_interval_to_check = (
 
 
 @pytest.fixture(scope="module")
-def local_nodes_interval_checking():
+def local_nodes_interval_checking(config_host_ip):
     _nodes = []
     for node in nodes_interval_to_check:
-        _nodes.extend(Node.from_dict({**node, "ip": socket.gethostbyname(socket.gethostname())}))
+        _nodes.extend(Node.from_dict({**node, "ip": config_host_ip}))
 
     return _nodes
 
@@ -478,8 +477,8 @@ class TestConnectorSubscriptionsIntervalChecker:
     }
 
     @pytest.fixture(scope="class", autouse=True)
-    def server(self, local_nodes_interval_checking):
-        with OpcUaServer(5, ip=socket.gethostbyname(socket.gethostname())) as server:
+    def server(self, local_nodes_interval_checking, config_host_ip):
+        with OpcUaServer(5, ip=config_host_ip) as server:
             server.create_nodes(local_nodes_interval_checking)
             yield server
 

@@ -178,12 +178,12 @@ class CumulocityConnection(SeriesConnection[NodeCumulocity], protocol="cumulocit
 
         # specify read function for ThreadpoolExecutor
         def read_node(node: NodeCumulocity) -> pd.DataFrame:
-            request_url = "{}/measurement/measurements?dateFrom={}&dateTo={}&source={}&valueFragmentSeries={}&pageSize=2000".format(  # noqa
-                node.url,
-                self.timestr_from_datetime(from_time),
-                self.timestr_from_datetime(to_time),
-                node.device_id,
-                node.fragment,
+            request_url = (
+                f"{node.url}/measurement/measurements"
+                f"?dateFrom={self.timestr_from_datetime(from_time)}"
+                f"&dateTo={self.timestr_from_datetime(to_time)}"
+                f"&source={node.device_id}"
+                f"&valueFragmentSeries={node.fragment}&pageSize=2000"
             )
 
             headers = self.get_auth_header()

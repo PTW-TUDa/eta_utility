@@ -2,14 +2,24 @@
 
 from __future__ import annotations
 
+import ast
 import enum
 import pathlib
+import re
 from collections.abc import Mapping
 from datetime import timedelta
+from sys import maxsize
 from typing import TYPE_CHECKING
 
+import attrs
 import pandas as pd
-from attrs import converters, define, field, validators
+from attrs import (
+    converters,
+    define,
+    field,
+    validators as vld,
+)
+from dateutil.parser import parse
 from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.provider.dwd.mosmix.api import DwdMosmixParameter
 from wetterdienst.provider.dwd.observation import (
@@ -24,6 +34,8 @@ if TYPE_CHECKING:
     from typing import Any, Callable, ClassVar, Final
     from urllib.parse import ParseResult
 
+    from typing_extensions import TypeAlias
+
     from eta_utility.type_hints import Path
 
 default_schemes = {
@@ -36,6 +48,7 @@ default_schemes = {
     "cumulocity": "https",
     "wetterdienst_observation": "https",
     "wetterdienst_prediction": "https",
+    "forecast_solar": "https",
 }
 
 
@@ -63,7 +76,7 @@ def _lower_str(value: str) -> str:
 def _dtype_converter(value: str) -> Callable | None:
     """Specify data type conversion functions (i.e. to convert modbus types to python).
 
-    :param value: Data type string to convert to callacle datatype converter.
+    :param value: Data type string to convert to callable datatype converter.
     :return: Python datatype (callable).
     """
     _dtypes = {
@@ -79,8 +92,15 @@ def _dtype_converter(value: str) -> Callable | None:
         "string": str,
         "str": str,
         "bytes": bytes,
+        "none": None,
+        "list": list,
+        "tuple": tuple,
+        "dict": dict,
     }
+
     try:
+        if value.startswith("list") or value.startswith("tuple") or value.startswith("dict"):
+            value = value.split("[")[0]
         dtype = _dtypes[_lower_str(value)]
     except KeyError:
         log.warning(
@@ -96,8 +116,9 @@ class NodeMeta(type):
     """Metaclass to define all Node classes as frozen attr dataclasses."""
 
     def __new__(cls, name: str, bases: tuple, namespace: dict[str, Any], **kwargs: Any) -> NodeMeta:
+        attrs_args = kwargs.pop("attrs_args", {})
         new_cls = super().__new__(cls, name, bases, namespace, **kwargs)
-        return define(frozen=True, slots=False)(new_cls)
+        return define(frozen=True, slots=False, **attrs_args)(new_cls)
 
 
 class Node(metaclass=NodeMeta):
@@ -162,6 +183,42 @@ class Node(metaclass=NodeMeta):
 
         object.__setattr__(self, "url", url.geturl())
         object.__setattr__(self, "url_parsed", url)
+
+    def evolve(self, **kwargs: Any) -> Node:
+        """Returns a new node instance
+        by copying the current node and changing only specified keyword arguments.
+
+        This allows for seamless node instantiation with only a few changes.
+
+        :param kwargs: Keyword arguments to change.
+        :return: New instance of the node.
+        """
+        return attrs.evolve(self, **kwargs)  # type: ignore
+
+    def as_dict(self, filter_none: bool = False, **kwargs: Any) -> dict[str, Any]:
+        """Return the attrs attribute values of node instance as a dict.
+
+        :param filter_none: Filter none values, defaults to False
+        :return: dict of attribute values
+        """
+        filter_func = self.__class__._filter_none(self) if filter_none else None
+        return attrs.asdict(self, filter=filter_func, **kwargs)  # type: ignore
+
+    def as_tuple(self, filter_none: bool = False, **kwargs: Any) -> tuple[Any, ...]:
+        """Return the attrs attribute values of inst as a tuple.
+
+        :param filter_none: Filter none values, defaults to False
+        :return: tuple of attribute values
+        """
+        filter_func = self.__class__._filter_none(self) if filter_none else None
+        return attrs.astuple(self, filter=filter_func, **kwargs)  # type: ignore
+
+    @staticmethod
+    def _filter_none(node: Node) -> Callable[[attrs.Attribute[Any], Any], bool]:
+        """Return callable to filter none values, to be passed to attrs.asdict or attrs.astuple."""
+        attributes = attrs.asdict(node)  # type: ignore
+        non_values = {key: value for key, value in attributes.items() if value is None}
+        return attrs.filters.exclude(*non_values.keys())
 
     @classmethod
     def from_dict(cls, dikt: Sequence[Mapping] | Mapping[str, Any], fail: bool = True) -> list[Node]:
@@ -384,21 +441,19 @@ class NodeModbus(Node, protocol="modbus"):
     #: Modbus Register name. One of input, discrete_input, coils and holding. Note that only coils and
     #: holding can be written to.
     mb_register: str = field(
-        kw_only=True, converter=_lower_str, validator=validators.in_({"input", "discrete_input", "coils", "holding"})
+        kw_only=True, converter=_lower_str, validator=vld.in_(("input", "discrete_input", "coils", "holding"))
     )
     #: Modbus Channel (Address of the value)
     mb_channel: int = field(kw_only=True, converter=int)
     #: Length of the value in bits (default 32). This determines, how much data is read from the server. The
     #: value must be a multiple of 16.
-    mb_bit_length: int = field(kw_only=True, default=32, converter=int, validator=validators.ge(1))
+    mb_bit_length: int = field(kw_only=True, default=32, converter=int, validator=vld.ge(1))
 
     #: Byteorder of values returned by modbus
-    mb_byteorder: str = field(
-        kw_only=True, converter=_mb_endianness_converter, validator=validators.in_({"little", "big"})
-    )
+    mb_byteorder: str = field(kw_only=True, converter=_mb_endianness_converter, validator=vld.in_(("little", "big")))
     #: Wordorder of values returned by modbus
     mb_wordorder: str = field(
-        default="big", kw_only=True, converter=_mb_endianness_converter, validator=validators.in_({"little", "big"})
+        default="big", kw_only=True, converter=_mb_endianness_converter, validator=vld.in_(("little", "big"))
     )
 
     def __attrs_post_init__(self) -> None:
@@ -468,7 +523,7 @@ class NodeOpcUa(Node, protocol="opcua"):
     # Additional fields which will be determined automatically
     #: Type of the OPC UA Node ID Specification.
     opc_id_type: str = field(
-        init=False, converter=str, validator=validators.in_({"i", "s"}), repr=False, eq=False, order=False
+        init=False, converter=str, validator=vld.in_(("i", "s")), repr=False, eq=False, order=False
     )
     #: Name of the OPC UA Node.
     opc_name: str = field(init=False, repr=False, eq=False, order=False, converter=str)
@@ -578,6 +633,26 @@ class NodeOpcUa(Node, protocol="opcua"):
                     f"Could not convert all types for node {name}. Either the 'node_id' or the 'opc_ns' "
                     f"and 'opc_path' must be specified."
                 )
+
+    def evolve(self, **kwargs: Any) -> Node:
+        """Returns a new node instance
+        by copying the current node and changing only specified keyword arguments.
+
+        This allows for seamless node instantiation with only a few changes.
+
+        Adjusted attributes handling according to OpcUa node instantiation logic as in '__attrs_post_init__'.
+
+        :param kwargs: Keyword arguments to change.
+        :return: New instance of the node.
+        """
+        # Ensure that opc_id is not set if opc_ns and opc_path_str are set, to avoid postprocessing conflicts
+        if kwargs.get("opc_id") is not None or self.opc_id is not None:
+            kwargs["opc_ns"] = None
+            kwargs["opc_path_str"] = None
+        else:
+            kwargs["opc_ns"] = str(kwargs.get("opc_ns", self.opc_ns))
+
+        return super().evolve(**kwargs)
 
 
 class NodeEnEffCo(Node, protocol="eneffco"):
@@ -856,7 +931,7 @@ class NodeWetterdienstPrediction(NodeWetterdienst, protocol="wetterdienst_predic
     """
 
     #: Type of the MOSMIX prediction. Either 'SMALL' or 'LARGE'
-    mosmix_type: str = field(kw_only=True, converter=str.upper, validator=validators.in_({"SMALL", "LARGE"}))
+    mosmix_type: str = field(kw_only=True, converter=str.upper, validator=vld.in_(("SMALL", "LARGE")))
 
     def __attrs_post_init__(self) -> None:
         super().__attrs_post_init__()
@@ -935,9 +1010,7 @@ class NodeEmonio(Node, protocol="emonio"):
     #: Modbus address of the parameter to read
     address: int = field(default=-1, kw_only=True, converter=int)
     #: Phase of the parameter (a, b, c). If not set, all phases are read
-    phase: str = field(
-        default="abc", kw_only=True, converter=_lower_str, validator=validators.in_({"a", "b", "c", "abc"})
-    )
+    phase: str = field(default="abc", kw_only=True, converter=_lower_str, validator=vld.in_(("a", "b", "c", "abc")))
 
     def __attrs_post_init__(self) -> None:
         """Ensure that all required parameters are present and valid."""
@@ -1005,3 +1078,302 @@ class NodeEmonio(Node, protocol="emonio"):
             return cls(name, url, "emonio", interval=interval, phase=phase, address=address)
         except (TypeError, AttributeError):
             raise TypeError(f"Could not convert all types for node {name}.")
+
+
+# Forecast.Solar API Node
+
+
+def _convert_list(_type: TypeAlias) -> Callable:
+    """Convert an optional list of values to a single value or a list of values.
+
+    :param _type: type to convert the values to.
+    :return: converter function.
+    """
+
+    def converter(value: Any) -> _type | list[_type]:
+        try:
+            if isinstance(value, str):
+                value = ast.literal_eval(value)
+            if isinstance(value, list):
+                return [_type(val) for val in value]
+            else:
+                return _type(value)
+        except ValueError as e:
+            raise ValueError(f"Could not convert value to {_type} ({value}).") from e
+
+    return converter
+
+
+def _check_api_key(instance, attribute, value):  # type: ignore[no-untyped-def]
+    """attrs validator to check if the API key is set."""
+    if re.match(r"[A-Za-z0-9]{16}", value) is None:
+        raise ValueError("API key must be a 16 character long alphanumeric string.")
+
+
+def _check_plane(_type: TypeAlias, lower: int, upper: int) -> Callable:
+    """Return an attrs validator for plane related attributes (declination, azimuth, kwp).
+    Checks if the value is between the lower and upper bounds.
+
+    :param _type: type of the parameter
+    :param lower: lower bound
+    :param upper: upper bound
+    """
+
+    def validator(instance, attribute, value):  # type: ignore[no-untyped-def]
+        for val in [value] if not isinstance(value, list) else value:
+            if not isinstance(val, _type):
+                raise ValueError(f"Parameter must be of type {_type} ({(val, type(val))}).")
+            if not (lower <= val <= upper):
+                raise ValueError(f"Parameter must be between {lower} and {upper} ({val}).")
+
+    return validator
+
+
+def _check_horizon(instance, attribute, value):  # type: ignore[no-untyped-def]
+    """attrs validator to check if horizon attribute corresponds to the API requirements."""
+    if not isinstance(value, list) or value != 0:
+        raise ValueError("Horizon must be a list, 0 (To suppress horizon usage *at all*) or None")
+    if len(value) < 4:
+        raise ValueError("Horizon must contain at least 4 values.")
+    if not isinstance((360 / len(value)), int):
+        raise ValueError("Make sure that 360 / <your count of values> is an integer.")
+    if not all(isinstance(i, (int, float)) and 0 <= i <= 90 for i in value):
+        raise ValueError("Each value in horizon must be a number between 0 and 90.")
+
+
+def _check_php_datetime(instance, attribute, value):  # type: ignore[no-untyped-def]
+    """attrs validator to check if the value is a valid PHP DateTime format."""
+    try:
+        parse(value)
+    except ValueError:
+        raise ValueError("'start' value must be a valid PHP DateTime format.")
+
+
+def _forecast_solar_transform(cls: attrs.AttrsInstance, fields: list[attrs.Attribute]) -> list[attrs.Attribute]:
+    """Transform the fields of the ForecastSolar node class.
+
+    :param fields: list of fields to transform.
+    :return: transformed fields.
+    """
+    for _field in fields:
+        # Skip fields from superclass and reset original kw_only value
+        if _field.name in ["usr", "pwd", "interval", "dtype", "name", "url", "url_parsed", "protocol"]:
+            if _field.name in ["name", "url", "url_parsed", "protocol"]:
+                object.__setattr__(_field, "kw_only", False)
+            continue
+
+        # Unpack field's type hints and convert them appropriately
+        types = tuple(map(_dtype_converter, _field.type.split(" | ")))  # type: ignore[union-attr]
+
+        # Create and append type validator to existing validators
+        _vlds = [vld.instance_of(types)]  # type: ignore
+        if _field.validator:
+            _vlds.extend(
+                [*_field.validator._validators]  # type: ignore
+                if isinstance(_field.validator, type(vld.and_()))
+                else [_field.validator]
+            )
+        all_validators = vld.and_(*_vlds)
+
+        # If None in type hints, make the field optional
+        if None in types:
+            all_validators = vld.optional(all_validators)
+            if _field.converter:
+                object.__setattr__(_field, "converter", converters.optional(_field.converter))
+            object.__setattr__(_field, "default", _field.default or None)
+        object.__setattr__(_field, "validator", all_validators)
+
+    return fields
+
+
+attrs_args = {"kw_only": True, "field_transformer": _forecast_solar_transform}
+
+
+class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
+    """Node for the Forecast.Solar API."""
+
+    # URL PARAMETERS
+    # ----------------
+    api_key: str | None = field(repr=False, converter=str, validator=_check_api_key, metadata={"QUERY_PARAM": False})
+    #: estimate / history / clearsky
+    endpoint: str = field(
+        default="estimate",
+        converter=str,
+        validator=vld.in_(("estimate", "help", "check", "history", "clearsky")),
+        metadata={"QUERY_PARAM": False},
+    )
+    #: Query data for only watts, wat hours, watt hours per period or watt hours per day; string
+    data: str | None = field(
+        default="watts",
+        converter=str,
+        validator=vld.in_(("watts", "watthours", "watthoursperperiod", "watthoursperday")),
+        metadata={"QUERY_PARAM": False},
+    )
+    #: Latitude of location, -90 (south) … 90 (north); handled with a precision of 0.0001 or abt. 10 m
+    latitude: int = field(converter=int, validator=[vld.ge(-90), vld.le(90)], metadata={"QUERY_PARAM": False})
+    #: Longitude of location, -180 (west) … 180 (east); handled with a precision of 0.0001 or abt. 10 m
+    longitude: int = field(converter=int, validator=[vld.ge(-180), vld.le(180)], metadata={"QUERY_PARAM": False})
+    #: Plane declination, 0 (horizontal) … 90 (vertical) - always in relation to earth's surface; integer
+    declination: int | list[int] = field(
+        converter=_convert_list(int),
+        validator=_check_plane(int, 0, 90),
+        metadata={"QUERY_PARAM": False},
+    )
+    #: Plane azimuth, -180 … 180 (-180 = north, -90 = east, 0 = south, 90 = west, 180 = north); integer
+    azimuth: int | list[int] = field(
+        converter=_convert_list(int),
+        validator=_check_plane(int, -180, 180),
+        metadata={"QUERY_PARAM": False},
+    )
+    #: Installed modules power in kilo watt; float
+    kwp: float | list[float] = field(
+        converter=_convert_list(float),
+        validator=_check_plane(float, 0, maxsize),
+        metadata={"QUERY_PARAM": False},
+    )
+
+    # QUERY PARAMETERS
+    # ----------------
+    #: format of timestamps in the response, see API doc for values; string
+    time: str = field(
+        default="utc",
+        converter=str,
+        validator=vld.in_(("utc", "iso8601", "rfc2822", "seconds", "milliseconds", "nanoseconds")),
+    )
+    # Forecast for full day or only sunrise to sunset, 0|1; int
+    no_sun: int | None = field(default=None, validator=vld.in_((0, 1)), metadata={"QUERY_PARAM": True})
+    #: damping factor for the morning forecast solar API
+    damping_morning: float | None = field(
+        default=None, converter=float, validator=[vld.ge(0.0), vld.le(1.0)], metadata={"QUERY_PARAM": True}
+    )
+    #: damping factor for the evening forecast solar API
+    damping_evening: float | None = field(
+        default=None, converter=float, validator=[vld.ge(0.0), vld.le(1.0)], metadata={"QUERY_PARAM": True}
+    )
+    #: Horizon information; string, (comma-separated list of numerics) See API doc
+    horizon: int | list[int] | None = field(default=None, validator=_check_horizon)
+    #: inverter: Maximum of inverter in kilowatts or kVA; float > 0
+    inverter: float | None = field(default=None, converter=float, validator=vld.gt(0.0), metadata={"QUERY_PARAM": True})
+    #: limit: Number of response days; int ⋲ (1,..,8), 1=today
+    limit: int | None = field(default=None, validator=vld.in_(tuple(range(1, 9))), metadata={"QUERY_PARAM": True})
+    #: start: Start time of the forecast, PHP DateTime format; stringx
+    start: str | None = field(default=None, converter=str, validator=_check_php_datetime)
+    #: transit: Flag for including solar transit (midday)
+    transit: int | None = field(default=None, converter=int, validator=vld.in_((0, 1)), metadata={"QUERY_PARAM": True})
+    #: actual: Actual production until now; float >= 0
+    actual: float | None = field(default=None, converter=float, validator=vld.ge(0.0), metadata={"QUERY_PARAM": True})
+
+    #: url parameters for the API; dict
+    _url_params: dict[str, Any] = field(init=False, repr=False, eq=False, order=False)
+    #: query parameters for the API; dict
+    _query_params: dict[str, Any] = field(init=False, repr=False, eq=False, order=False)
+
+    def __attrs_post_init__(self) -> None:
+        """Process attributes after initialization."""
+        if self.url not in [None, ""]:
+            log.info("Passing 'url' to ForecastSolar node is not supported and will be ignored.")
+
+        if not (isinstance(self.declination, int) and isinstance(self.azimuth, int) and isinstance(self.kwp, float)):
+            if isinstance(self.declination, list) and isinstance(self.azimuth, list) and isinstance(self.kwp, list):
+                if not len(self.declination) == len(self.azimuth) == len(self.kwp):
+                    raise ValueError("Declination, azimuthimuth and kwp must be passed for all planes")
+                elif self.api_key is None:
+                    raise ValueError("Valid API key is needed for multiple planes")
+            else:
+                raise ValueError("Declination, azimuth and kwp must be passed either as lists or as single values.")
+
+        if self.api_key is None and (self.endpoint not in ["estimate", "help", "check"]):
+            raise ValueError(f"Valid API key is needed for endpoint: {self.endpoint}")
+        if self.endpoint != "estimate" and self.data is not None:
+            log.info("'data' field is not supported for endpoints other than estimate and will be ignored.")
+            object.__setattr__(self, "data", None)
+
+        # Collect all url parameters and query parameters
+        url_params = {}
+        query_params = {}
+        for _field in self.__attrs_attrs__:  # type: ignore[attr-defined]
+            if getattr(self, _field.name, None) is not None:
+                if _field.metadata.get("QUERY_PARAM") is False:
+                    url_params[_field.name] = getattr(self, _field.name)
+                elif _field.metadata.get("QUERY_PARAM") is True:
+                    query_params[_field.name] = getattr(self, _field.name)
+
+        # Construct the URL
+        url = self._build_url(url_params)
+
+        object.__setattr__(self, "url", url)
+        object.__setattr__(self, "_url_params", url_params)
+        object.__setattr__(self, "_query_params", query_params)
+
+        super().__attrs_post_init__()
+
+    def _build_url(self, url_params: dict[str, Any]) -> str:
+        """Build the URL for the Forecast Solar API.
+
+        :param url_params: dictionary with URL parameters.
+        :return: URL for the Forecast Solar API.
+        """
+        url = "https://api.forecast.solar"
+
+        keys = ["api_key", "endpoint", "data", "latitude", "longitude"]
+        for path in keys:
+            try:
+                url += f"/{url_params[path]}"
+            except KeyError:
+                continue
+
+        # Unpack plane parameters and add them to the URL
+        if isinstance(self.declination, list):
+            for i in range(len(self.declination)):
+                url += f"/{self.declination[i]}/{self.azimuth[i]}/{self.kwp[i]}"  # type: ignore[index]
+
+        return url
+
+    @classmethod
+    def _get_params(cls, dikt: dict[str, Any]) -> dict[str, Any]:
+        """Get the common parameters for a Forecast Solar node.
+
+        :param dikt: dictionary with node information.
+        :return: dict with: api_key, endpoint, latitude, longitude, declination, azimuth, kwp
+        """
+        return {
+            "endpoint": dikt.get("endpoint", "estimate"),
+            "latitude": int(dikt.get("latitude", 0) or dikt.get("lat", 0)),
+            "longitude": int(dikt.get("longitude", 0) or dikt.get("lon", 0)),
+            "declination": dikt.get("declination", 0) or dikt.get("dec", 0),
+            "azimuth": dikt.get("azimuth", 0) or dikt.get("az", 0),
+            "kwp": dikt.get("kwp", 0),
+        }
+
+    @classmethod
+    def _from_dict(cls, dikt: dict[str, Any]) -> NodeForecastSolar:
+        """Create a Forecast Solar node from a dictionary of node information.
+
+        :param dikt: dictionary with node information.
+        :return: NodeForecastSolar object.
+        """
+        name, _, url, _, _ = cls._read_dict_info(dikt)
+
+        params = cls._get_params(dikt)
+
+        dict_key = str(dict_get_any(dikt, "api_key", "apikey", fail=False))
+        if dict_key not in ["None", "nan"]:
+            params["api_key"] = dict_key
+        else:
+            log.info(
+                """The api_key is None.
+                Make sure to set an api_key to use the personal or the professional functions of forecastsolar.api
+                otherwise the public functions are only available."""
+            )
+
+        for key in ["declination", "azimuth", "kwp"]:
+            if isinstance(params[key], str):
+                params[key] = ast.literal_eval(params[key])
+
+        try:
+            return cls(name, url, "forecast_solar", **params)
+        except (TypeError, AttributeError) as e:
+            raise TypeError(
+                f"""Could not convert all types for node {name}:
+                            \n{e}"""
+            )

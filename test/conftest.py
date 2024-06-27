@@ -3,6 +3,7 @@ import pathlib
 import platform
 import random
 import shutil
+import socket
 
 import pytest
 
@@ -34,6 +35,14 @@ def config_modbus_port():
 
 
 @pytest.fixture(scope="session")
+def config_host_ip():
+    try:
+        return socket.gethostbyname(socket.gethostname())
+    except socket.gaierror:
+        return "127.0.0.1"
+
+
+@pytest.fixture(scope="session")
 def config_eneffco():
     """Test configuration for EnEffCo."""
     return {"user": "", "pw": "", "url": "", "postman_token": ""}
@@ -49,6 +58,12 @@ def config_cumulocity():
 def config_entsoe():
     """Test configuration for entso-e connector"""
     return {"path": pathlib.Path(__file__).parent / "resources/entsoe/"}
+
+
+@pytest.fixture(scope="session")
+def config_forecast_solar():
+    """Test configuration for forecast solar."""
+    return {"url": "https://api.forecast.solar"}
 
 
 @pytest.fixture(scope="session")

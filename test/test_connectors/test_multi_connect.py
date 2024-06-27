@@ -18,7 +18,7 @@ node = Node(
     "opcua",
     opc_id="ns=6;s=.HLK.System_425.Pumpe_425.Zustand.Drehzahl",
 )
-ip = "127.95.11.183"  # local ip address
+ip = "127.0.0.1"  # local ip address
 port = 48050
 
 

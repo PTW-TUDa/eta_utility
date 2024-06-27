@@ -1,5 +1,4 @@
 import asyncio
-import socket
 
 import pytest
 
@@ -18,14 +17,14 @@ node_values = {
 
 
 @pytest.fixture(scope="module")
-def local_nodes(config_modbus_port):
+def local_nodes(config_modbus_port, config_host_ip):
     nodes = []
     for node in node_values:
         nodes.extend(
             NodeEmonio.from_dict(
                 {
                     "name": node,
-                    "ip": socket.gethostbyname(socket.gethostname()),
+                    "ip": config_host_ip,
                     "port": config_modbus_port,
                     "protocol": "emonio",
                     "dtype": "float",
@@ -36,11 +35,11 @@ def local_nodes(config_modbus_port):
 
 
 @pytest.fixture(scope="module")
-def phase_node(config_modbus_port):
+def phase_node(config_modbus_port, config_host_ip):
     return NodeEmonio.from_dict(
         {
             "name": "Serv.Spannung Max",
-            "ip": socket.gethostbyname(socket.gethostname()),
+            "ip": config_host_ip,
             "port": config_modbus_port,
             "protocol": "emonio",
             "dtype": "float",
@@ -51,8 +50,8 @@ def phase_node(config_modbus_port):
 
 class TestConnectorOperations:
     @pytest.fixture(scope="class")
-    def server(self, config_modbus_port):
-        with ModbusServer(ip=socket.gethostbyname(socket.gethostname()), port=config_modbus_port) as server:
+    def server(self, config_modbus_port, config_host_ip):
+        with ModbusServer(ip=config_host_ip, port=config_modbus_port) as server:
             yield server
 
     @pytest.fixture(scope="class")
