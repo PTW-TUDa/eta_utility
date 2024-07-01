@@ -97,7 +97,6 @@ def importstr_to_path(importstr: str, _stack: int = 1) -> pathlib.Path:
 def update_agent() -> None:
     """Upadtes the NSGA2 agent model file"""
     import tempfile
-
     from test.test_etax.test_agents import TestNSGA2
 
     cls = TestNSGA2()
