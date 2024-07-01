@@ -35,8 +35,15 @@ include:
   - template: Security/Secret-Detection.gitlab-ci.yml
 
 variables:
+  # Poetry settings
   POETRY_VERSION: 1.8.2
+  POETRY_HOME: /usr/local
+  POETRY_NO_INTERACTION: 1
+  POETRY_VIRTUALENVS_CREATE: false
   POETRY_CACHE_DIR: /root/.cache/pypoetry
+  # Pip settings
+  PIP_NO_CACHE_DIR: off
+  PIP_DISABLE_PIP_VERSION_CHECK: on
   PIP_CACHE_DIR: /root/.cache/pip
 
 default:
@@ -48,17 +55,17 @@ default:
   before_script:
     - apt-get update
     - python --version
-    - rm -rf .cache .pip_cache .pytest_cache .mypy_cache dist doc eta_utility.egg-info build
+    - rm -rf dist doc eta_utility.egg-info build
     - rm -rf docs/_build docs/_stubs
     - ls -la
-    - python -m venv .venv
-    - pip install poetry==$POETRY_VERSION
+    # Install Poetry
+    - curl -sSL https://install.python-poetry.org | POETRY_VERSION=$POETRY_VERSION python3 -
     # Remove torch and add torch+cpu because nvidia packages (cuda) are not needed
     - poetry remove torch
     - poetry source add --priority explicit pytorch_cpu https://download.pytorch.org/whl/cpu
     - poetry add --source pytorch_cpu torch==2.0.0
-    - poetry install -E develop
-    - . .venv/bin/activate
+    # Install development dependencies
+    - poetry install -E develop --sync
 
 .julia-config: &julia_config  # Settings for julia jobs
   image: julia:1.7.2
@@ -68,11 +75,11 @@ default:
     # Install python3 (python refers to python2 in julia image)
     - apt install python3 python3-pip python3-venv -y
     - python3 --version
-    - rm -rf .cache .pip_cache .pytest_cache .mypy_cache dist doc eta_utility.egg-info build
+    - rm -rf dist doc eta_utility.egg-info build
     - rm -rf docs/_build docs/_stubs
     - ls -la
     - python3 -m venv .venv
-    - pip install poetry==$POETRY_VERSION
+    - curl -sSL https://install.python-poetry.org | POETRY_VERSION=$POETRY_VERSION python3 -
     # Remove torch and add torch+cpu because nvidia packages (cuda) are not needed
     - poetry remove torch
     - poetry source add --priority explicit pytorch_cpu https://download.pytorch.org/whl/cpu
@@ -175,7 +182,6 @@ test3.11_updated_deps:
 linkcheck-docs:
   stage: test
   script:
-    - pip install sphinx sphinx-rtd-theme sphinx_copybutton
     - rm -rf docs/_build docs/_stubs
     - cd docs
     - python -m sphinx -b linkcheck . _build/linkcheck
@@ -208,7 +214,6 @@ build:
     - build_local
   script:
     - rm -rf dist
-    - pip install poetry
     - poetry publish --build --username $USERNAME --password $PASSWORD
   artifacts:
     name: "eta_utility-build-$CI_COMMIT_REF_NAME-$CI_JOB_STATUS"
