@@ -19,13 +19,14 @@ If there were no clouds it would be a clear sky. clearsky thus calculates the th
 from __future__ import annotations
 
 import concurrent.futures
+import traceback
 from collections.abc import Mapping
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pandas as pd
 import requests
-import requests_cache
+from requests_cache import DO_NOT_CACHE, CachedSession
 
 from eta_utility import get_logger
 from eta_utility.connectors.node import NodeForecastSolar
@@ -42,14 +43,13 @@ if TYPE_CHECKING:
 
 log = get_logger("connectors.forecast_solar")
 
-requests_cache.install_cache("forecast_solar_cache", expire_after=900)  # 15 minutes
-
 
 class ForecastSolarConnection(BaseSeriesConnection, protocol="forecast_solar"):
     """
     ForecastSolarConnection is a class to download and upload multiple features from and to the Forecast.Solar database
     as timeseries.
 
+    :param url: URL of the server with scheme (https://).
     :param usr: Not needed for Forecast.Solar.
     :param pwd: Not needed for Forecast.Solar.
     :param api_key: Token for API authentication.
@@ -77,8 +77,15 @@ class ForecastSolarConnection(BaseSeriesConnection, protocol="forecast_solar"):
         self.query_params: dict[str, Any] | None = query_params
         #: Key to use the Forecast.Solar api. If API key is none, only the public functions are usable.
         self._api_key: str = api_key
-
-        self.cache = requests_cache.get_cache()
+        #: Cached session to handle the requests
+        self.session: CachedSession = CachedSession(
+            cache_name="eta_utility/connectors/.requests_cache/forecast_solar_cache",
+            urls_expire_after={
+                "https://api.forecast.solar*": 900,  # 15 minutes
+                "*": DO_NOT_CACHE,  # Don't cache other URLs
+            },
+            allowable_codes=(200, 400, 401, 403),
+        )
 
     @classmethod
     def _from_node(cls, node: AnyNode, **kwargs: Any) -> ForecastSolarConnection:
@@ -264,7 +271,7 @@ class ForecastSolarConnection(BaseSeriesConnection, protocol="forecast_solar"):
         if self._api_key != "None":
             log.info("The api_key is None and only the public functions are available of the forecastsolar.api.")
 
-        response = requests.request(method, url, **kwargs)
+        response = self.session.request(method, url, **kwargs)
         # Check for request errors
         response.raise_for_status()
 
@@ -336,3 +343,21 @@ class ForecastSolarConnection(BaseSeriesConnection, protocol="forecast_solar"):
         daily_sum = cls.summarize_watt_hours_over_day(df)
 
         return df, daily_sum
+
+    def __enter__(self) -> ForecastSolarConnection:
+        return self
+
+    def __exit__(self, exc_type: Any, exc_value: Any, tb: Any) -> bool:
+        if exc_type is not None:
+            traceback.print_exception(exc_type, exc_value, tb)
+            return False
+        try:
+            self.session.close()
+        finally:
+            return True
+
+    def __del__(self) -> None:
+        try:
+            self.session.close()
+        finally:
+            pass

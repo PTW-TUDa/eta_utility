@@ -1,7 +1,7 @@
 import asyncio
 
 import pytest
-import requests
+import requests_cache
 from pyModbusTCP import client as mbclient
 
 from eta_utility.connectors import CsvSubHandler, Node
@@ -32,7 +32,7 @@ def local_server():
 @pytest.fixture(autouse=True)
 def _mock_client(monkeypatch):
     monkeypatch.setattr(mbclient, "ModbusClient", MockModbusClient)
-    monkeypatch.setattr(requests, "request", request)
+    monkeypatch.setattr(requests_cache.CachedSession, "request", request)
 
 
 def test_multi_connect(config_nodes_file, config_eneffco, temp_dir):

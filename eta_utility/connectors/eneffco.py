@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 import requests
+from requests_cache import CachedSession
 
 from eta_utility import get_logger
 from eta_utility.connectors.node import NodeEnEffCo
@@ -58,6 +59,10 @@ class EnEffCoConnection(SeriesConnection[NodeEnEffCo], protocol="eneffco"):
         self._sub: asyncio.Task | None = None
         self._subscription_nodes: set[NodeEnEffCo] = set()
         self._subscription_open: bool = False
+        self.session: CachedSession = CachedSession(
+            cache_name="eta_utility/connectors/.requests_cache/eneffco_cache",
+            expire_after=timedelta(minutes=15),
+        )
 
     @classmethod
     def _from_node(
@@ -390,26 +395,10 @@ class EnEffCoConnection(SeriesConnection[NodeEnEffCo], protocol="eneffco"):
         assert self.usr is not None, "Make sure to specify a username before performing EnEffCo requests."
         assert self.pwd is not None, "Make sure to specify a password before performing EnEffCo requests."
 
-        response = requests.request(
+        response = self.session.request(
             method, self.url + "/" + str(endpoint), auth=requests.auth.HTTPBasicAuth(self.usr, self.pwd), **kwargs
         )
-
-        # Check for request errors
-        if response.status_code not in [200, 204]:  # Status 200 for GET requests, 204 for POST requests
-            error = f"EnEffco Error {response.status_code}"
-            try:
-                if hasattr(response, "json") and "Message" in response.json():
-                    error = f"{error}: {response.json()['Message']}"
-            except ValueError:
-                pass
-            if response.status_code == 401:
-                error = f"{error}: Access Forbidden, Invalid login info"
-            elif response.status_code == 404:
-                error = f"{error}: Endpoint not found '{self.url + str(endpoint)}'"
-            elif response.status_code == 500:
-                error = f"{error}: Server is unavailable"
-
-            raise ConnectionError(error)
+        response.raise_for_status()
 
         return response
 
