@@ -1,6 +1,6 @@
 import pandas as pd
 import pytest
-import requests
+import requests_cache
 from pyModbusTCP import client as mbclient
 
 from eta_utility.connectors.emonio import NodeModbusFactory
@@ -28,7 +28,7 @@ from ..utilities.requests.eneffco_request import request
 
 @pytest.fixture()
 def _local_requests(monkeypatch):
-    monkeypatch.setattr(requests, "request", request)
+    monkeypatch.setattr(requests_cache.CachedSession, "request", request)
 
 
 @pytest.fixture()
@@ -41,7 +41,7 @@ def local_server():
 @pytest.fixture()
 def _mock_client(monkeypatch):
     monkeypatch.setattr(mbclient, "ModbusClient", MockModbusClient)
-    monkeypatch.setattr(requests, "request", request)
+    monkeypatch.setattr(requests_cache.CachedSession, "request", request)
 
 
 @pytest.mark.usefixtures("_local_requests")

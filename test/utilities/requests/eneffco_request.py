@@ -18,7 +18,7 @@ class Response(_Response):
         pass
 
 
-def request(method, url, **kwargs):
+def request(self, method, url, **kwargs):
     try:
         endpoint = url.split("API/v1.0/", 1)[1]
     except IndexError:
