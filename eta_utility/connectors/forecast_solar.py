@@ -33,7 +33,7 @@ from eta_utility.connectors.node import NodeForecastSolar
 from eta_utility.timeseries import df_resample
 from eta_utility.util import round_timestamp
 
-from .base_classes import BaseSeriesConnection, SubscriptionHandler
+from .base_classes import SeriesConnection, SubscriptionHandler
 
 if TYPE_CHECKING:
     from typing import Any, ClassVar
@@ -44,7 +44,7 @@ if TYPE_CHECKING:
 log = get_logger("connectors.forecast_solar")
 
 
-class ForecastSolarConnection(BaseSeriesConnection, protocol="forecast_solar"):
+class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
     """
     ForecastSolarConnection is a class to download and upload multiple features from and to the Forecast.Solar database
     as timeseries.
