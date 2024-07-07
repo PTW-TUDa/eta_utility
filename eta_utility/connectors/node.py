@@ -1199,7 +1199,7 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
     endpoint: str = field(
         default="estimate",
         converter=str,
-        validator=vld.in_(("estimate", "help", "check", "history", "clearsky")),
+        validator=vld.in_(("estimate", "check", "history", "clearsky")),
         metadata={"QUERY_PARAM": False},
     )
     #: Query data for only watts, wat hours, watt hours per period or watt hours per day; string
@@ -1283,11 +1283,14 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
             else:
                 raise ValueError("Declination, azimuth and kwp must be passed either as lists or as single values.")
 
-        if self.api_key is None and (self.endpoint not in ["estimate", "help", "check"]):
+        if self.api_key is None and (self.endpoint not in ["estimate", "check"]):
             raise ValueError(f"Valid API key is needed for endpoint: {self.endpoint}")
         if self.endpoint != "estimate" and self.data is not None:
             log.info("'data' field is not supported for endpoints other than estimate and will be ignored.")
             object.__setattr__(self, "data", None)
+        elif self.endpoint == "estimate" and self.data is None:
+            log.info("'data' field will be set to 'watts' for endpoint 'estimate'.")
+            object.__setattr__(self, "data", "watts")
 
         # Collect all url parameters and query parameters
         url_params = {}
@@ -1315,8 +1318,18 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
         :return: URL for the Forecast Solar API.
         """
         url = "https://api.forecast.solar"
+        keys = []
 
-        keys = ["api_key", "endpoint", "data", "latitude", "longitude"]
+        # Check if the API key is set and add it to the URL
+        if self.api_key is not None:
+            keys.append("api_key")
+
+        keys.append("endpoint")
+
+        if self.endpoint == "estimate":
+            keys.append("data")
+        keys.extend(["latitude", "longitude"])
+
         for path in keys:
             try:
                 url += f"/{url_params[path]}"
@@ -1358,6 +1371,10 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
         name, _, url, _, _ = cls._read_dict_info(dikt)
 
         params = cls._get_params(dikt)
+
+        _data_point = str(dict_get_any(dikt, "data", fail=False))
+        if _data_point not in ["None", "nan"]:
+            params["data"] = _data_point
 
         dict_key = str(dict_get_any(dikt, "api_key", "apikey", fail=False))
         if dict_key not in ["None", "nan"]:
