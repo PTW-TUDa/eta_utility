@@ -517,7 +517,7 @@ nodes = (
         },
         {
             "name": "Serv.SolarForecast",
-            "url": "https://api.forecast.solar/help/0/0",
+            "url": "https://api.forecast.solar/help/0/0/0/0/0.0",
             "protocol": "forecast_solar",
             "endpoint": "help",
             "latitude": 0,

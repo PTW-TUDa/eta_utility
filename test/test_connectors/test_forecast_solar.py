@@ -99,7 +99,7 @@ def test_raw_connection(connector):
 
     result = connector._raw_request("GET", get_url)
 
-    assert result.status_code == 200, "Invalid location or plane parameters"
+    assert result.status_code == 200, "Connection failed"
 
 
 @pytest.mark.xfail(reason="This test is expected to fail due to rate limiting")

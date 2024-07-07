@@ -1239,6 +1239,7 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
         default="utc",
         converter=str,
         validator=vld.in_(("utc", "iso8601", "rfc2822", "seconds", "milliseconds", "nanoseconds")),
+        metadata={"QUERY_PARAM": True},
     )
     # Forecast for full day or only sunrise to sunset, 0|1; int
     no_sun: int | None = field(default=None, validator=vld.in_((0, 1)), metadata={"QUERY_PARAM": True})
@@ -1292,7 +1293,7 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
         url_params = {}
         query_params = {}
         for _field in self.__attrs_attrs__:  # type: ignore[attr-defined]
-            if getattr(self, _field.name, None) is not None:
+            if _field.name is not None:
                 if _field.metadata.get("QUERY_PARAM") is False:
                     url_params[_field.name] = getattr(self, _field.name)
                 elif _field.metadata.get("QUERY_PARAM") is True:
@@ -1326,6 +1327,8 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
         if isinstance(self.declination, list):
             for i in range(len(self.declination)):
                 url += f"/{self.declination[i]}/{self.azimuth[i]}/{self.kwp[i]}"  # type: ignore[index]
+        else:
+            url += f"/{self.declination}/{self.azimuth}/{self.kwp}"
 
         return url
 
