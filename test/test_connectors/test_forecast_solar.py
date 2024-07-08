@@ -126,8 +126,9 @@ def test_check_route():
         assert not ForecastSolarConnection.route_valid(invalid_node)
 
 
+@pytest.mark.usefixtures("_local_requests")
 def test_estimate(forecast_solar_nodes, connector):
-    nodes = [forecast_solar_nodes["node"]]
+    nodes = [forecast_solar_nodes["node"], forecast_solar_nodes["node2"]]
     result = connector.read(nodes)
 
     assert isinstance(result, pd.DataFrame)

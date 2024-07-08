@@ -1315,7 +1315,7 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
         """
         url = "https://api.forecast.solar"
 
-        keys = ["api_key", "endpoint", "data", "latitude", "longitude", "declination", "azimuth", "kwp"]
+        keys = ["api_key", "endpoint", "data", "latitude", "longitude"]
         for path in keys:
             try:
                 url += f"/{url_params[path]}"
