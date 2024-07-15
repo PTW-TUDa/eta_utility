@@ -427,8 +427,9 @@ class ETAx:
     ) -> tuple[VecEnvObs, np.ndarray]:
         assert self.environments is not None, "Initialized environments could not be found. Call prepare_run first."
 
-        action, _states = self.model.predict(observation=observations, deterministic=False)  # type: ignore
-        # Type ignored because typing in stable_baselines appears to be incorrect
+        # set policy prediction to deterministic for playing; type: ignore
+        # Type ignored because typing in eta_x is bad
+        action, _ = self.model.predict(observation=observations, deterministic=True)  # type: ignore
         # Round and scale actions if required
         if _round_actions is not None:
             action = np.round(action * _scale_actions, _round_actions)
