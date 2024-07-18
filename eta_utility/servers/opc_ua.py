@@ -75,7 +75,10 @@ class OpcUaServer:
 
         for node in nodes:
             var = self._server.get_node(node.opc_id)
-            opc_type = var.get_data_type_as_variant_type()
+            try:
+                opc_type = var.get_data_type_as_variant_type()
+            except asyncua.sync.ThreadLoopNotRunning:
+                raise ConnectionError(f"Server {self} is not running.")
             var.set_value(ua.Variant(values[node], opc_type))
 
     def read(self, nodes: Nodes[NodeOpcUa] | None = None) -> pd.DataFrame:

@@ -48,7 +48,7 @@ class WetterdienstConnection(Generic[NW], SeriesConnection[NW], ABC):
         settings: Settings | None = None,
         **kwargs: Any,
     ) -> None:
-        self.settings = Settings(settings)
+        self.settings = Settings(settings=settings)
         self.settings.ts_skip_empty = True
         self.settings.ts_si_units = False
         self.settings.ts_humanize = True

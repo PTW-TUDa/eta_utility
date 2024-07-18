@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 import pytest
-import requests
+import requests_cache
 from lxml import etree
 
 from eta_utility.connectors import ENTSOEConnection, Node
@@ -26,7 +26,7 @@ def create_node(endpoint: str, name: str = "Node1") -> Node:
 @pytest.fixture(autouse=True)
 def _local_requests(monkeypatch, config_entsoe):
     if ENTSOE_TOKEN == "":
-        monkeypatch.setattr(requests, "post", Postable(config_entsoe["path"]))
+        monkeypatch.setattr(requests_cache.CachedSession, "post", Postable(config_entsoe["path"]))
 
 
 multiple_nodes_expected = [
@@ -148,7 +148,7 @@ def test_multiple_days(end_time):
     assert total_timestamps * number_of_resolutions == res.shape[0] * res.shape[1]
 
 
-class MockResponse(requests.Response):
+class MockResponse(requests_cache.CachedResponse):
     def __init__(self, endpoint: str, path: pathlib.Path):
         super().__init__()
         self.status_code = 200

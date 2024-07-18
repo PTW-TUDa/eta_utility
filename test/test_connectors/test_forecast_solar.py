@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import pytest
 import requests
+import requests_cache
 from attrs import validators
 
 from eta_utility.connectors import ForecastSolarConnection, Node
@@ -51,8 +52,14 @@ def forecast_solar_nodes(config_forecast_solar: dict[str, str]):
 
 
 @pytest.fixture()
-def _local_requests(monkeypatch):
-    monkeypatch.setattr(requests, "request", request)
+def _local_requests(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(requests_cache.CachedSession, "request", request)
+
+
+@pytest.fixture()
+def connector():
+    with ForecastSolarConnection() as connector:
+        yield connector
 
 
 def test_node_from_dict():
@@ -87,16 +94,12 @@ def test_node_from_dict():
 
 
 @pytest.mark.usefixtures("_local_requests")
-def test_raw_connection():
-    node = NodeForecastSolar.from_dict({"name": "node_forecast_solar1", "ip": "", "protocol": "forecast_solar"})[0]
-
-    connector = ForecastSolarConnection(node.url)
-
+def test_raw_connection(connector):
     get_url = connector.baseurl + "/help"
 
     result = connector._raw_request("GET", get_url)
 
-    assert result.status_code == 200, "Invalid location or plane parameters"
+    assert result.status_code == 200, "Connection failed"
 
 
 @pytest.mark.xfail(reason="This test is expected to fail due to rate limiting")
@@ -124,19 +127,16 @@ def test_check_route():
 
 
 @pytest.mark.usefixtures("_local_requests")
-def test_estimate(forecast_solar_nodes):
+def test_estimate(forecast_solar_nodes, connector):
     nodes = [forecast_solar_nodes["node"], forecast_solar_nodes["node2"]]
-    connector = ForecastSolarConnection()
-
     result = connector.read(nodes)
 
     assert isinstance(result, pd.DataFrame)
 
 
 @pytest.mark.usefixtures("_local_requests")
-def test_read_series(forecast_solar_nodes):
+def test_read_series(forecast_solar_nodes, connector):
     nodes = [forecast_solar_nodes["node"], forecast_solar_nodes["node2"]]
-    connector = ForecastSolarConnection()
 
     res = connector.read_series(
         datetime.now() - timedelta(seconds=10),
