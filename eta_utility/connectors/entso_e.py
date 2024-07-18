@@ -12,6 +12,7 @@ import pandas as pd
 import requests
 from lxml import etree
 from lxml.builder import E
+from requests_cache import DO_NOT_CACHE, CachedSession
 
 from eta_utility import get_logger
 from eta_utility.connectors.node import Node, NodeEntsoE
@@ -56,6 +57,14 @@ class ENTSOEConnection(SeriesConnection[NodeEntsoE], protocol="entsoe"):
 
         self._node_ids: str | None = None
         self.config = _ConnectionConfiguration()
+        self.session: CachedSession = CachedSession(
+            cache_name="eta_utility/connectors/.requests_cache/entso_e_cache",
+            urls_expire_after={
+                "https://web-api.tp.entsoe.eu/*": timedelta(minutes=15),
+                "*": DO_NOT_CACHE,  # Don't cache other URLs
+            },
+            allowable_codes=(200, 400, 401),
+        )
 
     @classmethod
     def _from_node(cls, node: Node, **kwargs: Any) -> ENTSOEConnection:
@@ -273,38 +282,21 @@ class ENTSOEConnection(SeriesConnection[NodeEntsoE], protocol="entsoe"):
         for param, val in params.items():
             xml.append(self.config.xml_param(param, val))
 
-        response = requests.post(self.url, data=etree.tostring(xml), headers=headers, **kwargs)  # type: ignore
+        response = self.session.post(self.url, data=etree.tostring(xml), headers=headers, **kwargs)
 
-        # Check for request errors
-        if response.status_code != 200:
-            e_code = 000
-            e_text = "No Message Text"
-            if response.status_code == 400:
-                try:
-                    parser = etree.XMLParser(load_dtd=False, ns_clean=True, remove_pis=True)
+        if response.status_code == 400:
+            try:
+                parser = etree.XMLParser(load_dtd=False, ns_clean=True, remove_pis=True)
 
-                    e_msg = etree.XML(response.content, parser)
-                    ns = e_msg.nsmap
-                    e_code = e_msg.find(".//Reason", namespaces=ns).find("code", namespaces=ns).text
-                    e_text = e_msg.find(".//Reason", namespaces=ns).find("text", namespaces=ns).text
-                except Exception:
-                    pass
-            else:
-                try:
-                    e_text = etree.HTML(response.content).find("body").text
-                except Exception:
-                    pass
+                e_msg = etree.XML(response.content, parser)
+                ns = e_msg.nsmap
+                e_code = e_msg.find(".//Reason", namespaces=ns).find("code", namespaces=ns).text
+                e_text = e_msg.find(".//Reason", namespaces=ns).find("text", namespaces=ns).text
+                response.reason = f"ENTSO-E Error {response.status_code} ({e_code}: {e_text})"
+            except Exception:
+                pass
 
-            error = f"ENTSO-E Error {response.status_code} ({e_code}: {e_text})"
-
-            if response.status_code == 401:
-                error = f"{error}: Access Forbidden, Invalid access token"
-            elif response.status_code == 404:
-                error = f"{error}: Endpoint not found '{self.url}'"
-            elif response.status_code == 500:
-                error = f"{error}: Server is unavailable"
-
-            raise ConnectionError(error)
+        response.raise_for_status()
 
         return response
 

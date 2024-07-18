@@ -4,6 +4,14 @@ from eta_utility import json_import
 from eta_utility.connectors import LiveConnect, Node
 from eta_utility.servers import OpcUaServer
 
+from ..utilities.util_test import suppress_logging
+
+
+@pytest.fixture(autouse=True)
+def _suppres_logging():
+    with suppress_logging():
+        yield
+
 
 @pytest.fixture()
 def nodes_from_config(config_live_connect, config_host_ip):

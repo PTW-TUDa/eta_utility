@@ -54,7 +54,7 @@ obsv_nodes = [
 
 
 class TestWetterdienstConnection:
-    @pytest.mark.skip(reason="wetterdienst API for observations is not working properly.")
+    @pytest.mark.xfail(reason="The Wetterdienst API is unstable.")
     def test_observation(self):
         connector = WetterdienstConnection.from_node(obsv_nodes)
 
@@ -65,6 +65,7 @@ class TestWetterdienstConnection:
 
         assert result.shape == (16, 5)
 
+    @pytest.mark.xfail(reason="The Wetterdienst API is unstable.")
     def test_prediction(self):
         connector = WetterdienstConnection.from_node(pred_nodes)
 

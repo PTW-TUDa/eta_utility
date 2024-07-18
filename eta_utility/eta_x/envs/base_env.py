@@ -54,7 +54,8 @@ class BaseEnv(Env, abc.ABC):
     :param env_id: Identification for the environment, useful when creating multiple environments.
     :param config_run: Configuration of the optimization run.
     :param verbose: Verbosity to use for logging.
-    :param callback: callback which should be called after each episode.
+    :param callback: callback that should be called after each episode.
+    :param state_modification_callback: callback that should be called after state setup, before logging the state.
     :param scenario_time_begin: Beginning time of the scenario.
     :param scenario_time_end: Ending time of the scenario.
     :param episode_duration: Duration of the episode in seconds.
@@ -82,6 +83,7 @@ class BaseEnv(Env, abc.ABC):
         config_run: ConfigOptRun,
         verbose: int = 2,
         callback: Callable | None = None,
+        state_modification_callback: Callable | None = None,
         *,
         scenario_time_begin: datetime | str,
         scenario_time_end: datetime | str,
@@ -112,6 +114,9 @@ class BaseEnv(Env, abc.ABC):
                 self.path_env = pathlib.Path(f.filename).parent
         #: Callback can be used for logging and plotting.
         self.callback: Callable | None = callback
+
+        #: Callback can be used for modifying the state at each time step.
+        self.state_modification_callback: Callable | None = state_modification_callback
 
         # Store some important settings
         #: ID of the environment (useful for vectorized environments).
