@@ -497,7 +497,7 @@ class ConfigOptSettings:
         interact_with_env = settings.pop("interact_with_env", False)
         save_model_every_x_episodes = settings.pop("save_model_every_x_episodes", None)
         plot_interval = settings.pop("plot_interval", None)
-
+        # foobar
         if "episode_duration" not in settings:
             log.error("'episode_duration' is not specified in settings.")
             errors = True
