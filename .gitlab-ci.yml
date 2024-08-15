@@ -9,6 +9,9 @@ workflow:
   rules:
     # Create pipelines for merge request events
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    # Dont create a branch pipeline while there are open merge requests
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
+      when: never
 
 
 
