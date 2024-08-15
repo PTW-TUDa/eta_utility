@@ -248,3 +248,5 @@ readthedocs:
     - curl -X POST -d "branches=main" -d "token=$READTHEDOCS_TOKEN" https://readthedocs.org/api/v2/webhook/eta-utility/211185/
   rules:
     - !reference [.on_version_tag_rule, rules]
+
+#foo
