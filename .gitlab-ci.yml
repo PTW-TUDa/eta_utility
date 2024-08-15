@@ -9,7 +9,7 @@ workflow:
   rules:
     # Create pipelines for merge request events
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-
+    - if: $CI_COMMIT_BRANCH
 
 # Rule for jobs that should only run on version tags
 .on_version_tag_rule:
