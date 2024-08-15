@@ -11,18 +11,7 @@ workflow:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
 
 
-
-
-.default_rules:
-  rules:
-    # Create pipelines for merge request events
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    # Create a pipeline for the default branch
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-    # Dont create a branch pipeline while there are open merge requests
-    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
-      when: never
-
+# Rule for jobs that should only run on version tags
 .on_version_tag_rule:
   rules:
     # Deploy if a version tag was created
@@ -131,8 +120,7 @@ check-poetry:
 secret_detection:
   stage: check
   before_script: []
-  rules:
-    - !reference [.default_rules, rules]
+
 
 test3.10: &test_config
   stage: test
@@ -187,6 +175,20 @@ linkcheck-docs:
     max: 2
     when: script_failure
 
+# Build the documentation
+build_pages:
+  stage: test
+  script:
+    - sphinx-build --version && sphinx-apidoc --version
+    - rm -rf docs/_build docs/_stubs
+    - cd docs
+    # Treat warnings as errors and fail the build if any warnings are found
+    - make html SPHINXOPTS="-W"
+  artifacts:
+    name: "eta_utility-docs-$CI_COMMIT_REF_NAME"
+    paths:
+      - docs/_build/html/
+
 build_local:
   stage: deploy
   # Credentials for local repository
@@ -221,20 +223,20 @@ build:
   rules:
     - !reference [.on_version_tag_rule, rules]
 
+# Publish local gitlab pages
 pages:
   stage: deploy
   script:
-    - sphinx-build --version && sphinx-apidoc --version
-    - rm -rf docs/_build docs/_stubs public/html/*
-    - cd docs
-    - make html
-    - mv _build/html ../public
+    - mv docs/_build/html public
   artifacts:
     name: "eta_utility-docs-$CI_COMMIT_REF_NAME"
     paths:
       - public/
+  rules:
+    - !reference [.on_version_tag_rule, rules]
 
-# Create readthedocs documentation
+
+# Publish readthedocs documentation
 readthedocs:
   stage: deploy
   needs:
@@ -246,6 +248,3 @@ readthedocs:
     - curl -X POST -d "branches=main" -d "token=$READTHEDOCS_TOKEN" https://readthedocs.org/api/v2/webhook/eta-utility/211185/
   rules:
     - !reference [.on_version_tag_rule, rules]
-
-
-#foo
