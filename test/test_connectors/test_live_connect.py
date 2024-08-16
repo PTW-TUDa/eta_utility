@@ -13,7 +13,7 @@ def _suppres_logging():
         yield
 
 
-@pytest.fixture()
+@pytest.fixture
 def nodes_from_config(config_live_connect, config_host_ip):
     config = json_import(config_live_connect["file"])
 
@@ -29,7 +29,7 @@ def nodes_from_config(config_live_connect, config_host_ip):
     return Node.from_dict(config["system"][0]["nodes"])
 
 
-@pytest.fixture()
+@pytest.fixture
 def setup_live_connect(config_live_connect, nodes_from_config, config_host_ip):
     server = OpcUaServer(6)
     server.create_nodes(nodes_from_config)

@@ -272,7 +272,7 @@ class TestConnectorOperations:
         connection.create_nodes(local_nodes)
 
         for node in local_nodes:
-            server.read(local_nodes)
+            server.read(node)
 
     values = ((0, 1.5), (1, 5), (2, "something"))
 
@@ -380,7 +380,7 @@ class TestConnectorSubscriptions:
 
         connection.close_sub()
 
-    @pytest.fixture()
+    @pytest.fixture
     def _write_nodes_interrupt(self, server: OpcUaServer, local_nodes):
         async def write_loop(server: OpcUaServer, local_nodes, values):
             i = 0
@@ -421,7 +421,7 @@ class TestConnectorSubscriptions:
 
         for node, values in self.values.items():
             # Check whether Dataframe contains NaN
-            assert pd.isnull(handler.data[node]).any()
+            assert pd.isna(handler.data[node]).any()
 
             assert set(handler.data[node].dropna()) <= set(values)
 
@@ -496,7 +496,7 @@ class TestConnectorSubscriptionsIntervalChecker:
             server.create_nodes(local_nodes_interval_checking)
             yield server
 
-    @pytest.fixture()
+    @pytest.fixture
     def _write_nodes_interval_checking(self, server: OpcUaServer, local_nodes_interval_checking):
         async def write_loop(server: OpcUaServer, local_nodes_interval_checking, values):
             i = 0

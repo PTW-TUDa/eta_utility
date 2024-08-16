@@ -14,7 +14,7 @@ from ..utilities.util_test import suppress_logging
 
 
 # Sample node
-@pytest.fixture()
+@pytest.fixture
 def forecast_solar_nodes(config_forecast_solar: dict[str, str]):
     return {
         "node": NodeForecastSolar(
@@ -51,12 +51,12 @@ def forecast_solar_nodes(config_forecast_solar: dict[str, str]):
     }
 
 
-@pytest.fixture()
+@pytest.fixture
 def _local_requests(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(requests_cache.CachedSession, "request", request)
 
 
-@pytest.fixture()
+@pytest.fixture
 def connector():
     with ForecastSolarConnection() as connector:
         yield connector

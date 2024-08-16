@@ -85,7 +85,7 @@ class TestServerOperations:
         )
         server.create_nodes(missing_node)
 
-        for node in local_nodes:
+        for _ in local_nodes:
             server._server.get_node(missing_node.opc_id).get_value()
 
     values = ((0, 1.5), (1, 5), (2, "something"))

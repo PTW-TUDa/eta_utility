@@ -99,7 +99,7 @@ class Split1d(th.nn.ModuleList):
                 "Please only specify None once in the configuration for the split process. None is where "
                 "all remaining elements will be processed."
             )
-        elif nones == 1:
+        if nones == 1:
             # mypy does not correctly understand how we are removing None values.
             _sizes: list[int] = list(sizes)  # type: ignore
             _sizes[none_idx] = in_features - _sum

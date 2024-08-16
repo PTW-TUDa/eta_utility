@@ -110,7 +110,7 @@ class FMUSimulator:
         names = []
         iterator = names_inputs if names_inputs is not None else self._model_vars.keys()
 
-        for idx, var in enumerate(iterator):
+        for var in iterator:
             if var in self._model_vars:
                 refs.append(self._model_vars[var]["ref"])
                 names.append(var)
@@ -154,7 +154,7 @@ class FMUSimulator:
         names = []
         iterator = names_outputs if names_outputs is not None else self._model_vars.keys()
 
-        for idx, var in enumerate(iterator):
+        for var in iterator:
             if var in self._model_vars:
                 refs.append(self._model_vars[var]["ref"])
                 names.append(var)
@@ -241,14 +241,13 @@ class FMUSimulator:
                 try:
                     refs.append(self._model_vars[var]["ref"])
                     vars_.append(var)
-                except KeyError:
-                    raise KeyError(f"Specified an input value for a variable which is not available in the FMU: {var}")
+                except KeyError as e:
+                    msg = f"Specified an output value for a variable which is not available in the FMU: {var}"
+                    raise KeyError(msg) from e
 
         # Get values from the FMU and convert to specified output format (dict or list)
         output_values = self.fmu.getReal(refs)
-        output = dict(zip(vars_, output_values)) if self._return_dict else output_values
-
-        return output
+        return dict(zip(vars_, output_values)) if self._return_dict else output_values
 
     def set_values(self, values: Sequence[Number | bool] | Mapping[str, Number | bool]) -> None:
         """Set values of simulation variables without advancing a simulation step or the simulation time.
@@ -265,8 +264,9 @@ class FMUSimulator:
                 try:
                     refs[self._model_vars[var]["type"]].append(self._model_vars[var]["ref"])
                     vals[self._model_vars[var]["type"]].append(val)
-                except KeyError:
-                    raise KeyError(f"Specified an input value for a variable which is not available in the FMU: {var}")
+                except KeyError as e:
+                    msg = f"Specified an input value for a variable which is not available in the FMU: {var}"
+                    raise KeyError(msg) from e
         else:
             if len(values) != len(self._inputs["refs"]):
                 raise AttributeError(
@@ -329,8 +329,7 @@ class FMUSimulator:
         if advance_time:
             self.time += self.step_size  # advance the time
 
-        output = self.read_values(output_names)
-        return output
+        return self.read_values(output_names)
 
     @classmethod
     def simulate(

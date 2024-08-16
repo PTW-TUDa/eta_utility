@@ -3,7 +3,6 @@ from datetime import datetime
 import pandas as pd
 
 from eta_utility.connectors import WetterdienstConnection
-from eta_utility.connectors.base_classes import Connection
 from eta_utility.connectors.node import NodeWetterdienst
 
 
@@ -28,7 +27,7 @@ def read_series() -> pd.DataFrame:
 
     # start connection from one or multiple nodes
     # The 'Connection' class can be used for initializing the connection
-    connection = Connection.from_node(node)
+    connection = WetterdienstConnection.from_node(node)
 
     # Define time interval as datetime values
     from_datetime = datetime(2024, 1, 16, 12, 00)
@@ -38,14 +37,14 @@ def read_series() -> pd.DataFrame:
     # The DataFrame will have index with time delta of the specified interval in seconds
     # If a node  has a different interval than the requested interval, the data will be resampled.
     if isinstance(connection, WetterdienstConnection):
-        df = connection.read_series(from_time=from_datetime, to_time=to_datetime, interval=1200)
+        result = connection.read_series(from_time=from_datetime, to_time=to_datetime, interval=1200)
     else:
         raise TypeError("The connection must be an WetterdienstConnection, to be able to call read_series.")
     # Check out the WetterdienstConnection documentation for more information
     # https://wetterdienst.readthedocs.io/en/latest/data/introduction.html
     # --end_wetterdienst_doc_example--
 
-    return df
+    return result
 
 
 if __name__ == "__main__":

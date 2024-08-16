@@ -51,8 +51,7 @@ def import_jl(importstr: str) -> ModuleType:
     check_julia_package()
 
     file = importstr_to_path(importstr, _stack=2)
-    jl = import_jl_file(file)
-    return jl
+    return import_jl_file(file)
 
 
 def importstr_to_path(importstr: str, _stack: int = 1) -> pathlib.Path:
@@ -88,7 +87,7 @@ def importstr_to_path(importstr: str, _stack: int = 1) -> pathlib.Path:
 
     if not found and relative and file:
         raise ImportError(f"Could not find the specified julia file. Looking for {file}")
-    elif not found or not file:
+    if not found or not file:
         raise ImportError(f"Could not find the specified julia file. Looking for {pathstr}")
 
     return file
@@ -97,6 +96,7 @@ def importstr_to_path(importstr: str, _stack: int = 1) -> pathlib.Path:
 def update_agent() -> None:
     """Upadtes the NSGA2 agent model file"""
     import tempfile
+
     from test.test_etax.test_agents import TestNSGA2
 
     cls = TestNSGA2()
@@ -146,16 +146,16 @@ def check_julia_package() -> bool:
         raise ImportError(
             "Could not find the python julia package. Please run the command: install-julia "
             "inside the python virtual environment where eta-utility is installed."
-        )
+        ) from None
 
     try:
         from julia import ju_extensions  # noqa: F401
-    except julia.core.UnsupportedPythonError:
+    except julia.core.UnsupportedPythonError as e:
         raise ImportError(
             "PyCall for Julia is installed for a different python binary than you are currently "
             "using. Please run the command: install-julia inside the python virtual environment "
             "where eta-utility is installed."
-        )
+        ) from e
     except (ModuleNotFoundError, ImportError, AttributeError) as e:
         raise ImportError(
             "Could not find julia extension module for eta_utility (ju_extensions missing). Please "

@@ -1,6 +1,4 @@
 import pathlib
-from test.resources.agents.mpc_basic_env import MPCBasicEnv
-from test.resources.agents.rule_based import RuleBasedController
 
 import gymnasium
 import numpy as np
@@ -13,6 +11,8 @@ from eta_utility.eta_x.agents.math_solver import MathSolver
 from eta_utility.eta_x.common import NoPolicy
 from eta_utility.eta_x.envs import NoVecEnv
 from eta_utility.util_julia import julia_extensions_available
+from test.resources.agents.mpc_basic_env import MPCBasicEnv
+from test.resources.agents.rule_based import RuleBasedController
 
 if julia_extensions_available():
     from eta_utility.eta_x.agents.nsga2 import Nsga2
@@ -180,13 +180,11 @@ class TestNSGA2:
     @pytest.fixture(scope="class")
     def loaded_agent(self, config_etax_resources_path, julia_env):
         path = config_etax_resources_path / "test_nsga2_agent.zip"
-        agent = Nsga2.load(path=path, env=julia_env)
-        return agent
+        return Nsga2.load(path=path, env=julia_env)
 
     @pytest.fixture(scope="class")
     def default_agent(self, julia_env):
-        agent = Nsga2(env=julia_env, policy=NoPolicy)
-        return agent
+        return Nsga2(env=julia_env, policy=NoPolicy)
 
     def test_load_agent_setup(self, loaded_agent):
         assert isinstance(loaded_agent, Nsga2)

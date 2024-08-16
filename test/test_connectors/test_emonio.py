@@ -70,7 +70,7 @@ class TestConnectorOperations:
         data = data.round(6)
         for value_name in node_values:
             assert value_name in data.columns
-            assert data[value_name].values[0] == node_values[value_name]
+            assert data[value_name].to_numpy()[0] == node_values[value_name]
 
     async def write_loop(self, server, node, values):
         for i in range(len(values)):
@@ -89,7 +89,7 @@ class TestConnectorOperations:
         connection.close_sub()
 
         data = handler.data.round(3)
-        assert (voltage_values == data["Serv.Spannung"].values).all()
+        assert (voltage_values == data["Serv.Spannung"].to_numpy()).all()
 
     def test_check_phase(self, server, connection, phase_node):
         # Set 'connected' for a at address 0 to 1 (True)

@@ -10,7 +10,7 @@ from eta_utility.connectors import CumulocityConnection, DFSubHandler, Node
 from ..utilities.requests.cumulocity_request import request
 
 
-@pytest.fixture()
+@pytest.fixture
 def cumulocity_nodes(config_cumulocity):
     return {
         "node": Node(

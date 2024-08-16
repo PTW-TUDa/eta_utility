@@ -8,7 +8,6 @@ import json
 import locale
 import logging
 import math
-import os
 import pathlib
 import re
 import socket
@@ -36,6 +35,8 @@ if TYPE_CHECKING:
     from typing import Any, Callable
     from urllib.parse import ParseResult
 
+    from typing_extensions import Self
+
     from .type_hints import Path, PrivateKey
 
 
@@ -54,7 +55,7 @@ LOG_FORMATS = {
 def get_logger(
     name: str | None = None,
     level: int | None = None,
-    format: str | None = None,
+    log_format: str | None = None,
 ) -> logging.Logger:
     """Get eta_utility specific logger.
 
@@ -81,7 +82,7 @@ def get_logger(
         log = logging.getLogger(LOG_PREFIX)
         log.propagate = False
 
-        fmt = LOG_FORMATS[format] if format in LOG_FORMATS else LOG_FORMATS["simple"]
+        fmt = LOG_FORMATS[log_format] if log_format in LOG_FORMATS else LOG_FORMATS["simple"]
 
         if not log.hasHandlers():
             handler = logging.StreamHandler(stream=sys.stdout)
@@ -97,8 +98,8 @@ def get_logger(
         if julia_extensions_available():
             from julia import ju_extensions
 
-            if format is not None:
-                ju_extensions.set_logger(log.level, format)
+            if log_format is not None:
+                ju_extensions.set_logger(log.level, log_format)
             else:
                 ju_extensions.set_logger(log.level, "simple")
 
@@ -108,7 +109,7 @@ def get_logger(
 def log_add_filehandler(
     filename: Path,
     level: int | None = None,
-    format: str | None = None,
+    log_format: str | None = None,
 ) -> logging.Logger:
     """Add a file handler to the logger to save the log output.
 
@@ -119,7 +120,7 @@ def log_add_filehandler(
     :return: The *FileHandler* logger.
     """
     log = logging.getLogger(LOG_PREFIX)
-    _format = LOG_FORMATS[format] if format in LOG_FORMATS else LOG_FORMATS["time"]
+    _format = LOG_FORMATS[log_format] if log_format in LOG_FORMATS else LOG_FORMATS["time"]
     _filename = filename if isinstance(filename, pathlib.Path) else pathlib.Path(filename)
 
     filehandler = logging.FileHandler(filename=_filename)
@@ -135,7 +136,7 @@ def log_add_filehandler(
 
 def log_add_streamhandler(
     level: int | None = None,
-    format: str | None = None,
+    log_format: str | None = None,
 ) -> logging.Logger:
     """Add a stream handler to the logger to show the log output.
 
@@ -144,7 +145,7 @@ def log_add_streamhandler(
     :return: The eta_utility logger with an attached StreamHandler
     """
     log = logging.getLogger(LOG_PREFIX)
-    _format = format if format in LOG_FORMATS else LOG_FORMATS["time"]
+    _format = log_format if log_format in LOG_FORMATS else LOG_FORMATS["time"]
 
     handler = logging.StreamHandler()
     handler.setLevel(logging.DEBUG)
@@ -176,7 +177,7 @@ def json_import(path: Path) -> list[Any] | dict[str, Any]:
         try:
             result = json.loads(file)
         except json.JSONDecodeError as e:
-            raise json.JSONDecodeError(f"Error while decoding file {path}: {e.msg}", e.doc, e.pos)
+            raise json.JSONDecodeError(f"Error while decoding file {path}: {e.msg}", e.doc, e.pos) from None
         log.info(f"JSON file {path} loaded successfully.")
     except OSError as e:
         log.error(f"JSON file couldn't be loaded: {e.strerror}. Filename: {e.filename}")
@@ -233,8 +234,7 @@ def dict_get_any(dikt: dict[str, Any], *names: str, fail: bool = True, default: 
             f"Did not find one of the required keys in the configuration: {names}. Possibly Check the "
             f"correct spelling"
         )
-    else:
-        return default
+    return default
 
 
 def dict_pop_any(dikt: dict[str, Any], *names: str, fail: bool = True, default: Any = None) -> Any:
@@ -257,8 +257,8 @@ def dict_pop_any(dikt: dict[str, Any], *names: str, fail: bool = True, default: 
 
     if fail is True:
         raise KeyError(f"Did not find one of the required keys in the configuration: {names}")
-    else:
-        return default
+
+    return default
 
 
 def dict_search(dikt: dict[str, str], val: str) -> str:
@@ -404,14 +404,14 @@ def deprecated(message: str) -> Callable:
 
             func_or_class.__init__ = new_init  # type: ignore
             return func_or_class
-        else:
-            # If applied to a function
-            @functools.wraps(func_or_class)
-            def new_func(*args: Any, **kwargs: Any) -> Any:
-                warnings.warn(f"{func_or_class.__name__} is deprecated: {message}", DeprecationWarning, stacklevel=2)
-                return func_or_class(*args, **kwargs)
 
-            return new_func
+        # If applied to a function
+        @functools.wraps(func_or_class)
+        def new_func(*args: Any, **kwargs: Any) -> Any:
+            warnings.warn(f"{func_or_class.__name__} is deprecated: {message}", DeprecationWarning, stacklevel=2)
+            return func_or_class(*args, **kwargs)
+
+        return new_func
 
     return decorator
 
@@ -594,31 +594,29 @@ class SelfsignedKeyCertPair(KeyCertPair):
         finally:
             try:
                 assert self._key_tempfile is not None
-                os.unlink(self._key_tempfile.name)
+                pathlib.Path(self._key_tempfile.name).unlink()
             except BaseException:
                 pass
 
             try:
                 assert self._cert_tempfile is not None
-                os.unlink(self._cert_tempfile.name)
+                pathlib.Path(self._cert_tempfile.name).unlink()
             except BaseException:
                 pass
 
     @property
     def key_path(self) -> str:
         """Path to the key file."""
-        if self._key_tempfile is not None:
-            return self._key_tempfile.name
-        else:
+        if self._key_tempfile is None:
             raise RuntimeError("Create the key file before trying to reference the filename")
+        return self._key_tempfile.name
 
     @property
     def cert_path(self) -> str:
         """Path to the certificate file."""
-        if self._cert_tempfile is not None:
-            return self._cert_tempfile.name
-        else:
+        if self._cert_tempfile is None:
             raise RuntimeError("Create the certificate file before trying to reference the filename")
+        return self._cert_tempfile.name
 
 
 class PEMKeyCertPair(KeyCertPair):
@@ -664,7 +662,7 @@ class PEMKeyCertPair(KeyCertPair):
 class Suppressor(io.TextIOBase):
     """Context manager to suppress standard output."""
 
-    def __enter__(self) -> Suppressor:
+    def __enter__(self) -> Self:
         self.stderr = sys.stderr
         sys.stderr = self  # type: ignore
         return self

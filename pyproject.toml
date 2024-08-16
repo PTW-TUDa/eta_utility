@@ -91,7 +91,7 @@ types-python-dateutil = {version = "^2.8.19.14", optional = true}
 types-requests = {version = "^2.31.0.4", optional = true}
 types-pytz = {version = "^2024.1.0.20240203", optional = true}
 # Ruff
-ruff = {version = "~0.4.4", optional = true}
+ruff = {version = "~0.6.0", optional = true}
 
 
 [tool.poetry.extras]
@@ -138,7 +138,6 @@ module = [
     "lxml.*",
     "julia.*",
     "setuptools",
-    "importlib.metadata.*",
     "keyboard.*",
     "onnxruntime.*",
     "matplotlib.*",
@@ -183,7 +182,6 @@ exclude_lines = [
 ]
 
 [tool.ruff]
-include = ["pyproject.toml", "eta_utility/**/*.py", "test/**/*.py", "examples/**/*.py"]
 
 line-length = 120
 indent-width = 4
@@ -194,6 +192,8 @@ target-version= "py39"
 # Only fix with $ruff check --fix
 fix = false
 
+output-format = "concise"
+
 [tool.ruff.lint]
 select = [
     "F",       # Pyflakes
@@ -202,21 +202,24 @@ select = [
     "N",       # Pep8-naming conventions
     "UP",      # Pyupgrade
     "PL",      # Pylint
-    "RUF",     # Ruff
+    "ERA",     # Eradicate
+    "PD",      # Pandas-vet
     "NPY",     # NumPy-specific
+    "RUF",     # Ruff
 
     # Flake8:
-    # asyncio, commas, comprehensions, eradicate, future-annotations,
-    # logging, no-pep420, print, pytest-style, simplify
-    "ASYNC","COM", "C4", "ERA", "FA", "LOG", "INP", "T20", "PT", "SIM",
-
+    # 2020, asyncio, bugbear, builtins, commas, comprehensions, future-annotations, implicit-str-concat
+    "YTT", "ASYNC", "B", "A", "COM", "C4", "FA", "ISC",
+    # logging, no-pep420, print, pyi, pytest-style, return, simplify, use-pathlib, todo
+    "LOG", "INP", "T20", "PYI", "PT", "RET", "SIM", "PTH", "TD",
     ]
 
 ignore = [
-    "SIM105",
     "PLR2004",  # Pylint: magic values
+    "SIM105",   # Don't forcce contextlib.suppress
+    "TD002",    # Ignore TODO authors
     # Recommended to ignore as they conflict with the formatter
-    "W191", "E111", "E114", "E117", "D206", "D300", "COM812", "COM819",
+    "W191", "E111", "E114", "E117", "D206", "D300", "COM812", "COM819", "ISC001",
 ]
 
 
@@ -229,7 +232,7 @@ combine-as-imports = true
 force-wrap-aliases = true
 
 [tool.ruff.lint.pylint]
-max-args = 17
-max-branches = 24
-max-statements = 64
-max-returns = 9
+max-args = 15
+max-branches = 21
+max-statements = 62
+max-returns = 6

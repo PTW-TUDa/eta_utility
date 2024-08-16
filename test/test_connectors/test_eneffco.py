@@ -15,7 +15,7 @@ sample_series = pd.Series(
 )
 
 
-@pytest.fixture()
+@pytest.fixture
 def eneffco_nodes(config_eneffco):
     return {
         "node": Node(

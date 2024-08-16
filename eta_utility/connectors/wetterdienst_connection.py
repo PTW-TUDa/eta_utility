@@ -12,6 +12,8 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from typing import Any
 
+    from wetterdienst.core.timeseries.result import StationsResult
+
     from eta_utility.type_hints import Nodes, TimeStep
 
 from datetime import datetime, timedelta
@@ -61,7 +63,8 @@ class WetterdienstConnection(Generic[NW], SeriesConnection[NW], ABC):
         :param node: Node to initialize from
         :param kwargs: Extra keyword arguments
         """
-        return cls(nodes=[node], **kwargs)
+        settings = kwargs.get("settings")
+        return super()._from_node(node, settings=settings)
 
     @abstractmethod
     def read_series(
@@ -150,7 +153,7 @@ class WetterdienstConnection(Generic[NW], SeriesConnection[NW], ABC):
         """
         raise NotImplementedError("Cannot subscribe to data from the the Wetterdienst API.")
 
-    def retrieve_stations(self, node: NodeWetterdienst, request: Any) -> pd.DataFrame:
+    def retrieve_stations(self, node: NodeWetterdienst, request: DwdObservationRequest) -> pd.DataFrame:
         """
         Retrieve stations from the Wetterdienst API and return the values as a pandas DataFrame
         Stations are filtered by the node's station_id or latlon and number_of_stations
@@ -159,6 +162,7 @@ class WetterdienstConnection(Generic[NW], SeriesConnection[NW], ABC):
         :param request: Wetterdienst request object, containing the station data
         """
         # Retrieve stations. If station_id is provided, use it, otherwise use latlon to get nearest stations
+        stations: StationsResult
         if node.station_id is not None:
             stations = request.filter_by_station_id(node.station_id)
         else:
@@ -166,13 +170,12 @@ class WetterdienstConnection(Generic[NW], SeriesConnection[NW], ABC):
 
         # Convert to pandas and pivot values so date is the index and
         # node names combined with the station_id are the columns
-        result_df: pd.DataFrame = stations.values.all().df.to_pandas()
-        result_df = result_df.pivot(values="value", columns=("parameter", "station_id"), index="date")
+        result_df: pd.DataFrame = stations.values.all().df.to_pandas()  # noqa: PD011 (stations is not a dataframe)
+        result_df = result_df.pivot_table(values="value", columns=("parameter", "station_id"), index="date")
 
         # Rename the columns to the node names
         result_df = result_df.rename({node.parameter.lower(): node.name}, axis="columns")
-        result_df = result_df.rename_axis(("Name", "station_id"), axis="columns")
-        return result_df
+        return result_df.rename_axis(("Name", "station_id"), axis="columns")
 
 
 class WetterdienstObservationConnection(
@@ -210,7 +213,7 @@ class WetterdienstObservationConnection(
             # Get the resolution for the node from the interval
             resolution = NodeWetterdienstObservation.convert_interval_to_resolution(node.interval)
             # Create a request object for the node
-            request = DwdObservationRequest(
+            request: DwdObservationRequest = DwdObservationRequest(
                 parameter=node.parameter,
                 resolution=resolution,
                 start_date=from_time,
@@ -227,9 +230,7 @@ class WetterdienstObservationConnection(
         result = pd.concat(results, axis=1, sort=False)
 
         # Convert the data to the requested interval
-        result = result.asfreq(interval, method="ffill").ffill()
-
-        return result
+        return result.asfreq(interval, method="ffill").ffill()
 
 
 class WetterdienstPredictionConnection(
@@ -278,6 +279,4 @@ class WetterdienstPredictionConnection(
         results = []
         for node in nodes:
             results.append(_read_node(node))
-        result = pd.concat(results, axis=1, sort=False)
-
-        return result
+        return pd.concat(results, axis=1, sort=False)
