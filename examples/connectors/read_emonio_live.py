@@ -3,7 +3,7 @@ import pandas as pd
 from eta_utility.connectors.node import NodeEmonio
 
 
-def live_from_dict(url: str) -> pd.DataFrame:
+def live_from_dict(url: str) -> dict[str, float]:
     # --live--
     from eta_utility.connectors.live_connect import LiveConnect
 
@@ -23,9 +23,8 @@ def live_from_dict(url: str) -> pd.DataFrame:
     connection = LiveConnect.from_dict(None, None, 1, 10, **live)
 
     # Read the values of the nodes we defined in the dictionary
-    result = connection.read("V_RMS", "I_RMS")
+    return connection.read("V_RMS", "I_RMS")
     # --live--
-    return result
 
 
 def emonio_manuell(url: str) -> pd.DataFrame:
@@ -39,12 +38,8 @@ def emonio_manuell(url: str) -> pd.DataFrame:
     connection = EmonioConnection.from_node([voltage_node, current_node])
 
     # Read values of selected nodes
-    if isinstance(connection, EmonioConnection):
-        result = connection.read()
-    else:
-        raise TypeError("The connection must be an ModbusConnection.")
+    return connection.read()
     # --emonio--
-    return result
 
 
 def modbus_manuell(url: str) -> pd.DataFrame:

@@ -76,17 +76,12 @@ class EnEffCoConnection(SeriesConnection[NodeEnEffCo], protocol="eneffco"):
         :param kwargs: Keyword arguments for API authentication, where "api_token" is required
         :return: EnEffCoConnection object.
         """
-        if "api_token" not in kwargs:
-            raise AttributeError("Keyword parameter 'api_token' is missing.")
-        api_token = kwargs["api_token"]
 
-        if node.protocol == "eneffco":
-            return cls(node.url, usr, pwd, api_token=api_token, nodes=[node])
-        else:
-            raise ValueError(
-                "Tried to initialize EnEffCoConnection from a node that does not specify eneffco as its"
-                f"protocol: {node.name}."
-            )
+        api_token = kwargs.get("api_token")
+        if api_token is None:
+            raise AttributeError("Keyword parameter 'api_token' is missing.")
+
+        return super()._from_node(node, usr=usr, pwd=pwd, api_token=api_token)
 
     @classmethod
     def from_ids(cls, ids: Sequence[str], url: str, usr: str, pwd: str, api_token: str) -> EnEffCoConnection:
@@ -111,8 +106,7 @@ class EnEffCoConnection(SeriesConnection[NodeEnEffCo], protocol="eneffco"):
         nodes = self._validate_nodes(nodes)
         base_time = 1  # seconds
         the_time = self._round_timestamp(datetime.now(), base_time).replace(tzinfo=None)
-        value = self.read_series(the_time - timedelta(seconds=base_time), the_time, nodes, base_time)
-        return value
+        return self.read_series(the_time - timedelta(seconds=base_time), the_time, nodes, base_time)
 
     def write(
         self, values: Mapping[NodeEnEffCo, Any] | pd.Series[datetime, Any], time_interval: timedelta | None = None
@@ -246,8 +240,7 @@ class EnEffCoConnection(SeriesConnection[NodeEnEffCo], protocol="eneffco"):
         with concurrent.futures.ThreadPoolExecutor() as executor:
             results = executor.map(read_node, nodes)
 
-        values = pd.concat(results, axis=1, sort=False)
-        return values
+        return pd.concat(results, axis=1, sort=False)
 
     def subscribe_series(
         self,
@@ -366,15 +359,12 @@ class EnEffCoConnection(SeriesConnection[NodeEnEffCo], protocol="eneffco"):
             response = self._raw_request("GET", "/rawdatapoint")
             self._node_ids_raw = pd.DataFrame(data=response.json())
 
-        if raw_datapoint:
-            if len(self._node_ids_raw.loc[self._node_ids_raw["Code"] == code, "Id"]) > 0:
-                return self._node_ids_raw.loc[self._node_ids_raw["Code"] == code, "Id"].values.item()
-            else:
+        def find_id(node_ids: pd.DataFrame) -> str:
+            if len(node_ids.loc[node_ids["Code"] == code, "Id"]) <= 0:
                 raise ValueError(f"Code {code} does not exist on server {self.url}.")
-        elif len(self._node_ids.loc[self._node_ids["Code"] == code, "Id"]) > 0:
-            return self._node_ids.loc[self._node_ids["Code"] == code, "Id"].values.item()
-        else:
-            raise ValueError(f"Code {code} does not exist on server {self.url}.")
+            return node_ids.loc[node_ids["Code"] == code, "Id"].to_numpy().item()
+
+        return find_id(self._node_ids_raw) if raw_datapoint else find_id(self._node_ids)
 
     def timestr_from_datetime(self, dt: datetime) -> str:
         """Create an EnEffCo compatible time string.

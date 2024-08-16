@@ -46,7 +46,7 @@ def test_multi_connect(config_nodes_file, config_eneffco, temp_dir):
     loop = asyncio.get_event_loop()
 
     try:
-        for host, connection in connections.items():
+        for connection in connections.values():
             connection.subscribe(subscription_handler)
 
         loop.run_until_complete(stop_execution(10))
@@ -54,7 +54,7 @@ def test_multi_connect(config_nodes_file, config_eneffco, temp_dir):
     except KeyboardInterrupt:
         pass
     finally:
-        for host, connection in connections.items():
+        for connection in connections.values():
             connection.close_sub()
 
         try:

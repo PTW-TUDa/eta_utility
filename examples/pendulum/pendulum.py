@@ -11,7 +11,7 @@ except ModuleNotFoundError:
         "For the PendulumEnv example, the pygame module is required. Install eta_utility with the "
         "[examples] option to get all packages required for running examples.",
         name="pygame",
-    )
+    ) from None
 else:
     from gymnasium.envs.classic_control.pendulum import (
         PendulumEnv as GymPendulum,
@@ -58,7 +58,7 @@ class PendulumEnv(BaseEnv, GymPendulum):
     version = "v1.0"
     description = "OpenAI"
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         env_id: int,
         config_run: ConfigOptRun,

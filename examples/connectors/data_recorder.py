@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import os
 import pathlib
 from datetime import timedelta
 from typing import TYPE_CHECKING
@@ -15,12 +14,12 @@ from eta_utility.connectors.base_classes import Connection
 
 try:
     import keyboard
-except ModuleNotFoundError:
+except ModuleNotFoundError as e:
     raise ModuleNotFoundError(
         "For the data_recorder example, the pygame module is required. Install eta_utility with the "
         "[examples] option to get all packages required for running examples.",
         name="keyboard",
-    )
+    ) from e
 from eta_utility import get_logger
 from eta_utility.connectors import Node, sub_handlers
 
@@ -28,7 +27,7 @@ if TYPE_CHECKING:
     from eta_utility.type_hints import Path, TimeStep
 
 
-log = get_logger(level=2, format="logname")
+log = get_logger(level=2, log_format="logname")
 
 
 def parse_args() -> argparse.Namespace:
@@ -137,7 +136,7 @@ def execution_loop(
         output_file = pathlib.Path(output_file)
         if output_file.is_file() or output_file.is_dir():
             try:
-                os.remove(output_file)
+                pathlib.Path(output_file).unlink()
             except FileNotFoundError:
                 pass
 
@@ -148,7 +147,7 @@ def execution_loop(
     background_tasks.add(task)
 
     try:
-        for host, connection in connections.items():
+        for connection in connections.values():
             # Start connections without passing on interrupt signals
             try:
                 connection.subscribe(subscription_handler, interval=sub_interval)
@@ -166,7 +165,7 @@ def execution_loop(
 
     finally:
         log.info("Closing connections and handlers")
-        for host, connection in connections.items():
+        for connection in connections.values():
             connection.close_sub()
 
         subscription_handler.close()

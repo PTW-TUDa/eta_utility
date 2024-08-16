@@ -40,8 +40,7 @@ class RetryWaiter:
         """Return the time to wait for."""
         if self.counter >= len(self.VALUES) - 1:
             return self.VALUES[-1]
-        else:
-            return self.VALUES[self.counter]
+        return self.VALUES[self.counter]
 
     def wait(self) -> None:
         """Wait/sleep synchronously."""
@@ -117,14 +116,18 @@ def _get_decode_params(value: Sequence[int], type_: Callable | None = None) -> t
         try:
             dtype = _int_types[len(value) * 2]
         except KeyError:
-            raise ValueError(f"The length of the received value ({len(value)})does not match the data type {type_}")
+            raise ValueError(
+                f"The length of the received value ({len(value)})does not match the data type {type_}"
+            ) from None
     elif type_ is float or type_ is None:
         _float_types = {2: "e", 4: "f", 8: "d"}
         _len = 1
         try:
             dtype = _float_types[len(value) * 2]
         except KeyError:
-            raise ValueError(f"The length of the received value ({len(value)}) does not match the data type: {type_}")
+            raise ValueError(
+                f"The length of the received value ({len(value)}) does not match the data type: {type_}"
+            ) from None
     else:
         raise ValueError(f"The given modbus data type was not recognized: {type_}")
 
@@ -132,7 +135,7 @@ def _get_decode_params(value: Sequence[int], type_: Callable | None = None) -> t
 
 
 def encode_bits(
-    value: str | int | float | bytes, byteorder: str, bit_length: int, type_: Callable | None = None
+    value: str | float | bytes, byteorder: str, bit_length: int, type_: Callable | None = None
 ) -> list[int]:
     r"""Method to encode python data type to modbus value. This means an array of bytes to send to a
     modbus server.
@@ -154,16 +157,16 @@ def encode_bits(
         _types = {1: "b", 2: "h", 4: "i", 8: "q"} if value < 0 else {1: "B", 2: "H", 4: "I", 8: "Q"}
         try:
             _type = _types[byte_length]
-        except KeyError:
-            raise ValueError(f"Byte length for integers must be either 1, 2, 4 or 8. Got {byte_length}.")
+        except KeyError as e:
+            raise ValueError(f"Byte length for integers must be either 1, 2, 4 or 8. Got {byte_length}.") from e
         _len: str | int = ""
 
     elif isinstance(value, float):
         _types = {2: "e", 4: "f", 8: "d"}
         try:
             _type = _types[byte_length]
-        except KeyError:
-            raise ValueError(f"Byte length for floats must be either 4 or 8. Got {byte_length}.")
+        except KeyError as e:
+            raise ValueError(f"Byte length for floats must be either 4 or 8. Got {byte_length}.") from e
         _len = ""
 
     else:
@@ -176,12 +179,12 @@ def encode_bits(
     try:
         bo = _order[byteorder]
     except KeyError:
-        raise ValueError(f"Unknown byte order specified: {byteorder}")
+        raise ValueError(f"Unknown byte order specified: {byteorder}") from None
 
     try:
         byte = struct.pack(f"{bo}{_len}{_type}", value)
-    except struct.error:
-        raise ValueError(f"Could not convert value {value!r} to bits.")
+    except struct.error as e:
+        raise ValueError(f"Could not convert value {value!r} to bits.") from e
 
     bitstrings = [f"{bin(x)[2:]:0>8}" for x in byte]
     return [int(z) for z in "".join(bitstrings)]

@@ -66,7 +66,7 @@ class ModbusConnection(Connection[NodeModbus], protocol="modbus"):
     def _from_node(
         cls, node: NodeModbus, usr: str | None = None, pwd: str | None = None, **kwargs: Any
     ) -> ModbusConnection:
-        """Initialize the connection object from a modbus protocol node object.
+        """Initialize the connection object from a modubs protocol node object.
 
         :param node: Node to initialize from.
         :param usr: Username to use.
@@ -74,14 +74,8 @@ class ModbusConnection(Connection[NodeModbus], protocol="modbus"):
         :param kwargs: Other arguments are ignored.
         :return: ModbusConnection object.
         """
-        if node.protocol == "modbus":
-            return cls(node.url, usr, pwd, nodes=[node])
 
-        else:
-            raise ValueError(
-                "Tried to initialize ModbusConnection from a node that does not specify modbus as its"
-                f"protocol: {node.name}."
-            )
+        return super()._from_node(node, usr=usr, pwd=pwd)
 
     def read(self, nodes: Nodes[NodeModbus] | None = None) -> pd.DataFrame:
         """Read some manually selected nodes from Modbus server.
@@ -305,10 +299,10 @@ class ModbusConnection(Connection[NodeModbus], protocol="modbus"):
 
         if error != mb_const.MB_NO_ERR:
             raise ConnectionError(f"ModbusError {error} at {self.url}: {self.connection.last_error_as_txt}")
-        elif exception != mb_const.EXP_NONE:
+        if exception != mb_const.EXP_NONE:
             raise ConnectionError(f"ModbusError {exception} at {self.url}: {self.connection.last_except_as_txt}")
-        else:
-            raise ConnectionError(f"Unknown ModbusError at {self.url}")
+
+        raise ConnectionError(f"Unknown ModbusError at {self.url}")
 
     def _validate_nodes(self, nodes: Nodes[NodeModbus] | None) -> set[NodeModbus]:
         vnodes = super()._validate_nodes(nodes)

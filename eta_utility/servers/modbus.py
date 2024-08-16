@@ -21,6 +21,8 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from typing import Any
 
+    from typing_extensions import Self
+
     from eta_utility.type_hints import Nodes
 
 log = get_logger("servers.modbus")
@@ -171,7 +173,7 @@ class ModbusServer:
 
         return _nodes
 
-    def __enter__(self) -> ModbusServer:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(

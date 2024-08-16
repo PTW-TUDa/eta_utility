@@ -131,9 +131,9 @@ class ETAx:
             "Set the config_run attribute before trying to initialize the model "
             "(for example by calling prepare_run)."
         )
-        assert self.environments is not None, (
-            "Initialize the environments before trying to initialize the model" "(for example by calling prepare_run)."
-        )
+        assert (
+            self.environments is not None
+        ), "Initialize the environments before trying to initialize the model(for example by calling prepare_run)."
 
         path_model = self.config_run.path_run_model
         if path_model.is_file() and reset:
@@ -253,7 +253,7 @@ class ETAx:
                 raise ValueError(
                     "If 'interact_with_env' is specified, an interaction env class must be specified as well."
                 )
-            elif self.config.settings.interaction_env is None:
+            if self.config.settings.interaction_env is None:
                 raise ValueError(
                     "If 'interact_with_env' is specified, the interaction_env settings must be specified as well."
                 )
@@ -306,9 +306,9 @@ class ETAx:
                 # Check if all required config values are present
                 if self.config.settings.episode_duration is None:
                     raise ValueError("Missing configuration values for learning: 'episode_duration'.")
-                elif self.config.settings.sampling_time is None:
+                if self.config.settings.sampling_time is None:
                     raise ValueError("Missing configuration values for learning: 'sampling_time'.")
-                elif self.config.settings.n_episodes_learn is None:
+                if self.config.settings.n_episodes_learn is None:
                     raise ValueError("Missing configuration values for learning: 'n_episodes_learn'.")
 
                 # define callback for periodically saving models
@@ -471,8 +471,7 @@ class ETAx:
             self.interaction_env.seed(self.config.settings.seed)
             observations = self.interaction_env.reset()
             return self._reset_env_interaction(observations)
-        else:
-            return self.environments.reset()
+        return self.environments.reset()
 
     def _reset_env_interaction(self, observations: VecEnvObs) -> VecEnvObs:
         """Reset the environments when interaction with another environment is taking place.

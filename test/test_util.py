@@ -55,7 +55,7 @@ def test_dict_search_fail():
 
 
 def test_remove_comments_json():
-    with open(pathlib.Path(__file__).parent / "resources/remove_comments/removed_comments.json") as f:
+    with pathlib.Path(pathlib.Path(__file__).parent / "resources/remove_comments/removed_comments.json").open() as f:
         control = json.load(f)
 
     assert json_import(pathlib.Path(__file__).parent / "resources/remove_comments/with_comments.json") == control

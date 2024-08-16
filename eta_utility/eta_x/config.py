@@ -38,7 +38,7 @@ def _get_class(instance: ConfigOptSetup, attrib: Attribute, new_value: str | Non
         except ModuleNotFoundError as e:
             raise ModuleNotFoundError(
                 f"Could not find module '{e.name}'. While importing class '{cls_name}' from '{attrib.name}' value."
-            )
+            ) from e
 
         cls_attr_name = f"{attrib.name.rsplit('_', 1)[0]}_class"
         setattr(instance, cls_attr_name, cls)
@@ -170,7 +170,7 @@ class ConfigOpt:
 
         if errors:
             raise ValueError(
-                "Not all required values were found in setup section (see log). " "Could not load config file."
+                "Not all required values were found in setup section (see log). Could not load config file."
             )
 
         return cls(
@@ -249,72 +249,43 @@ class ConfigOptSetup:
     def from_dict(cls, dikt: dict[str, Any]) -> ConfigOptSetup:
         errors = False
 
-        if "agent_import" not in dikt and ("agent_package" not in dikt or "agent_class" not in dikt):
-            log.error("'agent_import' or both of 'agent_package' and 'agent_class' parameters must " "be specified.")
-            errors = True
-        if "agent_import" not in dikt:
-            agent_import = f"{dikt.pop('agent_package', None)}.{dikt.pop('agent_class', None)}"
-        else:
-            agent_import = dikt.pop("agent_import")
+        def get_import(name: str, error: bool = False) -> str | Any:
+            """Get import string or combination of package and class name from dictionary."""
+            nonlocal errors, dikt
+            import_value = dikt.pop(f"{name}_import", None)
+            package_value = dikt.pop(f"{name}_package", None)
+            class_value = dikt.pop(f"{name}_class", None)
+            # Check import
+            if import_value is not None:
+                return import_value
 
-        if "environment_import" not in dikt and ("environment_package" not in dikt or "environment_class" not in dikt):
-            log.error(
-                "'environment_import' or both of 'environment_package' and 'environment_class' parameters must "
-                "be specified."
-            )
-            errors = True
-        if "environment_import" not in dikt:
-            environment_import = f"{dikt.pop('environment_package', None)}.{dikt.pop('environment_class', None)}"
-        else:
-            environment_import = dikt.pop("environment_import")
+            # Check package and class
+            if package_value is not None and class_value is not None:
+                return f"{package_value}.{class_value}"
 
-        if (
-            len({"interaction_env_package", "interaction_env_class"} & dikt.keys()) > 0
-            or "interaction_env_import" in dikt
-        ):
-            if "interaction_env_import" not in dikt and (
-                "interaction_env_package" not in dikt or "interaction_env_class" not in dikt
-            ):
-                log.error(
-                    "If one of 'interaction_env_package' and 'interaction_env_class' is specified, "
+            # If only one of package and class is specified, raise error
+            if (package_value is None) ^ (class_value is None):
+                msg = (
+                    f"If one of '{package_value}' and '{class_value}' is specified, "
                     "the other must also be specified."
                 )
+                log.error(msg)
                 errors = True
-            if "interaction_env_import" not in dikt:
-                interaction_env_import = (
-                    f"{dikt.pop('interaction_env_package', None)}.{dikt.pop('interaction_env_class', None)}"
-                )
-            else:
-                interaction_env_import = dikt.pop("interaction_env_import")
-        else:
-            interaction_env_import = None
+                return None
 
-        if len({"vectorizer_package", "vectorizer_class"} & dikt.keys()) > 0 or "vectorizer_import" in dikt:
-            if "vectorizer_import" not in dikt and ("vectorizer_package" not in dikt or "vectorizer_class" not in dikt):
-                log.error(
-                    "If one of 'vectorizer_package' and 'vectorizer_class' is specified, "
-                    "the other must also be specified."
-                )
+            # Raise error if wanted
+            if error:
+                msg = f"'{import_value}' or both of '{package_value}' and '{class_value}' parameters must be specified."
+                log.error(msg)
                 errors = True
-            if "vectorizer_import" not in dikt:
-                vectorizer_import = f"{dikt.pop('vectorizer_package', None)}.{dikt.pop('vectorizer_class', None)}"
-            else:
-                vectorizer_import = dikt.pop("vectorizer_import")
-        else:
-            vectorizer_import = None
+            return None
 
-        if len({"policy_package", "policy_class"} & dikt.keys()) > 0 or "policy_import" in dikt:
-            if "policy_import" not in dikt and ("policy_package" not in dikt or "policy_class" not in dikt):
-                log.error(
-                    "If one of 'policy_package' and 'policy_class' is specified, " "the other must also be specified."
-                )
-                errors = True
-            if "policy_import" not in dikt:
-                policy_import = f"{dikt.pop('policy_package', None)}.{dikt.pop('policy_class', None)}"
-            else:
-                policy_import = dikt.pop("policy_import")
-        else:
-            policy_import = None
+        agent_import = get_import("agent", error=True)
+        environment_import = get_import("environment", error=True)
+
+        interaction_env_import = get_import("interaction_env")
+        vectorizer_import = get_import("vectorizer")
+        policy_import = get_import("policy")
 
         monitor_wrapper = dikt.pop("monitor_wrapper", None)
         norm_wrapper_obs = dikt.pop("norm_wrapper_obs", None)
@@ -323,15 +294,15 @@ class ConfigOptSetup:
 
         # Log configuration values which were not recognized.
         for name in dikt:
-            log.warning(
-                f"Specified configuration value '{name}' in the setup section of the configuration was not "
-                f"recognized and is ignored."
+            msg = (
+                f"Specified configuration value '{name}' in the setup section "
+                "of the configuration was not recognized and is ignored."
             )
+            log.warning(msg)
 
         if errors:
-            raise ValueError(
-                "Not all required values were found in setup section (see log). Could not load config file."
-            )
+            msg = "Not all required values were found in setup section (see log). Could not load config file."
+            raise ValueError(msg)
 
         return ConfigOptSetup(
             agent_import=agent_import,
