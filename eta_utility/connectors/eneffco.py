@@ -60,8 +60,9 @@ class EnEffCoConnection(SeriesConnection[NodeEnEffCo], protocol="eneffco"):
         self._subscription_nodes: set[NodeEnEffCo] = set()
         self._subscription_open: bool = False
         self.session: CachedSession = CachedSession(
-            cache_name="eta_utility/connectors/.requests_cache/eneffco_cache",
+            cache_name="eta_utility/connectors/requests_cache/eneffco_cache",
             expire_after=timedelta(minutes=15),
+            use_cache_dir=True,
         )
 
     @classmethod

@@ -58,12 +58,13 @@ class ENTSOEConnection(SeriesConnection[NodeEntsoE], protocol="entsoe"):
         self._node_ids: str | None = None
         self.config = _ConnectionConfiguration()
         self.session: CachedSession = CachedSession(
-            cache_name="eta_utility/connectors/.requests_cache/entso_e_cache",
+            cache_name="eta_utility/connectors/requests_cache/entso_e_cache",
             urls_expire_after={
                 "https://web-api.tp.entsoe.eu/*": timedelta(minutes=15),
                 "*": DO_NOT_CACHE,  # Don't cache other URLs
             },
             allowable_codes=(200, 400, 401),
+            use_cache_dir=True,
         )
 
     @classmethod
