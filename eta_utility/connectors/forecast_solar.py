@@ -82,12 +82,13 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
         self._api_key: str = api_key
         #: Cached session to handle the requests
         self.session: CachedSession = CachedSession(
-            cache_name="eta_utility/connectors/.requests_cache/forecast_solar_cache",
+            cache_name="eta_utility/connectors/requests_cache/forecast_solar_cache",
             urls_expire_after={
                 "https://api.forecast.solar*": 900,  # 15 minutes
                 "*": DO_NOT_CACHE,  # Don't cache other URLs
             },
             allowable_codes=(200, 400, 401, 403),
+            use_cache_dir=True,
         )
 
     @classmethod
