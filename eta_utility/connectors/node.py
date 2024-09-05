@@ -1214,18 +1214,21 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
         converter=_convert_list(int),
         validator=_check_plane(int, 0, 90),
         metadata={"QUERY_PARAM": False},
+        eq=False,  # Exclude from __hash__
     )
     #: Plane azimuth, -180 … 180 (-180 = north, -90 = east, 0 = south, 90 = west, 180 = north); integer
     azimuth: int | list[int] = field(
         converter=_convert_list(int),
         validator=_check_plane(int, -180, 180),
         metadata={"QUERY_PARAM": False},
+        eq=False,  # Exclude from __hash__
     )
     #: Installed modules power in kilo watt; float
     kwp: float | list[float] = field(
         converter=_convert_list(float),
         validator=_check_plane(float, 0, maxsize),
         metadata={"QUERY_PARAM": False},
+        eq=False,  # Exclude from __hash__
     )
 
     # QUERY PARAMETERS
@@ -1248,7 +1251,11 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
         default=None, converter=float, validator=[vld.ge(0.0), vld.le(1.0)], metadata={"QUERY_PARAM": True}
     )
     #: Horizon information; string, (comma-separated list of numerics) See API doc
-    horizon: int | list[int] | None = field(default=None, validator=_check_horizon)
+    horizon: int | list[int] | None = field(
+        default=None,
+        validator=_check_horizon,
+        eq=False,
+    )  # Exclude from __hash__
     #: inverter: Maximum of inverter in kilowatts or kVA; float > 0
     inverter: float | None = field(default=None, converter=float, validator=vld.gt(0.0), metadata={"QUERY_PARAM": True})
     #: limit: Number of response days; int ⋲ (1,..,8), 1=today
