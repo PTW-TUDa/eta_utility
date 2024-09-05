@@ -5,7 +5,6 @@ import csv
 import functools
 import io
 import json
-import locale
 import logging
 import math
 import pathlib
@@ -22,6 +21,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlparse, urlunparse
 
 import pandas as pd
+import pytz
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -492,43 +492,30 @@ class SelfsignedKeyCertPair(KeyCertPair):
         """Generate a self signed key and certificate pair for use with the connectors.
 
         :param common_name: Common name the certificate should be valid for.
-        :param country: Country code for the certificate owner, for example "DE" oder "US".
+        :param country: Alpha-2 country code for the certificate owner. Empty by default.
         :param province: Province name of the certificate owner. Empty by default.
         :param city: City name of the certificate owner. Empty by default.
         :param organization: Name of the certificate owner's organization. "OPC UA Client" by default.
         :return: Tuple of RSA private key and x509 certificate.
         """
-        # Set some default values for the parameters
-        if country is None:
-            # use the user's default locale
-            locale.setlocale(locale.LC_ALL, "")
-            # extract country
-            country = locale.getlocale()[0]
 
-            country = country.split("_")[-1] if country else ""
+        # Determine certificate subject and issuer from input values.
+        subject_attributes = []
 
-        if province is None:
-            province = ""
-
-        if city is None:
-            city = ""
-
+        if country is not None:
+            subject_attributes.append(x509.NameAttribute(NameOID.COUNTRY_NAME, country))
+        if province is not None:
+            subject_attributes.append(x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, province))
+        if city is not None:
+            subject_attributes.append(x509.NameAttribute(NameOID.LOCALITY_NAME, city))
         if organization is None:
-            organization = "OPC UA Client"
+            organization = "OPC UA Client eta-utility"
+        subject_attributes.append(x509.NameAttribute(NameOID.ORGANIZATION_NAME, organization))
+
+        subject = issuer = x509.Name(subject_attributes)
 
         # Generate the private key
         key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-
-        # Determine certificate subject and issuer from input values.
-        subject = issuer = x509.Name(
-            [
-                x509.NameAttribute(NameOID.COUNTRY_NAME, country),
-                x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, province),
-                x509.NameAttribute(NameOID.LOCALITY_NAME, city),
-                x509.NameAttribute(NameOID.ORGANIZATION_NAME, organization),
-                x509.NameAttribute(NameOID.COMMON_NAME, common_name),
-            ]
-        )
 
         cert = (
             x509.CertificateBuilder()
@@ -536,8 +523,8 @@ class SelfsignedKeyCertPair(KeyCertPair):
             .issuer_name(issuer)
             .public_key(key.public_key())
             .serial_number(x509.random_serial_number())
-            .not_valid_before(datetime.utcnow())
-            .not_valid_after(datetime.utcnow() + timedelta(days=10))  # Certificate valid for 10 days
+            .not_valid_before(datetime.now(tz=pytz.utc))
+            .not_valid_after(datetime.now(tz=pytz.utc) + timedelta(days=10))  # Certificate valid for 10 days
             .add_extension(
                 x509.SubjectAlternativeName(
                     [x509.DNSName("localhost"), x509.DNSName(socket.gethostbyname(socket.gethostname()))]
