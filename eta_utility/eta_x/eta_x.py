@@ -56,9 +56,9 @@ class ETAx:
         _root_path = root_path if isinstance(root_path, pathlib.Path) else pathlib.Path(root_path)
         _relpath_config = relpath_config if isinstance(relpath_config, pathlib.Path) else pathlib.Path(relpath_config)
         #: Path to the configuration file.
-        self.path_config = _root_path / _relpath_config / f"{config_name}.json"
+        self.path_config = _root_path / _relpath_config / f"{config_name}"
         #: ConfigOpt object for the optimization run.
-        self.config: ConfigOpt = ConfigOpt.from_json(self.path_config, root_path, config_overwrite)
+        self.config: ConfigOpt = ConfigOpt.from_config_file(self.path_config, root_path, config_overwrite)
         log.setLevel(int(self.config.settings.verbose * 10))
 
         #: Configuration for an optimization run.

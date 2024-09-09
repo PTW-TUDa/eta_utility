@@ -6862,6 +6862,17 @@ files = [
 ]
 
 [[package]]
+name = "toml"
+version = "0.10.2"
+description = "Python Library for Tom's Obvious, Minimal Language"
+optional = true
+python-versions = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*"
+files = [
+    {file = "toml-0.10.2-py2.py3-none-any.whl", hash = "sha256:806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b"},
+    {file = "toml-0.10.2.tar.gz", hash = "sha256:b3bda1d108d5dd99f4a20d24d9c348e91c4db7ab1b749200bded2f839ccbe68f"},
+]
+
+[[package]]
 name = "tomli"
 version = "2.0.1"
 description = "A lil' TOML parser"
@@ -7473,11 +7484,11 @@ docs = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "rst.link
 testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=2.2)", "pytest-ignore-flaky", "pytest-mypy", "pytest-ruff (>=0.2.1)"]
 
 [extras]
-develop = ["black", "blacken_docs", "gymnasium", "keyboard", "matplotlib", "mypy", "onnxruntime", "openpyxl", "pre-commit", "pygame", "pyglet", "pyomo", "pytest", "pytest-cov", "ruff", "sphinx", "sphinx-copybutton", "sphinx-rtd-theme", "stable-baselines3", "tensorboard", "torch", "types-python-dateutil", "types-pytz", "types-requests"]
-eta-x = ["gymnasium", "pyomo", "stable-baselines3", "tensorboard", "torch"]
+develop = ["black", "blacken_docs", "gymnasium", "keyboard", "matplotlib", "mypy", "onnxruntime", "openpyxl", "pre-commit", "pygame", "pyglet", "pyomo", "pytest", "pytest-cov", "ruff", "sphinx", "sphinx-copybutton", "sphinx-rtd-theme", "stable-baselines3", "tensorboard", "toml", "torch", "types-python-dateutil", "types-pytz", "types-requests"]
+eta-x = ["gymnasium", "pyomo", "stable-baselines3", "tensorboard", "toml", "torch"]
 examples = ["keyboard", "matplotlib", "onnxruntime", "pygame", "pyglet"]
 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9, <3.12"
-content-hash = "f945d48f834de9ca7c4b01fe22e9665157195b8d0f982e31d7f6b42f576b227f"
+content-hash = "d6c6d1570b1a2148425a98a569b8f546b61563c7d85f34492823f0c2fd7b439a"
