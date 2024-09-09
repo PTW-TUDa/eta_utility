@@ -66,6 +66,7 @@ torch = {version = "==2.0.0", optional=true} # nvidia packages are not included 
 stable-baselines3 = {version = "==2.2.1", optional=true} # no SemVer
 tensorboard = {version = "~2.14.0", optional=true}
 pyomo = {version = "~6.6.2", optional=true}
+toml = {version = "^0.10.2", optional=true}
 
 # Specific requirements for the examples
 matplotlib = {version= "~3.7.0", optional = true}
@@ -95,12 +96,12 @@ ruff = {version = "~0.6.0", optional = true}
 
 
 [tool.poetry.extras]
-develop = ["gymnasium", "torch", "stable_baselines3", "tensorboard", "pyomo",     # include eta_x
+develop = ["gymnasium", "torch", "stable_baselines3", "tensorboard", "pyomo", "toml",     # include eta_x
             "matplotlib", "keyboard", "pygame", "pyglet", "onnxruntime",    # include examples
             "pytest", "pytest-cov", "openpyxl", "sphinx", "sphinx-rtd-theme", "sphinx-copybutton", "pre-commit",
             "black", "blacken_docs", "mypy", "types-python-dateutil",
             "types-requests", "types-pytz", "ruff"]
-eta_x = ["gymnasium", "torch", "stable_baselines3", "tensorboard", "pyomo"]
+eta_x = ["gymnasium", "torch", "stable_baselines3", "tensorboard", "pyomo", "toml"]
 examples = ["matplotlib", "keyboard", "pygame", "pyglet", "onnxruntime"]
 
 
@@ -145,6 +146,8 @@ module = [
     "asyncua.*",
     "wetterdienst.*",
     "requests_cache.*",
+    "toml.*",
+    "yaml.*",
 ]
 ignore_missing_imports = true
 [[tool.mypy.overrides]]

@@ -22,6 +22,8 @@ from urllib.parse import urlparse, urlunparse
 
 import pandas as pd
 import pytz
+import toml
+import yaml
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -174,13 +176,47 @@ def json_import(path: Path) -> list[Any] | dict[str, Any]:
         cleanup = re.compile(r"^((?:(?:[^\/\"])*(?:\"[^\"]*\")*(?:\/[^\/])*)*)", re.MULTILINE)
         with path.open("r") as f:
             file = "\n".join(cleanup.findall(f.read()))
-        try:
-            result = json.loads(file)
-        except json.JSONDecodeError as e:
-            raise json.JSONDecodeError(f"Error while decoding file {path}: {e.msg}", e.doc, e.pos) from None
+        result = json.loads(file)
         log.info(f"JSON file {path} loaded successfully.")
     except OSError as e:
         log.error(f"JSON file couldn't be loaded: {e.strerror}. Filename: {e.filename}")
+        raise
+    return result
+
+
+def toml_import(path: Path) -> dict[str, Any]:
+    """Import a TOML file and return the parsed dictionary.
+
+    :param path: Path to TOML file.
+    :return: Parsed dictionary.
+    """
+    path = pathlib.Path(path)
+
+    try:
+        with path.open("r") as f:
+            result = toml.load(f)
+        log.info(f"TOML file {path} loaded successfully.")
+    except OSError as e:
+        log.error(f"TOML file couldn't be loaded: {e.strerror}. Filename: {e.filename}")
+        raise
+
+    return result
+
+
+def yaml_import(path: Path) -> dict[str, Any]:
+    """Import a YAML file and return the parsed dictionary.
+
+    :param path: Path to YAML file.
+    :return: Parsed dictionary.
+    """
+    path = pathlib.Path(path)
+
+    try:
+        with path.open("r") as f:
+            result = yaml.safe_load(f)
+        log.info(f"YAML file {path} loaded successfully.")
+    except OSError as e:
+        log.error(f"YAML file couldn't be loaded: {e.strerror}. Filename: {e.filename}")
         raise
 
     return result
