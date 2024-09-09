@@ -23,6 +23,8 @@ if TYPE_CHECKING:
     from types import TracebackType
     from typing import Any, TextIO
 
+    from typing_extensions import Self
+
     from eta_utility.type_hints import Number, Path, TimeStep
 
 from .base_classes import SubscriptionHandler
@@ -134,7 +136,7 @@ class CsvSubHandler(SubscriptionHandler):
                         self._queue.task_done()
                         cancelled = True
                         continue
-                    elif cancelled is True and self._queue.empty():
+                    if cancelled is True and self._queue.empty():
                         break
 
                     node, value, timestamp = data
@@ -209,7 +211,7 @@ class _CSVFileDB(AbstractContextManager):
 
         self.check_valid_csv()
 
-    def __enter__(self) -> _CSVFileDB:
+    def __enter__(self) -> Self:
         """Enter the context managed file database."""
         self._open_file()
         return self
@@ -280,13 +282,12 @@ class _CSVFileDB(AbstractContextManager):
             try:
                 self._file = self.filepath.open("x+t", newline="", encoding="UTF-8")
                 log.debug(f"Created a new '.csv' file: {self.filepath}.")
-            except OSError:
-                raise OSError(f"Unable to read or write the requested '.csv' file: {self.filepath}.")
+            except OSError as e:
+                raise OSError(f"Unable to read or write the requested '.csv' file: {self.filepath}.") from e
         # Check whether the file is accessible in the required ways.
         if self._file is None or not self._file.readable() or not self._file.seekable() or not self._file.writable():
             raise ValueError("Output file for writing to '.csv' is not readable or writable.")
-        else:
-            log.debug("Successfully verified full '.csv' file access")
+        log.debug("Successfully verified full '.csv' file access")
 
     def _write_file(self, field_list: list[str], insert_pos: int | None = None) -> int:
         """Write data to the file.
@@ -398,12 +399,11 @@ class _CSVFileDB(AbstractContextManager):
                     if timestamp == ts:
                         self._buffer[idx].update({name: str(value)})
                         break
-                    elif last_ts < timestamp < ts:
+                    if last_ts < timestamp < ts:
                         self._buffer.insert(idx, {name: str(value)})
                         self._timebuffer.insert(idx, timestamp)
                         break
-                    else:
-                        last_ts = ts
+                    last_ts = ts
 
         # Write any rows in the buffer which exceed the size of buffer_target to the file.
         while len(self._buffer) >= buffer_target and len(self._buffer) > 0:
@@ -495,7 +495,7 @@ class DFSubHandler(SubscriptionHandler):
                 self._data_lock.acquire()
 
                 # Replace NaN with -inf to distinguish between the 'real' NaN and the 'fill' NaN
-                if pd.isnull(_value):
+                if pd.isna(_value):
                     _value = -np.inf
                 self._data.loc[_timestamp, node.name] = _value
                 self._data_lock.release()
@@ -508,7 +508,7 @@ class DFSubHandler(SubscriptionHandler):
             self._data_lock.acquire()
 
             # Replace NaN with -inf to distinguish between the 'real' NaN and the 'fill' NaN
-            if pd.isnull(value):
+            if pd.isna(value):
                 value = -np.inf
             self._data.loc[timestamp, node.name] = value
             self._data_lock.release()
@@ -522,16 +522,15 @@ class DFSubHandler(SubscriptionHandler):
         if len(self._data.index) == 0:
             self._data_lock.release()
             return None  # If no data in self._data, return None
-        else:
-            self._data_lock.release()
-            return self.data.iloc[[-1]]
+        self._data_lock.release()
+        return self.data.iloc[[-1]]
 
     @property
     def data(self) -> pd.DataFrame:
         """This contains the interval dataframe and will return a copy of that."""
         self._data_lock.acquire()
         if self.auto_fillna:
-            self._data.ffill(inplace=True)
+            self._data = self._data.ffill()
         data = self._data.replace(-np.inf, np.nan, inplace=False)
         self._data_lock.release()
         return data
@@ -546,7 +545,7 @@ class DFSubHandler(SubscriptionHandler):
     def _housekeeping(self) -> None:
         """Keep internal data short by only keeping last rows as specified in self.keep_data_rows."""
         self._data_lock.acquire()
-        self._data.drop(index=self._data.index[: -self.keep_data_rows], inplace=True)
+        self._data = self._data.drop(index=self._data.index[: -self.keep_data_rows])
         self._data_lock.release()
 
     def close(self) -> None:

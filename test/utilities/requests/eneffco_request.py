@@ -18,13 +18,13 @@ class Response(_Response):
         pass
 
 
-def request(method, url, **kwargs):
+def request(self, method, url, **kwargs):  # noqa: PLR0911
     try:
         endpoint = url.split("API/v1.0/", 1)[1]
     except IndexError:
         endpoint = ""
 
-    with open(pathlib.Path(__file__).parent / "eneffco_sample_data.json") as f:
+    with pathlib.Path(__file__).parent.joinpath("eneffco_sample_data.json").open() as f:
         data = json.load(f)
 
     if method == "GET":
@@ -33,20 +33,17 @@ def request(method, url, **kwargs):
         if endpoint == "":
             # Empty request
             return Response(status_code=200)
-        elif endpoint == "/datapoint":
-            # Datapoint IDs
-            return Response(data["datapoint"], 200)
 
-        elif endpoint == "/rawdatapoint":
-            # Raw Datapoint IDs
-            return Response(data["rawdatapoint"], 200)
+        if endpoint in {"/datapoint", "/rawdatapoint"}:
+            # (Raw) Datapoint IDs
+            return Response(data[endpoint[1:]], 200)
 
-        elif re.match(r"datapoint\/([^\/]+)$", endpoint):
+        if re.match(r"datapoint\/([^\/]+)$", endpoint):
             # Datapoint Information
             _id = endpoint.split("/")[1]
             return Response(data["datapoint_info"][_id], 200)
 
-        elif re_readseries.match(endpoint):
+        if re_readseries.match(endpoint):
             # Read Series
             match = re_readseries.match(endpoint)
             _id = match.groups()[0]
@@ -54,17 +51,17 @@ def request(method, url, **kwargs):
 
             return Response(data["series_data"][_id][::timeinterval], 200)
 
-        elif re.match(r"datapoint\/([^\/]+)/live$", endpoint):
+        if re.match(r"datapoint\/([^\/]+)/live$", endpoint):
             # Live data
             _id = endpoint.split("/")[1]
             return Response(data["live_data"][_id], 200)
 
-        else:
-            return Response(status_code=404)
+        return Response(status_code=404)
 
-    elif method == "POST":
+    if method == "POST":
         _id = re.match(r"rawdatapoint\/([^\/]+)/value$", endpoint).groups()[0]
+        status_code = 400
         if _id in [i["Id"] for i in data["rawdatapoint"]]:
-            return Response(status_code=200)
-        else:
-            return Response(status_code=400)
+            status_code = 200
+        return Response(status_code=status_code)
+    return None

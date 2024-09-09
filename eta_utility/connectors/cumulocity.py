@@ -19,12 +19,12 @@ if TYPE_CHECKING:
 
     from eta_utility.type_hints import Nodes, TimeStep
 
-from .base_classes import BaseSeriesConnection, SubscriptionHandler
+from .base_classes import SeriesConnection, SubscriptionHandler
 
 log = get_logger("connectors.cumulocity")
 
 
-class CumulocityConnection(BaseSeriesConnection[NodeCumulocity], protocol="cumulocity"):
+class CumulocityConnection(SeriesConnection[NodeCumulocity], protocol="cumulocity"):
     """
     CumulocityConnection is a class to download and upload multiple features from and to the Cumulocity database as
     timeseries.
@@ -72,13 +72,7 @@ class CumulocityConnection(BaseSeriesConnection[NodeCumulocity], protocol="cumul
             raise AttributeError("Keyword parameter 'tenant' is missing.")
         tenant = kwargs["tenant"]
 
-        if node.protocol == "cumulocity":
-            return cls(node.url, usr, pwd, tenant=tenant, nodes=[node])
-        else:
-            raise ValueError(
-                "Tried to initialize CumulocityConnection from a node that does not specify cumulocity as its"
-                f"protocol: {node.name}."
-            )
+        return super()._from_node(node, usr=usr, pwd=pwd, tenant=tenant)
 
     def read(self, nodes: Nodes[NodeCumulocity] | None = None) -> pd.DataFrame:
         """Download current value from the Cumulocity Database
@@ -115,12 +109,13 @@ class CumulocityConnection(BaseSeriesConnection[NodeCumulocity], protocol="cumul
         def myconverter(obj: Any) -> Any:
             if isinstance(obj, np.integer):
                 return int(obj)
-            elif isinstance(obj, np.floating):
+            if isinstance(obj, np.floating):
                 return float(obj)
-            elif isinstance(obj, np.ndarray):
+            if isinstance(obj, np.ndarray):
                 return obj.tolist()
-            elif isinstance(obj, datetime):
+            if isinstance(obj, datetime):
                 return obj.__str__()
+            return None
 
         # iterate over nodes
         for node in nodes:
@@ -178,12 +173,12 @@ class CumulocityConnection(BaseSeriesConnection[NodeCumulocity], protocol="cumul
 
         # specify read function for ThreadpoolExecutor
         def read_node(node: NodeCumulocity) -> pd.DataFrame:
-            request_url = "{}/measurement/measurements?dateFrom={}&dateTo={}&source={}&valueFragmentSeries={}&pageSize=2000".format(  # noqa
-                node.url,
-                self.timestr_from_datetime(from_time),
-                self.timestr_from_datetime(to_time),
-                node.device_id,
-                node.fragment,
+            request_url = (
+                f"{node.url}/measurement/measurements"
+                f"?dateFrom={self.timestr_from_datetime(from_time)}"
+                f"&dateTo={self.timestr_from_datetime(to_time)}"
+                f"&source={node.device_id}"
+                f"&valueFragmentSeries={node.fragment}&pageSize=2000"
             )
 
             headers = self.get_auth_header()
@@ -218,8 +213,7 @@ class CumulocityConnection(BaseSeriesConnection[NodeCumulocity], protocol="cumul
                 if data_tmp.empty or "next" not in response:
                     data = pd.concat(data_list)
                     break
-                else:
-                    request_url = response["next"]
+                request_url = response["next"]
 
             data.index.name = "Time (with timezone)"
             return data
@@ -228,8 +222,7 @@ class CumulocityConnection(BaseSeriesConnection[NodeCumulocity], protocol="cumul
         with concurrent.futures.ThreadPoolExecutor() as executor:
             results = executor.map(read_node, nodes)
 
-        values = pd.concat(results, axis=1, sort=False)
-        return values
+        return pd.concat(results, axis=1, sort=False)
 
     def subscribe_series(
         self,
@@ -331,8 +324,7 @@ class CumulocityConnection(BaseSeriesConnection[NodeCumulocity], protocol="cumul
                     data_list.append(r["id"])
             if "next" not in response or response["measurements"] == []:
                 break
-            else:
-                request_url = response["next"]
+            request_url = response["next"]
 
         return data_list
 
@@ -443,5 +435,4 @@ class CumulocityConnection(BaseSeriesConnection[NodeCumulocity], protocol="cumul
             base64.b64encode(bytes(f"{self._tenant}/{self.usr}:{self.pwd}", encoding="utf-8")),
             "utf-8",
         )
-        headers = {"Authorization": f"Basic {auth_header}"}
-        return headers
+        return {"Authorization": f"Basic {auth_header}"}

@@ -14,12 +14,14 @@ from dateutil import tz
 from eta_utility import url_parse
 from eta_utility.connectors.node import Node
 from eta_utility.type_hints.types_connectors import N, Nodes
-from eta_utility.util import ensure_timezone, round_timestamp
+from eta_utility.util import deprecated, ensure_timezone, round_timestamp
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
     from typing import Any, ClassVar
     from urllib.parse import ParseResult
+
+    from typing_extensions import Self
 
     from eta_utility.type_hints import TimeStep
 
@@ -78,8 +80,7 @@ class SubscriptionHandler(ABC):
         elif timestamp is None and isinstance(value, pd.Series):
             if not isinstance(value.index, pd.DatetimeIndex):
                 raise ValueError("If timestamp is None, value must have a pd.DatetimeIndex")
-            else:
-                timestamp = value.index
+            timestamp = value.index
         else:
             raise TypeError(
                 f"timestamp must be pd.DatetimeIndex, int or timedelta, is {type(timestamp)}. Else, "
@@ -154,23 +155,18 @@ class Connection(ABC, Generic[N]):
 
         # Get username and password either from the arguments, from the parsed URL string or from a Node object
         node = next(iter(self.selected_nodes)) if len(self.selected_nodes) > 0 else None
-        if usr is not None and not isinstance(usr, str):
-            raise TypeError("Username should be a string value.")
-        elif usr is not None:
-            self.usr = usr
-        elif self.usr is not None:
-            pass
-        elif node is not None:
-            self.usr = node.usr
 
-        if pwd is not None and not isinstance(pwd, str):
-            raise TypeError("Password should be a string value.")
-        elif pwd is not None:
-            self.pwd = pwd
-        elif self.pwd is not None:
-            pass
-        elif node is not None:
-            self.pwd = node.pwd
+        def validate_and_set(attribute: str, value: str | Any, node_value: str | None) -> None:
+            """If attribute is not already set, set it to value or node_value if value is None."""
+            if value is not None:
+                if not isinstance(value, str):
+                    raise TypeError(f"{attribute.capitalize()} should be a string value.")
+                setattr(self, attribute, value)
+            elif getattr(self, attribute) is None and node_value is not None:
+                setattr(self, attribute, node_value)
+
+        validate_and_set("usr", usr, node.usr if node else None)
+        validate_and_set("pwd", pwd, node.pwd if node else None)
 
         #: Store local time zone
         self._local_tz = tz.tzlocal()
@@ -182,9 +178,7 @@ class Connection(ABC, Generic[N]):
         self.exc: BaseException | None = None
 
     @classmethod
-    def from_node(
-        cls, node: Nodes[Node], usr: str | None = None, pwd: str | None = None, **kwargs: Any
-    ) -> BaseConnection:
+    def from_node(cls, node: Nodes[Node], usr: str | None = None, pwd: str | None = None, **kwargs: Any) -> Connection:
         """Return a single connection for nodes with the same url netloc.
           Initialize the connection object from a node object. When a list of Node objects is provided,
           from_node checks if all nodes match the same connection; it throws an error if they don't.
@@ -193,7 +187,7 @@ class Connection(ABC, Generic[N]):
         :param node: Node to initialize from.
         :param kwargs: Other arguments are ignored.
         :raises: ValueError: if not all nodes match the same connection.
-        :return: BaseConnection object
+        :return: Connection object
         """
         # Make sure nodes is always a set of nodes
         nodes = {node} if not isinstance(node, Iterable) else set(node)
@@ -201,22 +195,21 @@ class Connection(ABC, Generic[N]):
         if len({f"{node.url_parsed.netloc}" for node in nodes}) != 1:
             raise ValueError("Nodes must all have the same netloc to be used with the same connection.")
 
-        for index, node in enumerate(nodes):
+        for index, _node in enumerate(nodes):
             # Instantiate connection from the first node
             if index == 0:
                 # set the username and password
-                usr = node.usr or usr
-                pwd = node.pwd or pwd
-
-                connection = cls._registry[node.protocol]._from_node(node, usr=usr, pwd=pwd, **kwargs)
+                usr = _node.usr or usr
+                pwd = _node.pwd or pwd
+                connection = cls._registry[_node.protocol]._from_node(_node, usr=usr, pwd=pwd, **kwargs)
             # Add node to existing connection
             else:
-                connection.selected_nodes.add(node)
+                connection.selected_nodes.add(_node)
 
         return connection
 
     @classmethod
-    def from_nodes(cls, nodes: Nodes[Node], **kwargs: Any) -> dict[str, BaseConnection]:
+    def from_nodes(cls, nodes: Nodes[Node], **kwargs: Any) -> dict[str, Connection[Node]]:
         """Returns a dictionary of connections for nodes with the same url netloc.
           This method handles different Connections, unlike from_node().
           The keys of the dictionary are the netlocs of the nodes and
@@ -225,9 +218,9 @@ class Connection(ABC, Generic[N]):
 
         :param nodes: List of nodes to initialize from.
         :param kwargs: Other arguments are ignored.
-        :return: Dictionary of BaseConnection objects with the netloc as key.
+        :return: Dictionary of Connection objects with the netloc as key.
         """
-        connections: dict[str, BaseConnection] = {}
+        connections: dict[str, Connection] = {}
         nodes = {nodes} if not isinstance(nodes, Iterable) else set(nodes)
 
         for node in nodes:
@@ -244,12 +237,19 @@ class Connection(ABC, Generic[N]):
 
     @classmethod
     @abstractmethod
-    def _from_node(cls, node: N, **kwargs: Any) -> BaseConnection:
+    def _from_node(cls, node: N, **kwargs: Any) -> Self:
         """Initialize the object from a node with corresponding protocol
 
         :return: Initialized connection object.
         """
-        pass
+        if not isinstance(node, Node):
+            raise TypeError("Node must be a Node object.")
+        if node.protocol != cls._PROTOCOL:
+            raise ValueError(
+                f"Tried to initialize {cls.__name__} from a node "
+                f"that does not specify {cls._PROTOCOL} as its protocol: {node.name}."
+            )
+        return cls(url=node.url, nodes=[node], **kwargs)
 
     @abstractmethod
     def read(self, nodes: Nodes[N] | None = None) -> pd.DataFrame:
@@ -316,11 +316,12 @@ class Connection(ABC, Generic[N]):
         return _nodes
 
 
-# Keep compatibility with old name BaseConnection
-BaseConnection = Connection
+@deprecated("Use `Connection` instead.")
+class BaseConnection(Connection[N], ABC):
+    """Deprecated BaseConnection class. Use Connection instead."""
 
 
-class BaseSeriesConnection(Connection[N], ABC):
+class SeriesConnection(Connection[N], ABC):
     """Connection object for protocols with the ability to provide access to timeseries data.
 
     :param url: URL of the server to connect to.
@@ -329,7 +330,7 @@ class BaseSeriesConnection(Connection[N], ABC):
     def __init__(
         self, url: str, usr: str | None = None, pwd: str | None = None, *, nodes: Nodes[N] | None = None
     ) -> None:
-        super().__init__(url, usr, pwd, nodes=nodes)
+        super().__init__(url=url, usr=usr, pwd=pwd, nodes=nodes)
 
     @abstractmethod
     def read_series(
@@ -375,3 +376,8 @@ class BaseSeriesConnection(Connection[N], ABC):
         :param kwargs: Any additional arguments required by subclasses.
         """
         pass
+
+
+@deprecated("Use `SeriesConnection` instead.")
+class BaseSeriesConnection(SeriesConnection[N], ABC):
+    """Deprecated BaseSeriesConnection class. Use SeriesConnection instead."""

@@ -16,6 +16,12 @@ The installation is performed using pip:
 
    $ pip install eta_utility
 
+It's recommended to install the package in a virtual environment. See :ref:`create_virtual_environment`
+
+.. note::
+
+   ETA-utility only supports Python versions between 3.9 and 3.11.
+
 There are multiple classes of optional requirements. If you would like to use some of the optional components, please install one or more of the following:
 
 - *eta_x*: Contains dependencies for the optimization part of the framework

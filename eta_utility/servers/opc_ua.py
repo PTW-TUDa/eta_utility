@@ -24,9 +24,11 @@ if TYPE_CHECKING:
 
     # Sync import
     from asyncua.sync import SyncNode as SyncOpcNode
+    from typing_extensions import Self
 
     # Async import
-    # FIXME: add async import: from asyncua import Node as asyncSyncOpcNode
+    # TODO: add async import: from asyncua import Node as asyncSyncOpcNode
+    # https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility/-/issues/270
     from eta_utility.type_hints import Nodes
 
 log = get_logger("servers.opcua")
@@ -44,7 +46,11 @@ class OpcUaServer:
         #: URL of the OPC UA Server.
         self.url: str
         if ip is None:
-            self.url = f"opc.tcp://{socket.gethostbyname(socket.gethostname())}:{port}"
+            try:
+                host = socket.gethostbyname(socket.gethostname())
+            except socket.gaierror:
+                host = "127.0.0.1"
+            self.url = f"opc.tcp://{host}:{port}"
         else:
             self.url = f"opc.tcp://{ip}:{port}"
         log.info(f"Server Address is {self.url}")
@@ -71,7 +77,10 @@ class OpcUaServer:
 
         for node in nodes:
             var = self._server.get_node(node.opc_id)
-            opc_type = var.get_data_type_as_variant_type()
+            try:
+                opc_type = var.get_data_type_as_variant_type()
+            except asyncua.sync.ThreadLoopNotRunning as e:
+                raise ConnectionError(f"Server {self} is not running.") from e
             var.set_value(ua.Variant(values[node], opc_type))
 
     def read(self, nodes: Nodes[NodeOpcUa] | None = None) -> pd.DataFrame:
@@ -90,11 +99,11 @@ class OpcUaServer:
                 opcua_variable = self._server.get_node(node.opc_id)
                 value = opcua_variable.get_value()
                 _dikt[node.name] = [value]
-            except uaerrors.BadNodeIdUnknown:
+            except uaerrors.BadNodeIdUnknown as e:
                 raise RuntimeError(
                     f"The node id ({node.opc_id}) refers to a node that does not exist in the server address space "
                     f"{self.url}. (BadNodeIdUnknown)"
-                )
+                ) from e
 
         return pd.DataFrame(_dikt, index=[ensure_timezone(datetime.now())])
 
@@ -220,7 +229,7 @@ class OpcUaServer:
 
         return _nodes
 
-    def __enter__(self) -> OpcUaServer:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(

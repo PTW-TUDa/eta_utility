@@ -2,41 +2,36 @@ stages:
   - setup
   - check
   - test
+  - build
   - deploy
-
-.default_rules:
-  rules:
-    # Create pipelines for merge request events
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    # Create a pipeline for the default branch
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-    # Dont create a branch pipeline while there are open merge requests
-    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
-      when: never
-
-.on_version_tag_rule:
-  rules:
-    # Deploy if a version tag was created
-    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
 
 workflow:
   rules:
     # Create pipelines for merge request events
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    # Create a pipeline for the default branch
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-    # Create a pipeline if a version tag was created
-    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(-[0-9A-Za-z]+)?$/'
-    # Dont create a branch pipeline while there are open merge requests
-    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
-      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    # Create a pipeline for the default branch (development)
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    # Create a pipeline if a tag was created
+    - if: $CI_COMMIT_TAG
+
+.on_version_tag_rule:
+  rules:
+    # Run deploy jobs if a version tag was created
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
 
 include:
   - template: Security/Secret-Detection.gitlab-ci.yml
 
 variables:
+  # Poetry settings
   POETRY_VERSION: 1.8.2
+  POETRY_HOME: /usr/local
+  POETRY_NO_INTERACTION: 1
+  POETRY_VIRTUALENVS_CREATE: false
   POETRY_CACHE_DIR: /root/.cache/pypoetry
+  # Pip settings
+  PIP_NO_CACHE_DIR: off
+  PIP_DISABLE_PIP_VERSION_CHECK: on
   PIP_CACHE_DIR: /root/.cache/pip
 
 default:
@@ -48,17 +43,17 @@ default:
   before_script:
     - apt-get update
     - python --version
-    - rm -rf .cache .pip_cache .pytest_cache .mypy_cache dist doc eta_utility.egg-info build
+    - rm -rf dist doc eta_utility.egg-info build
     - rm -rf docs/_build docs/_stubs
     - ls -la
-    - python -m venv .venv
-    - pip install poetry==$POETRY_VERSION
+    # Install Poetry
+    - curl -sSL https://install.python-poetry.org | POETRY_VERSION=$POETRY_VERSION python3 -
     # Remove torch and add torch+cpu because nvidia packages (cuda) are not needed
     - poetry remove torch
     - poetry source add --priority explicit pytorch_cpu https://download.pytorch.org/whl/cpu
     - poetry add --source pytorch_cpu torch==2.0.0
-    - poetry install -E develop
-    - . .venv/bin/activate
+    # Install development dependencies
+    - poetry install -E develop --sync
 
 .julia-config: &julia_config  # Settings for julia jobs
   image: julia:1.7.2
@@ -68,11 +63,11 @@ default:
     # Install python3 (python refers to python2 in julia image)
     - apt install python3 python3-pip python3-venv -y
     - python3 --version
-    - rm -rf .cache .pip_cache .pytest_cache .mypy_cache dist doc eta_utility.egg-info build
+    - rm -rf dist doc eta_utility.egg-info build
     - rm -rf docs/_build docs/_stubs
     - ls -la
     - python3 -m venv .venv
-    - pip install poetry==$POETRY_VERSION
+    - curl -sSL https://install.python-poetry.org | POETRY_VERSION=$POETRY_VERSION python3 -
     # Remove torch and add torch+cpu because nvidia packages (cuda) are not needed
     - poetry remove torch
     - poetry source add --priority explicit pytorch_cpu https://download.pytorch.org/whl/cpu
@@ -117,17 +112,25 @@ mypy:
     - mypy --version
     - mypy --config-file pyproject.toml
 
-check-poetry:
+poetry:
   stage: check
   script:
     - poetry --version
     - poetry check
 
+linkcheck-docs:
+  stage: check
+  script:
+    - rm -rf docs/_build docs/_stubs
+    - cd docs
+    - python -m sphinx -b linkcheck . _build/linkcheck
+  retry:
+    max: 2
+    when: script_failure
+
 secret_detection:
   stage: check
   before_script: []
-  rules:
-    - !reference [.default_rules, rules]
 
 test3.10: &test_config
   stage: test
@@ -141,7 +144,6 @@ test3.10: &test_config
       - junit.xml
     reports:
       junit: junit.xml
-
 
 
 # This job has test coverage report
@@ -171,75 +173,67 @@ test3.11_updated_deps:
     - poetry update
     - pytest --cov --junitxml=./junit.xml
 
-
-linkcheck-docs:
-  stage: test
+# Build the documentation
+build_pages:
+  stage: build
   script:
-    - pip install sphinx sphinx-rtd-theme sphinx_copybutton
+    - sphinx-build --version && sphinx-apidoc --version
     - rm -rf docs/_build docs/_stubs
     - cd docs
-    - python -m sphinx -b linkcheck . _build/linkcheck
-  retry:
-    max: 2
-    when: script_failure
+    - make html
+  artifacts:
+    name: "eta_utility-docs-$CI_COMMIT_REF_NAME"
+    paths:
+      - docs/_build/html/
 
-build_local:
+# Deploy only on version tags
+.deploy: &deploy
   stage: deploy
-  # Credentials for local repository
-  variables:
-    PASSWORD: '${CI_JOB_TOKEN}'
-    USERNAME: 'gitlab-ci-token'
-  script:
-    - rm -rf dist build
-    - poetry config repositories.eta-fabrik https://$CI_SERVER_HOST/api/v4/projects/$CI_PROJECT_ID/packages/pypi
-    - poetry publish --build --username $USERNAME --password $PASSWORD --repository eta-fabrik
   rules:
     - !reference [.on_version_tag_rule, rules]
 
-# build the sources
-build:
-  stage: deploy
+deploy_local:
+  <<: *deploy
+  variables:
+    USERNAME: 'gitlab-ci-token'
+    PASSWORD: '${CI_JOB_TOKEN}'
+  script:
+    - rm -rf dist build eta_utility.egg-info
+    - poetry config repositories.eta-fabrik https://$CI_SERVER_HOST/api/v4/projects/$CI_PROJECT_ID/packages/pypi
+    - poetry publish --build --username $USERNAME --password $PASSWORD --repository eta-fabrik
+
+# Publish local gitlab pages
+deploy_pages:
+  <<: *deploy
+  before_script: []
+  script:
+    - mv docs/_build/html public
+  artifacts:
+    name: "eta_utility-docs-$CI_COMMIT_REF_NAME"
+    paths:
+      - public/
+
+deploy_pypi:
+  <<: *deploy
   # Credentials for pypi repository
   variables:
-    PASSWORD: '${PYPI_UPLOAD_TOKEN}'
     USERNAME: '__token__'
+    PASSWORD: '${PYPI_UPLOAD_TOKEN}'
   needs:
-    - pages
-    - build_local
+    - deploy_local
   script:
-    - rm -rf dist
-    - pip install poetry
+    - rm -rf dist build eta_utility.egg-info
     - poetry publish --build --username $USERNAME --password $PASSWORD
   artifacts:
     name: "eta_utility-build-$CI_COMMIT_REF_NAME-$CI_JOB_STATUS"
     paths:
       - dist/
       - eta_utility.egg-info/
-  rules:
-    - !reference [.on_version_tag_rule, rules]
-
-pages:
-  stage: deploy
-  script:
-    - sphinx-build --version && sphinx-apidoc --version
-    - rm -rf docs/_build docs/_stubs public/html/*
-    - cd docs
-    - make html
-    - mv _build/html ../public
-  artifacts:
-    name: "eta_utility-docs-$CI_COMMIT_REF_NAME"
-    paths:
-      - public/
 
 # Create readthedocs documentation
-readthedocs:
-  stage: deploy
-  needs:
-    - pages
-    - build_local
+deploy_readthedocs:
+  <<: *deploy
   before_script: []
   script:
     - echo $CI_COMMIT_TAG
     - curl -X POST -d "branches=main" -d "token=$READTHEDOCS_TOKEN" https://readthedocs.org/api/v2/webhook/eta-utility/211185/
-  rules:
-    - !reference [.on_version_tag_rule, rules]

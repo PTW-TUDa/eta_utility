@@ -1,6 +1,6 @@
 import asyncio
 import datetime
-import socket
+import logging
 
 import pandas as pd
 import pytest
@@ -10,6 +10,14 @@ from eta_utility.connectors import DFSubHandler, Node, OpcUaConnection
 from eta_utility.servers import OpcUaServer
 
 from ..conftest import stop_execution
+from ..utilities.util_test import suppress_logging
+
+
+@pytest.fixture(autouse=True)
+def _suppress_logging():
+    with suppress_logging(None, logging.ERROR):
+        yield
+
 
 init_tests = (
     (("opc.tcp://someurl:48050", None, None), {}, {"url": "opc.tcp://someurl:48050"}),
@@ -163,7 +171,7 @@ init_fail = (
 
 @pytest.mark.parametrize(("args", "kwargs", "expected"), init_fail)
 def test_init_fail(args, kwargs, expected):
-    with pytest.raises(ValueError, match=expected):
+    with pytest.raises(ValueError, match=expected), suppress_logging():
         OpcUaConnection(*args, **kwargs)
 
 
@@ -241,18 +249,18 @@ nodes = (
 
 
 @pytest.fixture(scope="module")
-def local_nodes():
+def local_nodes(config_host_ip):
     _nodes = []
     for node in nodes:
-        _nodes.extend(Node.from_dict({**node, "ip": socket.gethostbyname(socket.gethostname())}))
+        _nodes.extend(Node.from_dict({**node, "ip": config_host_ip}))
 
     return _nodes
 
 
 class TestConnectorOperations:
     @pytest.fixture(scope="class", autouse=True)
-    def server(self):
-        with OpcUaServer(5, ip=socket.gethostbyname(socket.gethostname())) as server:
+    def server(self, config_host_ip):
+        with OpcUaServer(5, ip=config_host_ip) as server:
             yield server
 
     @pytest.fixture(scope="class")
@@ -264,7 +272,7 @@ class TestConnectorOperations:
         connection.create_nodes(local_nodes)
 
         for node in local_nodes:
-            server.read(local_nodes)
+            server.read(node)
 
     values = ((0, 1.5), (1, 5), (2, "something"))
 
@@ -284,11 +292,12 @@ class TestConnectorOperations:
     def test_read_fail(self, connection: OpcUaConnection, local_nodes):
         n = local_nodes[0]
         fail_node = Node(n.name, n.url, n.protocol, usr=n.usr, pwd=n.pwd, opc_id="ns=6;s=AnotherNamespace.DoesNotExist")
-        with pytest.raises(ConnectionError, match=".*BadNodeIdUnknown.*"):
+        with pytest.raises(ConnectionError, match=".*BadNodeIdUnknown.*"), suppress_logging():
             connection.read(fail_node)
 
     def test_recreate_existing_node(self, connection: OpcUaConnection, local_nodes, caplog):
         log = get_logger()
+        log.setLevel(logging.WARNING)
         log.propagate = True
 
         # Create Node that already exists
@@ -298,13 +307,13 @@ class TestConnectorOperations:
     def test_login_fail_write(self, local_nodes):
         n = local_nodes[0]
         connection = OpcUaConnection.from_node(n, usr="another", pwd="something")
-        with pytest.raises(ConnectionError, match=".*BadUserAccessDenied.*"):
+        with pytest.raises(ConnectionError, match=".*BadUserAccessDenied.*"), suppress_logging():
             connection.write({n: 123})
 
     def test_delete_nodes(self, connection: OpcUaConnection, local_nodes):
         connection.delete_nodes(local_nodes)
 
-        with pytest.raises(ConnectionError, match=".*BadNodeIdUnknown.*"):
+        with pytest.raises(ConnectionError, match=".*BadNodeIdUnknown.*"), suppress_logging():
             connection.read(local_nodes)
 
     def test_login_fail_read(self, server: OpcUaServer, local_nodes):
@@ -322,7 +331,7 @@ class TestConnectorOperations:
         # Set the user manager
         server._server.aio_obj.iserver.set_user_manager(user_manager=BadUserManager())
 
-        with pytest.raises(ConnectionError, match=".*BadUserAccessDenied.*"):
+        with pytest.raises(ConnectionError, match=".*BadUserAccessDenied.*"), suppress_logging():
             connection.read(n)
 
 
@@ -334,8 +343,8 @@ class TestConnectorSubscriptions:
     }
 
     @pytest.fixture(scope="class", autouse=True)
-    def server(self, local_nodes):
-        with OpcUaServer(5, ip=socket.gethostbyname(socket.gethostname())) as server:
+    def server(self, local_nodes, config_host_ip):
+        with OpcUaServer(5, ip=config_host_ip) as server:
             server.create_nodes(local_nodes)
             yield server
 
@@ -371,7 +380,7 @@ class TestConnectorSubscriptions:
 
         connection.close_sub()
 
-    @pytest.fixture()
+    @pytest.fixture
     def _write_nodes_interrupt(self, server: OpcUaServer, local_nodes):
         async def write_loop(server: OpcUaServer, local_nodes, values):
             i = 0
@@ -383,9 +392,12 @@ class TestConnectorSubscriptions:
                 elif i == 6:
                     server.start()
                 else:
-                    server.write(
-                        {node: values[node.name][i % len(values[local_nodes[0].name])] for node in local_nodes}
-                    )
+                    try:
+                        server.write(
+                            {node: values[node.name][i % len(values[local_nodes[0].name])] for node in local_nodes}
+                        )
+                    except ConnectionError:
+                        pass
 
                 # Index should fall back to one if the number of provided values is exceeded.
                 i += 1
@@ -396,6 +408,7 @@ class TestConnectorSubscriptions:
     @pytest.mark.usefixtures("_write_nodes_interrupt")
     def test_subscribe_interrupted(self, local_nodes, caplog):
         log = get_logger()
+        log.setLevel(logging.WARNING)
         log.propagate = True
 
         connection: OpcUaConnection = OpcUaConnection.from_node(local_nodes, usr="admin", pwd="0")
@@ -408,7 +421,7 @@ class TestConnectorSubscriptions:
 
         for node, values in self.values.items():
             # Check whether Dataframe contains NaN
-            assert pd.isnull(handler.data[node]).any()
+            assert pd.isna(handler.data[node]).any()
 
             assert set(handler.data[node].dropna()) <= set(values)
 
@@ -450,10 +463,10 @@ nodes_interval_to_check = (
 
 
 @pytest.fixture(scope="module")
-def local_nodes_interval_checking():
+def local_nodes_interval_checking(config_host_ip):
     _nodes = []
     for node in nodes_interval_to_check:
-        _nodes.extend(Node.from_dict({**node, "ip": socket.gethostbyname(socket.gethostname())}))
+        _nodes.extend(Node.from_dict({**node, "ip": config_host_ip}))
 
     return _nodes
 
@@ -478,20 +491,26 @@ class TestConnectorSubscriptionsIntervalChecker:
     }
 
     @pytest.fixture(scope="class", autouse=True)
-    def server(self, local_nodes_interval_checking):
-        with OpcUaServer(5, ip=socket.gethostbyname(socket.gethostname())) as server:
+    def server(self, local_nodes_interval_checking, config_host_ip):
+        with OpcUaServer(5, ip=config_host_ip) as server:
             server.create_nodes(local_nodes_interval_checking)
             yield server
 
-    @pytest.fixture()
+    @pytest.fixture
     def _write_nodes_interval_checking(self, server: OpcUaServer, local_nodes_interval_checking):
         async def write_loop(server: OpcUaServer, local_nodes_interval_checking, values):
             i = 0
             while True:
                 if i <= 2:
-                    server.write({node: values[node.name][0] for node in local_nodes_interval_checking})
+                    try:
+                        server.write({node: values[node.name][0] for node in local_nodes_interval_checking})
+                    except ConnectionError:
+                        pass
                 else:
-                    server.write({node: values[node.name][1] for node in local_nodes_interval_checking})
+                    try:
+                        server.write({node: values[node.name][1] for node in local_nodes_interval_checking})
+                    except ConnectionError:
+                        pass
 
                 i += 1
                 await asyncio.sleep(1)
@@ -500,6 +519,10 @@ class TestConnectorSubscriptionsIntervalChecker:
 
     @pytest.mark.usefixtures("_write_nodes_interval_checking")
     def test_subscribe_interval_checking(self, local_nodes_interval_checking, caplog):
+        log = get_logger()
+        log.setLevel(logging.WARNING)
+        log.propagate = True
+
         connection: OpcUaConnection = OpcUaConnection.from_node(local_nodes_interval_checking, usr="admin", pwd="0")
         handler = DFSubHandler(write_interval=1)
         connection.subscribe(handler, interval=1)

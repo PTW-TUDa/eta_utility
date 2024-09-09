@@ -125,7 +125,7 @@ working with multiple nodes and you want to ensure that all nodes are of the sam
 Connection Instantiation
 =========================
 | There are multiple ways to instantiate connections, depending on the use case.
-  The two most common methods are :attr:`BaseConnection.from_node()` and :attr:`BaseConnection.from_nodes()`.
+  The two most common methods are :attr:`Connection.from_node()` and :attr:`Connection.from_nodes()`.
 | Instantiation with :attr:`from_node(s)` is useful if you already have created some node(s) and would like to create connection(s)
   from them.
 | Each connection class also has its own :attr:`_from_node()` method, since the necessary/accepted keywords might differ. To create connections, a password
@@ -141,15 +141,15 @@ If you have one or multiple nodes, use :attr:`from_nodes`. Create all of the :cl
 :attr:`from_nodes` then returns a dictionary of connections and automatically assigns the nodes to their correct connection.
 It requires less duplicate information than direct instantiation.
 
-.. autofunction:: eta_utility.connectors.base_classes::BaseConnection.from_nodes
+.. autofunction:: eta_utility.connectors.base_classes::Connection.from_nodes
     :noindex:
 
 Create one Connection
 ----------------------
 If you have one or more :class:`Node` objects for the same hostname/protocol and just want to create one connection, you should use the :attr:`from_node` method of
-the :class:`BaseConnection` class.
+the :class:`Connection` class.
 
-.. autofunction:: eta_utility.connectors.base_classes::BaseConnection.from_node
+.. autofunction:: eta_utility.connectors.base_classes::Connection.from_node
     :noindex:
 
 Direct Instantiation (not recommended)
@@ -171,7 +171,7 @@ Direct Instantiation (not recommended)
     connection = ModbusConnection(url=url, usr=username, pwd=password)
 
 Using from_ids
-----------
+---------------------------------------
 The :attr:`from_ids()` method is helpful if you do not require access to the nodes and just want to quickly create a single
 connection.
 

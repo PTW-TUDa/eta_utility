@@ -12,9 +12,10 @@ import pandas as pd
 import requests
 from lxml import etree
 from lxml.builder import E
+from requests_cache import DO_NOT_CACHE, CachedSession
 
 from eta_utility import get_logger
-from eta_utility.connectors.node import Node, NodeEntsoE
+from eta_utility.connectors.node import NodeEntsoE
 from eta_utility.timeseries import df_resample, df_time_slice
 from eta_utility.util import dict_search, round_timestamp
 
@@ -24,12 +25,12 @@ if TYPE_CHECKING:
 
     from eta_utility.type_hints import Nodes, TimeStep
 
-from .base_classes import BaseSeriesConnection, SubscriptionHandler
+from .base_classes import SeriesConnection, SubscriptionHandler
 
 log = get_logger("connectors.entso-e")
 
 
-class ENTSOEConnection(BaseSeriesConnection[NodeEntsoE], protocol="entsoe"):
+class ENTSOEConnection(SeriesConnection[NodeEntsoE], protocol="entsoe"):
     """
     ENTSOEConnection is a class to download and upload multiple features from and to the ENTSO-E transparency platform
     database as timeseries. The platform contains data about the european electricity markets.
@@ -56,26 +57,30 @@ class ENTSOEConnection(BaseSeriesConnection[NodeEntsoE], protocol="entsoe"):
 
         self._node_ids: str | None = None
         self.config = _ConnectionConfiguration()
+        self.session: CachedSession = CachedSession(
+            cache_name="eta_utility/connectors/requests_cache/entso_e_cache",
+            urls_expire_after={
+                "https://web-api.tp.entsoe.eu/*": timedelta(minutes=15),
+                "*": DO_NOT_CACHE,  # Don't cache other URLs
+            },
+            allowable_codes=(200, 400, 401),
+            use_cache_dir=True,
+        )
 
     @classmethod
-    def _from_node(cls, node: Node, **kwargs: Any) -> ENTSOEConnection:
+    def _from_node(cls, node: NodeEntsoE, **kwargs: Any) -> ENTSOEConnection:
         """Initialize the connection object from an entso-e protocol node object
 
         :param node: Node to initialize from
         :param kwargs: Keyword arguments for API authentication, where "api_token" is required
         :return: ENTSOEConnection object
         """
+
         if "api_token" not in kwargs:
             raise AttributeError("Missing required function parameter api_token.")
         api_token = kwargs["api_token"]
 
-        if node.protocol == "entsoe" and isinstance(node, NodeEntsoE):
-            return cls(node.url, api_token=api_token, nodes=[node])
-        else:
-            raise ValueError(
-                "Tried to initialize ENTSOEConnection from a node that does not specify entso-e as its"
-                f"protocol: {node.name}."
-            )
+        return super()._from_node(node, api_token=api_token)
 
     def read(self, nodes: Nodes[NodeEntsoE] | None = None) -> pd.DataFrame:
         """
@@ -216,15 +221,13 @@ class ENTSOEConnection(BaseSeriesConnection[NodeEntsoE], protocol="entsoe"):
                 df_resolution = df_time_slice(df_resolution, from_time, to_time)
                 df_dict[resolution] = df_resolution
 
-            df = pd.concat(df_dict.values(), axis=1, keys=df_dict.keys())
-            df = df.swaplevel(axis=1)
-            return df
+            value_df = pd.concat(df_dict.values(), axis=1, keys=df_dict.keys())
+            return value_df.swaplevel(axis=1)
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
             results = executor.map(read_node, nodes)
 
-        values = pd.concat(results, axis=1, sort=False)
-        return values
+        return pd.concat(results, axis=1, sort=False)
 
     def subscribe_series(
         self,
@@ -273,38 +276,21 @@ class ENTSOEConnection(BaseSeriesConnection[NodeEntsoE], protocol="entsoe"):
         for param, val in params.items():
             xml.append(self.config.xml_param(param, val))
 
-        response = requests.post(self.url, data=etree.tostring(xml), headers=headers, **kwargs)  # type: ignore
+        response = self.session.post(self.url, data=etree.tostring(xml), headers=headers, **kwargs)
 
-        # Check for request errors
-        if response.status_code != 200:
-            e_code = 000
-            e_text = "No Message Text"
-            if response.status_code == 400:
-                try:
-                    parser = etree.XMLParser(load_dtd=False, ns_clean=True, remove_pis=True)
+        if response.status_code == 400:
+            try:
+                parser = etree.XMLParser(load_dtd=False, ns_clean=True, remove_pis=True)
 
-                    e_msg = etree.XML(response.content, parser)
-                    ns = e_msg.nsmap
-                    e_code = e_msg.find(".//Reason", namespaces=ns).find("code", namespaces=ns).text
-                    e_text = e_msg.find(".//Reason", namespaces=ns).find("text", namespaces=ns).text
-                except Exception:
-                    pass
-            else:
-                try:
-                    e_text = etree.HTML(response.content).find("body").text
-                except Exception:
-                    pass
+                e_msg = etree.XML(response.content, parser)
+                ns = e_msg.nsmap
+                e_code = e_msg.find(".//Reason", namespaces=ns).find("code", namespaces=ns).text
+                e_text = e_msg.find(".//Reason", namespaces=ns).find("text", namespaces=ns).text
+                response.reason = f"ENTSO-E Error {response.status_code} ({e_code}: {e_text})"
+            except Exception:
+                pass
 
-            error = f"ENTSO-E Error {response.status_code} ({e_code}: {e_text})"
-
-            if response.status_code == 401:
-                error = f"{error}: Access Forbidden, Invalid access token"
-            elif response.status_code == 404:
-                error = f"{error}: Endpoint not found '{self.url}'"
-            elif response.status_code == 500:
-                error = f"{error}: Server is unavailable"
-
-            raise ConnectionError(error)
+        response.raise_for_status()
 
         return response
 

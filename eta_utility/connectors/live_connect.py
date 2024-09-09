@@ -15,12 +15,14 @@ import numpy as np
 
 from eta_utility import get_logger, json_import
 from eta_utility.connectors import name_map_from_node_sequence
-from eta_utility.connectors.base_classes import BaseConnection
+from eta_utility.connectors.base_classes import Connection
 from eta_utility.connectors.node import Node
 
 if TYPE_CHECKING:
     import types
     from typing import Any
+
+    from typing_extensions import Self
 
     from eta_utility.type_hints import Path, TimeStep
 
@@ -131,7 +133,7 @@ class LiveConnect(AbstractContextManager):
         #: Name of the system.
         self.name: str | None = name.strip() if name is not None else None
         #: Connection objects to the resources.
-        self._connections: dict[str, BaseConnection] = BaseConnection.from_nodes(nodes)
+        self._connections: dict[str, Connection] = Connection.from_nodes(nodes)
 
         #: Mapping of all nodes.
         self._nodes: dict[str, Node] = name_map_from_node_sequence(nodes)
@@ -268,7 +270,7 @@ class LiveConnect(AbstractContextManager):
                     if sys_val and key not in self._nodes:
                         missing_keys.add(key)
             else:
-                for key, sys_val in vals.items():
+                for sys_val in vals.values():
                     if sys_val and not sys_val.keys() <= self._nodes.keys():
                         missing_keys.update(sys_val.keys())
         if missing_keys:
@@ -377,7 +379,7 @@ class LiveConnect(AbstractContextManager):
                                 errors = True
         if errors:
             log.error("Not all required config parameters were found. Exiting.")
-            sys.exit(1)  # TODO: rewrite
+            sys.exit(1)
 
     @classmethod
     def _read_config(
@@ -467,14 +469,14 @@ class LiveConnect(AbstractContextManager):
         # considered to be always active.
         if self._activation_indicators is not None and system not in self._activation_indicators:
             raise KeyError(f"Cannot check status of unknown system {system}")
-        elif self._activation_indicators is not None and self._activation_indicators[system] is not None:
+        if self._activation_indicators is not None and self._activation_indicators[system] is not None:
             values = self.read(*self._activation_indicators[system].keys())
             results = []
             for name, check in self._activation_indicators[system].items():
                 try:
                     results.append(getattr(values[name], check_map[check["compare"]])(check["value"]))
-                except KeyError:
-                    raise KeyError(f"Unknown comparison operation {check['compare']}")
+                except KeyError as error:
+                    raise KeyError(f"Unknown comparison operation {check['compare']}") from error
 
             activated = sum(results) >= 1
         else:
@@ -524,8 +526,7 @@ class LiveConnect(AbstractContextManager):
 
         if self._observe_vals is not None:
             return self.read(*self._observe_vals)
-        else:
-            return {}
+        return {}
 
     def write(self, nodes: Mapping[str, Any] | Sequence[str], values: Sequence[Any] | None = None) -> None:
         """Write any combination of nodes and values.
@@ -538,13 +539,13 @@ class LiveConnect(AbstractContextManager):
         # parameters. In the second case, create the mapping.
         if not isinstance(nodes, Mapping) and values is None:
             raise ValueError("Cannot only give nodes or values, specify both.")
-        elif not isinstance(nodes, Mapping) and values is not None and len(nodes) != len(values):
+        if not isinstance(nodes, Mapping) and values is not None and len(nodes) != len(values):
             raise ValueError(
                 f"Each node must have a corresponding value for writing. "
                 f"Nodes and values must be of equal length. Given lengths are"
                 f"'nodes': {len(nodes)}, 'values': {len(values)}"
             )
-        elif not isinstance(nodes, Mapping) and values is not None:
+        if not isinstance(nodes, Mapping) and values is not None:
             _nodes = dict(zip(nodes, values))
         elif isinstance(nodes, Mapping):
             _nodes = dict(nodes)
@@ -639,7 +640,7 @@ class LiveConnect(AbstractContextManager):
         if self._close_vals is not None:
             self.write(self._close_vals)
 
-    def __enter__(self) -> LiveConnect:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(

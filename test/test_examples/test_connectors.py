@@ -1,8 +1,6 @@
-import socket
-
 import pandas as pd
 import pytest
-import requests
+import requests_cache
 from pyModbusTCP import client as mbclient
 
 from eta_utility.connectors.emonio import NodeModbusFactory
@@ -28,22 +26,22 @@ from ..utilities.pyModbusTCP.client import ModbusClient as MockModbusClient
 from ..utilities.requests.eneffco_request import request
 
 
-@pytest.fixture()
+@pytest.fixture
 def _local_requests(monkeypatch):
-    monkeypatch.setattr(requests, "request", request)
+    monkeypatch.setattr(requests_cache.CachedSession, "request", request)
 
 
-@pytest.fixture()
+@pytest.fixture
 def local_server():
     server = OpcUaServer(5, ip="127.0.0.1", port=4840)
     yield server
     server.stop()
 
 
-@pytest.fixture()
+@pytest.fixture
 def _mock_client(monkeypatch):
     monkeypatch.setattr(mbclient, "ModbusClient", MockModbusClient)
-    monkeypatch.setattr(requests, "request", request)
+    monkeypatch.setattr(requests_cache.CachedSession, "request", request)
 
 
 @pytest.mark.usefixtures("_local_requests")
@@ -82,8 +80,8 @@ def test_example_read_wetterdienst():
 
 class TestEmonio:
     @pytest.fixture(scope="class")
-    def url(self, config_modbus_port):
-        return f"{socket.gethostbyname(socket.gethostname())}:{config_modbus_port}"
+    def url(self, config_modbus_port, config_host_ip):
+        return f"{config_host_ip}:{config_modbus_port}"
 
     @pytest.fixture(scope="class")
     def nodes(self, url) -> list[Node]:
@@ -101,7 +99,7 @@ class TestEmonio:
             server._server.data_bank.set_discrete_inputs(0, [1])
             yield server
 
-    values = [230, 1]
+    values = (230, 1)
 
     def test_live(self, server, url):
         result = live_from_dict(url)
@@ -110,10 +108,10 @@ class TestEmonio:
 
     def test_emonio(self, server, url):
         result = emonio_manuell(url).round(3)
-        for value in result.iloc[0].values:
+        for value in result.iloc[0].to_numpy():
             assert value in self.values
 
     def test_modbus(self, server, url):
         result = modbus_manuell(url).round(3)
-        for value in result.iloc[0].values:
+        for value in result.iloc[0].to_numpy():
             assert value in self.values

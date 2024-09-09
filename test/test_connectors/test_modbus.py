@@ -1,5 +1,4 @@
 import asyncio
-import socket
 
 import pandas as pd
 import pytest
@@ -201,26 +200,23 @@ nodes = (
 
 
 @pytest.fixture(scope="class")
-def local_nodes(config_modbus_port):
+def local_nodes(config_modbus_port, config_host_ip):
     _nodes = []
     for node in nodes:
-        _nodes.extend(
-            Node.from_dict({**node, "ip": socket.gethostbyname(socket.gethostname()), "port": config_modbus_port})
-        )
+        _nodes.extend(Node.from_dict({**node, "ip": config_host_ip, "port": config_modbus_port}))
 
     return _nodes
 
 
 class TestConnectorOperations:
     @pytest.fixture(scope="class", autouse=True)
-    def server(self, config_modbus_port):
-        with ModbusServer(ip=socket.gethostbyname(socket.gethostname()), port=config_modbus_port) as server:
+    def server(self, config_modbus_port, config_host_ip):
+        with ModbusServer(ip=config_host_ip, port=config_modbus_port) as server:
             yield server
 
     @pytest.fixture(scope="class")
     def connection(self, local_nodes):
-        connection = ModbusConnection.from_node(local_nodes)
-        return connection
+        return ModbusConnection.from_node(local_nodes)
 
     values = ((0, 1.5), (1, 5), (2, " something"))
 
@@ -254,14 +250,14 @@ class TestConnectorOperations:
 
 class TestConnectorOperationsLittleEndian:
     @pytest.fixture(scope="class")
-    def local_nodes(self, config_modbus_port):
+    def local_nodes(self, config_modbus_port, config_host_ip):
         _nodes = []
         for node in nodes:
             _nodes.extend(
                 Node.from_dict(
                     {
                         **node,
-                        "ip": socket.gethostbyname(socket.gethostname()),
+                        "ip": config_host_ip,
                         "port": config_modbus_port,
                         "mb_byteorder": "little",
                     }
@@ -271,16 +267,13 @@ class TestConnectorOperationsLittleEndian:
         return _nodes
 
     @pytest.fixture(scope="class", autouse=True)
-    def server(self, config_modbus_port):
-        with ModbusServer(
-            ip=socket.gethostbyname(socket.gethostname()), big_endian=False, port=config_modbus_port
-        ) as server:
+    def server(self, config_modbus_port, config_host_ip):
+        with ModbusServer(ip=config_host_ip, big_endian=False, port=config_modbus_port) as server:
             yield server
 
     @pytest.fixture(scope="class")
     def connection(self, local_nodes):
-        connection = ModbusConnection.from_node(local_nodes[0])
-        return connection
+        return ModbusConnection.from_node(local_nodes[0])
 
     values = ((0, 1.5), (1, 5), (2, " something"))
 
@@ -315,8 +308,8 @@ class TestConnectorSubscriptions:
     }
 
     @pytest.fixture(scope="class", autouse=True)
-    def server(self, local_nodes, config_modbus_port):
-        with ModbusServer(ip=socket.gethostbyname(socket.gethostname()), port=config_modbus_port) as server:
+    def server(self, local_nodes, config_modbus_port, config_host_ip):
+        with ModbusServer(ip=config_host_ip, port=config_modbus_port) as server:
             yield server
 
     async def write_loop(self, server, local_nodes, values):
@@ -351,7 +344,7 @@ class TestConnectorSubscriptions:
 
         connection.close_sub()
 
-    @pytest.fixture()
+    @pytest.fixture
     def _write_nodes_interrupt(self, server, local_nodes):
         async def write_loop(server, local_nodes, values):
             i = 0
@@ -388,7 +381,7 @@ class TestConnectorSubscriptions:
 
         for node, values in self.values.items():
             # Check whether Dataframe contains NaN
-            assert pd.isnull(handler.data[node]).any()
+            assert pd.isna(handler.data[node]).any()
 
             # Don't check floating point values in this case because it is hard to deal with precision problems here.
             if handler.data[node].dtype == "float":
@@ -437,12 +430,10 @@ nodes_interval_to_check = (
 
 
 @pytest.fixture(scope="class")
-def local_nodes_interval_checking(config_modbus_port):
+def local_nodes_interval_checking(config_modbus_port, config_host_ip):
     _nodes = []
     for node in nodes_interval_to_check:
-        _nodes.extend(
-            Node.from_dict({**node, "ip": socket.gethostbyname(socket.gethostname()), "port": config_modbus_port})
-        )
+        _nodes.extend(Node.from_dict({**node, "ip": config_host_ip, "port": config_modbus_port}))
 
     return _nodes
 
@@ -459,11 +450,11 @@ class TestConnectorSubscriptionsIntervalChecker:
     }
 
     @pytest.fixture(scope="class", autouse=True)
-    def server(self, local_nodes_interval_checking, config_modbus_port):
-        with ModbusServer(ip=socket.gethostbyname(socket.gethostname()), port=config_modbus_port) as server:
+    def server(self, local_nodes_interval_checking, config_modbus_port, config_host_ip):
+        with ModbusServer(ip=config_host_ip, port=config_modbus_port) as server:
             yield server
 
-    @pytest.fixture()
+    @pytest.fixture
     def _write_nodes_interval_checking(self, server, local_nodes_interval_checking):
         async def write_loop(server, local_nodes_interval_checking, values):
             i = 0

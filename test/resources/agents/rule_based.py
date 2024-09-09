@@ -35,5 +35,5 @@ class RuleBasedController(RuleBased):
         angle = observation[2]
         if angle > 0:
             return 1  # push cart to the right
-        else:
-            return 0  # push cart to the left
+
+        return 0  # push cart to the left

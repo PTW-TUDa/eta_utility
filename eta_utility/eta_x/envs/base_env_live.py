@@ -90,9 +90,9 @@ class BaseEnvLive(BaseEnv, abc.ABC):
         _files = self.live_connect_config if files is None else files
         self.live_connect_config = _files
 
-        assert _files is not None, (
-            "Configuration files or a dictionary must be specified before " "the connector can be initialized."
-        )
+        assert (
+            _files is not None
+        ), "Configuration files or a dictionary must be specified before the connector can be initialized."
 
         if isinstance(_files, dict):
             self.live_connector = LiveConnect.from_dict(
@@ -201,7 +201,9 @@ class BaseEnvLive(BaseEnv, abc.ABC):
         super().reset(seed=seed, options=options)
         self._init_live_connector()
 
+        # Initialize state
         self.state = {} if self.additional_state is None else self.additional_state
+
         # Update scenario data, read out the start conditions from opc ua server and store the results
         start_obs = []
         for name in self.state_config.ext_outputs:
@@ -211,6 +213,12 @@ class BaseEnvLive(BaseEnv, abc.ABC):
         results = self.live_connector.read(*start_obs)
         self.state.update({self.state_config.rev_ext_ids[name]: results[name] for name in start_obs})
         self.state.update(self.get_scenario_state())
+
+        # Execute optional state modification callback function
+        if self.state_modification_callback:
+            self.state_modification_callback()
+
+        # Log the initial state
         self.state_log.append(self.state)
 
         # Render the environment when calling the reset function

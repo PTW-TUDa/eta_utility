@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 import pytest
-import requests
+import requests_cache
 
 from eta_utility.connectors import DFSubHandler, EnEffCoConnection, Node
 
@@ -15,7 +15,7 @@ sample_series = pd.Series(
 )
 
 
-@pytest.fixture()
+@pytest.fixture
 def eneffco_nodes(config_eneffco):
     return {
         "node": Node(
@@ -36,20 +36,7 @@ async def stop_execution(sleep_time):
 
 @pytest.fixture(autouse=True)
 def _local_requests(monkeypatch):
-    monkeypatch.setattr(requests, "request", request)
-
-
-def test_check_access(config_eneffco):
-    # Check access to see, whether anything responds
-    try:
-        result = requests.request("GET", config_eneffco["url"])
-    except Exception as e:
-        pytest.fail(str(e))
-
-    if result.status_code == 200:
-        assert True
-    else:
-        pytest.fail("Could not access eneffco server for testing.")
+    monkeypatch.setattr(requests_cache.CachedSession, "request", request)
 
 
 def test_eneffco_read(config_eneffco):

@@ -1,5 +1,4 @@
 import asyncio
-import socket
 
 import pytest
 
@@ -18,14 +17,14 @@ node_values = {
 
 
 @pytest.fixture(scope="module")
-def local_nodes(config_modbus_port):
+def local_nodes(config_modbus_port, config_host_ip):
     nodes = []
     for node in node_values:
         nodes.extend(
             NodeEmonio.from_dict(
                 {
                     "name": node,
-                    "ip": socket.gethostbyname(socket.gethostname()),
+                    "ip": config_host_ip,
                     "port": config_modbus_port,
                     "protocol": "emonio",
                     "dtype": "float",
@@ -36,11 +35,11 @@ def local_nodes(config_modbus_port):
 
 
 @pytest.fixture(scope="module")
-def phase_node(config_modbus_port):
+def phase_node(config_modbus_port, config_host_ip):
     return NodeEmonio.from_dict(
         {
             "name": "Serv.Spannung Max",
-            "ip": socket.gethostbyname(socket.gethostname()),
+            "ip": config_host_ip,
             "port": config_modbus_port,
             "protocol": "emonio",
             "dtype": "float",
@@ -51,8 +50,8 @@ def phase_node(config_modbus_port):
 
 class TestConnectorOperations:
     @pytest.fixture(scope="class")
-    def server(self, config_modbus_port):
-        with ModbusServer(ip=socket.gethostbyname(socket.gethostname()), port=config_modbus_port) as server:
+    def server(self, config_modbus_port, config_host_ip):
+        with ModbusServer(ip=config_host_ip, port=config_modbus_port) as server:
             yield server
 
     @pytest.fixture(scope="class")
@@ -71,7 +70,7 @@ class TestConnectorOperations:
         data = data.round(6)
         for value_name in node_values:
             assert value_name in data.columns
-            assert data[value_name].values[0] == node_values[value_name]
+            assert data[value_name].to_numpy()[0] == node_values[value_name]
 
     async def write_loop(self, server, node, values):
         for i in range(len(values)):
@@ -90,7 +89,7 @@ class TestConnectorOperations:
         connection.close_sub()
 
         data = handler.data.round(3)
-        assert (voltage_values == data["Serv.Spannung"].values).all()
+        assert (voltage_values == data["Serv.Spannung"].to_numpy()).all()
 
     def test_check_phase(self, server, connection, phase_node):
         # Set 'connected' for a at address 0 to 1 (True)

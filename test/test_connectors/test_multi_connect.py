@@ -1,11 +1,11 @@
 import asyncio
 
 import pytest
-import requests
+import requests_cache
 from pyModbusTCP import client as mbclient
 
 from eta_utility.connectors import CsvSubHandler, Node
-from eta_utility.connectors.base_classes import BaseConnection
+from eta_utility.connectors.base_classes import Connection
 from eta_utility.servers import OpcUaServer
 
 from ..conftest import stop_execution
@@ -18,7 +18,7 @@ node = Node(
     "opcua",
     opc_id="ns=6;s=.HLK.System_425.Pumpe_425.Zustand.Drehzahl",
 )
-ip = "127.95.11.183"  # local ip address
+ip = "127.0.0.1"  # local ip address
 port = 48050
 
 
@@ -32,13 +32,13 @@ def local_server():
 @pytest.fixture(autouse=True)
 def _mock_client(monkeypatch):
     monkeypatch.setattr(mbclient, "ModbusClient", MockModbusClient)
-    monkeypatch.setattr(requests, "request", request)
+    monkeypatch.setattr(requests_cache.CachedSession, "request", request)
 
 
 def test_multi_connect(config_nodes_file, config_eneffco, temp_dir):
     nodes = Node.from_excel(config_nodes_file["file"], config_nodes_file["sheet"])
 
-    connections = BaseConnection.from_nodes(
+    connections = Connection.from_nodes(
         nodes, usr=config_eneffco["user"], pwd=config_eneffco["pw"], api_token=config_eneffco["postman_token"]
     )
 
@@ -46,7 +46,7 @@ def test_multi_connect(config_nodes_file, config_eneffco, temp_dir):
     loop = asyncio.get_event_loop()
 
     try:
-        for host, connection in connections.items():
+        for connection in connections.values():
             connection.subscribe(subscription_handler)
 
         loop.run_until_complete(stop_execution(10))
@@ -54,7 +54,7 @@ def test_multi_connect(config_nodes_file, config_eneffco, temp_dir):
     except KeyboardInterrupt:
         pass
     finally:
-        for host, connection in connections.items():
+        for connection in connections.values():
             connection.close_sub()
 
         try:

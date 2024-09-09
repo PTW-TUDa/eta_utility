@@ -101,9 +101,7 @@ fail_nodes = (
             "station_id": "0",
             "interval": "200",
         },
-        re.escape(
-            "Interval 200 not supported. Must be one of " "[60, 300, 600, 3600, 28800, 86400, 2592000, 31536000]"
-        ),
+        re.escape("Interval 200 not supported. Must be one of [60, 300, 600, 3600, 28800, 86400, 2592000, 31536000]"),
     ),
     (
         {
@@ -124,6 +122,77 @@ fail_nodes = (
             "protocol": "emonio",
         },
         "Phase must be set for MIN/MAX values",
+    ),
+    # Forecast.Solar
+    (
+        {
+            "name": "Serv.SolarForecast",
+            "url": "",
+            "protocol": "forecast_solar",
+            "endpoint": "sun.core",
+            "latitude": "0",
+            "longitude": 0,
+            "declination": 0,
+            "azimuth": 0,
+            "kwp": 0,
+        },
+        re.escape("endpoint' must be in ('estimate', 'check', 'history', 'clearsky')"),
+    ),
+    (
+        {
+            "name": "Serv.SolarForecast",
+            "url": "",
+            "protocol": "forecast_solar",
+            "latitude": "0",
+            "longitude": -200,
+            "declination": 0,
+            "azimuth": 0,
+            "kwp": 0.0,
+        },
+        "'longitude' must be >= -180: -200",
+    ),
+    (
+        {
+            "name": "Serv.SolarForecast",
+            "url": "",
+            "protocol": "forecast_solar",
+            "endpoint": "estimate",
+            "latitude": "0",
+            "longitude": 0,
+            "declination": [0, 1, 2],
+            "azimuth": [0, 1, 2],
+            "kwp": [0.0, 0.1, 0.4],
+        },
+        "Valid API key is needed for multiple planes",
+    ),
+    (
+        {
+            "name": "Serv.SolarForecast",
+            "url": "",
+            "protocol": "forecast_solar",
+            "api_key": "InvalidKEy",
+            "endpoint": "estimate",
+            "latitude": "0",
+            "longitude": 0,
+            "declination": [0, 1, 2],
+            "azimuth": [0, 1, 2],
+            "kwp": [0.0, 0.1, 0.4],
+        },
+        "API key must be a 16 character long alphanumeric string.",
+    ),
+    (
+        {
+            "name": "Serv.SolarForecast",
+            "url": "",
+            "protocol": "forecast_solar",
+            "api_key": "A1B2C3D4E5F6G7H8",  # Test Key
+            "latitude": "0",
+            "longitude": 0,
+            "declination": [0, 1, 2],
+            "azimuth": [0, 2],
+            "kwp": [0.0, 0.1, 0.4],
+        },
+        "Declination, azimuthimuth and kwp must be passed for all planes",
     ),
 )
 
@@ -429,6 +498,110 @@ nodes = (
             "interval": 42,
         },
     ),
+    # Forecast.Solar
+    (
+        {
+            "name": "Serv.SolarForecast",
+            "url": "",
+            "protocol": "forecast_solar",
+            "endpoint": "check",
+            "latitude": "0",
+            "longitude": "0",
+            "declination": "0",
+            "azimuth": 0.0,
+            "kwp": "0",
+        },
+        {
+            "name": "Serv.SolarForecast",
+            "url": "https://api.forecast.solar/check/0/0/0/0/0.0",
+            "protocol": "forecast_solar",
+            "endpoint": "check",
+            "latitude": 0,
+            "longitude": 0,
+            "declination": 0,
+            "azimuth": 0,
+            "kwp": 0.0,
+        },
+    ),
+    (
+        {
+            "name": "Serv.SolarForecast",
+            "url": "",
+            "protocol": "forecast_solar",
+            "api_key": "A1B2C3D4E5F6G7H8",
+            "endpoint": "estimate",
+            "latitude": 9,
+            "longitude": 8,
+            "declination": [0, 1, 2],
+            "azimuth": [0, 1, 2],
+            "kwp": [0, 1, 2],
+        },
+        {
+            "name": "Serv.SolarForecast",
+            "url": "https://api.forecast.solar/A1B2C3D4E5F6G7H8/estimate/watts/9/8/0/0/0.0/1/1/1.0/2/2/2.0",
+            "api_key": "A1B2C3D4E5F6G7H8",
+            "protocol": "forecast_solar",
+            "endpoint": "estimate",
+            "latitude": 9,
+            "longitude": 8,
+            "declination": [0, 1, 2],
+            "azimuth": [0, 1, 2],
+            "kwp": [0.0, 1.0, 2.0],
+        },
+    ),
+    (
+        {
+            "name": "Serv.SolarForecast",
+            "url": "",
+            "protocol": "forecast_solar",
+            "endpoint": "estimate",
+            "data": None,
+            "latitude": 9,
+            "longitude": 8,
+            "declination": 1,
+            "azimuth": 2,
+            "kwp": 3,
+        },
+        {
+            "name": "Serv.SolarForecast",
+            "url": "https://api.forecast.solar/estimate/watts/9/8/1/2/3.0",
+            "protocol": "forecast_solar",
+            "endpoint": "estimate",
+            "data": "watts",
+            "latitude": 9,
+            "longitude": 8,
+            "declination": 1,
+            "azimuth": 2,
+            "kwp": 3.0,
+        },
+    ),
+    (
+        {
+            "name": "Serv.SolarForecast",
+            "url": "",
+            "protocol": "forecast_solar",
+            "api_key": "A1B2C3D4E5F6G7H8",
+            "endpoint": "history",
+            "latitude": 9,
+            "longitude": 8,
+            "declination": [0, 1, 2],
+            "azimuth": [0, 1, 2],
+            "kwp": [0, 1, 2],
+        },
+        {
+            "name": "Serv.SolarForecast",
+            "url": "https://api.forecast.solar/A1B2C3D4E5F6G7H8/history/9/8/0/0/0.0/1/1/1.0/2/2/2.0",
+            "api_key": "A1B2C3D4E5F6G7H8",
+            "protocol": "forecast_solar",
+            "endpoint": "history",
+            "data": None,
+            "latitude": 9,
+            "longitude": 8,
+            "declination": [0, 1, 2],
+            "azimuth": [0, 1, 2],
+            "kwp": [0.0, 1.0, 2.0],
+        },
+    ),
 )
 
 
@@ -487,7 +660,55 @@ def test_node_dict_init(node_data, expected):
         assert getattr(node, key) == val
 
 
-@pytest.fixture()
+@pytest.mark.parametrize(("node_data", "expected"), nodes_from_dict)
+def test_node_as_dict(node_data, expected):
+    node = Node.from_dict(node_data)[0]
+    node_dict = node.as_dict()
+
+    for key, val in expected.items():
+        assert node_dict.get(key) == val
+
+    # Check for None filter
+    node_dict_filtered = node.as_dict(filter_none=True)
+    none_values = [key for key, val in node_dict.items() if val is None]
+
+    for key in none_values:
+        assert key not in node_dict_filtered
+
+
+@pytest.mark.parametrize(("node_data", "expected"), nodes_from_dict)
+def test_node_as_tuple(node_data, expected):
+    node = Node.from_dict(node_data)[0]
+    node_tuple = node.as_tuple()
+
+    # For each expected value, check incrementally for representation in tuple,
+    # making up for additional unexpected yet acceptable values
+    for i, val in enumerate(tuple(expected.values())):
+        j = i
+        while val != node_tuple[j] and j < len(node_tuple):
+            j += 1
+        assert val == node_tuple[j], f"Expected {expected} node represented in {node_tuple}"
+
+    # Check for None filter
+    node_tuple_filtered = node.as_tuple(filter_none=True)
+    none_values = [val for val in node_tuple if val is None]
+
+    for key in none_values:
+        assert key not in node_tuple_filtered
+
+
+@pytest.mark.parametrize(("node_data", "expected"), nodes_from_dict)
+def test_node_evolve(node_data, expected):
+    parent = Node.from_dict(node_data)[0]
+    child = parent.evolve(name="HelloWorld!")
+
+    parent, child = parent.as_dict(), child.as_dict()
+
+    assert child.pop("name") == "HelloWorld!" != parent.pop("name")
+    assert child == parent
+
+
+@pytest.fixture
 def create_dictionary():
     nodes = []
     expected = []
@@ -498,7 +719,7 @@ def create_dictionary():
     return nodes, expected
 
 
-@pytest.fixture()
+@pytest.fixture
 def create_excel(create_dictionary, temp_dir):
     nodes, expected = create_dictionary
     path = temp_dir / "excel_nodes.xlsx"

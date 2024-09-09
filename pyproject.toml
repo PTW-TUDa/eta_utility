@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "eta-utility"
-version = "v3.1.0"
+version = "v3.2.1"
 description = "A framework for researching energy optimization of factory operations"
 authors = [
     "Technical University of Darmstadt, Institute for Production Management, Technology and Machine Tools (PTW). <info@ptw.tu-darmstadt.de>"
@@ -57,8 +57,8 @@ requests = "^2.31.0"
 pymodbustcp = "==0.2.0"
 cryptography = "^41.0.4"
 fmpy = "^0.3.5"
-wetterdienst = {version="~0.82.0", python="^3.9"}  # breaking changes expected
-
+wetterdienst = "~0.88.0"  # breaking changes expected
+requests-cache = "^1.2.0"
 
 # Specific requirements for eta_x
 gymnasium =  {version = "==0.29.1", optional=true} # no SemVer
@@ -89,8 +89,9 @@ blacken_docs = {version = "~1.16", optional = true}
 mypy = {version = "~1.9", optional = true}
 types-python-dateutil = {version = "^2.8.19.14", optional = true}
 types-requests = {version = "^2.31.0.4", optional = true}
+types-pytz = {version = "^2024.1.0.20240203", optional = true}
 # Ruff
-ruff = "^0.4.4"
+ruff = {version = "~0.6.0", optional = true}
 
 
 [tool.poetry.extras]
@@ -98,7 +99,7 @@ develop = ["gymnasium", "torch", "stable_baselines3", "tensorboard", "pyomo",   
             "matplotlib", "keyboard", "pygame", "pyglet", "onnxruntime",    # include examples
             "pytest", "pytest-cov", "openpyxl", "sphinx", "sphinx-rtd-theme", "sphinx-copybutton", "pre-commit",
             "black", "blacken_docs", "mypy", "types-python-dateutil",
-            "types-requests", ]
+            "types-requests", "types-pytz", "ruff"]
 eta_x = ["gymnasium", "torch", "stable_baselines3", "tensorboard", "pyomo"]
 examples = ["matplotlib", "keyboard", "pygame", "pyglet", "onnxruntime"]
 
@@ -112,7 +113,7 @@ target_version = ["py39","py310", "py311"]
 
 
 [tool.mypy]
-python_version = 3.9
+python_version = "3.9"
 files = ["eta_utility", "examples"]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
@@ -137,13 +138,13 @@ module = [
     "lxml.*",
     "julia.*",
     "setuptools",
-    "importlib.metadata.*",
     "keyboard.*",
     "onnxruntime.*",
     "matplotlib.*",
     "torch.*",
     "asyncua.*",
-    "wetterdienst.*"
+    "wetterdienst.*",
+    "requests_cache.*",
 ]
 ignore_missing_imports = true
 [[tool.mypy.overrides]]
@@ -151,7 +152,7 @@ module = "test.*"
 ignore_errors = true
 
 [tool.pytest.ini_options]
-addopts = "--cov-config=pyproject.toml"
+addopts = ["--cov-config=pyproject.toml", "--color=yes"]
 log_cli = true
 testpaths = [
     "test",
@@ -181,7 +182,6 @@ exclude_lines = [
 ]
 
 [tool.ruff]
-include = ["pyproject.toml", "eta_utility/**/*.py", "test/**/*.py", "examples/**/*.py"]
 
 line-length = 120
 indent-width = 4
@@ -192,47 +192,47 @@ target-version= "py39"
 # Only fix with $ruff check --fix
 fix = false
 
+output-format = "concise"
+
 [tool.ruff.lint]
 select = [
-    "F", # Pyflakes
-    "E", "W",# Pycodestyle, Error and Warning
-    "I", # Isort
-    "N", # Pep8-naming conventions
-    "UP", # Pyupgrade
-    "ASYNC", # flake8-asyncio
-    "COM", # flake8-commas
-    "C4", # flake8-comprehensions
-    "FA", # flake8-future-annotations
-    "T20", # flake8-print
-    "INP", # flake8-no-pep420
-    "LOG", # flake8-logging
-    "NPY", # NumPy-specific
+    "F",       # Pyflakes
+    "E", "W",  # Pycodestyle, Error and Warning
+    "I",       # Isort
+    "N",       # Pep8-naming conventions
+    "UP",      # Pyupgrade
+    "PL",      # Pylint
+    "ERA",     # Eradicate
+    "PD",      # Pandas-vet
+    "NPY",     # NumPy-specific
+    "RUF",     # Ruff
 
-    # Consider fixing these:
-    "PT", # flake8-pytest-style
-    "RUF", # Ruff
-    "SIM", # flake8-simplify
-    # "DTZ", # flake8-datetimez
-    # "D", # pydocstyle
-    # "C", # McCabe complexity
-    "PL", # Pylint
+    # Flake8:
+    # 2020, asyncio, bugbear, builtins, commas, comprehensions, future-annotations, implicit-str-concat
+    "YTT", "ASYNC", "B", "A", "COM", "C4", "FA", "ISC",
+    # logging, no-pep420, print, pyi, pytest-style, return, simplify, use-pathlib, todo
+    "LOG", "INP", "T20", "PYI", "PT", "RET", "SIM", "PTH", "TD",
     ]
 
 ignore = [
-    "SIM105",
     "PLR2004",  # Pylint: magic values
+    "SIM105",   # Don't forcce contextlib.suppress
+    "TD002",    # Ignore TODO authors
     # Recommended to ignore as they conflict with the formatter
-    "W191", "E111", "E114", "E117", "D206", "D300", "COM812", "COM819",
+    "W191", "E111", "E114", "E117", "D206", "D300", "COM812", "COM819", "ISC001",
 ]
 
 
-[tool.ruff.lint.extend-per-file-ignores]  # TODO: Consider rechecking the following rules
-"__init__.py" = ["F401", "D104"]
-"test/*" = ["INP001", "RUF012"]
-"examples/*" = ["INP001"]
+[tool.ruff.lint.extend-per-file-ignores]
+"__init__.py" = ["PLC0414"]
+"test/*" = ["RUF012"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+force-wrap-aliases = true
 
 [tool.ruff.lint.pylint]
-max-args = 17
-max-branches = 24
-max-statements = 64
-max-returns = 9
+max-args = 15
+max-branches = 21
+max-statements = 62
+max-returns = 6

@@ -1,30 +1,24 @@
-""" Configuration file for the Sphinx documentation builder.
+"""Configuration file for the Sphinx documentation builder.
 This file only contains a selection of the most common options. For a full
 list see the documentation:
 https://www.sphinx-doc.org/en/master/usage/configuration.html
 """
-from __future__ import annotations
 
-import os
 import sys
-
-try:
-    from importlib.metadata import version as get_version
-except ImportError:
-    from importlib_metadata import version as get_version
+from importlib.metadata import version as get_version
+from pathlib import Path
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-sys.path.insert(0, os.path.abspath("../eta_utility"))  # Insert path to eta_utility
+sys.path.append(str(Path("../eta_utility").resolve()))  # Insert path to eta_utility
 
 
 # -- Project information -----------------------------------------------------
 project = "eta_utility"
 release = get_version(project)  # The full version, including alpha/beta/rc tags
 version = ".".join(release.split(".")[:2])  # Top level version
-copyright = "Technical University of Darmstadt, Institute for Production Management, Technology and Machine Tools (PTW)"
-
+copyright = "Technical University of Darmstadt, Institute for Production Management, Technology and Machine Tools (PTW)"  # noqa: A001
 
 # -- General configuration ---------------------------------------------------
 

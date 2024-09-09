@@ -3,9 +3,9 @@ from __future__ import annotations
 import asyncio
 import pathlib
 import time
-from collections import deque, namedtuple
+from collections import deque
 from datetime import timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
 import numpy as np
 import onnxruntime
@@ -146,8 +146,8 @@ def load_normalization_params(csv_file: Path, features: list[str]) -> tuple[list
 
     min_max = pd.read_csv(csv_file, header=0, index_col=0)
 
-    features_max = [min_max.get(feature).values[0] for feature in features]
-    features_min = [min_max.get(feature).values[1] for feature in features]
+    features_max = [min_max.get(feature).to_numpy()[0] for feature in features]
+    features_min = [min_max.get(feature).to_numpy()[1] for feature in features]
 
     return features_max, features_min
 
@@ -163,32 +163,35 @@ async def read_data_loop(
     :param interval: Interval for requesting data from the subscription.
     """
     _interval = interval.total_seconds() if isinstance(interval, timedelta) else interval
-    InputData = namedtuple("InputData", ["date", "data"])
+
+    class InputData(NamedTuple):
+        date: str
+        data: list[float]
 
     while True:
         start_time = time.time()
 
-        async def sleep() -> None:
+        async def sleep(_start_time: float) -> None:
             # Log timing and wait for next loop
             finish_time = time.time()
-            log.debug(f"Time used in read loop: {finish_time - start_time:.4f} s")
-            await asyncio.sleep(start_time + _interval - finish_time)
+            log.debug(f"Time used in read loop: {finish_time - _start_time:.4f} s")
+            await asyncio.sleep(_start_time + _interval - finish_time)
 
         data = sub_handler.get_latest()
         if data is None:
-            await sleep()
+            await sleep(start_time)
             continue
 
         date = data.index[-1]
-        adjusted_data = [np.nan_to_num(data.at[date, col]) for col in data.columns]
+        adjusted_data = [np.nan_to_num(data.loc[date, col]) for col in data.columns]
         adjusted_data.append(sum(adjusted_data))  # Calculate and append the regressand
 
         if len(adjusted_data) != expected_values:
-            await sleep()
+            await sleep(start_time)
             continue
 
         await data_queue.put(InputData(date.to_pydatetime(), adjusted_data))
-        await sleep()
+        await sleep(start_time)
 
 
 async def inference_loop(

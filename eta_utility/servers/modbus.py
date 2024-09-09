@@ -21,6 +21,8 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from typing import Any
 
+    from typing_extensions import Self
+
     from eta_utility.type_hints import Nodes
 
 log = get_logger("servers.modbus")
@@ -44,7 +46,11 @@ class ModbusServer:
         #: URL of the Modbus Server.
         self.url: str
         if ip is None:
-            self.url = f"modbus.tcp://{socket.gethostbyname(socket.gethostname())}:{port}"
+            try:
+                host = socket.gethostbyname(socket.gethostname())
+            except socket.gaierror:
+                host = "127.0.0.1"
+            self.url = f"modbus.tcp://{host}:{port}"
         else:
             self.url = f"modbus.tcp://{ip}:{port}"
         log.info(f"Server Address is {self.url}")
@@ -167,7 +173,7 @@ class ModbusServer:
 
         return _nodes
 
-    def __enter__(self) -> ModbusServer:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(

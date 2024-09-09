@@ -2,10 +2,11 @@ default_language_version:
   python: python3
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.4.4
+    rev: v0.6.0
     hooks:
       # Run the linter.
       - id: ruff
+        args: ["--fix"]
       # Run the formatter.
       - id: ruff-format
   - repo: https://github.com/asottile/blacken-docs
@@ -43,6 +44,7 @@ repos:
          - tokenize-rt==3.2.0
          - types-python-dateutil==2.8.19.14
          - types-requests==2.31.0.10
+         - types-pytz==2024.1.0.20240203
          - attrs==23.2.0
          - gymnasium==0.29.1
          - stable-baselines3==2.2.1
