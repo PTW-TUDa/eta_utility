@@ -17,7 +17,7 @@ sys.path.append(str(Path("../eta_utility").resolve()))  # Insert path to eta_uti
 # -- Project information -----------------------------------------------------
 project = "eta_utility"
 release = get_version(project)  # The full version, including alpha/beta/rc tags
-version = ".".join(release.split(".")[:2])  # Top level version
+version = ".".join(release.split(".")[:3])  # Top level version
 copyright = "Technical University of Darmstadt, Institute for Production Management, Technology and Machine Tools (PTW)"  # noqa: A001
 
 # -- General configuration ---------------------------------------------------

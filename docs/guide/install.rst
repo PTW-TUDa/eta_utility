@@ -20,7 +20,7 @@ It's recommended to install the package in a virtual environment. See :ref:`crea
 
 .. note::
 
-   ETA-utility only supports Python versions between 3.9 and 3.11.
+   ETA-utility supports Python versions between 3.9 and 3.11 (inclusive).
 
 There are multiple classes of optional requirements. If you would like to use some of the optional components, please install one or more of the following:
 

@@ -2,21 +2,23 @@ stages:
   - setup
   - check
   - test
-  - build
   - deploy
 
 workflow:
   rules:
-    # Create pipelines for merge request events
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    # Create a pipeline for the default branch (development)
+    # Don't create a merge request pipeline for the default branch
+    - if:  $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == $CI_DEFAULT_BRANCH
+      when: never
+    # Instead, create a branch pipeline for development
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    # Create a pipeline if a tag was created
+    # Create merge request pipeline for other branches
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    # Create a pipeline for tags
     - if: $CI_COMMIT_TAG
 
 .on_version_tag_rule:
   rules:
-    # Run deploy jobs if a version tag was created
+    # Deploy if a version tag was created
     - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
 
 include:
@@ -54,41 +56,13 @@ default:
     - poetry add --source pytorch_cpu torch==2.0.0
     # Install development dependencies
     - poetry install -E develop --sync
-
-.julia-config: &julia_config  # Settings for julia jobs
-  image: julia:1.7.2
-  allow_failure: true
-  before_script:
-    - apt-get update
-    # Install python3 (python refers to python2 in julia image)
-    - apt install python3 python3-pip python3-venv -y
-    - python3 --version
-    - rm -rf dist doc eta_utility.egg-info build
-    - rm -rf docs/_build docs/_stubs
-    - ls -la
-    - python3 -m venv .venv
-    - curl -sSL https://install.python-poetry.org | POETRY_VERSION=$POETRY_VERSION python3 -
-    # Remove torch and add torch+cpu because nvidia packages (cuda) are not needed
-    - poetry remove torch
-    - poetry source add --priority explicit pytorch_cpu https://download.pytorch.org/whl/cpu
-    - poetry add --source pytorch_cpu torch==2.0.0
-    - poetry install -E develop
-    - . .venv/bin/activate
-    - pip install julia
-    - julia -e 'ENV["PYTHON"] = Sys.which("python3"); using Pkg; Pkg.add("PyCall"); Pkg.build("PyCall"); Pkg.add("JuliaFormatter")'
-    - install-julia
-  retry:
-    max: 1
-    when: script_failure
-
-# Default cache setting for all jobs
-# Cache gets invalidated when poetry.lock changes
-cache: &poetry_cache
-  key: "global-deps-$(checksum poetry.lock)"
-  paths:
-    - ${POETRY_CACHE_DIR}
-    - ${PIP_CACHE_DIR}
-  policy: pull
+  # Cache gets invalidated when poetry.lock changes
+  cache:
+    key: "global-deps-$(checksum poetry.lock)"
+    paths:
+      - ${POETRY_CACHE_DIR}
+      - ${PIP_CACHE_DIR}
+    policy: pull
 
 # Job to update pip cache
 update-cache:
@@ -96,7 +70,6 @@ update-cache:
   script:
     - poetry install -E develop --sync
   cache:
-    <<: *poetry_cache
     policy: pull-push
 
 ruff:
@@ -118,21 +91,11 @@ poetry:
     - poetry --version
     - poetry check
 
-linkcheck-docs:
-  stage: check
-  script:
-    - rm -rf docs/_build docs/_stubs
-    - cd docs
-    - python -m sphinx -b linkcheck . _build/linkcheck
-  retry:
-    max: 2
-    when: script_failure
-
 secret_detection:
   stage: check
   before_script: []
 
-test3.10: &test_config
+.test:
   stage: test
   script:
   - pytest --cov --cov-report term --junitxml=./junit.xml
@@ -145,84 +108,88 @@ test3.10: &test_config
     reports:
       junit: junit.xml
 
-
-# This job has test coverage report
-test3.9:
-  <<: *test_config
-  image: python:3.9
+.coverage:
+  extends: .test
   coverage: '/TOTAL.*\s+(\d+%)$/'
   script:
   - pytest --cov --junitxml=./junit.xml --cov-report term --cov-report xml:coverage.xml
   artifacts:
-    paths:
-      - junit.xml
     reports:
-      junit: junit.xml
       coverage_report:
         coverage_format: cobertura
         path: coverage.xml
 
+# This job has test coverage report
+test3.9:
+  extends: .coverage
+  image: python:3.9
+
+test3.10:
+  extends: .test
+  image: python:3.10
+
 test3.11:
-  <<: *test_config
+  extends: .test
   image: python:3.11
 
 test3.11_updated_deps:
-  <<: *test_config
+  extends: .test
   image: python:3.11
   script:
     - poetry update
-    - pytest --cov --junitxml=./junit.xml
+    - pytest --cov --cov-report term --junitxml=./junit.xml
 
-# Build the documentation
-build_pages:
-  stage: build
+linkcheck-docs:
+  stage: test
   script:
-    - sphinx-build --version && sphinx-apidoc --version
     - rm -rf docs/_build docs/_stubs
     - cd docs
-    - make html
-  artifacts:
-    name: "eta_utility-docs-$CI_COMMIT_REF_NAME"
-    paths:
-      - docs/_build/html/
+    - python -m sphinx -b linkcheck . _build/linkcheck
+  retry:
+    max: 2
+    when: script_failure
 
-# Deploy only on version tags
-.deploy: &deploy
+.deploy:
   stage: deploy
   rules:
     - !reference [.on_version_tag_rule, rules]
 
-deploy_local:
-  <<: *deploy
-  variables:
-    USERNAME: 'gitlab-ci-token'
-    PASSWORD: '${CI_JOB_TOKEN}'
-  script:
-    - rm -rf dist build eta_utility.egg-info
-    - poetry config repositories.eta-fabrik https://$CI_SERVER_HOST/api/v4/projects/$CI_PROJECT_ID/packages/pypi
-    - poetry publish --build --username $USERNAME --password $PASSWORD --repository eta-fabrik
-
 # Publish local gitlab pages
-deploy_pages:
-  <<: *deploy
-  before_script: []
+deploy-pages:
+  extends: .deploy
   script:
-    - mv docs/_build/html public
+    - sphinx-build --version && sphinx-apidoc --version
+    - rm -rf docs/_build docs/_stubs public/html/*
+    - cd docs
+    - make html
+    - mv _build/html ../public
   artifacts:
     name: "eta_utility-docs-$CI_COMMIT_REF_NAME"
     paths:
       - public/
 
-deploy_pypi:
-  <<: *deploy
+deploy-local:
+  extends: .deploy
+  # Credentials for local repository
+  variables:
+    PASSWORD: '${CI_JOB_TOKEN}'
+    USERNAME: 'gitlab-ci-token'
+  script:
+    - rm -rf dist build
+    - poetry config repositories.eta-fabrik https://$CI_SERVER_HOST/api/v4/projects/$CI_PROJECT_ID/packages/pypi
+    - poetry publish --build --username $USERNAME --password $PASSWORD --repository eta-fabrik
+
+# build the sources
+deploy-pypi:
+  extends: .deploy
   # Credentials for pypi repository
   variables:
-    USERNAME: '__token__'
     PASSWORD: '${PYPI_UPLOAD_TOKEN}'
+    USERNAME: '__token__'
   needs:
-    - deploy_local
+    - deploy-local
   script:
-    - rm -rf dist build eta_utility.egg-info
+    - rm -rf dist
     - poetry publish --build --username $USERNAME --password $PASSWORD
   artifacts:
     name: "eta_utility-build-$CI_COMMIT_REF_NAME-$CI_JOB_STATUS"
@@ -231,8 +198,10 @@ deploy_pypi:
       - eta_utility.egg-info/
 
 # Create readthedocs documentation
-deploy_readthedocs:
-  <<: *deploy
+deploy-readthedocs:
+  extends: .deploy
+  needs:
+    - deploy-local
   before_script: []
   script:
     - echo $CI_COMMIT_TAG
