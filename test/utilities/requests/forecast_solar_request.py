@@ -47,22 +47,21 @@ def request(self, method, url: str, *args, **kwargs):
             return Response(url, status_code=200)
         endpoint = ""
 
-    with open(pathlib.Path(__file__).parent / "forecast_solar_sample_data.json") as f:
+    # with open(pathlib.Path(__file__).parent / "forecast_solar_sample_data.json") as f:
+    with pathlib.Path(pathlib.Path(__file__).parent / "forecast_solar_sample_data.json").open() as f:
         data = json.load(f)
 
     if method == "GET":
         if endpoint in ["/help", "/check"]:
             # Empty request or check
             return CachedResponse(url, status_code=200)
-        elif endpoint == "/estimate/watts":
+        if endpoint == "/estimate/watts":
             # Datapoint IDs
             return CachedResponse(url, data, 200)
 
-        elif endpoint in ["/clearsky", "/history", "/timewindows", "/weather", "/chart"]:
+        if endpoint in ["/clearsky", "/history", "/timewindows", "/weather", "/chart"]:
             raise NotImplementedError(f"Mock request of endpoint: '{endpoint}' is not implemented yet.")
 
-        else:
-            return CachedResponse(url, status_code=404)
+        return CachedResponse(url, status_code=404)
 
-    else:
-        return CachedResponse(url, status_code=200)
+    return CachedResponse(url, status_code=200)

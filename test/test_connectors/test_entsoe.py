@@ -157,7 +157,7 @@ class MockResponse(requests_cache.CachedResponse):
 
     @property
     def content(self):
-        with open(self.path / f"{self.endpoint}_sample.xml") as f:
+        with pathlib.Path(self.path / f"{self.endpoint}_sample.xml").open() as f:
             return f.read().encode()
 
 

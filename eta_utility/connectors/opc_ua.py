@@ -16,10 +16,12 @@ from typing import TYPE_CHECKING
 import asyncua.sync
 import pandas as pd
 
-# FIXME: add async import: from asyncua import Client as asyncClient
+# TODO: add async import: from asyncua import Client as asyncClient
+# https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility/-/issues/270
 from asyncua import ua
 
-# FIXME: add async import: from asyncua.common.subscription import Subscription as asyncSubscription
+# TODO: add async import: from asyncua.common.subscription import Subscription as asyncSubscription
+# https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility/-/issues/270
 from asyncua.crypto.security_policies import SecurityPolicyBasic256Sha256
 
 # Synchronous imports
@@ -39,7 +41,8 @@ if TYPE_CHECKING:
     from asyncua.sync import SyncNode as SyncOpcNode
 
     # Async import
-    # FIXME: add async import: from asyncua import Node as asyncSyncOpcNode
+    # TODO: add async import: from asyncua import Node as asyncSyncOpcNode
+    # https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility/-/issues/270
     from eta_utility.type_hints import Nodes, TimeStep
 
 from .base_classes import Connection, SubscriptionHandler
@@ -101,15 +104,9 @@ class OpcUaConnection(Connection[NodeOpcUa], protocol="opcua"):
         :param kwargs: Other arguments are ignored.
         :return: OpcUaConnection object.
         """
+        key_cert = kwargs.get("key_cert")
 
-        if node.protocol == "opcua":
-            return cls(node.url, usr=usr, pwd=pwd, nodes=[node], **kwargs)
-
-        else:
-            raise ValueError(
-                "Tried to initialize OpcUaConnection from a node that does not specify opcua as its"
-                f"protocol: {node.name}."
-            )
+        return super()._from_node(node, usr=usr, pwd=pwd, key_cert=key_cert)
 
     @classmethod
     def from_ids(
@@ -156,7 +153,7 @@ class OpcUaConnection(Connection[NodeOpcUa], protocol="opcua"):
                 raise ConnectionError(
                     f"The node id ({node.opc_id}) refers to a node that does not exist in the server address space "
                     f"{self.url}. (BadNodeIdUnknown)"
-                )
+                ) from None
             except RuntimeError as e:
                 raise ConnectionError(str(e)) from e
 
@@ -184,11 +181,11 @@ class OpcUaConnection(Connection[NodeOpcUa], protocol="opcua"):
                     opcua_variable_type = opcua_variable.get_data_type_as_variant_type()
                     value = node.dtype(values[node]) if node.dtype is not None else values[node]
                     opcua_variable.set_value(ua.DataValue(ua.Variant(value, opcua_variable_type)))
-                except uaerrors.BadNodeIdUnknown:
+                except uaerrors.BadNodeIdUnknown as e:
                     raise ConnectionError(
                         f"The node id ({node.opc_id}) refers to a node that does not exist in the server address space "
                         f"{self.url}. (BadNodeIdUnknown)"
-                    )
+                    ) from e
                 except RuntimeError as e:
                     raise ConnectionError(str(e)) from e
 
@@ -268,11 +265,11 @@ class OpcUaConnection(Connection[NodeOpcUa], protocol="opcua"):
             for node in _nodes:
                 try:
                     delete_node_parents(self.connection.get_node(node.opc_id))
-                except uaerrors.BadNodeIdUnknown:
+                except uaerrors.BadNodeIdUnknown as e:
                     raise ConnectionError(
                         f"The node id ({node.opc_id}) refers to a node that does not exist in the server address space "
                         f"{self.url}. (BadNodeIdUnknown)"
-                    )
+                    ) from e
                 except RuntimeError as e:
                     raise ConnectionError(str(e)) from e
 
@@ -328,14 +325,12 @@ class OpcUaConnection(Connection[NodeOpcUa], protocol="opcua"):
                 elif self._connected and not subscribed:
                     try:
                         self._sub = self.connection.create_subscription(interval * 1000, handler)
+                        subscribed = True
                     except RuntimeError as e:
                         subscribed = False
                         log.warning(f"Unable to subscribe to server {self.url} - Retrying: {e}.")
                         self._disconnect()
-                        self._connected = False
                         continue
-                    else:
-                        subscribed = True
 
                     for node in self._subscription_nodes:
                         try:
@@ -345,31 +340,21 @@ class OpcUaConnection(Connection[NodeOpcUa], protocol="opcua"):
                             )
                         except RuntimeError as e:
                             log.warning(f"Could not subscribe to node '{node.name}' on server {self.url}, error: {e}")
-            except (ConnectionAbortedError, ConnectionResetError) as e:
+
+            except (ConnectionAbortedError, ConnectionResetError, TimeoutError, ConCancelledError, BaseException) as e:
+                if isinstance(e, (ConnectionAbortedError, ConnectionResetError)):
+                    msg = f"Subscription to the OPC UA server {self.url} is unexpectedly terminated."
+                if isinstance(e, TimeoutError):
+                    msg = f"OPC UA client for server {self.url} doesn't receive a response from the server."
+                if isinstance(e, ConCancelledError):
+                    msg = (
+                        f"Connection to OPC UA-Server {self.url} was terminated "
+                        "during connection establishment or maintenance."
+                    )
                 log.error(f"Handling exception ({e}) for server {self.url}.")
-                log.info(
-                    f"Subscription to the OPC UA server {self.url} is unexpectedly terminated. Trying to reconnect."
-                )
-                subscribed = False
-                self._connected = False
-            except TimeoutError as e:
-                log.error(f"Handling exception ({e}) for server {self.url}.")
-                log.info(
-                    f"OPC UA client for server {self.url} doesn't receive a response from the server. Trying to "
-                    f"reconnect."
-                )
-                subscribed = False
-                self._connected = False
-            except ConCancelledError as e:
-                log.error(f"Handling exception ({e}) for server {self.url}.")
-                log.info(
-                    f"Connection to OPC UA-Server {self.url} was terminated during connection establishment or "
-                    f"maintenance. Trying to reconnect."
-                )
-                subscribed = False
-                self._connected = False
-            except BaseException as e:
-                log.error(f"Handling exception ({e}) for server {self.url}.")
+                if msg:
+                    msg += " Trying to reconnect."
+                    log.info(msg)
                 subscribed = False
                 self._connected = False
 
@@ -461,9 +446,9 @@ class OpcUaConnection(Connection[NodeOpcUa], protocol="opcua"):
                     _connect_insecure()
                 else:
                     raise e
-            except (TimeoutError, ConTimeoutError, asyncio.exceptions.TimeoutError):
+            except (TimeoutError, ConTimeoutError, asyncio.exceptions.TimeoutError) as e:
                 self._try_secure_connect = False
-                raise ConnectionError("Host timeout during secure connect")
+                raise ConnectionError("Host timeout during secure connect") from e
 
         try:
             if self._key_cert is not None and self._try_secure_connect:

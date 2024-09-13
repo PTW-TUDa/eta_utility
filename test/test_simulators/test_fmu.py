@@ -1,4 +1,4 @@
-import os.path
+import pathlib
 
 import pytest
 
@@ -6,13 +6,13 @@ from eta_utility.simulators import FMUSimulator
 
 
 class TestFMUSimulator:
-    @pytest.fixture()
+    @pytest.fixture
     def seq_simulator(self, monkeypatch, config_fmu):
         """Legacy initialization required all values and would expect the simulator to return lists. A simulator
         which does this is initialized here."""
         init_values = {"u": 0}
 
-        simulator = FMUSimulator(
+        return FMUSimulator(
             0,
             fmu_path=config_fmu["file"],
             start_time=0,
@@ -22,18 +22,16 @@ class TestFMUSimulator:
             names_outputs=["s", "v", "a"],
             init_values=init_values,
         )
-        return simulator
 
     @pytest.fixture(scope="class", autouse=False)
     def map_simulator(self, config_fmu):
         """New format initialization also allows for the simulator to be initialized with just the fmu_path."""
 
-        simulator = FMUSimulator(0, fmu_path=config_fmu["file"])
-        return simulator
+        return FMUSimulator(0, fmu_path=config_fmu["file"])
 
     def test_attributes(self, seq_simulator):
         """Check whether most important attributes are present"""
-        assert os.path.isdir(seq_simulator._unzipdir)
+        assert pathlib.Path(seq_simulator._unzipdir).is_dir()
 
         assert hasattr(seq_simulator, "step")
         assert hasattr(seq_simulator, "reset")
@@ -97,4 +95,4 @@ class TestFMUSimulator:
         """Test closing the simulator object"""
         seq_simulator.close()
 
-        assert not os.path.isdir(seq_simulator._unzipdir)
+        assert not pathlib.Path(seq_simulator._unzipdir).is_dir()

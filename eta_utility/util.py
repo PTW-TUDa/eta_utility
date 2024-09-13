@@ -5,10 +5,8 @@ import csv
 import functools
 import io
 import json
-import locale
 import logging
 import math
-import os
 import pathlib
 import re
 import socket
@@ -23,6 +21,9 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlparse, urlunparse
 
 import pandas as pd
+import pytz
+import toml
+import yaml
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -35,6 +36,8 @@ if TYPE_CHECKING:
     from tempfile import _TemporaryFileWrapper
     from typing import Any, Callable
     from urllib.parse import ParseResult
+
+    from typing_extensions import Self
 
     from .type_hints import Path, PrivateKey
 
@@ -54,7 +57,7 @@ LOG_FORMATS = {
 def get_logger(
     name: str | None = None,
     level: int | None = None,
-    format: str | None = None,
+    log_format: str | None = None,
 ) -> logging.Logger:
     """Get eta_utility specific logger.
 
@@ -81,7 +84,7 @@ def get_logger(
         log = logging.getLogger(LOG_PREFIX)
         log.propagate = False
 
-        fmt = LOG_FORMATS[format] if format in LOG_FORMATS else LOG_FORMATS["simple"]
+        fmt = LOG_FORMATS[log_format] if log_format in LOG_FORMATS else LOG_FORMATS["simple"]
 
         if not log.hasHandlers():
             handler = logging.StreamHandler(stream=sys.stdout)
@@ -97,8 +100,8 @@ def get_logger(
         if julia_extensions_available():
             from julia import ju_extensions
 
-            if format is not None:
-                ju_extensions.set_logger(log.level, format)
+            if log_format is not None:
+                ju_extensions.set_logger(log.level, log_format)
             else:
                 ju_extensions.set_logger(log.level, "simple")
 
@@ -108,7 +111,7 @@ def get_logger(
 def log_add_filehandler(
     filename: Path,
     level: int | None = None,
-    format: str | None = None,
+    log_format: str | None = None,
 ) -> logging.Logger:
     """Add a file handler to the logger to save the log output.
 
@@ -119,7 +122,7 @@ def log_add_filehandler(
     :return: The *FileHandler* logger.
     """
     log = logging.getLogger(LOG_PREFIX)
-    _format = LOG_FORMATS[format] if format in LOG_FORMATS else LOG_FORMATS["time"]
+    _format = LOG_FORMATS[log_format] if log_format in LOG_FORMATS else LOG_FORMATS["time"]
     _filename = filename if isinstance(filename, pathlib.Path) else pathlib.Path(filename)
 
     filehandler = logging.FileHandler(filename=_filename)
@@ -135,7 +138,7 @@ def log_add_filehandler(
 
 def log_add_streamhandler(
     level: int | None = None,
-    format: str | None = None,
+    log_format: str | None = None,
 ) -> logging.Logger:
     """Add a stream handler to the logger to show the log output.
 
@@ -144,7 +147,7 @@ def log_add_streamhandler(
     :return: The eta_utility logger with an attached StreamHandler
     """
     log = logging.getLogger(LOG_PREFIX)
-    _format = format if format in LOG_FORMATS else LOG_FORMATS["time"]
+    _format = log_format if log_format in LOG_FORMATS else LOG_FORMATS["time"]
 
     handler = logging.StreamHandler()
     handler.setLevel(logging.DEBUG)
@@ -173,13 +176,47 @@ def json_import(path: Path) -> list[Any] | dict[str, Any]:
         cleanup = re.compile(r"^((?:(?:[^\/\"])*(?:\"[^\"]*\")*(?:\/[^\/])*)*)", re.MULTILINE)
         with path.open("r") as f:
             file = "\n".join(cleanup.findall(f.read()))
-        try:
-            result = json.loads(file)
-        except json.JSONDecodeError as e:
-            raise json.JSONDecodeError(f"Error while decoding file {path}: {e.msg}", e.doc, e.pos)
+        result = json.loads(file)
         log.info(f"JSON file {path} loaded successfully.")
     except OSError as e:
         log.error(f"JSON file couldn't be loaded: {e.strerror}. Filename: {e.filename}")
+        raise
+    return result
+
+
+def toml_import(path: Path) -> dict[str, Any]:
+    """Import a TOML file and return the parsed dictionary.
+
+    :param path: Path to TOML file.
+    :return: Parsed dictionary.
+    """
+    path = pathlib.Path(path)
+
+    try:
+        with path.open("r") as f:
+            result = toml.load(f)
+        log.info(f"TOML file {path} loaded successfully.")
+    except OSError as e:
+        log.error(f"TOML file couldn't be loaded: {e.strerror}. Filename: {e.filename}")
+        raise
+
+    return result
+
+
+def yaml_import(path: Path) -> dict[str, Any]:
+    """Import a YAML file and return the parsed dictionary.
+
+    :param path: Path to YAML file.
+    :return: Parsed dictionary.
+    """
+    path = pathlib.Path(path)
+
+    try:
+        with path.open("r") as f:
+            result = yaml.safe_load(f)
+        log.info(f"YAML file {path} loaded successfully.")
+    except OSError as e:
+        log.error(f"YAML file couldn't be loaded: {e.strerror}. Filename: {e.filename}")
         raise
 
     return result
@@ -233,8 +270,7 @@ def dict_get_any(dikt: dict[str, Any], *names: str, fail: bool = True, default: 
             f"Did not find one of the required keys in the configuration: {names}. Possibly Check the "
             f"correct spelling"
         )
-    else:
-        return default
+    return default
 
 
 def dict_pop_any(dikt: dict[str, Any], *names: str, fail: bool = True, default: Any = None) -> Any:
@@ -257,8 +293,8 @@ def dict_pop_any(dikt: dict[str, Any], *names: str, fail: bool = True, default: 
 
     if fail is True:
         raise KeyError(f"Did not find one of the required keys in the configuration: {names}")
-    else:
-        return default
+
+    return default
 
 
 def dict_search(dikt: dict[str, str], val: str) -> str:
@@ -404,14 +440,14 @@ def deprecated(message: str) -> Callable:
 
             func_or_class.__init__ = new_init  # type: ignore
             return func_or_class
-        else:
-            # If applied to a function
-            @functools.wraps(func_or_class)
-            def new_func(*args: Any, **kwargs: Any) -> Any:
-                warnings.warn(f"{func_or_class.__name__} is deprecated: {message}", DeprecationWarning, stacklevel=2)
-                return func_or_class(*args, **kwargs)
 
-            return new_func
+        # If applied to a function
+        @functools.wraps(func_or_class)
+        def new_func(*args: Any, **kwargs: Any) -> Any:
+            warnings.warn(f"{func_or_class.__name__} is deprecated: {message}", DeprecationWarning, stacklevel=2)
+            return func_or_class(*args, **kwargs)
+
+        return new_func
 
     return decorator
 
@@ -492,43 +528,30 @@ class SelfsignedKeyCertPair(KeyCertPair):
         """Generate a self signed key and certificate pair for use with the connectors.
 
         :param common_name: Common name the certificate should be valid for.
-        :param country: Country code for the certificate owner, for example "DE" oder "US".
+        :param country: Alpha-2 country code for the certificate owner. Empty by default.
         :param province: Province name of the certificate owner. Empty by default.
         :param city: City name of the certificate owner. Empty by default.
         :param organization: Name of the certificate owner's organization. "OPC UA Client" by default.
         :return: Tuple of RSA private key and x509 certificate.
         """
-        # Set some default values for the parameters
-        if country is None:
-            # use the user's default locale
-            locale.setlocale(locale.LC_ALL, "")
-            # extract country
-            country = locale.getlocale()[0]
 
-            country = country.split("_")[-1] if country else ""
+        # Determine certificate subject and issuer from input values.
+        subject_attributes = []
 
-        if province is None:
-            province = ""
-
-        if city is None:
-            city = ""
-
+        if country is not None:
+            subject_attributes.append(x509.NameAttribute(NameOID.COUNTRY_NAME, country))
+        if province is not None:
+            subject_attributes.append(x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, province))
+        if city is not None:
+            subject_attributes.append(x509.NameAttribute(NameOID.LOCALITY_NAME, city))
         if organization is None:
-            organization = "OPC UA Client"
+            organization = "OPC UA Client eta-utility"
+        subject_attributes.append(x509.NameAttribute(NameOID.ORGANIZATION_NAME, organization))
+
+        subject = issuer = x509.Name(subject_attributes)
 
         # Generate the private key
         key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-
-        # Determine certificate subject and issuer from input values.
-        subject = issuer = x509.Name(
-            [
-                x509.NameAttribute(NameOID.COUNTRY_NAME, country),
-                x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, province),
-                x509.NameAttribute(NameOID.LOCALITY_NAME, city),
-                x509.NameAttribute(NameOID.ORGANIZATION_NAME, organization),
-                x509.NameAttribute(NameOID.COMMON_NAME, common_name),
-            ]
-        )
 
         cert = (
             x509.CertificateBuilder()
@@ -536,8 +559,8 @@ class SelfsignedKeyCertPair(KeyCertPair):
             .issuer_name(issuer)
             .public_key(key.public_key())
             .serial_number(x509.random_serial_number())
-            .not_valid_before(datetime.utcnow())
-            .not_valid_after(datetime.utcnow() + timedelta(days=10))  # Certificate valid for 10 days
+            .not_valid_before(datetime.now(tz=pytz.utc))
+            .not_valid_after(datetime.now(tz=pytz.utc) + timedelta(days=10))  # Certificate valid for 10 days
             .add_extension(
                 x509.SubjectAlternativeName(
                     [x509.DNSName("localhost"), x509.DNSName(socket.gethostbyname(socket.gethostname()))]
@@ -594,31 +617,29 @@ class SelfsignedKeyCertPair(KeyCertPair):
         finally:
             try:
                 assert self._key_tempfile is not None
-                os.unlink(self._key_tempfile.name)
+                pathlib.Path(self._key_tempfile.name).unlink()
             except BaseException:
                 pass
 
             try:
                 assert self._cert_tempfile is not None
-                os.unlink(self._cert_tempfile.name)
+                pathlib.Path(self._cert_tempfile.name).unlink()
             except BaseException:
                 pass
 
     @property
     def key_path(self) -> str:
         """Path to the key file."""
-        if self._key_tempfile is not None:
-            return self._key_tempfile.name
-        else:
+        if self._key_tempfile is None:
             raise RuntimeError("Create the key file before trying to reference the filename")
+        return self._key_tempfile.name
 
     @property
     def cert_path(self) -> str:
         """Path to the certificate file."""
-        if self._cert_tempfile is not None:
-            return self._cert_tempfile.name
-        else:
+        if self._cert_tempfile is None:
             raise RuntimeError("Create the certificate file before trying to reference the filename")
+        return self._cert_tempfile.name
 
 
 class PEMKeyCertPair(KeyCertPair):
@@ -664,7 +685,7 @@ class PEMKeyCertPair(KeyCertPair):
 class Suppressor(io.TextIOBase):
     """Context manager to suppress standard output."""
 
-    def __enter__(self) -> Suppressor:
+    def __enter__(self) -> Self:
         self.stderr = sys.stderr
         sys.stderr = self  # type: ignore
         return self

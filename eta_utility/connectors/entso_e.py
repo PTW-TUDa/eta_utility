@@ -15,7 +15,7 @@ from lxml.builder import E
 from requests_cache import DO_NOT_CACHE, CachedSession
 
 from eta_utility import get_logger
-from eta_utility.connectors.node import Node, NodeEntsoE
+from eta_utility.connectors.node import NodeEntsoE
 from eta_utility.timeseries import df_resample, df_time_slice
 from eta_utility.util import dict_search, round_timestamp
 
@@ -58,33 +58,29 @@ class ENTSOEConnection(SeriesConnection[NodeEntsoE], protocol="entsoe"):
         self._node_ids: str | None = None
         self.config = _ConnectionConfiguration()
         self.session: CachedSession = CachedSession(
-            cache_name="eta_utility/connectors/.requests_cache/entso_e_cache",
+            cache_name="eta_utility/connectors/requests_cache/entso_e_cache",
             urls_expire_after={
                 "https://web-api.tp.entsoe.eu/*": timedelta(minutes=15),
                 "*": DO_NOT_CACHE,  # Don't cache other URLs
             },
             allowable_codes=(200, 400, 401),
+            use_cache_dir=True,
         )
 
     @classmethod
-    def _from_node(cls, node: Node, **kwargs: Any) -> ENTSOEConnection:
+    def _from_node(cls, node: NodeEntsoE, **kwargs: Any) -> ENTSOEConnection:
         """Initialize the connection object from an entso-e protocol node object
 
         :param node: Node to initialize from
         :param kwargs: Keyword arguments for API authentication, where "api_token" is required
         :return: ENTSOEConnection object
         """
+
         if "api_token" not in kwargs:
             raise AttributeError("Missing required function parameter api_token.")
         api_token = kwargs["api_token"]
 
-        if node.protocol == "entsoe" and isinstance(node, NodeEntsoE):
-            return cls(node.url, api_token=api_token, nodes=[node])
-        else:
-            raise ValueError(
-                "Tried to initialize ENTSOEConnection from a node that does not specify entso-e as its"
-                f"protocol: {node.name}."
-            )
+        return super()._from_node(node, api_token=api_token)
 
     def read(self, nodes: Nodes[NodeEntsoE] | None = None) -> pd.DataFrame:
         """
@@ -225,15 +221,13 @@ class ENTSOEConnection(SeriesConnection[NodeEntsoE], protocol="entsoe"):
                 df_resolution = df_time_slice(df_resolution, from_time, to_time)
                 df_dict[resolution] = df_resolution
 
-            df = pd.concat(df_dict.values(), axis=1, keys=df_dict.keys())
-            df = df.swaplevel(axis=1)
-            return df
+            value_df = pd.concat(df_dict.values(), axis=1, keys=df_dict.keys())
+            return value_df.swaplevel(axis=1)
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
             results = executor.map(read_node, nodes)
 
-        values = pd.concat(results, axis=1, sort=False)
-        return values
+        return pd.concat(results, axis=1, sort=False)
 
     def subscribe_series(
         self,

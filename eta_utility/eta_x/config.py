@@ -6,8 +6,10 @@ import pathlib
 from typing import TYPE_CHECKING
 
 from attrs import Factory, converters, define, field, fields, validators
+from typing_extensions import deprecated
 
 from eta_utility import deep_mapping_update, dict_pop_any, get_logger, json_import
+from eta_utility.util import toml_import, yaml_import
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -38,7 +40,12 @@ def _get_class(instance: ConfigOptSetup, attrib: Attribute, new_value: str | Non
         except ModuleNotFoundError as e:
             raise ModuleNotFoundError(
                 f"Could not find module '{e.name}'. While importing class '{cls_name}' from '{attrib.name}' value."
-            )
+            ) from e
+        except AttributeError as e:
+            raise AttributeError(
+                f"Could not find class '{cls_name}' in module '{module}'. "
+                f"While importing class '{cls_name}' from '{attrib.name}' value."
+            ) from e
 
         cls_attr_name = f"{attrib.name.rsplit('_', 1)[0]}_class"
         setattr(instance, cls_attr_name, cls)
@@ -78,8 +85,13 @@ class ConfigOpt:
             object.__setattr__(self, "path_scenarios", self.path_root / self.relpath_scenarios)
 
     @classmethod
+    @deprecated("Use `ConfigOpt.from_config_file()` instead.")
     def from_json(cls, file: Path, path_root: Path, overwrite: Mapping[str, Any] | None = None) -> ConfigOpt:
-        """Load configuration from JSON file, which consists of the following sections:
+        return cls.from_config_file(file=file, path_root=path_root, overwrite=overwrite)
+
+    @classmethod
+    def from_config_file(cls, file: Path, path_root: Path, overwrite: Mapping[str, Any] | None = None) -> ConfigOpt:
+        """Load configuration from JSON/TOML/YAML file, which consists of the following sections:
 
         - **paths**: In this section, the (relative) file paths for results and scenarios are specified. The paths
           are deserialized directly into the :class:`ConfigOpt` object.
@@ -98,25 +110,59 @@ class ConfigOpt:
         :param overwrite: Config parameters to overwrite.
         :return: ConfigOpt object.
         """
-        _path_root = path_root if isinstance(path_root, pathlib.Path) else pathlib.Path(path_root)
-        _overwrite = {} if overwrite is None else overwrite
+        _path_root: pathlib.Path = pathlib.Path(path_root)
 
-        _config = json_import(file)
-        if not isinstance(_config, dict):
-            raise TypeError("Config file {file} must define a dictionary of options.")
-        config = dict(deep_mapping_update(_config, _overwrite))
+        config = cls._load_config_file(file)
+
+        if overwrite is not None:
+            config = dict(deep_mapping_update(config, overwrite))
+
+        # Ensure all required sections are present in configuration
+        for section in ("setup", "settings", "paths"):
+            if section not in config:
+                raise ValueError(f"The section '{section}' is not present in configuration file {file}.")
+
+        return ConfigOpt.from_dict(config, file, _path_root)
+
+    @staticmethod
+    def _load_config_file(file: Path) -> dict[str, Any]:
+        """Load configuration file from JSON, TOML, or YAML file.
+        The read file is expected to contain a dictionary of configuration options.
+
+        :param file: Path to the configuration file.
+        :return: Dictionary of configuration options.
+        """
+        possible_extensions = {".json": json_import, ".toml": toml_import, ".yml": yaml_import, ".yaml": yaml_import}
+        file_path = pathlib.Path(file)
+
+        for extension in possible_extensions:
+            _file_path: pathlib.Path = file_path.with_suffix(extension)
+            if _file_path.exists():
+                result = possible_extensions[extension](_file_path)
+                break
+        else:
+            raise FileNotFoundError(f"Config file not found: {file}")
+
+        if not isinstance(result, dict):
+            raise TypeError(f"Config file {file} must define a dictionary of options.")
+
+        return result
+
+    @classmethod
+    def from_dict(cls, config: dict[str, Any], file: Path, path_root: pathlib.Path) -> ConfigOpt:
+        """Build a ConfigOpt object from a dictionary of configuration options.
+
+        :param config: Dictionary of configuration options.
+        :param file: Path to the configuration file.
+        :param path_root: Root path for the optimization configuration run.
+        :return: ConfigOpt object.
+        """
 
         def _pop_dict(dikt: dict[str, Any], key: str) -> dict[str, Any]:
             val = dikt.pop(key)
             if not isinstance(val, dict):
                 raise TypeError(f"'{key}' section must be a dictionary of settings.")
             return val
-
-        # Ensure all required sections are present in configuration
-        if {"setup", "settings", "paths"} > config.keys():
-            raise ValueError(
-                f"Not all required sections (setup, settings, paths) are present in configuration file {file}."
-            )
 
         if "environment_specific" not in config:
             config["environment_specific"] = {}
@@ -136,7 +182,7 @@ class ConfigOpt:
         relpath_results = paths.pop("relpath_results", None)
         relpath_scenarios = paths.pop("relpath_scenarios", None)
 
-        # Load values from all other sections.
+        # Setup section
         _setup = _pop_dict(config, "setup")
         try:
             setup = ConfigOptSetup.from_dict(_setup)
@@ -144,6 +190,7 @@ class ConfigOpt:
             log.error(e)
             errors = True
 
+        # Settings section
         settings_raw: dict[str, dict[str, Any]] = {}
         settings_raw["settings"] = _pop_dict(config, "settings")
         settings_raw["environment_specific"] = _pop_dict(config, "environment_specific")
@@ -160,7 +207,6 @@ class ConfigOpt:
         except ValueError as e:
             log.error(e)
             errors = True
-
         # Log configuration values which were not recognized.
         for name in config:
             log.warning(
@@ -170,12 +216,12 @@ class ConfigOpt:
 
         if errors:
             raise ValueError(
-                "Not all required values were found in setup section (see log). " "Could not load config file."
+                "Not all required values were found in setup section (see log). Could not load config file."
             )
 
         return cls(
             config_name=str(file),
-            path_root=_path_root,
+            path_root=path_root,
             relpath_results=relpath_results,
             relpath_scenarios=relpath_scenarios,
             setup=setup,
@@ -247,74 +293,43 @@ class ConfigOptSetup:
 
     @classmethod
     def from_dict(cls, dikt: dict[str, Any]) -> ConfigOptSetup:
-        errors = False
+        errors = []
 
-        if "agent_import" not in dikt and ("agent_package" not in dikt or "agent_class" not in dikt):
-            log.error("'agent_import' or both of 'agent_package' and 'agent_class' parameters must " "be specified.")
-            errors = True
-        if "agent_import" not in dikt:
-            agent_import = f"{dikt.pop('agent_package', None)}.{dikt.pop('agent_class', None)}"
-        else:
-            agent_import = dikt.pop("agent_import")
+        def get_import(name: str, required: bool = False) -> str | Any:
+            """Get import string or combination of package and class name from dictionary.
+            :param name: Name of the configuration value.
+            :param required: Flag to determine if the value is required.
+            """
+            nonlocal errors, dikt
+            import_value = dikt.pop(f"{name}_import", None)
+            package_value = dikt.pop(f"{name}_package", None)
+            class_value = dikt.pop(f"{name}_class", None)
+            # Check import
+            if import_value is not None:
+                return import_value
 
-        if "environment_import" not in dikt and ("environment_package" not in dikt or "environment_class" not in dikt):
-            log.error(
-                "'environment_import' or both of 'environment_package' and 'environment_class' parameters must "
-                "be specified."
-            )
-            errors = True
-        if "environment_import" not in dikt:
-            environment_import = f"{dikt.pop('environment_package', None)}.{dikt.pop('environment_class', None)}"
-        else:
-            environment_import = dikt.pop("environment_import")
+            # Check package and class
+            if package_value is not None and class_value is not None:
+                return f"{package_value}.{class_value}"
 
-        if (
-            len({"interaction_env_package", "interaction_env_class"} & dikt.keys()) > 0
-            or "interaction_env_import" in dikt
-        ):
-            if "interaction_env_import" not in dikt and (
-                "interaction_env_package" not in dikt or "interaction_env_class" not in dikt
-            ):
-                log.error(
-                    "If one of 'interaction_env_package' and 'interaction_env_class' is specified, "
-                    "the other must also be specified."
-                )
-                errors = True
-            if "interaction_env_import" not in dikt:
-                interaction_env_import = (
-                    f"{dikt.pop('interaction_env_package', None)}.{dikt.pop('interaction_env_class', None)}"
-                )
-            else:
-                interaction_env_import = dikt.pop("interaction_env_import")
-        else:
-            interaction_env_import = None
+            # If only one of package and class is specified, raise error
+            if (package_value is None) ^ (class_value is None):
+                msg = f"Only one of '{name}_package' and '{name}_class' is specified."
+                log.info(msg)
 
-        if len({"vectorizer_package", "vectorizer_class"} & dikt.keys()) > 0 or "vectorizer_import" in dikt:
-            if "vectorizer_import" not in dikt and ("vectorizer_package" not in dikt or "vectorizer_class" not in dikt):
-                log.error(
-                    "If one of 'vectorizer_package' and 'vectorizer_class' is specified, "
-                    "the other must also be specified."
-                )
-                errors = True
-            if "vectorizer_import" not in dikt:
-                vectorizer_import = f"{dikt.pop('vectorizer_package', None)}.{dikt.pop('vectorizer_class', None)}"
-            else:
-                vectorizer_import = dikt.pop("vectorizer_import")
-        else:
-            vectorizer_import = None
+            # Raise error if required value is missing
+            if required:
+                msg = f"'{name}_import' or both of '{name}_package' and '{name}_class' parameters must be specified."
+                log.error(msg)
+                errors.append(name)
+            return None
 
-        if len({"policy_package", "policy_class"} & dikt.keys()) > 0 or "policy_import" in dikt:
-            if "policy_import" not in dikt and ("policy_package" not in dikt or "policy_class" not in dikt):
-                log.error(
-                    "If one of 'policy_package' and 'policy_class' is specified, " "the other must also be specified."
-                )
-                errors = True
-            if "policy_import" not in dikt:
-                policy_import = f"{dikt.pop('policy_package', None)}.{dikt.pop('policy_class', None)}"
-            else:
-                policy_import = dikt.pop("policy_import")
-        else:
-            policy_import = None
+        agent_import = get_import("agent", required=True)
+        environment_import = get_import("environment", required=True)
+
+        interaction_env_import = get_import("interaction_env")
+        vectorizer_import = get_import("vectorizer")
+        policy_import = get_import("policy")
 
         monitor_wrapper = dikt.pop("monitor_wrapper", None)
         norm_wrapper_obs = dikt.pop("norm_wrapper_obs", None)
@@ -322,16 +337,15 @@ class ConfigOptSetup:
         tensorboard_log = dikt.pop("tensorboard_log", None)
 
         # Log configuration values which were not recognized.
-        for name in dikt:
-            log.warning(
-                f"Specified configuration value '{name}' in the setup section of the configuration was not "
-                f"recognized and is ignored."
-            )
+        if dikt:
+            msg = "Following values were not recognized in the config setup section and are ignored: "
+            msg += ", ".join(dikt.keys())
+            log.warning(msg)
 
         if errors:
-            raise ValueError(
-                "Not all required values were found in setup section (see log). Could not load config file."
-            )
+            msg = "Not all required values were found in setup section (see log). Could not load config file. "
+            msg += f"Missing values: {', '.join(errors)}"
+            raise ValueError(msg)
 
         return ConfigOptSetup(
             agent_import=agent_import,

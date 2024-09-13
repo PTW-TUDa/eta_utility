@@ -27,10 +27,8 @@ def read_series() -> pd.DataFrame:
     # Read series data within a specified time interval
     from_time = datetime.fromisoformat("2019-01-01 00:00:00")
     to_time = datetime.fromisoformat("2019-01-02 00:00:00")
-    data = connection.read_series(from_time, to_time, interval=900)
+    return connection.read_series(from_time, to_time, interval=900)
     # --main--
-
-    return data
 
 
 if __name__ == "__main__":

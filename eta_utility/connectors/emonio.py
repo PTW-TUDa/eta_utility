@@ -66,7 +66,7 @@ class EmonioConnection(Connection[NodeEmonio], protocol="emonio"):
         :param node: The node to connect to.
         :return: The Emonio connection.
         """
-        return cls(node.url, nodes=[node])
+        return super()._from_node(node)
 
     def read(self, nodes: Nodes[NodeEmonio] | None = None) -> pd.DataFrame:
         """
@@ -116,8 +116,7 @@ class EmonioConnection(Connection[NodeEmonio], protocol="emonio"):
         """
         if not isinstance(nodes, Iterable):
             nodes = {nodes}
-        modbus_nodes = [self.nodes_factory.get_default_node(node.name, node.address) for node in nodes]
-        return modbus_nodes
+        return [self.nodes_factory.get_default_node(node.name, node.address) for node in nodes]
 
     def _validate_nodes(self, nodes: Nodes[NodeEmonio] | None) -> set[NodeEmonio]:
         """

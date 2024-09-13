@@ -101,9 +101,7 @@ fail_nodes = (
             "station_id": "0",
             "interval": "200",
         },
-        re.escape(
-            "Interval 200 not supported. Must be one of " "[60, 300, 600, 3600, 28800, 86400, 2592000, 31536000]"
-        ),
+        re.escape("Interval 200 not supported. Must be one of [60, 300, 600, 3600, 28800, 86400, 2592000, 31536000]"),
     ),
     (
         {
@@ -710,7 +708,7 @@ def test_node_evolve(node_data, expected):
     assert child == parent
 
 
-@pytest.fixture()
+@pytest.fixture
 def create_dictionary():
     nodes = []
     expected = []
@@ -721,7 +719,7 @@ def create_dictionary():
     return nodes, expected
 
 
-@pytest.fixture()
+@pytest.fixture
 def create_excel(create_dictionary, temp_dir):
     nodes, expected = create_dictionary
     path = temp_dir / "excel_nodes.xlsx"

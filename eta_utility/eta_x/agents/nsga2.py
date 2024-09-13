@@ -60,17 +60,16 @@ class _VariableParameters:
             dtype = "int" if space.dtype in {np.int32, np.int16, np.int8, np.int64} else "float"
             return [cls(dtype, minimum=space.low[key], maximum=space.high[key]) for key, _ in enumerate(space.shape)]
 
-        elif isinstance(space, spaces.MultiDiscrete):
+        if isinstance(space, spaces.MultiDiscrete):
             return [cls("int", minimum=0, maximum=int(dim)) for dim in space.nvec]
 
-        elif isinstance(space, spaces.MultiBinary):
+        if isinstance(space, spaces.MultiBinary):
             return [cls(dtype="int", minimum=0, maximum=1) for _ in range(space.n)]  # type: ignore
 
-        elif isinstance(space, spaces.Discrete):
+        if isinstance(space, spaces.Discrete):
             return [cls(dtype="int", minimum=0, maximum=int(space.n))]
 
-        else:
-            raise ValueError("Unknown type of space for variable parameters.")
+        raise ValueError("Unknown type of space for variable parameters.")
 
 
 class Nsga2(BaseAlgorithm):
@@ -275,15 +274,13 @@ class Nsga2(BaseAlgorithm):
     def last_evaluation_actions(self) -> np.ndarray | None:
         if len(self.ep_actions_buffer) >= 1:
             return self.ep_actions_buffer[-1]
-        else:
-            return None
+        return None
 
     @property
     def last_evaluation_rewards(self) -> Any | None:
         if len(self.ep_reward_buffer) >= 1:
             return self.ep_reward_buffer[-1]
-        else:
-            return None
+        return None
 
     @property
     def last_evaluation_fronts(self) -> list:
@@ -602,13 +599,12 @@ class Nsga2(BaseAlgorithm):
 
             if len(solution_invalid) < self.population / 2:
                 break
-            else:
-                retries += len(solution_invalid)
-                retries += self._jl_reinitialize_rnd(self.__jl_agent, generation, solution_invalid)
-                log.info(
-                    f"Randomized the generation again because "
-                    f"there were too many invalid solutions: {len(solution_invalid)}; retries: {retries}"
-                )
+            retries += len(solution_invalid)
+            retries += self._jl_reinitialize_rnd(self.__jl_agent, generation, solution_invalid)
+            log.info(
+                f"Randomized the generation again because "
+                f"there were too many invalid solutions: {len(solution_invalid)}; retries: {retries}"
+            )
 
         assert rewards is not None
         self._jl_store_reward(generation, rewards)
