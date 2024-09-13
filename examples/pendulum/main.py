@@ -25,6 +25,7 @@ def conventional(root_path: pathlib.Path, overwrite: dict[str, Any] | None = Non
     :param root_path: Root path of the experiment.
     :param overwrite: Additional config values to overwrite values from JSON.
     """
+    get_logger()
     experiment = ETAx(root_path, "pendulum_conventional", overwrite, relpath_config=".")
     experiment.play("conventional_series", "run1")
 
