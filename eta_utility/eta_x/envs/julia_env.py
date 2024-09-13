@@ -130,9 +130,7 @@ class JuliaEnv(BaseEnv):
         :param observations: Observations of another environment.
         :return: Full array of observations.
         """
-        observations = self.__jl.first_update_b(observations)
-
-        return observations
+        return self.__jl.first_update_b(observations)
 
     def update(self, observations: np.ndarray) -> np.ndarray:
         """Update the optimization model with observations from another environment.
@@ -140,9 +138,7 @@ class JuliaEnv(BaseEnv):
         :param observations: Observations from another environment
         :return: Full array of current observations
         """
-        observations = self.__jl.update_b(observations)
-
-        return observations
+        return self.__jl.update_b(observations)
 
     def step(self, action: np.ndarray) -> StepResult:
         """Perform one time step and return its results. This is called for every event or for every time step during
@@ -278,7 +274,7 @@ class JuliaEnv(BaseEnv):
             try:
                 jl_setattribute(self._jlenv, name, value)
             except BaseException as e:
-                raise AttributeError(f"Could not set {name} on julia environment: {e}")
+                raise AttributeError(f"Could not set {name} on julia environment: {e}") from e
 
         # Otherwise set on the python environment.
         super().__setattr__(name, value)

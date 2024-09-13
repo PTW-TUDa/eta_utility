@@ -65,7 +65,7 @@ def df_from_csv(
     elif isinstance(infer_datetime_from, (list, tuple)):
         if not len(infer_datetime_from) == 2:
             raise ValueError(
-                "Field for date format must be specified in the format ['row', 'col']. " f"Got {infer_datetime_from}"
+                f"Field for date format must be specified in the format ['row', 'col']. Got {infer_datetime_from}"
             )
 
     else:
@@ -91,7 +91,7 @@ def df_from_csv(
             raise EOFError(
                 f"The CSV file does not contain the specified date format field {infer_datetime_from}. \n"
                 f"File path: {path}"
-            )
+            ) from None
 
         # Find number of fields, names of fields and a conversion string for time
         length = len(first_line)
@@ -160,11 +160,11 @@ def find_time_slice(
         if isinstance(random, bool):
             random = np.random.default_rng()
             log.info(
-                "Using an unseeded random generator for time slicing. This will not produce deterministic " "results."
+                "Using an unseeded random generator for time slicing. This will not produce deterministic results."
             )
         time_gap = max(0, (time_end - time_begin - total_time).total_seconds())
         if time_gap <= 0:
-            log.warn(
+            log.warning(
                 "Could not use random time sampling because the gap between the required starting and ending "
                 "times is too small."
             )
@@ -209,7 +209,7 @@ def df_time_slice(
 
 
 def df_resample(
-    df: pd.DataFrame, *periods_deltas: TimeStep | Sequence[TimeStep], missing_data: str | None = None
+    dataframe: pd.DataFrame, *periods_deltas: TimeStep | Sequence[TimeStep], missing_data: str | None = None
 ) -> pd.DataFrame:
     """Resample the time index of a data frame. This method can be used for resampling in multiple different
     periods with multiple different deltas between single time entries.
@@ -236,18 +236,18 @@ def df_resample(
     else:
         interpolation_method = op.methodcaller(missing_data)
 
-    if not df.index.is_unique:
+    if not dataframe.index.is_unique:
         log.warning(
             f"Index has non-unique values. Dropping duplicates: "
-            f"{df.index[df.index.duplicated(keep='first')].to_list()}."
+            f"{dataframe.index[dataframe.index.duplicated(keep='first')].to_list()}."
         )
-        df = df[~df.index.duplicated(keep="first")]
+        dataframe = dataframe[~dataframe.index.duplicated(keep="first")]
 
     if len(periods_deltas) == 1:
         delta = str(
             periods_deltas[0].total_seconds() if isinstance(periods_deltas[0], timedelta) else periods_deltas[0]
         )
-        new_df = interpolation_method(df.resample(str(delta) + "s"))
+        new_df = interpolation_method(dataframe.resample(str(delta) + "s"))
     else:
         new_df = pd.DataFrame()
         total_periods = 0
@@ -259,14 +259,14 @@ def df_resample(
                 else periods_deltas[key + 1]
             )
             new_df = pd.concat(
-                df,
+                dataframe,
                 interpolation_method(
-                    df.iloc[total_periods : periods_deltas[key]].resample(str(delta) + "s")  # type: ignore
+                    dataframe.iloc[total_periods : periods_deltas[key]].resample(str(delta) + "s")  # type: ignore
                 ),
             )
             total_periods += periods_deltas[key]  # type: ignore
 
-    if df.isna().values.any():
+    if dataframe.isna().to_numpy().any():
         log.warning(
             "Resampled Dataframe has missing values. Before using this data, ensure you deal with the missing values. "
             "For example, you could interpolate(), fillna() or dropna()."

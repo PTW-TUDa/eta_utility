@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import pytest
 from dateutil import tz
 
-from eta_utility.util import dict_search, json_import, round_timestamp
+from eta_utility.util import SelfsignedKeyCertPair, dict_search, json_import, round_timestamp
 
 
 @pytest.mark.parametrize(
@@ -55,7 +55,35 @@ def test_dict_search_fail():
 
 
 def test_remove_comments_json():
-    with open(pathlib.Path(__file__).parent / "resources/remove_comments/removed_comments.json") as f:
+    with pathlib.Path(pathlib.Path(__file__).parent / "resources/remove_comments/removed_comments.json").open() as f:
         control = json.load(f)
 
     assert json_import(pathlib.Path(__file__).parent / "resources/remove_comments/with_comments.json") == control
+
+
+def test_selfsignedkeycertpair_empty():
+    with SelfsignedKeyCertPair("opc_client").tempfiles() as tempfiles:
+        assert tempfiles is not None
+
+
+def test_selfsignedkeycertpair():
+    keycert_pair = SelfsignedKeyCertPair(
+        common_name="opc_client",
+        country="DE",
+        province="HE",
+        city="Darmstadt",
+        organization="TU Darmstadt",
+    )
+    with keycert_pair.tempfiles() as tempfiles:
+        assert tempfiles is not None
+
+
+def test_selfsignedkeycertpair_fail():
+    with pytest.raises(ValueError, match=r".*Country name must be a 2 character country code"):
+        SelfsignedKeyCertPair(
+            common_name="opc_client",
+            country="DEUTSCHLAND",
+            province="HESSEN",
+            city="Darmstadt",
+            organization="TU Darmstadt",
+        )

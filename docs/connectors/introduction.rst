@@ -171,7 +171,7 @@ Direct Instantiation (not recommended)
     connection = ModbusConnection(url=url, usr=username, pwd=password)
 
 Using from_ids
-----------
+---------------------------------------
 The :attr:`from_ids()` method is helpful if you do not require access to the nodes and just want to quickly create a single
 connection.
 

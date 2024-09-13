@@ -229,10 +229,9 @@ def log_run_info(config: ConfigOpt, config_run: ConfigOptRun) -> None:
             def default(self, o: object) -> object:
                 if isinstance(o, pathlib.Path):
                     return str(o)
-                elif isinstance(o, abc.ABCMeta):
+                if isinstance(o, abc.ABCMeta):
                     return None
-                else:
-                    return repr(o)
+                return repr(o)
 
         try:
             json.dump({**asdict(config_run), **asdict(config)}, f, indent=4, cls=Encoder)
@@ -330,7 +329,7 @@ def log_net_arch(model: BaseAlgorithm, config_run: ConfigOptRun) -> None:
     :raises: ValueError.
     """
     if not config_run.path_net_arch.exists() and model.policy is not None and model.policy.__class__ is not NoPolicy:
-        with open(config_run.path_net_arch, "w") as f:
+        with pathlib.Path(config_run.path_net_arch).open("w") as f:
             f.write(str(model.policy))
 
         log.info(f"Net arch / Policy information store successfully in: {config_run.path_net_arch}.")

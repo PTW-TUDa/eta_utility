@@ -34,7 +34,7 @@ if TYPE_CHECKING:
     from typing import Any, Callable, ClassVar, Final
     from urllib.parse import ParseResult
 
-    from typing_extensions import TypeAlias
+    from typing_extensions import Self, TypeAlias
 
     from eta_utility.type_hints import Path
 
@@ -156,16 +156,15 @@ class Node(metaclass=NodeMeta):
 
         return super().__init_subclass__(**kwargs)
 
-    def __new__(cls, name: str, url: str, protocol: str, *args: Any, **kwargs: Any) -> Node:
+    def __new__(cls, name: str, url: str, protocol: str, *args: Any, **kwargs: Any) -> Self:
         """Create node object of correct subclass corresponding to protocol."""
         try:
             subclass = cls._registry[protocol]
-        except KeyError:
-            raise ValueError(f"Specified an unsupported protocol: {protocol}.")
+        except KeyError as error:
+            raise ValueError(f"Specified an unsupported protocol: {protocol}.") from error
 
         # Return the correct subclass for the specified protocol
-        obj = object.__new__(subclass)
-        return obj
+        return object.__new__(subclass)
 
     def __attrs_post_init__(self) -> None:
         """Add post-processing to the url, username and password information. Username and password specified during
@@ -221,7 +220,7 @@ class Node(metaclass=NodeMeta):
         return attrs.filters.exclude(*non_values.keys())
 
     @classmethod
-    def from_dict(cls, dikt: Sequence[Mapping] | Mapping[str, Any], fail: bool = True) -> list[Node]:
+    def from_dict(cls, dikt: Sequence[Mapping] | Mapping[str, Any], fail: bool = True) -> list[Self]:
         """Create nodes from a dictionary of node configurations. The configuration must specify the following
         fields for each node:
 
@@ -261,19 +260,17 @@ class Node(metaclass=NodeMeta):
             except KeyError as e:
                 text = f"Error reading node protocol in row {idx + 1}: {e}."
                 if fail:
-                    raise KeyError(text)
-                else:
-                    log.error(text)
+                    raise KeyError(text) from e
+                log.error(text)
                 continue
 
             try:
                 node_class = cls._registry[protocol.strip().lower()]
-            except KeyError:
+            except KeyError as e:
                 text = f"Specified an unsupported protocol in row {idx + 1}: {protocol}."
                 if fail:
-                    raise ValueError(text)
-                else:
-                    log.error(text)
+                    raise ValueError(text) from e
+                log.error(text)
                 continue
 
             try:
@@ -281,9 +278,9 @@ class Node(metaclass=NodeMeta):
             except (TypeError, KeyError) as e:
                 text = f"Error while reading the configuration data for node in row {idx + 1}: {e}."
                 if fail:
-                    raise TypeError(text)
-                else:
-                    log.error(text)
+                    raise TypeError(text) from e
+                log.error(text)
+
         return nodes
 
     @staticmethod
@@ -298,8 +295,8 @@ class Node(metaclass=NodeMeta):
             name = str(dict_get_any(node, "code", "name"))
             if name == "nan" or name is None:
                 raise KeyError
-        except KeyError:
-            raise KeyError("Name or Code must be specified for all nodes in the dictionary.")
+        except KeyError as e:
+            raise KeyError("Name or Code must be specified for all nodes in the dictionary.") from e
         # Find URL or IP and port
         if "url" in node and node["url"] is not None and str(node["url"]) not in {"nan", ""}:
             url = node["url"].strip()
@@ -320,8 +317,8 @@ class Node(metaclass=NodeMeta):
             protocol = str(dict_get_any(node, "protocol"))
             if protocol == "nan" or protocol is None:
                 raise KeyError
-        except KeyError:
-            raise KeyError("Protocol must be specified for all nodes in the dictionary.")
+        except KeyError as e:
+            raise KeyError("Protocol must be specified for all nodes in the dictionary.") from e
 
         return protocol
 
@@ -338,18 +335,18 @@ class Node(metaclass=NodeMeta):
         """
         try:
             value = dict_get_any(dikt, *names, fail=True)
-        except KeyError:
+        except KeyError as e:
             log.error(f"For the node, the field '{names[0]}' must be specified or check the correct spelling.")
             raise KeyError(
                 "The required parameter for the node configuration was not found (see log). "
                 "Could not load config "
                 "file. "
-            )
+            ) from e
 
         return value
 
     @classmethod
-    def from_excel(cls, path: Path, sheet_name: str, fail: bool = True) -> list[Node]:
+    def from_excel(cls, path: Path, sheet_name: str, fail: bool = True) -> list[Self]:
         """
         Method to read out nodes from an Excel document. The document must specify the following fields:
 
@@ -379,7 +376,7 @@ class Node(metaclass=NodeMeta):
         return cls.from_dict(list(input_.to_dict("index").values()), fail)
 
     @classmethod
-    def get_eneffco_nodes_from_codes(cls, code_list: Sequence[str], eneffco_url: str) -> list[Node]:
+    def get_eneffco_nodes_from_codes(cls, code_list: Sequence[str], eneffco_url: str) -> list[Self]:
         """
         Utility function to retrieve Node objects from a list of EnEffCo Codes (Identifiers).
 
@@ -413,8 +410,8 @@ class NodeLocal(Node, protocol="local"):
         name, pwd, url, usr, interval = cls._read_dict_info(dikt)
         try:
             return cls(name, url, "local", usr=usr, pwd=pwd, interval=interval)
-        except (TypeError, AttributeError):
-            raise TypeError(f"Could not convert all types for node {name}")
+        except (TypeError, AttributeError) as e:
+            raise TypeError(f"Could not convert all types for node {name}") from e
 
 
 def _mb_endianness_converter(value: str) -> str:
@@ -467,7 +464,7 @@ class NodeModbus(Node, protocol="modbus"):
             object.__setattr__(self, "url_parsed", url)
 
     @classmethod
-    def _from_dict(cls, dikt: dict[str, Any]) -> NodeModbus:
+    def _from_dict(cls, dikt: dict[str, Any]) -> Self:
         """Create a modbus node from a dictionary of node information.
 
         :param dikt: dictionary with node information.
@@ -483,11 +480,11 @@ class NodeModbus(Node, protocol="modbus"):
             mb_slave = dict_get_any(dikt, "mb_slave", "modbusslave", fail=False, default=32)
             mb_bit_length = dict_get_any(dikt, "mb_bit_length", "mb_bitlength", fail=False, default=32)
             dtype = dict_get_any(dikt, "dtype", "datentyp", fail=False)
-        except KeyError:
+        except KeyError as e:
             raise KeyError(
                 f"The required parameter for the node configuration was not found (see log). The node {name} could "
                 f"not load."
-            )
+            ) from e
         try:
             return cls(
                 name,
@@ -504,8 +501,8 @@ class NodeModbus(Node, protocol="modbus"):
                 dtype=dtype,
                 interval=interval,
             )
-        except (TypeError, AttributeError):
-            raise TypeError(f"Could not convert all types for node {name}.")
+        except (TypeError, AttributeError) as e:
+            raise TypeError(f"Could not convert all types for node {name}.") from e
 
 
 class NodeOpcUa(Node, protocol="opcua"):
@@ -545,17 +542,17 @@ class NodeOpcUa(Node, protocol="opcua"):
         if self.opc_id is not None:
             try:
                 parts = self.opc_id.split(";")
-            except ValueError:
+            except ValueError as e:
                 raise ValueError(
                     f"When specifying opc_id, make sure it follows the format ns=2;s=.path (got {self.opc_id})."
-                )
+                ) from e
             for part in parts:
                 try:
                     key, val = part.split("=")
-                except ValueError:
+                except ValueError as e:
                     raise ValueError(
                         f"When specifying opc_id, make sure it follows the format ns=2;s=.path (got {self.opc_id})."
-                    )
+                    ) from e
 
                 if key.strip().lower() == "ns":
                     object.__setattr__(self, "opc_ns", int(val))
@@ -594,7 +591,7 @@ class NodeOpcUa(Node, protocol="opcua"):
         object.__setattr__(self, "opc_path", path)
 
     @classmethod
-    def _from_dict(cls, dikt: dict[str, Any]) -> NodeOpcUa:
+    def _from_dict(cls, dikt: dict[str, Any]) -> Self:
         """Create an opcua node from a dictionary of node information.
 
         :param dikt: dictionary with node information.
@@ -620,19 +617,19 @@ class NodeOpcUa(Node, protocol="opcua"):
                     dtype=dtype,
                     interval=interval,
                 )
-            except (TypeError, AttributeError):
+            except (TypeError, AttributeError) as e:
                 raise TypeError(
                     f"Could not convert all types for node {name}. Either the 'node_id' or the 'opc_ns' "
                     f"and 'opc_path' must be specified."
-                )
+                ) from e
         else:
             try:
                 return cls(name, url, "opcua", usr=usr, pwd=pwd, opc_id=opc_id, dtype=dtype, interval=interval)
-            except (TypeError, AttributeError):
+            except (TypeError, AttributeError) as e:
                 raise TypeError(
                     f"Could not convert all types for node {name}. Either the 'node_id' or the 'opc_ns' "
                     f"and 'opc_path' must be specified."
-                )
+                ) from e
 
     def evolve(self, **kwargs: Any) -> Node:
         """Returns a new node instance
@@ -666,7 +663,7 @@ class NodeEnEffCo(Node, protocol="eneffco"):
         super().__attrs_post_init__()
 
     @classmethod
-    def _from_dict(cls, dikt: dict[str, Any]) -> NodeEnEffCo:
+    def _from_dict(cls, dikt: dict[str, Any]) -> Self:
         """Create a EnEffCo node from a dictionary of node information.
 
         :param dikt: dictionary with node information.
@@ -675,16 +672,16 @@ class NodeEnEffCo(Node, protocol="eneffco"):
         name, pwd, url, usr, interval = cls._read_dict_info(dikt)
         try:
             code = cls._try_dict_get_any(dikt, "code", "eneffco_code")
-        except KeyError:
+        except KeyError as e:
             raise KeyError(
                 f"The required parameter for the node configuration was not found (see log). The node {name} could "
                 f"not load."
-            )
+            ) from e
 
         try:
             return cls(name, url, "eneffco", usr=usr, pwd=pwd, eneffco_code=code, interval=interval)
-        except (TypeError, AttributeError):
-            raise TypeError(f"Could not convert all types for node {name}.")
+        except (TypeError, AttributeError) as e:
+            raise TypeError(f"Could not convert all types for node {name}.") from e
 
 
 class NodeEntsoE(Node, protocol="entsoe"):
@@ -743,18 +740,18 @@ class NodeEntsoE(Node, protocol="entsoe"):
         try:
             endpoint = cls._try_dict_get_any(dikt, "endpoint")
             bidding_zone = cls._try_dict_get_any(dikt, "bidding zone", "bidding_zone", "zone")
-        except KeyError:
+        except KeyError as e:
             raise KeyError(
                 f"The required parameter for the node configuration was not found (see log). The node {name} could "
                 f"not load."
-            )
+            ) from e
 
         try:
             return cls(
                 name, url, "entsoe", usr=usr, pwd=pwd, endpoint=endpoint, bidding_zone=bidding_zone, interval=interval
             )
-        except (TypeError, AttributeError):
-            raise TypeError(f"Could not convert all types for node {name}.")
+        except (TypeError, AttributeError) as e:
+            raise TypeError(f"Could not convert all types for node {name}.") from e
 
 
 class NodeCumulocity(Node, protocol="cumulocity"):
@@ -779,18 +776,18 @@ class NodeCumulocity(Node, protocol="cumulocity"):
         name, pwd, url, usr, interval = cls._read_dict_info(dikt)
         try:
             device_id = cls._try_dict_get_any(dikt, "id", "device_id")
-        except KeyError:
+        except KeyError as e:
             raise KeyError(
                 f"The required parameter for the node configuration was not found (see log). The node {name} could "
                 f"not load."
-            )
+            ) from e
         try:
             measurement = cls._try_dict_get_any(dikt, "measurement", "Measurement")
-        except KeyError:
+        except KeyError as e:
             raise KeyError(
                 f"The required parameter for the node configuration was not found (see log). The node {name} could "
                 f"not load."
-            )
+            ) from e
 
         try:
             fragment = cls._try_dict_get_any(dikt, "fragment", "Fragment")
@@ -807,8 +804,8 @@ class NodeCumulocity(Node, protocol="cumulocity"):
                 measurement=measurement,
                 fragment=fragment,
             )
-        except (TypeError, AttributeError):
-            raise TypeError(f"Could not convert all types for node {name}.")
+        except (TypeError, AttributeError) as e:
+            raise TypeError(f"Could not convert all types for node {name}.") from e
 
 
 class NodeWetterdienst(Node):
@@ -903,8 +900,8 @@ class NodeWetterdienstObservation(NodeWetterdienst, protocol="wetterdienst_obser
         params = cls._get_params(dikt)
         try:
             return cls(name, "", "wetterdienst_observation", interval=interval, **params)
-        except (TypeError, AttributeError):
-            raise TypeError(f"Could not convert all types for node {name}.")
+        except (TypeError, AttributeError) as e:
+            raise TypeError(f"Could not convert all types for node {name}.") from e
 
     @staticmethod
     def convert_interval_to_resolution(interval: int | str | timedelta) -> str:
@@ -959,8 +956,8 @@ class NodeWetterdienstPrediction(NodeWetterdienst, protocol="wetterdienst_predic
         mosmix_type = dikt.get("mosmix_type")
         try:
             return cls(name, "", "wetterdienst_prediction", mosmix_type=mosmix_type, **params)
-        except (TypeError, AttributeError):
-            raise TypeError(f"Could not convert all types for node {name}.")
+        except (TypeError, AttributeError) as e:
+            raise TypeError(f"Could not convert all types for node {name}.") from e
 
 
 class EmonioConstants:
@@ -1076,8 +1073,8 @@ class NodeEmonio(Node, protocol="emonio"):
         address = -1 if pd.isna(address) else address
         try:
             return cls(name, url, "emonio", interval=interval, phase=phase, address=address)
-        except (TypeError, AttributeError):
-            raise TypeError(f"Could not convert all types for node {name}.")
+        except (TypeError, AttributeError) as e:
+            raise TypeError(f"Could not convert all types for node {name}.") from e
 
 
 # Forecast.Solar API Node
@@ -1096,8 +1093,7 @@ def _convert_list(_type: TypeAlias) -> Callable:
                 value = ast.literal_eval(value)
             if isinstance(value, list):
                 return [_type(val) for val in value]
-            else:
-                return _type(value)
+            return _type(value)
         except ValueError as e:
             raise ValueError(f"Could not convert value to {_type} ({value}).") from e
 
@@ -1145,8 +1141,8 @@ def _check_php_datetime(instance, attribute, value):  # type: ignore[no-untyped-
     """attrs validator to check if the value is a valid PHP DateTime format."""
     try:
         parse(value)
-    except ValueError:
-        raise ValueError("'start' value must be a valid PHP DateTime format.")
+    except ValueError as e:
+        raise ValueError("'start' value must be a valid PHP DateTime format.") from e
 
 
 def _forecast_solar_transform(cls: attrs.AttrsInstance, fields: list[attrs.Attribute]) -> list[attrs.Attribute]:
@@ -1218,18 +1214,21 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
         converter=_convert_list(int),
         validator=_check_plane(int, 0, 90),
         metadata={"QUERY_PARAM": False},
+        eq=False,  # Exclude from __hash__
     )
     #: Plane azimuth, -180 … 180 (-180 = north, -90 = east, 0 = south, 90 = west, 180 = north); integer
     azimuth: int | list[int] = field(
         converter=_convert_list(int),
         validator=_check_plane(int, -180, 180),
         metadata={"QUERY_PARAM": False},
+        eq=False,  # Exclude from __hash__
     )
     #: Installed modules power in kilo watt; float
     kwp: float | list[float] = field(
         converter=_convert_list(float),
         validator=_check_plane(float, 0, maxsize),
         metadata={"QUERY_PARAM": False},
+        eq=False,  # Exclude from __hash__
     )
 
     # QUERY PARAMETERS
@@ -1252,7 +1251,11 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
         default=None, converter=float, validator=[vld.ge(0.0), vld.le(1.0)], metadata={"QUERY_PARAM": True}
     )
     #: Horizon information; string, (comma-separated list of numerics) See API doc
-    horizon: int | list[int] | None = field(default=None, validator=_check_horizon)
+    horizon: int | list[int] | None = field(
+        default=None,
+        validator=_check_horizon,
+        eq=False,
+    )  # Exclude from __hash__
     #: inverter: Maximum of inverter in kilowatts or kVA; float > 0
     inverter: float | None = field(default=None, converter=float, validator=vld.gt(0.0), metadata={"QUERY_PARAM": True})
     #: limit: Number of response days; int ⋲ (1,..,8), 1=today
@@ -1278,7 +1281,7 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
             if isinstance(self.declination, list) and isinstance(self.azimuth, list) and isinstance(self.kwp, list):
                 if not len(self.declination) == len(self.azimuth) == len(self.kwp):
                     raise ValueError("Declination, azimuthimuth and kwp must be passed for all planes")
-                elif self.api_key is None:
+                if self.api_key is None:
                     raise ValueError("Valid API key is needed for multiple planes")
             else:
                 raise ValueError("Declination, azimuth and kwp must be passed either as lists or as single values.")
@@ -1396,4 +1399,4 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
             raise TypeError(
                 f"""Could not convert all types for node {name}:
                             \n{e}"""
-            )
+            ) from e

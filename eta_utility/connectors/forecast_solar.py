@@ -36,7 +36,10 @@ from eta_utility.util import round_timestamp
 from .base_classes import SeriesConnection, SubscriptionHandler
 
 if TYPE_CHECKING:
+    from types import TracebackType
     from typing import Any, ClassVar
+
+    from typing_extensions import Self
 
     from eta_utility.type_hints import AnyNode, Nodes, TimeStep
 
@@ -79,12 +82,13 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
         self._api_key: str = api_key
         #: Cached session to handle the requests
         self.session: CachedSession = CachedSession(
-            cache_name="eta_utility/connectors/.requests_cache/forecast_solar_cache",
+            cache_name="eta_utility/connectors/requests_cache/forecast_solar_cache",
             urls_expire_after={
                 "https://api.forecast.solar*": 900,  # 15 minutes
                 "*": DO_NOT_CACHE,  # Don't cache other URLs
             },
             allowable_codes=(200, 400, 401, 403),
+            use_cache_dir=True,
         )
 
     @classmethod
@@ -95,15 +99,9 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
         :param kwargs: Keyword arguments for API authentication, where "api_key" is required
         :return: ForecastSolarConnection object.
         """
-        api_key = kwargs.get("api_key", node.api_key)  # type: ignore
+        api_key = kwargs.get("api_token", "None")
 
-        if node.protocol == "forecast_solar" and isinstance(node, NodeForecastSolar):
-            return cls(node.url, api_key=api_key, nodes=[node])
-        else:
-            raise ValueError(
-                f"Tried to initialize ForecastSolarConnection from a node that does not specify forecast_solar as its"
-                f"protocol: {node.name}."
-            )
+        return super()._from_node(node, api_key=api_key)
 
     def read_node(self, node: NodeForecastSolar) -> pd.DataFrame:
         """Download data from the Forecast.Solar Database.
@@ -166,7 +164,7 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
         if next_time not in results:
             results.loc[next_time] = 0
 
-        results.sort_index(inplace=True)
+        results = results.sort_index()
 
         return results.loc[previous_time:next_time], now
 
@@ -187,7 +185,7 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
 
         # Insert the current timestamp _now and sort the index column to finish with the linear interpolation method
         values.loc[now] = pd.NA
-        values.sort_index(inplace=True)
+        values = values.sort_index()
 
         return pd.DataFrame(values.interpolate(method="linear").loc[now])
 
@@ -339,22 +337,28 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
         Process the original DataFrame to return a DataFrame with
         watt_hours_period, watt_hours (summarized over the day), and watt_hours_day.
         """
-        df = cls.calculate_watt_hours_period(df, watts_column)
-        daily_sum = cls.summarize_watt_hours_over_day(df)
+        watt_hours = cls.calculate_watt_hours_period(df, watts_column)
+        daily_sum = cls.summarize_watt_hours_over_day(watt_hours)
 
-        return df, daily_sum
+        return watt_hours, daily_sum
 
-    def __enter__(self) -> ForecastSolarConnection:
+    def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, exc_type: Any, exc_value: Any, tb: Any) -> bool:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        tb: TracebackType | None,
+    ) -> bool:
         if exc_type is not None:
             traceback.print_exception(exc_type, exc_value, tb)
             return False
         try:
             self.session.close()
-        finally:
-            return True
+        except Exception as e:
+            log.error(f"Error closing the connection: {e}")
+        return True
 
     def __del__(self) -> None:
         try:

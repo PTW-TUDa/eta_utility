@@ -26,19 +26,19 @@ from ..utilities.pyModbusTCP.client import ModbusClient as MockModbusClient
 from ..utilities.requests.eneffco_request import request
 
 
-@pytest.fixture()
+@pytest.fixture
 def _local_requests(monkeypatch):
     monkeypatch.setattr(requests_cache.CachedSession, "request", request)
 
 
-@pytest.fixture()
+@pytest.fixture
 def local_server():
     server = OpcUaServer(5, ip="127.0.0.1", port=4840)
     yield server
     server.stop()
 
 
-@pytest.fixture()
+@pytest.fixture
 def _mock_client(monkeypatch):
     monkeypatch.setattr(mbclient, "ModbusClient", MockModbusClient)
     monkeypatch.setattr(requests_cache.CachedSession, "request", request)
@@ -108,10 +108,10 @@ class TestEmonio:
 
     def test_emonio(self, server, url):
         result = emonio_manuell(url).round(3)
-        for value in result.iloc[0].values:
+        for value in result.iloc[0].to_numpy():
             assert value in self.values
 
     def test_modbus(self, server, url):
         result = modbus_manuell(url).round(3)
-        for value in result.iloc[0].values:
+        for value in result.iloc[0].to_numpy():
             assert value in self.values

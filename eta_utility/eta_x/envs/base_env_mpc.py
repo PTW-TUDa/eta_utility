@@ -96,7 +96,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
 
         if errors:
             raise ValueError(
-                "Some configuration parameters do not conform to the MPC environment " "requirements (see log)."
+                "Some configuration parameters do not conform to the MPC environment requirements (see log)."
             )
 
         # Make some more settings easily accessible
@@ -483,7 +483,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             """
             values = None
             if isinstance(cts, pd.Series):
-                values = cts.values
+                values = cts.to_numpy()
             elif isinstance(cts, Sequence):
                 values = cts
             elif isinstance(cts, Mapping):

@@ -26,7 +26,7 @@ def main() -> None:
         "valve": {"id": "ns=2;s=Application.general.Scada_Impulsblasen", "dtype": "bool"},
     }
 
-    get_logger(format="logname")
+    get_logger(log_format="logname")
     local_server(local_nodes(nodes))
 
     root_path = get_path()
