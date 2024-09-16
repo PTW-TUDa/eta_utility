@@ -15,9 +15,7 @@ license = "BSD-2-Clause"
 keywords = [
     "connectors","servers","simulators","industrial energy optimization","rolling horizon optimization"
 ]
-include = [
-    {path = "*", format="sdist"}, # include all package data (for sdist)
-]
+
 classifiers = [
     "License :: OSI Approved :: BSD License",
     "Development Status :: 4 - Beta",
@@ -36,6 +34,10 @@ repository = "https://github.com/PTW-TUDa/eta_utility/"
 
 [tool.poetry.urls]
 "Issues" = "https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility/-/issues"
+
+[[tool.poetry.include]]
+path="examples/"
+format="sdist"
 
 [tool.poetry.scripts]
     install-julia = "eta_utility:install_julia"
