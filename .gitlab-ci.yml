@@ -26,34 +26,20 @@ include:
 
 variables:
   # Poetry settings
-  POETRY_VERSION: 1.8.2
-  POETRY_HOME: /usr/local
-  POETRY_NO_INTERACTION: 1
-  POETRY_VIRTUALENVS_CREATE: false
-  POETRY_CACHE_DIR: /root/.cache/pypoetry
-  # Pip settings
-  PIP_NO_CACHE_DIR: off
-  PIP_DISABLE_PIP_VERSION_CHECK: on
-  PIP_CACHE_DIR: /root/.cache/pip
+  POETRY_VERSION: 1.8.3
+  REGISTRY_IMAGE: $CI_REGISTRY/$CI_PROJECT_PATH/poetry${POETRY_VERSION}
 
 default:
   tags:
     - python
     - docker
   interruptible: true
-  image: python:3.10
+  image: ${REGISTRY_IMAGE}:py3.9
   before_script:
-    - apt-get update
     - python --version
     - rm -rf dist doc eta_utility.egg-info build
     - rm -rf docs/_build docs/_stubs
     - ls -la
-    # Install Poetry
-    - curl -sSL https://install.python-poetry.org | POETRY_VERSION=$POETRY_VERSION python3 -
-    # Remove torch and add torch+cpu because nvidia packages (cuda) are not needed
-    - poetry remove torch
-    - poetry source add --priority explicit pytorch_cpu https://download.pytorch.org/whl/cpu
-    - poetry add --source pytorch_cpu torch==2.0.0
     # Install development dependencies
     - poetry install -E develop --sync
   # Cache gets invalidated when poetry.lock changes
@@ -64,13 +50,24 @@ default:
       - ${PIP_CACHE_DIR}
     policy: pull
 
+
 # Job to update pip cache
 update-cache:
   stage: setup
+  before_script: []
   script:
+    # Remove torch and add torch+cpu because nvidia packages (cuda) are not needed
+    - poetry remove torch
+    - poetry source add --priority explicit pytorch_cpu https://download.pytorch.org/whl/cpu
+    - poetry add --source pytorch_cpu torch==2.0.0
     - poetry install -E develop --sync
   cache:
     policy: pull-push
+  artifacts:
+    paths:
+      - pyproject.toml
+      - poetry.lock
+  dependencies: []
 
 ruff:
   stage: check
@@ -95,52 +92,8 @@ secret_detection:
   stage: check
   before_script: []
 
-.test:
-  stage: test
-  script:
-  - pytest --cov --cov-report term --junitxml=./junit.xml
-  retry:
-    max: 1
-    when: script_failure
-  artifacts:
-    paths:
-      - junit.xml
-    reports:
-      junit: junit.xml
-
-.coverage:
-  extends: .test
-  coverage: '/TOTAL.*\s+(\d+%)$/'
-  script:
-  - pytest --cov --junitxml=./junit.xml --cov-report term --cov-report xml:coverage.xml
-  artifacts:
-    reports:
-      coverage_report:
-        coverage_format: cobertura
-        path: coverage.xml
-
-# This job has test coverage report
-test3.9:
-  extends: .coverage
-  image: python:3.9
-
-test3.10:
-  extends: .test
-  image: python:3.10
-
-test3.11:
-  extends: .test
-  image: python:3.11
-
-test3.11_updated_deps:
-  extends: .test
-  image: python:3.11
-  script:
-    - poetry update
-    - pytest --cov --cov-report term --junitxml=./junit.xml
-
 linkcheck-docs:
-  stage: test
+  stage: check
   script:
     - rm -rf docs/_build docs/_stubs
     - cd docs
@@ -149,13 +102,84 @@ linkcheck-docs:
     max: 2
     when: script_failure
 
+julia:
+  stage: check
+  image: julia:1.9
+  before_script: []
+  script:
+    - julia -e '
+        using Pkg;
+        Pkg.add("JuliaFormatter");
+        using JuliaFormatter;
+        if !format("eta_utility/ju_extensions", verbose=true) & !format("test/resources/")
+        @error "Some files have not been formatted !!!";
+        exit(1);
+        end'
+
+.test:
+  stage: test
+  script:
+  - pytest
+  retry:
+    max: 1
+    when: script_failure
+
+.coverage:
+  extends: .test
+  coverage: '/TOTAL.*\s+(\d+%)$/'
+  script:
+  - pytest --cov --junitxml=./junit.xml --cov-report term --cov-report xml:coverage.xml
+  artifacts:
+    paths:
+      - junit.xml
+    reports:
+      junit: junit.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+
+# This job has test coverage report
+test3.9:
+  extends: .coverage
+
+test3.10:
+  extends: .test
+  image: ${REGISTRY_IMAGE}:py3.10
+
+test3.11:
+  extends: .test
+  image: ${REGISTRY_IMAGE}:py3.11
+
+test3.11_updated_deps:
+  extends: .test
+  image: ${REGISTRY_IMAGE}:py3.11
+  script:
+    - poetry update
+    - pytest --cov --cov-report term --junitxml=./junit.xml
+
+
+test-julia:
+  stage: test
+  before_script: []
+  script:
+    - julia -e '
+      ENV["PYTHON"] = Sys.which("python");
+      ENV["PYCALL_JL_RUNTIME_PYTHON"] = Sys.which("python");
+      using Pkg;
+      Pkg.activate("eta_utility/ju_extensions");
+      Pkg.instantiate();
+      Pkg.test()'
+  retry:
+    max: 1
+    when: script_failure
+
 .deploy:
   stage: deploy
   rules:
     - !reference [.on_version_tag_rule, rules]
 
 # Publish local gitlab pages
-deploy-pages:
+pages:
   extends: .deploy
   script:
     - sphinx-build --version && sphinx-apidoc --version
@@ -176,7 +200,7 @@ deploy-local:
     USERNAME: 'gitlab-ci-token'
   script:
     - rm -rf dist build
-    - poetry config repositories.eta-fabrik https://$CI_SERVER_HOST/api/v4/projects/$CI_PROJECT_ID/packages/pypi
+    - poetry config repositories.eta-fabrik $CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/pypi
     - poetry publish --build --username $USERNAME --password $PASSWORD --repository eta-fabrik
 
 # build the sources
@@ -202,7 +226,7 @@ deploy-readthedocs:
   extends: .deploy
   needs:
     - deploy-local
-    - deploy-pages
+    - pages
   before_script: []
   script:
     - echo $CI_COMMIT_TAG
