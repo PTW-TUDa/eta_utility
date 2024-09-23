@@ -1,0 +1,55 @@
+# syntax=docker/dockerfile:1
+
+# Run build_and_push_docker to build and push all images
+
+# Pass the python version as a build argument
+ARG PYTHON_VERSION=3.9
+ARG POETRY_VERSION=1.8.3
+
+# Stage 1: Julia base image
+FROM julia:1.9-bullseye AS julia-image
+
+# Stage 2: Final image
+FROM python:${PYTHON_VERSION}-slim-bullseye AS final-image
+
+# Environment variables
+ENV APP_PATH="/usr/src/app" \
+    POETRY_HOME="/usr/local/poetry" \
+    POETRY_CACHE_DIR="/root/.cache/pypoetry" \
+    POETRY_NO_INTERACTION=1 \
+    POETRY_VIRTUALENVS_CREATE=false \
+    PIP_CACHE_DIR="/root/.cache/pip" \
+    PIP_NO_CACHE_DIR=off \
+    PIP_DISABLE_PIP_VERSION_CHECK=on \
+    PIP_DEFAULT_TIMEOUT=100 \
+    JULIA_VERSION=1.9.3 \
+    JULIA_PATH="/usr/local/julia"
+
+ENV PATH="${POETRY_HOME}/bin:${JULIA_PATH}/bin:/root/.local/bin:${PATH}"
+
+WORKDIR ${APP_PATH}
+
+RUN set -eux && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends git make curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy Julia installation from julia-image
+COPY --from=julia-image ${JULIA_PATH} ${JULIA_PATH}
+
+COPY pyproject.toml poetry.lock LICENSE README.rst ${APP_PATH}
+COPY eta_utility ${APP_PATH}/eta_utility
+
+
+# Install poetry and dependencies
+RUN curl -sSL https://install.python-poetry.org | POETRY_VERSION=${POETRY_VERSION} python3 - && \
+    # Remove torch and add torch+cpu because nvidia packages (cuda) are not needed
+    poetry remove torch && \
+    poetry source add --priority explicit pytorch_cpu https://download.pytorch.org/whl/cpu && \
+    poetry add --source pytorch_cpu torch==2.0.0 && \
+    poetry install -E develop --sync && \
+    # Install julia packages
+    install-julia && \
+    julia -e 'ENV["PYTHON"] = Sys.which("python"); using Pkg; Pkg.add("PyCall"); Pkg.build("PyCall"); Pkg.add("JuliaFormatter")' && \
+    julia -e 'ENV["PYCALL_JL_RUNTIME_PYTHON"] = Sys.which("python");using Pkg;Pkg.activate("eta_utility/ju_extensions");Pkg.instantiate();Pkg.test()' && \
+    rm -rf ${APP_PATH}/* ${POETRY_CACHE_DIR}/*

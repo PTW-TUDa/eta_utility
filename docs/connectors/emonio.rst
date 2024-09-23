@@ -2,13 +2,13 @@
 
 EmonioConnection
 ======================================
-Eta-utility includes a connection class designed to read data from an Emonio device. 
-To ensure proper communication, the Emonio must be connected to the same network 
-as the machine running the Eta-utility. 
-Additionally, because the EmonioConnection uses the Modbus protocol, 
+Eta-utility includes a connection class designed to read data from an Emonio device.
+To ensure proper communication, the Emonio must be connected to the same network
+as the machine running the Eta-utility.
+Additionally, because the EmonioConnection uses the Modbus protocol,
 it is essential that the `Modbus Server` on the Emonio is set to `Enabled`.
 
-This configuration can be done in the Emonio App by navigating to `Settings` -> `Modbus Server`. 
+This configuration can be done in the Emonio App by navigating to `Settings` -> `Modbus Server`.
 The IP address and port of the Emonio can also be easily found within the app.
 
 See the Emonio documentation for more information:
