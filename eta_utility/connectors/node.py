@@ -558,7 +558,7 @@ class NodeOpcUa(Node, protocol="opcua"):
                     object.__setattr__(self, "opc_ns", int(val))
                 else:
                     object.__setattr__(self, "opc_id_type", key.strip().lower())
-                    object.__setattr__(self, "opc_path_str", val.strip(" "))
+                    object.__setattr__(self, "opc_path_str", val.strip())
 
             object.__setattr__(self, "opc_id", f"ns={self.opc_ns};{self.opc_id_type}={self.opc_path_str}")
 
