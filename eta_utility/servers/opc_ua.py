@@ -116,7 +116,8 @@ class OpcUaServer:
         def create_object(parent: SyncOpcNode, child: NodeOpcUa) -> SyncOpcNode:
             children: list[SyncOpcNode] = asyncua.sync._to_sync(parent.tloop, parent.get_children())
             for obj in children:
-                ident = obj.nodeid.Identifier if isinstance(obj.nodeid.Identifier, str) else obj.nodeid.Identifier
+                ident = obj.nodeid.Identifier
+                ident = ident.strip() if isinstance(ident, str) else ident
                 if child.opc_path_str == ident:
                     return obj
             return asyncua.sync._to_sync(parent.tloop, parent.add_object(child.opc_id, child.opc_name))
