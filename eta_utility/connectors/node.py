@@ -1186,28 +1186,44 @@ attrs_args = {"kw_only": True, "field_transformer": _forecast_solar_transform}
 
 
 class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
-    """Node for the Forecast.Solar API."""
+    """
+    Node for using the Forecast.Solar API.
+
+    Mandatory parameters are:
+
+    * The location of the forecast solar plane(s): **latitude**, **longitude**,
+    * Plane parameters: **declination**, **azimuth** and **kwp**.
+
+    Additionally **api_key** must be set for endpoints other than 'estimate',
+    multiple planes or if requests capacity is exceeded.
+
+    For multiple planes, the parameters shall be passed as lists of the same length
+    (e.g. [0, 30], [180, 180], [5, 5]).
+
+    """
 
     # URL PARAMETERS
     # ----------------
+
+    #: API key for the Forecast.Solar API; string
     api_key: str | None = field(repr=False, converter=str, validator=_check_api_key, metadata={"QUERY_PARAM": False})
-    #: estimate / history / clearsky
+    #: Endpoint in (estimate, history, clearsky), defaults to estimate; string
     endpoint: str = field(
         default="estimate",
         converter=str,
         validator=vld.in_(("estimate", "check", "history", "clearsky")),
         metadata={"QUERY_PARAM": False},
     )
-    #: Query data for only watts, wat hours, watt hours per period or watt hours per day; string
+    #: What data to query, i.e. only watts, watt hours, watt hours per period or watt hours per day; string
     data: str | None = field(
         default="watts",
         converter=str,
         validator=vld.in_(("watts", "watthours", "watthoursperperiod", "watthoursperday")),
         metadata={"QUERY_PARAM": False},
     )
-    #: Latitude of location, -90 (south) … 90 (north); handled with a precision of 0.0001 or abt. 10 m
+    #: Latitude of plane location, -90 (south) … 90 (north); handled with a precision of 0.0001 or abt. 10 m
     latitude: int = field(converter=int, validator=[vld.ge(-90), vld.le(90)], metadata={"QUERY_PARAM": False})
-    #: Longitude of location, -180 (west) … 180 (east); handled with a precision of 0.0001 or abt. 10 m
+    #: Longitude of plane location, -180 (west) … 180 (east); handled with a precision of 0.0001 or abt. 10 m
     longitude: int = field(converter=int, validator=[vld.ge(-180), vld.le(180)], metadata={"QUERY_PARAM": False})
     #: Plane declination, 0 (horizontal) … 90 (vertical) - always in relation to earth's surface; integer
     declination: int | list[int] = field(
@@ -1223,7 +1239,7 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
         metadata={"QUERY_PARAM": False},
         eq=False,  # Exclude from __hash__
     )
-    #: Installed modules power in kilo watt; float
+    #: Installed modules power of plane in kilo watt; float
     kwp: float | list[float] = field(
         converter=_convert_list(float),
         validator=_check_plane(float, 0, maxsize),
@@ -1233,20 +1249,20 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
 
     # QUERY PARAMETERS
     # ----------------
-    #: format of timestamps in the response, see API doc for values; string
+    #: Format of timestamps in the response, see API doc for values; string
     time: str = field(
         default="utc",
         converter=str,
         validator=vld.in_(("utc", "iso8601", "rfc2822", "seconds", "milliseconds", "nanoseconds")),
         metadata={"QUERY_PARAM": True},
     )
-    # Forecast for full day or only sunrise to sunset, 0|1; int
+    #: Forecast for full day or only sunrise to sunset, 0|1; int
     no_sun: int | None = field(default=None, validator=vld.in_((0, 1)), metadata={"QUERY_PARAM": True})
-    #: damping factor for the morning forecast solar API
+    #: Damping factor for the morning forecast solar API
     damping_morning: float | None = field(
         default=None, converter=float, validator=[vld.ge(0.0), vld.le(1.0)], metadata={"QUERY_PARAM": True}
     )
-    #: damping factor for the evening forecast solar API
+    #: Damping factor for the evening forecast solar API
     damping_evening: float | None = field(
         default=None, converter=float, validator=[vld.ge(0.0), vld.le(1.0)], metadata={"QUERY_PARAM": True}
     )
@@ -1256,20 +1272,20 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
         validator=_check_horizon,
         eq=False,
     )  # Exclude from __hash__
-    #: inverter: Maximum of inverter in kilowatts or kVA; float > 0
+    #: Maximum of inverter in kilowatts or kVA; float > 0
     inverter: float | None = field(default=None, converter=float, validator=vld.gt(0.0), metadata={"QUERY_PARAM": True})
-    #: limit: Number of response days; int ⋲ (1,..,8), 1=today
+    #: Number of response days; int in (1,..,8), 1=today
     limit: int | None = field(default=None, validator=vld.in_(tuple(range(1, 9))), metadata={"QUERY_PARAM": True})
-    #: start: Start time of the forecast, PHP DateTime format; stringx
+    #: Start time of the forecast, PHP DateTime format; string
     start: str | None = field(default=None, converter=str, validator=_check_php_datetime)
-    #: transit: Flag for including solar transit (midday)
+    #: Flag for including solar transit (midday)
     transit: int | None = field(default=None, converter=int, validator=vld.in_((0, 1)), metadata={"QUERY_PARAM": True})
-    #: actual: Actual production until now; float >= 0
+    #: Actual production until now; float >= 0
     actual: float | None = field(default=None, converter=float, validator=vld.ge(0.0), metadata={"QUERY_PARAM": True})
 
-    #: url parameters for the API; dict
+    #: Url parameters for the API; dict
     _url_params: dict[str, Any] = field(init=False, repr=False, eq=False, order=False)
-    #: query parameters for the API; dict
+    #: Query parameters for the API; dict
     _query_params: dict[str, Any] = field(init=False, repr=False, eq=False, order=False)
 
     def __attrs_post_init__(self) -> None:

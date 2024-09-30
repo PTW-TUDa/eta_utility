@@ -56,42 +56,47 @@ The following classes are there to document the required parameters for each typ
 
 .. autoclass:: eta_utility.connectors.node::NodeLocal
     :inherited-members:
-    :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol
+    :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol, as_dict, as_tuple, evolve
     :noindex:
 
 .. autoclass:: eta_utility.connectors.node::NodeModbus
     :inherited-members:
-    :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol
+    :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol, as_dict, as_tuple, evolve
     :noindex:
 
 .. autoclass:: eta_utility.connectors.node::NodeOpcUa
     :inherited-members:
-    :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol
+    :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol, as_dict, as_tuple
     :noindex:
 
 .. autoclass:: eta_utility.connectors.node::NodeEnEffCo
     :inherited-members:
-    :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol
+    :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol, as_dict, as_tuple, evolve
     :noindex:
 
 .. autoclass:: eta_utility.connectors.node::NodeEntsoE
     :inherited-members:
-    :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol
+    :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol, as_dict, as_tuple, evolve
     :noindex:
 
 .. autoclass:: eta_utility.connectors.node::NodeWetterdienstObservation
     :inherited-members:
-    :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol
+    :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol, as_dict, as_tuple, evolve
     :noindex:
 
 .. autoclass:: eta_utility.connectors.node::NodeWetterdienstPrediction
     :inherited-members:
-    :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol
+    :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol, as_dict, as_tuple, evolve
     :noindex:
 
 .. autoclass:: eta_utility.connectors.node::NodeEmonio
     :inherited-members:
-    :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol,  upper_cased
+    :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol, as_dict, as_tuple, evolve  upper_cased
+    :noindex:
+
+.. autoclass:: eta_utility.connectors.node::NodeForecastSolar
+    :inherited-members:
+    :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol, as_dict, as_tuple, evolve
     :noindex:
 
 

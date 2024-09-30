@@ -42,6 +42,7 @@ Please read the development guide before starting development on *eta_utility*: 
     /connectors/connectors
     /connectors/emonio
     /connectors/wetterdienst_connection
+    /connectors/forecast_solar_connection
     /connectors/live_connect
     /connectors/sub_handlers
 
