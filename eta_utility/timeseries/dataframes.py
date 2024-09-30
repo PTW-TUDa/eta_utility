@@ -254,12 +254,10 @@ def df_resample(dataframe: pd.DataFrame, *periods_deltas: TimeStep, missing_data
             delta = periods_deltas[key + 1]
             if isinstance(delta, timedelta):
                 delta = delta.total_seconds()
-            new_df = pd.concat(
-                dataframe,
-                interpolation_method(
-                    dataframe.iloc[total_periods : periods_deltas[key]].resample(f"{int(delta)}s")  # type: ignore
-                ),
+            interpolated_df = interpolation_method(
+                dataframe.iloc[total_periods : periods_deltas[key]].resample(f"{int(delta)}s")  # type: ignore
             )
+            new_df = pd.concat((None if "new_df" not in locals() else new_df, interpolated_df))
             total_periods += periods_deltas[key]  # type: ignore
 
     if dataframe.isna().to_numpy().any():
