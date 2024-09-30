@@ -208,9 +208,7 @@ def df_time_slice(
     return df[slice_begin:slice_end].copy()  # type: ignore
 
 
-def df_resample(
-    dataframe: pd.DataFrame, *periods_deltas: TimeStep | Sequence[TimeStep], missing_data: str | None = None
-) -> pd.DataFrame:
+def df_resample(dataframe: pd.DataFrame, *periods_deltas: TimeStep, missing_data: str | None = None) -> pd.DataFrame:
     """Resample the time index of a data frame. This method can be used for resampling in multiple different
     periods with multiple different deltas between single time entries.
 
@@ -244,26 +242,22 @@ def df_resample(
         dataframe = dataframe[~dataframe.index.duplicated(keep="first")]
 
     if len(periods_deltas) == 1:
-        delta = str(
-            periods_deltas[0].total_seconds() if isinstance(periods_deltas[0], timedelta) else periods_deltas[0]
-        )
-        new_df = interpolation_method(dataframe.resample(str(delta) + "s"))
+        delta = periods_deltas[0]
+        if isinstance(delta, timedelta):
+            delta = delta.total_seconds()
+        new_df = interpolation_method(dataframe.resample(f"{int(delta)}s"))
     else:
         new_df = pd.DataFrame()
         total_periods = 0
         for i in range(len(periods_deltas) // 2):
             key = i * 2
-            delta = str(
-                periods_deltas[key + 1].total_seconds()  # type: ignore
-                if isinstance(periods_deltas[key + 1], timedelta)
-                else periods_deltas[key + 1]
+            delta = periods_deltas[key + 1]
+            if isinstance(delta, timedelta):
+                delta = delta.total_seconds()
+            interpolated_df = interpolation_method(
+                dataframe.iloc[total_periods : periods_deltas[key]].resample(f"{int(delta)}s")  # type: ignore
             )
-            new_df = pd.concat(
-                dataframe,
-                interpolation_method(
-                    dataframe.iloc[total_periods : periods_deltas[key]].resample(str(delta) + "s")  # type: ignore
-                ),
-            )
+            new_df = pd.concat((None if "new_df" not in locals() else new_df, interpolated_df))
             total_periods += periods_deltas[key]  # type: ignore
 
     if dataframe.isna().to_numpy().any():

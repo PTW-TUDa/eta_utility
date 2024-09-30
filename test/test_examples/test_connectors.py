@@ -18,17 +18,26 @@ from examples.connectors.read_emonio_live import (
 from examples.connectors.read_series_eneffco import (
     read_series as ex_read_eneffco,
 )
+from examples.connectors.read_series_forecast_solar import (
+    read_series as ex_read_forecast_solar,
+)
 from examples.connectors.read_series_wetterdienst import (
     read_series as ex_read_wetterdienst,
 )
 
 from ..utilities.pyModbusTCP.client import ModbusClient as MockModbusClient
-from ..utilities.requests.eneffco_request import request
+from ..utilities.requests.eneffco_request import request as request_eneffco
+from ..utilities.requests.forecast_solar_request import request as request_forecast_solar
 
 
 @pytest.fixture
-def _local_requests(monkeypatch):
-    monkeypatch.setattr(requests_cache.CachedSession, "request", request)
+def _local_eneffco_requests(monkeypatch):
+    monkeypatch.setattr(requests_cache.CachedSession, "request", request_eneffco)
+
+
+@pytest.fixture
+def _local_forecast_solar_requests(monkeypatch):
+    monkeypatch.setattr(requests_cache.CachedSession, "request", request_forecast_solar)
 
 
 @pytest.fixture
@@ -41,10 +50,10 @@ def local_server():
 @pytest.fixture
 def _mock_client(monkeypatch):
     monkeypatch.setattr(mbclient, "ModbusClient", MockModbusClient)
-    monkeypatch.setattr(requests_cache.CachedSession, "request", request)
+    monkeypatch.setattr(requests_cache.CachedSession, "request", request_eneffco)
 
 
-@pytest.mark.usefixtures("_local_requests")
+@pytest.mark.usefixtures("_local_eneffco_requests")
 def test_example_read_eneffco():
     data = ex_read_eneffco()
 
@@ -52,7 +61,7 @@ def test_example_read_eneffco():
     assert set(data.columns) == {"CH1.Elek_U.L1-N", "Pu3.425.ThHy_Q"}
 
 
-@pytest.mark.usefixtures("_local_requests", "_mock_client")
+@pytest.mark.usefixtures("_local_eneffco_requests", "_mock_client")
 def test_example_data_recorder(temp_dir, config_nodes_file, config_eneffco):
     file = temp_dir / "data_recorder_example_output.csv"
     ex_data_recorder(
@@ -76,6 +85,15 @@ def test_example_read_wetterdienst():
     assert isinstance(data, pd.DataFrame)
     assert set(data.columns) == {("Temperature_Darmstadt", "00917")}
     assert data.shape == (19, 1)
+
+
+@pytest.mark.usefixtures("_local_forecast_solar_requests")
+def test_example_read_forecast_solar():
+    data = ex_read_forecast_solar()
+
+    assert isinstance(data, pd.DataFrame)
+    assert set(data.columns) == {("ForecastSolar Node", 0)}
+    assert data.shape == (86401, 1)
 
 
 class TestEmonio:

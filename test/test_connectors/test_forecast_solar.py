@@ -95,7 +95,7 @@ def test_node_from_dict():
 
 @pytest.mark.usefixtures("_local_requests")
 def test_raw_connection(connector):
-    get_url = connector.baseurl + "/help"
+    get_url = connector._baseurl + "/help"
 
     result = connector._raw_request("GET", get_url)
 
@@ -154,7 +154,7 @@ def test_read_series(forecast_solar_nodes, connector):
 def test_connection_from_node(forecast_solar_nodes: dict[str, Node]):
     # Test connection from node
     connector = ForecastSolarConnection.from_node(forecast_solar_nodes["node3"])
-    assert connector.baseurl is not None, "Base URL is empty"
+    assert connector._baseurl is not None, "Base URL is empty"
 
 
 def test_cached_responses(forecast_solar_nodes: dict[str, Node]):
@@ -165,7 +165,7 @@ def test_cached_responses(forecast_solar_nodes: dict[str, Node]):
     url, query_params = node.url, node._query_params
     for i in range(10):
         try:
-            response = connector._raw_request("GET", url, params=query_params, headers=connector.headers)
+            response = connector._raw_request("GET", url, params=query_params, headers=connector._headers)
             if i != 0:
                 assert response.from_cache is True
         except requests.exceptions.HTTPError as e:
