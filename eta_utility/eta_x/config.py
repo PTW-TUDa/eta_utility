@@ -459,7 +459,7 @@ class ConfigOptSettings:
 
     #: Flag which is true if the log output should be written to a file
     log_to_file: bool = field(
-        default=False,
+        default=True,
         converter=converters.pipe(converters.default_if_none(False), bool),  # type: ignore
     )
 
