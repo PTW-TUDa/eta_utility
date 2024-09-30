@@ -59,7 +59,7 @@ class EnEffCoConnection(SeriesConnection[NodeEnEffCo], protocol="eneffco"):
         self._sub: asyncio.Task | None = None
         self._subscription_nodes: set[NodeEnEffCo] = set()
         self._subscription_open: bool = False
-        self.session: CachedSession = CachedSession(
+        self._session: CachedSession = CachedSession(
             cache_name="eta_utility/connectors/requests_cache/eneffco_cache",
             expire_after=timedelta(minutes=15),
             use_cache_dir=True,
@@ -386,7 +386,7 @@ class EnEffCoConnection(SeriesConnection[NodeEnEffCo], protocol="eneffco"):
         assert self.usr is not None, "Make sure to specify a username before performing EnEffCo requests."
         assert self.pwd is not None, "Make sure to specify a password before performing EnEffCo requests."
 
-        response = self.session.request(
+        response = self._session.request(
             method, self.url + "/" + str(endpoint), auth=requests.auth.HTTPBasicAuth(self.usr, self.pwd), **kwargs
         )
         response.raise_for_status()

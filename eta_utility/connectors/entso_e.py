@@ -57,7 +57,7 @@ class ENTSOEConnection(SeriesConnection[NodeEntsoE], protocol="entsoe"):
 
         self._node_ids: str | None = None
         self.config = _ConnectionConfiguration()
-        self.session: CachedSession = CachedSession(
+        self._session: CachedSession = CachedSession(
             cache_name="eta_utility/connectors/requests_cache/entso_e_cache",
             urls_expire_after={
                 "https://web-api.tp.entsoe.eu/*": timedelta(minutes=15),
@@ -276,7 +276,7 @@ class ENTSOEConnection(SeriesConnection[NodeEntsoE], protocol="entsoe"):
         for param, val in params.items():
             xml.append(self.config.xml_param(param, val))
 
-        response = self.session.post(self.url, data=etree.tostring(xml), headers=headers, **kwargs)
+        response = self._session.post(self.url, data=etree.tostring(xml), headers=headers, **kwargs)
 
         if response.status_code == 400:
             try:

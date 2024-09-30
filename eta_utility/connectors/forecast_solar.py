@@ -1,17 +1,22 @@
 """
-This module implements a REST API connector to the forecast.solar API.
+This module provides a read-only REST API connector to the forecast.solar API.
 
-Documentation:
+You can obtain an estimate of solar production for a specific location, defined by latitude and longitude,
+and a specific plane orientation, defined by declination and azimuth, based on the installed module power.
 
-Get solar production estimate for specific location (defined by latitude and longitude)
-and a specific plane orientation (defined by declination and azimuth) for an installed module power.
+Supported endpoints include: "Estimate", "Historic", and "Clearsky":
 
-Historic solar production
-historic means here that the average of all years of the available weather data on that day is considered,
-the current weather is thus not included in the calculation.
+**Estimate Solar Production**
+The `estimate` endpoint provides the forecast for today and the upcoming days, depending on the account model.
 
-Clear sky solar production
-If there were no clouds it would be a clear sky. clearsky thus calculates the theoretically possible production.
+**Historic Solar Production**
+The `historic` endpoint calculates the average solar production for a given day based on historical weather data,
+excluding current weather conditions.
+
+**Clear Sky Solar Production**
+The `clearsky` endpoint calculates the theoretically possible solar production assuming no cloud cover.
+
+For more information, visit the `forecast.solar API documentation <https://doc.forecast.solar/start>`_.
 
 """
 
@@ -59,13 +64,13 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
     :param nodes: Nodes to select in connection.
     """
 
-    baseurl: ClassVar[str] = "https://api.forecast.solar"
-    time_format: ClassVar[str] = "%Y-%m-%dT%H:%M:%SZ"
-    headers: ClassVar[dict[str, str]] = {"Content-Type": "application/json"}
+    _baseurl: ClassVar[str] = "https://api.forecast.solar"
+    _time_format: ClassVar[str] = "%Y-%m-%dT%H:%M:%SZ"
+    _headers: ClassVar[dict[str, str]] = {"Content-Type": "application/json"}
 
     def __init__(
         self,
-        url: str = baseurl,
+        url: str = _baseurl,
         *,
         api_key: str = "None",
         url_params: dict[str, Any] | None = None,
@@ -74,14 +79,14 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
     ) -> None:
         super().__init__(url, None, None, nodes=nodes)
 
-        #: Url params for the forecast.Solar api
+        #: Url parameters for the forecast.Solar api
         self.url_params: dict[str, Any] | None = url_params
-        #: Query params for the forecast.Solar api
+        #: Query parameters for the forecast.Solar api
         self.query_params: dict[str, Any] | None = query_params
         #: Key to use the Forecast.Solar api. If API key is none, only the public functions are usable.
         self._api_key: str = api_key
         #: Cached session to handle the requests
-        self.session: CachedSession = CachedSession(
+        self._session: CachedSession = CachedSession(
             cache_name="eta_utility/connectors/requests_cache/forecast_solar_cache",
             urls_expire_after={
                 "https://api.forecast.solar*": 900,  # 15 minutes
@@ -99,11 +104,11 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
         :param kwargs: Keyword arguments for API authentication, where "api_key" is required
         :return: ForecastSolarConnection object.
         """
-        api_key = kwargs.get("api_token", "None")
+        api_key = kwargs.get("api_key", "None")
 
         return super()._from_node(node, api_key=api_key)
 
-    def read_node(self, node: NodeForecastSolar) -> pd.DataFrame:
+    def _read_node(self, node: NodeForecastSolar) -> pd.DataFrame:
         """Download data from the Forecast.Solar Database.
 
         :param node: Node to read values from.
@@ -111,7 +116,7 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
         """
         url, query_params = node.url, node._query_params
 
-        raw_response = self._raw_request("GET", url, params=query_params, headers=self.headers)
+        raw_response = self._raw_request("GET", url, params=query_params, headers=self._headers)
         response = raw_response.json()
 
         timestamps = pd.to_datetime(list(response["result"].keys()))
@@ -126,7 +131,7 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
 
         return data
 
-    def select_data(
+    def _select_data(
         self, results: pd.DataFrame, from_time: pd.Timestamp | None = None, to_time: pd.Timestamp | None = None
     ) -> tuple[pd.DataFrame, pd.Timestamp]:
         """Forecast.solar api returns the data for the whole day. Select data only for the time interval.
@@ -177,11 +182,11 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
         nodes = self._validate_nodes(nodes)
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            results = executor.map(self.read_node, nodes)
+            results = executor.map(self._read_node, nodes)
 
         values = pd.concat(results, axis=1, keys=[n.name for n in nodes], sort=False)
 
-        values, now = self.select_data(values)
+        values, now = self._select_data(values)
 
         # Insert the current timestamp _now and sort the index column to finish with the linear interpolation method
         values.loc[now] = pd.NA
@@ -190,9 +195,21 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
         return pd.DataFrame(values.interpolate(method="linear").loc[now])
 
     def write(self, values: Mapping[AnyNode, Any]) -> None:
+        """
+        .. warning::
+            Cannot read single values from the Forecast.Solar API. Use read_series instead
+
+        :raises NotImplementedError:
+        """
         raise NotImplementedError("Write is not implemented for Forecast.Solar.")
 
     def subscribe(self, handler: SubscriptionHandler, nodes: Nodes | None = None, interval: TimeStep = 1) -> None:
+        """
+        .. warning::
+            Cannot read single values from the Forecast.Solar API. Use read_series instead
+
+        :raises NotImplementedError:
+        """
         raise NotImplementedError("Subscribe is not implemented for Forecast.Solar.")
 
     def read_series(
@@ -215,11 +232,11 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
         to_time = pd.Timestamp(round_timestamp(to_time, _interval.total_seconds())).tz_convert(self._local_tz)
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            results = executor.map(self.read_node, nodes)
+            results = executor.map(self._read_node, nodes)
 
         values = pd.concat(results, axis=1, keys=[n.name for n in nodes], sort=False)
 
-        values, _ = self.select_data(values, from_time, to_time)
+        values, _ = self._select_data(values, from_time, to_time)
 
         values = df_resample(values, _interval, missing_data="interpolate")
 
@@ -235,9 +252,21 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
         data_interval: TimeStep = 1,
         **kwargs: Any,
     ) -> None:
+        """
+        .. warning::
+            Cannot read single values from the Forecast.Solar  API. Use read_series instead
+
+        :raises NotImplementedError:
+        """
         raise NotImplementedError("Subscribe series is not implemented for Forecast.Solar.")
 
     def close_sub(self) -> None:
+        """
+        .. warning::
+            Cannot read single values from the Forecast.Solar  API. Use read_series instead
+
+        :raises NotImplementedError:
+        """
         raise NotImplementedError("Close subscription is not implemented for Forecast.Solar.")
 
     async def _subscription_loop(
@@ -248,6 +277,12 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
         offset: TimeStep,
         data_interval: TimeStep,
     ) -> None:
+        """
+        .. warning::
+            Cannot read single values from the Forecast.Solar  API. Use read_series instead
+
+        :raises NotImplementedError:
+        """
         raise NotImplementedError("Subscription loop is not implemented for Forecast.Solar.")
 
     def timestr_from_datetime(self, dt: datetime) -> str:
@@ -269,7 +304,7 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
         if self._api_key != "None":
             log.info("The api_key is None and only the public functions are available of the forecastsolar.api.")
 
-        response = self.session.request(method, url, **kwargs)
+        response = self._session.request(method, url, **kwargs)
         # Check for request errors
         response.raise_for_status()
 
@@ -297,7 +332,7 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
         for node in nodes:
             _check_node = node.evolve(api_key=None, endpoint="check", data=None)
             try:
-                conn._raw_request("GET", _check_node.url, headers=conn.headers)
+                conn._raw_request("GET", _check_node.url, headers=conn._headers)
             except requests.exceptions.HTTPError as e:
                 log.error(f"\nRoute of node: {node.name} could not be verified: \n{e}")
                 return False
@@ -355,13 +390,13 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
             traceback.print_exception(exc_type, exc_value, tb)
             return False
         try:
-            self.session.close()
+            self._session.close()
         except Exception as e:
             log.error(f"Error closing the connection: {e}")
         return True
 
     def __del__(self) -> None:
         try:
-            self.session.close()
+            self._session.close()
         finally:
             pass

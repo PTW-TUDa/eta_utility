@@ -97,7 +97,6 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         :param init_values: Dictionary of initial values for some FMU variables.
         """
         assert self.state_config is not None, "Set state_config before calling _init_simulator function."
-
         _init_vals = {} if init_values is None else init_values
 
         if hasattr(self, "simulator") and isinstance(self.simulator, FMUSimulator):
@@ -124,18 +123,15 @@ class BaseEnvSim(BaseEnv, abc.ABC):
                  during simulation.
         """
         assert self.state_config is not None, "Set state_config before calling simulate function."
-
         # generate FMU input from current state
         step_inputs = []
         for key in self.state_config.ext_inputs:
             try:
-                if isinstance(state[key], bool):
-                    step_inputs.append(state[key])
-                else:
-                    step_inputs.append(
-                        state[key] / self.state_config.ext_scale[key]["multiply"]
-                        - self.state_config.ext_scale[key]["add"]
-                    )
+                value = state[key]
+                if isinstance(value, (int, float)):
+                    scale_config = self.state_config.ext_scale[key]
+                    value = value / scale_config["multiply"] - scale_config["add"]
+                step_inputs.append(value)
             except KeyError as e:
                 raise KeyError(f"{e!s} is unavailable in environment state.") from e
 
@@ -156,9 +152,11 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         output = {}
         if step_success:
             for idx, name in enumerate(self.state_config.ext_outputs):
-                output[name] = (
-                    step_output[idx] + self.state_config.ext_scale[name]["add"]
-                ) * self.state_config.ext_scale[name]["multiply"]
+                value = step_output[idx]
+                if isinstance(value, (int, float)):
+                    scale_config = self.state_config.ext_scale[name]
+                    value = (value + scale_config["add"]) * scale_config["multiply"]
+                output[name] = value
 
         return output, step_success, sim_time_elapsed
 
@@ -287,9 +285,11 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         output = self.simulator.read_values(start_obs)
         self.state = {} if self.additional_state is None else self.additional_state
         for idx, name in enumerate(self.state_config.ext_outputs):
-            self.state[name] = (output[idx] + self.state_config.ext_scale[name]["add"]) * self.state_config.ext_scale[
-                name
-            ]["multiply"]
+            value = output[idx]
+            if isinstance(value, (int, float)):
+                scale_config = self.state_config.ext_scale[name]
+                value = (value + scale_config["add"]) * scale_config["multiply"]
+            self.state[name] = value
 
         self.state.update(self.get_scenario_state())
         self.state_log.append(self.state)
