@@ -24,7 +24,7 @@ It's recommended to install the package in a virtual environment. See :ref:`crea
 
 There are multiple classes of optional requirements. If you would like to use some of the optional components, please install one or more of the following:
 
-- *eta_x*: Contains dependencies for the optimization part of the framework
+- *eta-x*: Contains dependencies for the optimization part of the framework
 - *examples*: Dependencies required to run the examples
 - *develop*: All of the above and additional dependencies for the continuous integration processes. Required when performing development work on eta_utility.
 
@@ -32,7 +32,7 @@ The optional requirements can be installed using pip. For example:
 
 .. code-block:: console
 
-   $ pip install eta_utility[eta_x]
+   $ pip install eta_utility[eta-x]
 
 .. _install_julia:
 
