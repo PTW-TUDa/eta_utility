@@ -18,7 +18,7 @@ def read_series() -> pd.DataFrame:
     # Check out NodeEntsoE documentation for endpoint and bidding zone information
     node = NodeEntsoE(
         "CH1.Elek_U.L1-N",
-        "https://transparency.entsoe.eu/",
+        "https://web-api.tp.entsoe.eu/",
         "entsoe",
         endpoint="Price",
         bidding_zone="DEU-LUX",
