@@ -8,6 +8,7 @@ import concurrent.futures
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
+import numpy as np
 import pandas as pd
 import requests
 from lxml import etree
@@ -161,6 +162,15 @@ class ENTSOEConnection(SeriesConnection[NodeEntsoE], protocol="entsoe"):
 
             points = period.findall(".//Point", namespaces=ns)
             ts_data = [point.getchildren()[-1].text for point in points]
+
+            # Handle missing data points
+            if len(ts_data) < len(datetime_range):
+                indices = set(range(len(datetime_range)))
+                for point in points:
+                    indices.remove(int(point.getchildren()[0].text) - 1)
+
+                for miss in indices:
+                    ts_data.insert(miss, np.nan)
 
             s = pd.Series(data=ts_data, index=datetime_range, name=col_name)
             s.index = s.index.tz_localize(tz="UTC")  # ENTSO-E returns always UTC
