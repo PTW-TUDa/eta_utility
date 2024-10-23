@@ -5,13 +5,13 @@ import base64
 import concurrent.futures
 import json
 from datetime import datetime, timedelta
+from logging import getLogger
 from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 import requests
 
-from eta_utility import get_logger
 from eta_utility.connectors.node import NodeCumulocity
 
 if TYPE_CHECKING:
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 from .base_classes import SeriesConnection, SubscriptionHandler
 
-log = get_logger("connectors.cumulocity")
+log = getLogger(__name__)
 
 
 class CumulocityConnection(SeriesConnection[NodeCumulocity], protocol="cumulocity"):

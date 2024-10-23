@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import abc
+from logging import getLogger
 from typing import TYPE_CHECKING
 
 import numpy as np
 
-from eta_utility import get_logger
 from eta_utility.connectors import LiveConnect
 from eta_utility.eta_x.envs import BaseEnv
 
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from eta_utility.eta_x import ConfigOptRun
     from eta_utility.type_hints import ObservationType, Path, StepResult, TimeStep
 
-log = get_logger("eta_x.envs")
+log = getLogger(__name__)
 
 
 class BaseEnvLive(BaseEnv, abc.ABC):

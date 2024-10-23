@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from logging import getLogger
 from typing import TYPE_CHECKING, Generic, TypeVar
 
 import pandas as pd
@@ -18,7 +19,6 @@ if TYPE_CHECKING:
 
 from datetime import datetime, timedelta
 
-from eta_utility import get_logger
 from eta_utility.connectors.node import (
     NodeWetterdienst,
     NodeWetterdienstObservation,
@@ -27,7 +27,7 @@ from eta_utility.connectors.node import (
 
 from .base_classes import SeriesConnection, SubscriptionHandler
 
-log = get_logger("connectors.wetterdienst")
+log = getLogger(__name__)
 
 NW = TypeVar("NW", bound=NodeWetterdienst)
 

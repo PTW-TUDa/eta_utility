@@ -3,12 +3,13 @@ from __future__ import annotations
 import socket
 from collections.abc import Sized
 from datetime import datetime
+from logging import getLogger
 from typing import TYPE_CHECKING
 
 import pandas as pd
 from pyModbusTCP.server import ModbusServer as BaseModbusServer
 
-from eta_utility import ensure_timezone, get_logger, url_parse
+from eta_utility import ensure_timezone, url_parse
 from eta_utility.connectors.node import NodeModbus
 from eta_utility.connectors.util import (
     bitarray_to_registers,
@@ -25,7 +26,7 @@ if TYPE_CHECKING:
 
     from eta_utility.type_hints import Nodes
 
-log = get_logger("servers.modbus")
+log = getLogger(__name__)
 
 
 class ModbusServer:

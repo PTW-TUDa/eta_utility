@@ -9,8 +9,6 @@ import pandas as pd
 from attrs import asdict, converters, define, field, fields_dict, validators
 from gymnasium import spaces
 
-from eta_utility import get_logger
-
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
     from typing import Any
@@ -18,8 +16,9 @@ if TYPE_CHECKING:
     from attrs import Attribute
 
     from eta_utility.type_hints import Path
+from logging import getLogger
 
-log = get_logger("eta_x.envs")
+log = getLogger(__name__)
 
 
 def _valid_id(instance: type, attribute: Attribute, value: Any) -> None:

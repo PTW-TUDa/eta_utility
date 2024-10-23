@@ -11,7 +11,7 @@ import torch as th
 from attrs import asdict
 from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor, VecNormalize
 
-from eta_utility import dict_get_any, get_logger, log_add_filehandler
+from eta_utility import dict_get_any, log_add_filehandler
 
 from . import processors
 from .policies import NoPolicy
@@ -27,8 +27,9 @@ if TYPE_CHECKING:
     from eta_utility.eta_x import ConfigOpt, ConfigOptRun
     from eta_utility.eta_x.envs import BaseEnv
     from eta_utility.type_hints import AlgoSettings, EnvSettings, Path
+from logging import getLogger
 
-log = get_logger("eta_x")
+log = getLogger(__name__)
 
 
 def vectorize_environment(

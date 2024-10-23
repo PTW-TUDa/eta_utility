@@ -27,13 +27,13 @@ import concurrent.futures
 import traceback
 from collections.abc import Mapping
 from datetime import datetime, timedelta
+from logging import getLogger
 from typing import TYPE_CHECKING
 
 import pandas as pd
 import requests
 from requests_cache import DO_NOT_CACHE, CachedSession
 
-from eta_utility import get_logger
 from eta_utility.connectors.node import NodeForecastSolar
 from eta_utility.timeseries import df_resample
 from eta_utility.util import round_timestamp
@@ -49,7 +49,7 @@ if TYPE_CHECKING:
     from eta_utility.type_hints import AnyNode, Nodes, TimeStep
 
 
-log = get_logger("connectors.forecast_solar")
+log = getLogger(__name__)
 
 
 class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):

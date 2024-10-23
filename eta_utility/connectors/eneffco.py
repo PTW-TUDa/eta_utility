@@ -6,6 +6,7 @@ import asyncio
 import concurrent.futures
 from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
+from logging import getLogger
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -13,7 +14,6 @@ import pandas as pd
 import requests
 from requests_cache import CachedSession
 
-from eta_utility import get_logger
 from eta_utility.connectors.node import NodeEnEffCo
 
 if TYPE_CHECKING:
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 from .base_classes import SeriesConnection, SubscriptionHandler
 
-log = get_logger("connectors.eneffco")
+log = getLogger(__name__)
 
 
 class EnEffCoConnection(SeriesConnection[NodeEnEffCo], protocol="eneffco"):

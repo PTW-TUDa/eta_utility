@@ -6,13 +6,13 @@ import asyncio
 import socket
 from contextlib import contextmanager
 from datetime import datetime, timedelta
+from logging import getLogger
 from typing import TYPE_CHECKING
 
 import pandas as pd
 from pyModbusTCP import constants as mb_const
 from pyModbusTCP.client import ModbusClient
 
-from eta_utility import get_logger
 from eta_utility.connectors.node import NodeModbus
 from eta_utility.connectors.util import (
     IntervalChecker,
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 
 from .base_classes import Connection, SubscriptionHandler
 
-log = get_logger("connectors.modbus")
+log = getLogger(__name__)
 
 
 class ModbusConnection(Connection[NodeModbus], protocol="modbus"):

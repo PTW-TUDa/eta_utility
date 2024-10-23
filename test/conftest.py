@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import pathlib
 import platform
 import random
@@ -6,6 +7,18 @@ import shutil
 import socket
 
 import pytest
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _silence_logging():
+    logging.root.setLevel(logging.ERROR)
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_runtest_setup(item):
+    # Set logging level to INFO if caplog is used
+    level = logging.INFO if "caplog" in item.fixturenames else logging.ERROR
+    logging.getLogger("eta_utility").setLevel(level)
 
 
 @pytest.fixture(scope="session")

@@ -160,6 +160,8 @@ ignore_errors = true
 [tool.pytest.ini_options]
 addopts = ["--cov-config=pyproject.toml", "--color=yes"]
 log_cli = true
+log_cli_level = 20
+log_cli_format = "[%(levelname)s: %(name)s] %(message)s"
 testpaths = [
     "test",
 ]

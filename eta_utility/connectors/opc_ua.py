@@ -11,6 +11,7 @@ from concurrent.futures import (
 )
 from contextlib import contextmanager
 from datetime import datetime, timedelta
+from logging import getLogger
 from typing import TYPE_CHECKING
 
 import asyncua.sync
@@ -28,7 +29,7 @@ from asyncua.crypto.security_policies import SecurityPolicyBasic256Sha256
 from asyncua.sync import Client, Subscription
 from asyncua.ua import SecurityPolicy, uaerrors
 
-from eta_utility import KeyCertPair, Suppressor, get_logger
+from eta_utility import KeyCertPair, Suppressor
 from eta_utility.connectors.node import NodeOpcUa
 
 from .util import IntervalChecker, RetryWaiter
@@ -47,7 +48,7 @@ if TYPE_CHECKING:
 
 from .base_classes import Connection, SubscriptionHandler
 
-log = get_logger("connectors.opcua")
+log = getLogger(__name__)
 
 
 class OpcUaConnection(Connection[NodeOpcUa], protocol="opcua"):

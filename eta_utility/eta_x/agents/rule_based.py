@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import abc
+from logging import getLogger
 from typing import TYPE_CHECKING
 
 import numpy as np
 from stable_baselines3.common.base_class import BaseAlgorithm
-
-from eta_utility import get_logger
 
 if TYPE_CHECKING:
     import io
@@ -19,7 +18,7 @@ if TYPE_CHECKING:
     from stable_baselines3.common.vec_env import VecEnv
 
 
-log = get_logger("eta_x.agents")
+log = getLogger(__name__)
 
 
 class RuleBased(BaseAlgorithm, abc.ABC):

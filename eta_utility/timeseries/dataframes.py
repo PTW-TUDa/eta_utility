@@ -9,19 +9,18 @@ import operator as op
 import pathlib
 import re
 from datetime import datetime, timedelta
+from logging import getLogger
 from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
-
-from eta_utility import get_logger
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from eta_utility.type_hints import Path, TimeStep
 
-log = get_logger("timeseries")
+log = getLogger(__name__)
 
 
 def df_from_csv(
