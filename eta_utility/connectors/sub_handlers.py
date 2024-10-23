@@ -8,6 +8,7 @@ import threading
 from collections import deque
 from contextlib import AbstractContextManager
 from datetime import datetime
+from logging import getLogger
 from threading import Lock
 from typing import TYPE_CHECKING
 
@@ -15,7 +16,6 @@ import numpy as np
 import pandas as pd
 from dateutil import tz
 
-from eta_utility import get_logger
 from eta_utility.connectors.node import Node
 
 if TYPE_CHECKING:
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
 from .base_classes import SubscriptionHandler
 
-log = get_logger("connectors")
+log = getLogger(__name__)
 
 
 class MultiSubHandler(SubscriptionHandler):

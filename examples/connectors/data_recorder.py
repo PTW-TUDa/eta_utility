@@ -20,14 +20,15 @@ except ModuleNotFoundError as e:
         "[examples] option to get all packages required for running examples.",
         name="keyboard",
     ) from e
-from eta_utility import get_logger
+from logging import getLogger
+
 from eta_utility.connectors import Node, sub_handlers
 
 if TYPE_CHECKING:
     from eta_utility.type_hints import Path, TimeStep
 
 
-log = get_logger(level=2, log_format="logname")
+log = getLogger(__name__)
 
 
 def parse_args() -> argparse.Namespace:

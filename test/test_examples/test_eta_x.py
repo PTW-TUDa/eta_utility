@@ -23,7 +23,15 @@ class TestPendulumExample:
         shutil.rmtree(path / "results")
 
     def test_conventional(self, experiment_path):
-        ex_pendulum_conventional(experiment_path, {"environment_specific": {"do_render": False}})
+        ex_pendulum_conventional(
+            experiment_path,
+            {
+                "settings": {
+                    "log_to_file": False,
+                },
+                "environment_specific": {"do_render": False},
+            },
+        )
 
     def test_learning(self, experiment_path):
         ex_pendulum_learning(
@@ -49,7 +57,7 @@ class TestOscillatorExample:
         shutil.rmtree(path / "results")
 
     def test_oscillator(self, experiment_path):
-        ex_oscillator(experiment_path)
+        ex_oscillator(experiment_path, {"settings": {"log_to_file": False}})
 
 
 class TestCPSExample:

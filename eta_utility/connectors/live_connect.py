@@ -9,11 +9,12 @@ from collections.abc import Mapping, Sequence
 from concurrent.futures import TimeoutError as ConTimeoutError
 from contextlib import AbstractContextManager
 from datetime import timedelta
+from logging import getLogger
 from typing import TYPE_CHECKING
 
 import numpy as np
 
-from eta_utility import get_logger, json_import
+from eta_utility import json_import
 from eta_utility.connectors import name_map_from_node_sequence
 from eta_utility.connectors.base_classes import Connection
 from eta_utility.connectors.node import Node
@@ -26,7 +27,7 @@ if TYPE_CHECKING:
 
     from eta_utility.type_hints import Path, TimeStep
 
-log = get_logger("connectors.live")
+log = getLogger(__name__)
 
 
 class LiveConnect(AbstractContextManager):

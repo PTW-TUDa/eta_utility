@@ -6,7 +6,6 @@ import pytest
 import toml
 
 from eta_utility.eta_x.config import ConfigOpt, ConfigOptSettings, ConfigOptSetup
-from eta_utility.util import get_logger
 from test.resources.config.config_python import config as python_dict
 
 
@@ -75,7 +74,8 @@ class TestConfigOpt:
             ConfigOpt._load_config_file(file_path)
 
     def test_build_config_opt_dictfail(self, config_dict: dict, caplog):
-        get_logger(level=2).propagate = True
+        caplog.set_level(10)  # Set log level to debug
+
         config_dict["setup"] = ["foobar"]
         config_dict.pop("environment_specific")
         error_msg = re.escape("'setup' section must be a dictionary of settings.")
@@ -127,9 +127,6 @@ class TestConfigOptSetup:
 
     @pytest.mark.parametrize("missing_class", missing_classes)
     def test_from_dict_fail(self, config_dict: dict, missing_class: str, caplog):
-        # Get logger output
-        get_logger(level=3).propagate = True
-
         config_dict["setup"].pop(missing_class)
         missing = missing_class.rsplit("_", 1)[0]
         error_msg = re.escape(
@@ -169,7 +166,7 @@ class TestConfigOptSetup:
     def test_unrecognized_keys(self, config_dict: dict, caplog):
         config_dict["setup"]["foobar"] = "barfoo"
         ConfigOptSetup.from_dict(config_dict["setup"])
-        log_msg = "Following values were not recognized in the config setup section and are ignored: " "foobar"
+        log_msg = "Following values were not recognized in the config setup section and are ignored: foobar"
         assert log_msg in caplog.messages
 
 

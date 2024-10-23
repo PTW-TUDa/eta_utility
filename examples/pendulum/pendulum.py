@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from logging import getLogger
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -18,7 +19,6 @@ else:
         angle_normalize,
     )
 
-from eta_utility import get_logger
 from eta_utility.eta_x.envs import BaseEnv, StateConfig, StateVar
 
 if TYPE_CHECKING:
@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from eta_utility.eta_x import ConfigOptRun
     from eta_utility.type_hints import ObservationType, StepResult, TimeStep
 
-log = get_logger("test_etax", 2)
+log = getLogger(__name__)
 
 
 class PendulumEnv(BaseEnv, GymPendulum):

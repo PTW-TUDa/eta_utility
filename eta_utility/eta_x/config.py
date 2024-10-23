@@ -3,12 +3,13 @@ from __future__ import annotations
 import importlib
 import itertools
 import pathlib
+from logging import getLogger
 from typing import TYPE_CHECKING
 
 from attrs import Factory, converters, define, field, fields, validators
 from typing_extensions import deprecated
 
-from eta_utility import deep_mapping_update, dict_pop_any, get_logger, json_import
+from eta_utility import deep_mapping_update, dict_pop_any, json_import
 from eta_utility.util import toml_import, yaml_import
 
 if TYPE_CHECKING:
@@ -23,7 +24,7 @@ if TYPE_CHECKING:
     from eta_utility.type_hints import Path
 
 
-log = get_logger("eta_x")
+log = getLogger(__name__)
 
 
 def _path_converter(path: Path) -> pathlib.Path:

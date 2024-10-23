@@ -4,13 +4,13 @@ import os
 import pathlib
 from contextlib import contextmanager
 from datetime import datetime
+from logging import getLogger
 from typing import TYPE_CHECKING
 
 import numpy as np
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.vec_env import VecNormalize
 
-from eta_utility import get_logger
 from eta_utility.eta_x import ConfigOpt, ConfigOptRun
 from eta_utility.eta_x.common import (
     CallbackEnvironment,
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from stable_baselines3.common.vec_env import VecEnv
     from stable_baselines3.common.vec_env.base_vec_env import VecEnvObs
 
-log = get_logger("eta_x")
+log = getLogger(__name__)
 
 
 class ETAx:

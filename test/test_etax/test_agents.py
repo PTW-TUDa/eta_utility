@@ -5,7 +5,6 @@ import numpy as np
 import pytest
 from stable_baselines3.common.vec_env import DummyVecEnv
 
-from eta_utility import get_logger
 from eta_utility.eta_x import ConfigOptRun
 from eta_utility.eta_x.agents.math_solver import MathSolver
 from eta_utility.eta_x.common import NoPolicy
@@ -32,8 +31,6 @@ class TestRuleBased:
         return RuleBasedController(policy=NoPolicy, env=vec_env)
 
     def test_rb_save_load(self, vec_env, rb_agent, temp_dir):
-        get_logger(level=3)
-
         # Save the agent
         path = temp_dir / "test_rule_based_agent.zip"
         rb_agent.save(path)

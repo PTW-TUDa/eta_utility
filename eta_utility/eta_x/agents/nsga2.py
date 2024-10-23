@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 from collections import deque
+from logging import getLogger
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -11,7 +12,6 @@ from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.utils import safe_mean
 from stable_baselines3.common.vec_env import VecNormalize
 
-from eta_utility import get_logger
 from eta_utility.util_julia import check_julia_package
 
 if check_julia_package():
@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 
 Jl.eval("using PyCall")
 Jl.eval("import ju_extensions.Agents.Nsga2")
-log = get_logger("eta_x.agents")
+log = getLogger(__name__)
 
 
 @define

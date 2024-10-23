@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import concurrent.futures
 from datetime import datetime, timedelta, timezone
+from logging import getLogger
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -15,7 +16,6 @@ from lxml import etree
 from lxml.builder import E
 from requests_cache import DO_NOT_CACHE, CachedSession
 
-from eta_utility import get_logger
 from eta_utility.connectors.node import NodeEntsoE
 from eta_utility.timeseries import df_resample, df_time_slice
 from eta_utility.util import dict_search, round_timestamp
@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
 from .base_classes import SeriesConnection, SubscriptionHandler
 
-log = get_logger("connectors.entso-e")
+log = getLogger(__name__)
 
 
 class ENTSOEConnection(SeriesConnection[NodeEntsoE], protocol="entsoe"):

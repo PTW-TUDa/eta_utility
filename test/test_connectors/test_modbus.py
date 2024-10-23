@@ -3,7 +3,6 @@ import asyncio
 import pandas as pd
 import pytest
 
-from eta_utility import get_logger
 from eta_utility.connectors import DFSubHandler, ModbusConnection, Node
 from eta_utility.servers import ModbusServer
 
@@ -368,9 +367,6 @@ class TestConnectorSubscriptions:
 
     @pytest.mark.usefixtures("_write_nodes_interrupt")
     def test_subscribe_interrupted(self, local_nodes, caplog):
-        log = get_logger()
-        log.propagate = True
-
         connection = ModbusConnection.from_node(local_nodes, usr="admin", pwd="0")
         handler = DFSubHandler(write_interval=1)
         connection.subscribe(handler, interval=1)
@@ -471,9 +467,6 @@ class TestConnectorSubscriptionsIntervalChecker:
 
     @pytest.mark.usefixtures("_write_nodes_interval_checking")
     def test_subscribe_interval_checking(self, local_nodes_interval_checking, caplog):
-        log = get_logger()
-        log.propagate = True
-
         connection = ModbusConnection.from_node(local_nodes_interval_checking, usr="admin", pwd="0")
         handler = DFSubHandler(write_interval=1)
         connection.subscribe(handler, interval=1)

@@ -3,11 +3,11 @@ from __future__ import annotations
 import abc
 import pathlib
 import time
+from logging import getLogger
 from typing import TYPE_CHECKING
 
 import numpy as np
 
-from eta_utility import get_logger
 from eta_utility.eta_x.envs import BaseEnv
 from eta_utility.simulators import FMUSimulator
 
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from eta_utility.eta_x import ConfigOptRun
     from eta_utility.type_hints import ObservationType, StepResult, TimeStep
 
-log = get_logger("eta_x.envs")
+log = getLogger(__name__)
 
 
 class BaseEnvSim(BaseEnv, abc.ABC):
