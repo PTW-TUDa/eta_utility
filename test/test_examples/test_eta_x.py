@@ -26,9 +26,7 @@ class TestPendulumExample:
         ex_pendulum_conventional(
             experiment_path,
             {
-                "settings": {
-                    "log_to_file": False,
-                },
+                "settings": {"log_to_file": False},
                 "environment_specific": {"do_render": False},
             },
         )
