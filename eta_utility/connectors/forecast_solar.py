@@ -35,7 +35,7 @@ import requests
 from requests_cache import DO_NOT_CACHE, CachedSession
 
 from eta_utility.connectors.node import NodeForecastSolar
-from eta_utility.timeseries import df_resample
+from eta_utility.timeseries import df_interpolate
 from eta_utility.util import round_timestamp
 
 from .base_classes import SeriesConnection, SubscriptionHandler
@@ -238,7 +238,7 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
 
         values, _ = self._select_data(values, from_time, to_time)
 
-        values = df_resample(values, _interval, missing_data="interpolate")
+        values = df_interpolate(values, _interval)
 
         return values.loc[from_time:to_time]  # type: ignore
 
