@@ -8,6 +8,7 @@ import pathlib
 import re
 from collections.abc import Mapping
 from datetime import timedelta
+from logging import getLogger
 from sys import maxsize
 from typing import TYPE_CHECKING
 
@@ -27,7 +28,7 @@ from wetterdienst.provider.dwd.observation import (
     DwdObservationResolution,
 )
 
-from eta_utility import dict_get_any, get_logger, url_parse
+from eta_utility import dict_get_any, url_parse
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -52,7 +53,7 @@ default_schemes = {
 }
 
 
-log = get_logger("connectors")
+log = getLogger(__name__)
 
 
 def _strip_str(value: str) -> str:

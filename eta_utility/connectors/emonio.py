@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from datetime import datetime, timedelta
+from logging import getLogger
 from typing import TYPE_CHECKING
 
 import pandas as pd
@@ -9,7 +10,6 @@ import pandas as pd
 from eta_utility.connectors.base_classes import Connection, SubscriptionHandler
 from eta_utility.connectors.modbus import ModbusConnection
 from eta_utility.connectors.node import Node, NodeEmonio, NodeModbus
-from eta_utility.util import get_logger
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
     from eta_utility.type_hints import Nodes, TimeStep
 
-log = get_logger("connectors.emonio")
+log = getLogger(__name__)
 
 
 class EmonioConnection(Connection[NodeEmonio], protocol="emonio"):

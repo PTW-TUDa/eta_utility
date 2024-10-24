@@ -3,6 +3,7 @@ from __future__ import annotations
 import abc
 from collections.abc import Mapping, MutableMapping, Sequence
 from datetime import datetime, timedelta
+from logging import getLogger
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -10,7 +11,6 @@ import pandas as pd
 from pyomo import environ as pyo
 from pyomo.core import base as pyo_base
 
-from eta_utility import get_logger
 from eta_utility.eta_x.envs import BaseEnv
 from eta_utility.eta_x.envs.state import StateConfig, StateVar
 
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from eta_utility.type_hints import PyoParams, StepResult, TimeStep
 
 
-log = get_logger("eta_x.envs")
+log = getLogger(__name__)
 
 
 class BaseEnvMPC(BaseEnv, abc.ABC):

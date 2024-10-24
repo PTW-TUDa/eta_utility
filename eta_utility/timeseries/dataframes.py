@@ -9,19 +9,19 @@ import operator as op
 import pathlib
 import re
 from datetime import datetime, timedelta
+from logging import getLogger
 from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 
-from eta_utility import get_logger
-
 if TYPE_CHECKING:
     from collections.abc import Sequence
+    from typing import Literal
 
     from eta_utility.type_hints import Path, TimeStep
 
-log = get_logger("timeseries")
+log = getLogger(__name__)
 
 
 def df_from_csv(
@@ -265,5 +265,48 @@ def df_resample(dataframe: pd.DataFrame, *periods_deltas: TimeStep, missing_data
             "Resampled Dataframe has missing values. Before using this data, ensure you deal with the missing values. "
             "For example, you could interpolate(), fillna() or dropna()."
         )
+
+    return new_df
+
+
+def df_interpolate(
+    dataframe: pd.DataFrame, freq: TimeStep, limit_direction: Literal["both", "forward", "backward"] = "both"
+) -> pd.DataFrame:
+    """Interpolate missing values in a DataFrame with a specified frequency.
+    Is able to handle unevenly spaced time series data.
+
+    Args:
+        dataframe (pd.DataFrame): DataFrame for interpolation.
+        freq (TimeStep): Frequency of the resulting DataFrame.
+        limit_direction (Literal["both", "forward", "backward"], optional): Direction in which to limit the
+            interpolation. Defaults to "both".
+
+    Returns:
+        pd.DataFrame: Interpolated DataFrame.
+    """
+    if not dataframe.index.is_unique:
+        log.warning(
+            f"Index has non-unique values. Dropping duplicates: "
+            f"{dataframe.index[dataframe.index.duplicated(keep='first')].to_list()}."
+        )
+        dataframe = dataframe[~dataframe.index.duplicated(keep="first")]
+
+    freq_seconds: float | int = freq.total_seconds() if isinstance(freq, timedelta) else freq
+    freq_str: str = str(int(freq_seconds)) + "s"
+
+    old_index: pd.Index = dataframe.index
+    start: pd.Timestamp = old_index.min().floor(freq_str)
+    end: pd.Timestamp = old_index.max().ceil(freq_str)
+    new_index: pd.Index = pd.date_range(start=start, end=end, freq=freq_str)
+    tmp_index: pd.Index = old_index.union(new_index)
+
+    df_reindexed: pd.DataFrame = dataframe.reindex(tmp_index)
+    df_interpolated: pd.DataFrame = df_reindexed.interpolate(method="time", limit_direction=limit_direction)
+    new_df: pd.DataFrame = df_interpolated.reindex(new_index)
+
+    if new_df.iloc[0].isna().to_numpy().any():
+        log.warning("The first value of the interpolated dataframe is NaN.")
+    if new_df.iloc[-1].isna().to_numpy().any():
+        log.warning("The last value of the interpolated dataframe is NaN.")
 
     return new_df

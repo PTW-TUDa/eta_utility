@@ -7,16 +7,15 @@ import torch as th
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.utils import get_device
 
-from eta_utility import get_logger
-
 from .common import deserialize_net_arch
 
 if TYPE_CHECKING:
     from typing import Any
 
     import gymnasium
+from logging import getLogger
 
-log = get_logger("eta_x")
+log = getLogger(__name__)
 
 
 class CustomExtractor(BaseFeaturesExtractor):

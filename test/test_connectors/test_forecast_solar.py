@@ -10,7 +10,6 @@ from eta_utility.connectors import ForecastSolarConnection, Node
 from eta_utility.connectors.node import NodeForecastSolar
 
 from ..utilities.requests.forecast_solar_request import request
-from ..utilities.util_test import suppress_logging
 
 
 # Sample node
@@ -121,7 +120,7 @@ def test_check_route():
 
     assert ForecastSolarConnection.route_valid(node)
 
-    with validators.disabled(), suppress_logging():
+    with validators.disabled():
         invalid_node = node.evolve(latitude=91)  # latitude invalid
         assert not ForecastSolarConnection.route_valid(invalid_node)
 

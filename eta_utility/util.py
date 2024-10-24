@@ -16,6 +16,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from datetime import datetime, timedelta
+from logging import getLogger
 from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse, urlunparse
@@ -49,118 +50,130 @@ LOG_ERROR = 4
 LOG_PREFIX = "eta_utility"
 LOG_FORMATS = {
     "simple": "[%(levelname)s] %(message)s",
-    "logname": "[%(name)s: %(levelname)s] %(message)s",
-    "time": "[%(asctime)s - %(name)s - %(levelname)s] - %(message)s",
+    "logname": "[%(levelname)s: %(name)s] %(message)s",
+    "time": "[%(asctime)s - %(levelname)s - %(name)s] - %(message)s",
 }
 
 
 def get_logger(
-    name: str | None = None,
-    level: int | None = None,
-    log_format: str | None = None,
+    name: str | None = None,  # for legacy reasons
+    level: int = 10,
+    log_format: str = "simple",
 ) -> logging.Logger:
     """Get eta_utility specific logger.
 
-    Call this without specifying a name to initiate logging. Set the "level" and "format" parameters to determine
-    log output.
+    This function initializes and configures the eta_utility's logger with the specified logging
+    level and format. By default, this logger will not propagate to the root logger, ensuring that
+    eta_utility's logs remain isolated unless otherwise configured.
 
-    .. note::
-        When using this function internally (inside eta_utility) a name should always be specified to avoid leaking
-        logging info to external loggers. Also note that this can only be called once without specifying a name!
-        Subsequent calls will have no effect.
+    Using this function is optional. The logger can be accessed and customized manually after
+    retrieval.
 
-    :param name: Name of the logger.
-    :param level: Logging level (higher is more verbose between 0 - no output and 4 - debug).
-    :param format: Format of the log output. One of: simple, logname, time. (default: simple).
+    :param level: Logging level (lower is more verbose between 10 - Debugging and 40 - Errors).
+    :param log_format: Format of the log output. One of: simple, logname, time. (default: simple).
     :return: The *eta_utility* logger.
     """
+    if name is not None:
+        warnings.warn(
+            "The 'name' argument is deprecated and will be removed in future versions.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
-    if name is not None and name != LOG_PREFIX:
-        # Child loggers
-        name = ".".join((LOG_PREFIX, name))
-        log = logging.getLogger(name)
-    else:
-        # Main logger (only add handler if it does not have one already)
-        log = logging.getLogger(LOG_PREFIX)
-        log.propagate = False
+    # Main logger
+    log = logging.getLogger(LOG_PREFIX)
+    log.propagate = False
 
-        fmt = LOG_FORMATS[log_format] if log_format in LOG_FORMATS else LOG_FORMATS["simple"]
+    # Multiply if necessary to get the correct logging level
+    if level > 0 and level < 5:
+        level *= 10
 
-        if not log.hasHandlers():
-            handler = logging.StreamHandler(stream=sys.stdout)
-            handler.setLevel(logging.DEBUG)
-            handler.setFormatter(logging.Formatter(fmt=fmt))
-            log.addHandler(handler)
+    log.setLevel(level)
 
-    if level is not None:
-        log.setLevel(int(level * 10))
+    # Only add handler if it does not have one already
+    if not log.hasHandlers():
+        log_add_streamhandler(level, log_format)
 
         from eta_utility.util_julia import julia_extensions_available
 
         if julia_extensions_available():
             from julia import ju_extensions
 
-            if log_format is not None:
-                ju_extensions.set_logger(log.level, log_format)
-            else:
-                ju_extensions.set_logger(log.level, "simple")
+        if log_format not in LOG_FORMATS:
+            log_format = "simple"
+        ju_extensions.set_logger(level, log_format)
 
     return log
 
 
 def log_add_filehandler(
-    filename: Path,
-    level: int | None = None,
-    log_format: str | None = None,
+    filename: Path | None = None,
+    level: int = 1,
+    log_format: str = "time",
 ) -> logging.Logger:
     """Add a file handler to the logger to save the log output.
 
-    :param logger: Logger where file handler is added.
     :param filename: File path where logger is stored.
     :param level: Logging level (higher is more verbose between 0 - no output and 4 - debug).
-    :param format: Format of the log output. One of: simple, logname, time. (default: time).
+    :param log_format: Format of the log output. One of: simple, logname, time. (default: time).
     :return: The *FileHandler* logger.
     """
     log = logging.getLogger(LOG_PREFIX)
-    _format = LOG_FORMATS[log_format] if log_format in LOG_FORMATS else LOG_FORMATS["time"]
-    _filename = filename if isinstance(filename, pathlib.Path) else pathlib.Path(filename)
+
+    if filename is None:
+        log_path = pathlib.Path().cwd() / "eta_utility_logs"
+        log_path.mkdir(exist_ok=True)
+
+        current_time = datetime.now(tz=tz.tzlocal()).strftime("%Y-%m-%d_%H-%M-%S")
+        file_name = f"datarecorder_{current_time}.log"
+        log.info(f"No filename specified for filehandler. Using default filename {file_name}.")
+
+        filename = log_path / file_name
+
+    if log_format not in LOG_FORMATS:
+        log_format = "time"
+        log.warning(f"Log format {log_format} not available. Using default format 'time' for filehandler.")
+
+    _format = LOG_FORMATS[log_format]
+    _filename = pathlib.Path(filename)
 
     filehandler = logging.FileHandler(filename=_filename)
-    filehandler.setLevel(logging.DEBUG)
+    filehandler.setLevel(int(level * 10))
     filehandler.setFormatter(logging.Formatter(fmt=_format))
     log.addHandler(filehandler)
-
-    if level is not None:
-        filehandler.setLevel(int(level * 10))
 
     return log
 
 
 def log_add_streamhandler(
-    level: int | None = None,
-    log_format: str | None = None,
+    level: int = 10,
+    log_format: str = "simple",
+    stream: io.TextIOBase | Any = sys.stdout,
 ) -> logging.Logger:
     """Add a stream handler to the logger to show the log output.
 
-    :param level: Logging level (higher is more verbose between 0 - no output and 4 - debug).
+    :param level: Logging level (lower is more verbose between 10 - Debugging and 40 - Errors).
     :param format: Format of the log output. One of: simple, logname, time. (default: time).
     :return: The eta_utility logger with an attached StreamHandler
     """
     log = logging.getLogger(LOG_PREFIX)
-    _format = log_format if log_format in LOG_FORMATS else LOG_FORMATS["time"]
 
-    handler = logging.StreamHandler()
-    handler.setLevel(logging.DEBUG)
-    handler.setFormatter(logging.Formatter(fmt=_format))
+    if log_format not in LOG_FORMATS:
+        log_format = "simple"
+
+    # Multiply if necessary to get the correct logging level
+    if level > 0 and level < 5:
+        level *= 10
+
+    handler = logging.StreamHandler(stream=stream)
+    handler.setLevel(level=level)
+    handler.setFormatter(logging.Formatter(fmt=LOG_FORMATS[log_format]))
     log.addHandler(handler)
-
-    if level is not None:
-        handler.setLevel(int(level * 10))
 
     return log
 
 
-log = get_logger("util")
+log = getLogger(__name__)
 
 
 def json_import(path: Path) -> list[Any] | dict[str, Any]:
