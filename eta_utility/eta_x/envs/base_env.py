@@ -5,13 +5,14 @@ import inspect
 import pathlib
 import time
 from datetime import datetime, timedelta
+from logging import getLogger
 from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 from gymnasium import Env
 
-from eta_utility import get_logger, timeseries
+from eta_utility import timeseries
 from eta_utility.eta_x.envs.state import StateConfig
 from eta_utility.util import csv_export
 
@@ -23,7 +24,7 @@ if TYPE_CHECKING:
     from eta_utility.type_hints import ObservationType, Path, StepResult, TimeStep
 
 
-log = get_logger("eta_x.envs")
+log = getLogger(__name__)
 
 
 class BaseEnv(Env, abc.ABC):

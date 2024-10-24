@@ -3,6 +3,7 @@ from __future__ import annotations
 import socket
 from collections.abc import Sized
 from datetime import datetime
+from logging import getLogger
 from typing import TYPE_CHECKING
 
 # Async import
@@ -14,7 +15,7 @@ from asyncua import ua  # , Server as asyncServer
 from asyncua.sync import Server, ThreadLoopNotRunning
 from asyncua.ua import uaerrors
 
-from eta_utility import ensure_timezone, get_logger, url_parse
+from eta_utility import ensure_timezone, url_parse
 from eta_utility.connectors.node import NodeOpcUa
 
 if TYPE_CHECKING:
@@ -31,7 +32,7 @@ if TYPE_CHECKING:
     # https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility/-/issues/270
     from eta_utility.type_hints import Nodes
 
-log = get_logger("servers.opcua")
+log = getLogger(__name__)
 
 
 class OpcUaServer:

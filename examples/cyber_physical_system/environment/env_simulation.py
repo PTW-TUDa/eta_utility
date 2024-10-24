@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from eta_utility import get_logger
 from eta_utility.eta_x.common import episode_results_path
 from eta_utility.eta_x.envs import BaseEnvSim, StateConfig, StateVar
 from eta_utility.util import csv_export
@@ -16,8 +15,9 @@ if TYPE_CHECKING:
 
     from eta_utility.eta_x import ConfigOptRun
     from eta_utility.type_hints import TimeStep
+from logging import getLogger
 
-log = get_logger("eta_x.envs")
+log = getLogger(__name__)
 
 
 class CleaningMachineSimulation(BaseEnvSim):

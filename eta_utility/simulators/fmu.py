@@ -6,6 +6,7 @@ import itertools as it
 import shutil
 from collections.abc import Mapping
 from datetime import timedelta
+from logging import getLogger
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -13,8 +14,6 @@ from fmpy import extract, read_model_description
 from fmpy.fmi2 import FMU2Model, FMU2Slave
 from fmpy.sundials import CVodeSolver
 from fmpy.util import compile_platform_binary
-
-from eta_utility import get_logger
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -24,7 +23,7 @@ if TYPE_CHECKING:
 
     from eta_utility.type_hints import Number, Path, TimeStep
 
-log = get_logger("simulators.fmu")
+log = getLogger(__name__)
 
 
 class FMUSimulator:

@@ -1,23 +1,13 @@
 import asyncio
 import datetime
-import logging
 
 import pandas as pd
 import pytest
 
-from eta_utility import get_logger
 from eta_utility.connectors import DFSubHandler, Node, OpcUaConnection
 from eta_utility.servers import OpcUaServer
 
 from ..conftest import stop_execution
-from ..utilities.util_test import suppress_logging
-
-
-@pytest.fixture(autouse=True)
-def _suppress_logging():
-    with suppress_logging(None, logging.ERROR):
-        yield
-
 
 init_tests = (
     (("opc.tcp://someurl:48050", None, None), {}, {"url": "opc.tcp://someurl:48050"}),
@@ -171,7 +161,7 @@ init_fail = (
 
 @pytest.mark.parametrize(("args", "kwargs", "expected"), init_fail)
 def test_init_fail(args, kwargs, expected):
-    with pytest.raises(ValueError, match=expected), suppress_logging():
+    with pytest.raises(ValueError, match=expected):
         OpcUaConnection(*args, **kwargs)
 
 
@@ -292,28 +282,24 @@ class TestConnectorOperations:
     def test_read_fail(self, connection: OpcUaConnection, local_nodes):
         n = local_nodes[0]
         fail_node = Node(n.name, n.url, n.protocol, usr=n.usr, pwd=n.pwd, opc_id="ns=6;s=AnotherNamespace.DoesNotExist")
-        with pytest.raises(ConnectionError, match=".*BadNodeIdUnknown.*"), suppress_logging():
+        with pytest.raises(ConnectionError, match=".*BadNodeIdUnknown.*"):
             connection.read(fail_node)
 
     def test_recreate_existing_node(self, connection: OpcUaConnection, local_nodes, caplog):
-        log = get_logger()
-        log.setLevel(logging.WARNING)
-        log.propagate = True
-
         # Create Node that already exists
         connection.create_nodes(local_nodes[0])
-        assert f"Node with NodeId : {local_nodes[0].opc_id} could not be created. It already exists." in caplog.text
+        assert f"Node with NodeId : {local_nodes[0].opc_id} could not be created. It already exists." in caplog.messages
 
     def test_login_fail_write(self, local_nodes):
         n = local_nodes[0]
         connection = OpcUaConnection.from_node(n, usr="another", pwd="something")
-        with pytest.raises(ConnectionError, match=".*BadUserAccessDenied.*"), suppress_logging():
+        with pytest.raises(ConnectionError, match=".*BadUserAccessDenied.*"):
             connection.write({n: 123})
 
     def test_delete_nodes(self, connection: OpcUaConnection, local_nodes):
         connection.delete_nodes(local_nodes)
 
-        with pytest.raises(ConnectionError, match=".*BadNodeIdUnknown.*"), suppress_logging():
+        with pytest.raises(ConnectionError, match=".*BadNodeIdUnknown.*"):
             connection.read(local_nodes)
 
     def test_login_fail_read(self, server: OpcUaServer, local_nodes):
@@ -331,7 +317,7 @@ class TestConnectorOperations:
         # Set the user manager
         server._server.aio_obj.iserver.set_user_manager(user_manager=BadUserManager())
 
-        with pytest.raises(ConnectionError, match=".*BadUserAccessDenied.*"), suppress_logging():
+        with pytest.raises(ConnectionError, match=".*BadUserAccessDenied.*"):
             connection.read(n)
 
 
@@ -407,10 +393,6 @@ class TestConnectorSubscriptions:
 
     @pytest.mark.usefixtures("_write_nodes_interrupt")
     def test_subscribe_interrupted(self, local_nodes, caplog):
-        log = get_logger()
-        log.setLevel(logging.WARNING)
-        log.propagate = True
-
         connection: OpcUaConnection = OpcUaConnection.from_node(local_nodes, usr="admin", pwd="0")
         handler = DFSubHandler(write_interval=1)
         connection.subscribe(handler, interval=1)
@@ -519,10 +501,6 @@ class TestConnectorSubscriptionsIntervalChecker:
 
     @pytest.mark.usefixtures("_write_nodes_interval_checking")
     def test_subscribe_interval_checking(self, local_nodes_interval_checking, caplog):
-        log = get_logger()
-        log.setLevel(logging.WARNING)
-        log.propagate = True
-
         connection: OpcUaConnection = OpcUaConnection.from_node(local_nodes_interval_checking, usr="admin", pwd="0")
         handler = DFSubHandler(write_interval=1)
         connection.subscribe(handler, interval=1)

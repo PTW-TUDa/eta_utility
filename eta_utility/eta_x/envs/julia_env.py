@@ -3,11 +3,11 @@ from __future__ import annotations
 import pathlib
 from datetime import datetime
 from functools import partial
+from logging import getLogger
 from typing import TYPE_CHECKING
 
 import numpy as np
 
-from eta_utility import get_logger
 from eta_utility.eta_x.envs import BaseEnv
 from eta_utility.util_julia import check_julia_package
 
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 Jl.eval("using PyCall")
 jl_setattribute = Jl.eval("pyfunction(setfield!, PyAny, Symbol, PyAny)")
 
-log = get_logger("eta_x.envs")
+log = getLogger(__name__)
 
 
 class JuliaEnv(BaseEnv):

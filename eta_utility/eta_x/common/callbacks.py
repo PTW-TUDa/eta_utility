@@ -4,13 +4,13 @@ from typing import TYPE_CHECKING
 
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList
 
-from eta_utility import get_logger
 from eta_utility.eta_x.envs import BaseEnv
 
 if TYPE_CHECKING:
     from stable_baselines3.common.type_aliases import MaybeCallback
+from logging import getLogger
 
-log = get_logger("eta_x")
+log = getLogger(__name__)
 
 
 class CallbackEnvironment:

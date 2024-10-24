@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+from logging import getLogger
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -9,7 +10,6 @@ from pyomo import opt
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.vec_env import VecEnv, VecNormalize
 
-from eta_utility import get_logger
 from eta_utility.util import deprecated
 
 if TYPE_CHECKING:
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from stable_baselines3.common.policies import BasePolicy
     from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback
 
-log = get_logger("eta_x.agents")
+log = getLogger(__name__)
 
 
 class MathSolver(BaseAlgorithm):
