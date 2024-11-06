@@ -20,7 +20,6 @@ For more information, visit the `forecast.solar API documentation <https://doc.f
 
 """
 
-# Consider Caching for at least 15 minutes and don't exceed rate limit
 from __future__ import annotations
 
 import concurrent.futures
@@ -115,6 +114,7 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
         :return: pandas.DataFrame containing the data read from the connection.
         """
         url, query_params = node.url, node._query_params
+        query_params["time"] = "utc"
 
         raw_response = self._raw_request("GET", url, params=query_params, headers=self._headers)
         response = raw_response.json()
@@ -128,6 +128,7 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
             dtype="float64",
         )
         data.index.name = "Time (with timezone)"
+        data.columns = [node.name]
 
         return data
 
@@ -174,7 +175,7 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
         return results.loc[previous_time:next_time], now
 
     def read(self, nodes: Nodes | None = None) -> pd.DataFrame:
-        """Return current value from the Forecast.Solar Database.
+        """Return forecast data from the Forecast.Solar Database.
 
         :param nodes: List of nodes to read values from.
         :return: pandas.DataFrame containing the data read from the connection.
@@ -184,7 +185,11 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
         with concurrent.futures.ThreadPoolExecutor() as executor:
             results = executor.map(self._read_node, nodes)
 
-        values = pd.concat(results, axis=1, keys=[n.name for n in nodes], sort=False)
+        # Filter out empty or all-NA DataFrames
+        filtered_results = [df for df in results if not df.empty and not df.isna().all().all()]
+
+        # Concatenate the filtered DataFrames
+        values = pd.concat(filtered_results, axis=1, sort=False)
 
         values, now = self._select_data(values)
 
@@ -215,7 +220,7 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
     def read_series(
         self, from_time: datetime, to_time: datetime, nodes: Nodes | None = None, interval: TimeStep = 1, **kwargs: Any
     ) -> pd.DataFrame:
-        """Download timeseries data from the Forecast.Solar Database
+        """Return a time series of forecast data from the Forecast.Solar Database.
 
         :param nodes: List of nodes to read values from.
         :param from_time: Starting time to begin reading (included in output).
@@ -234,7 +239,11 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
         with concurrent.futures.ThreadPoolExecutor() as executor:
             results = executor.map(self._read_node, nodes)
 
-        values = pd.concat(results, axis=1, keys=[n.name for n in nodes], sort=False)
+        # Filter out empty or all-NA DataFrames
+        filtered_results = [df for df in results if not df.empty and not df.isna().all().all()]
+
+        # Concatenate the filtered DataFrames
+        values = pd.concat(filtered_results, axis=1, sort=False)
 
         values, _ = self._select_data(values, from_time, to_time)
 
