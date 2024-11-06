@@ -20,7 +20,6 @@ from attrs import (
     field,
     validators as vld,
 )
-from dateutil.parser import parse
 from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.provider.dwd.mosmix.api import DwdMosmixParameter
 from wetterdienst.provider.dwd.observation import (
@@ -1079,8 +1078,6 @@ class NodeEmonio(Node, protocol="emonio"):
 
 
 # Forecast.Solar API Node
-
-
 def _convert_list(_type: TypeAlias) -> Callable:
     """Convert an optional list of values to a single value or a list of values.
 
@@ -1104,7 +1101,7 @@ def _convert_list(_type: TypeAlias) -> Callable:
 def _check_api_key(instance, attribute, value):  # type: ignore[no-untyped-def]
     """attrs validator to check if the API key is set."""
     if re.match(r"[A-Za-z0-9]{16}", value) is None:
-        raise ValueError("API key must be a 16 character long alphanumeric string.")
+        raise ValueError("'api_key' must be a 16 character long alphanumeric string.")
 
 
 def _check_plane(_type: TypeAlias, lower: int, upper: int) -> Callable:
@@ -1117,33 +1114,28 @@ def _check_plane(_type: TypeAlias, lower: int, upper: int) -> Callable:
     """
 
     def validator(instance, attribute, value):  # type: ignore[no-untyped-def]
-        for val in [value] if not isinstance(value, list) else value:
+        value = value if isinstance(value, list) else [value]
+        for val in value:
             if not isinstance(val, _type):
-                raise ValueError(f"Parameter must be of type {_type} ({(val, type(val))}).")
-            if not (lower <= val <= upper):
-                raise ValueError(f"Parameter must be between {lower} and {upper} ({val}).")
+                raise ValueError(f"'{attribute.name}' must be of type {_type} ({(val, type(val))}).")
+            if val < lower:
+                raise ValueError(f"'{attribute.name}' must be >= {lower}: {val}.")
+            if val > upper:
+                raise ValueError(f"'{attribute.name}' must be <= {upper}: {val}.")
 
     return validator
 
 
 def _check_horizon(instance, attribute, value):  # type: ignore[no-untyped-def]
     """attrs validator to check if horizon attribute corresponds to the API requirements."""
-    if not isinstance(value, list) or value != 0:
-        raise ValueError("Horizon must be a list, 0 (To suppress horizon usage *at all*) or None")
+    if not isinstance(value, list) and value != 0:
+        raise ValueError("'horizon' must be a list, 0 (To suppress horizon usage *at all*) or None")
     if len(value) < 4:
-        raise ValueError("Horizon must contain at least 4 values.")
-    if not isinstance((360 / len(value)), int):
-        raise ValueError("Make sure that 360 / <your count of values> is an integer.")
+        raise ValueError("'horizon' must contain at least 4 values.")
+    if 360 % len(value) != 0:
+        raise ValueError("'horizon' must be set such that 360 / <your count of horizon values> is an integer.")
     if not all(isinstance(i, (int, float)) and 0 <= i <= 90 for i in value):
-        raise ValueError("Each value in horizon must be a number between 0 and 90.")
-
-
-def _check_php_datetime(instance, attribute, value):  # type: ignore[no-untyped-def]
-    """attrs validator to check if the value is a valid PHP DateTime format."""
-    try:
-        parse(value)
-    except ValueError as e:
-        raise ValueError("'start' value must be a valid PHP DateTime format.") from e
+        raise ValueError("'horizon' values must be between 0 and 90.")
 
 
 def _forecast_solar_transform(cls: attrs.AttrsInstance, fields: list[attrs.Attribute]) -> list[attrs.Attribute]:
@@ -1163,8 +1155,9 @@ def _forecast_solar_transform(cls: attrs.AttrsInstance, fields: list[attrs.Attri
         types = tuple(map(_dtype_converter, _field.type.split(" | ")))  # type: ignore[union-attr]
 
         # Create and append type validator to existing validators
-        _vlds = [vld.instance_of(types)]  # type: ignore
+        _vlds = [vld.instance_of(tuple(filter(lambda x: x is not None, types)))]  # type: ignore
         if _field.validator:
+            # If the field has a vld.and() validator, unpack it and append to the list
             _vlds.extend(
                 [*_field.validator._validators]  # type: ignore
                 if isinstance(_field.validator, type(vld.and_()))
@@ -1251,36 +1244,26 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
     # QUERY PARAMETERS
     # ----------------
     #: Format of timestamps in the response, see API doc for values; string
-    time: str = field(
-        default="utc",
-        converter=str,
-        validator=vld.in_(("utc", "iso8601", "rfc2822", "seconds", "milliseconds", "nanoseconds")),
-        metadata={"QUERY_PARAM": True},
-    )
-    #: Forecast for full day or only sunrise to sunset, 0|1; int
+    #: Forecast for full day or only sunrise to sunset, 0|1 (API defaults to 0); int
     no_sun: int | None = field(default=None, validator=vld.in_((0, 1)), metadata={"QUERY_PARAM": True})
-    #: Damping factor for the morning forecast solar API
+    #: Damping factor for the morning (API defaults to 0.0)
     damping_morning: float | None = field(
         default=None, converter=float, validator=[vld.ge(0.0), vld.le(1.0)], metadata={"QUERY_PARAM": True}
     )
-    #: Damping factor for the evening forecast solar API
+    #: Damping factor for the evening (API defaults to 0.0)
     damping_evening: float | None = field(
         default=None, converter=float, validator=[vld.ge(0.0), vld.le(1.0)], metadata={"QUERY_PARAM": True}
     )
     #: Horizon information; string, (comma-separated list of numerics) See API doc
     horizon: int | list[int] | None = field(
         default=None,
+        converter=_convert_list(int),
         validator=_check_horizon,
         eq=False,
+        metadata={"QUERY_PARAM": True},
     )  # Exclude from __hash__
     #: Maximum of inverter in kilowatts or kVA; float > 0
     inverter: float | None = field(default=None, converter=float, validator=vld.gt(0.0), metadata={"QUERY_PARAM": True})
-    #: Number of response days; int in (1,..,8), 1=today
-    limit: int | None = field(default=None, validator=vld.in_(tuple(range(1, 9))), metadata={"QUERY_PARAM": True})
-    #: Start time of the forecast, PHP DateTime format; string
-    start: str | None = field(default=None, converter=str, validator=_check_php_datetime)
-    #: Flag for including solar transit (midday)
-    transit: int | None = field(default=None, converter=int, validator=vld.in_((0, 1)), metadata={"QUERY_PARAM": True})
     #: Actual production until now; float >= 0
     actual: float | None = field(default=None, converter=float, validator=vld.ge(0.0), metadata={"QUERY_PARAM": True})
 
@@ -1297,11 +1280,13 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
         if not (isinstance(self.declination, int) and isinstance(self.azimuth, int) and isinstance(self.kwp, float)):
             if isinstance(self.declination, list) and isinstance(self.azimuth, list) and isinstance(self.kwp, list):
                 if not len(self.declination) == len(self.azimuth) == len(self.kwp):
-                    raise ValueError("Declination, azimuthimuth and kwp must be passed for all planes")
+                    raise ValueError("'declination', 'azimuth' and 'kwp' must be passed for all planes")
                 if self.api_key is None:
                     raise ValueError("Valid API key is needed for multiple planes")
             else:
-                raise ValueError("Declination, azimuth and kwp must be passed either as lists or as single values.")
+                raise ValueError(
+                    "'declination', 'azimuth' and 'kwp' must be passed either as lists or as single values."
+                )
 
         if self.api_key is None and (self.endpoint not in ["estimate", "check"]):
             raise ValueError(f"Valid API key is needed for endpoint: {self.endpoint}")
@@ -1372,14 +1357,11 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
         :param dikt: dictionary with node information.
         :return: dict with: api_key, endpoint, latitude, longitude, declination, azimuth, kwp
         """
-        return {
-            "endpoint": dikt.get("endpoint", "estimate"),
-            "latitude": int(dikt.get("latitude", 0) or dikt.get("lat", 0)),
-            "longitude": int(dikt.get("longitude", 0) or dikt.get("lon", 0)),
-            "declination": dikt.get("declination", 0) or dikt.get("dec", 0),
-            "azimuth": dikt.get("azimuth", 0) or dikt.get("az", 0),
-            "kwp": dikt.get("kwp", 0),
-        }
+        attr_names = NodeForecastSolar.__annotations__.keys()
+        discard_keys = ["api_key", "data", "_url_params", "_query_params"]
+        attributes = {key: dikt.get(key) for key in attr_names if key not in discard_keys}
+        # return only non-None values
+        return {key: value for key, value in attributes.items() if value is not None}
 
     @classmethod
     def _from_dict(cls, dikt: dict[str, Any]) -> NodeForecastSolar:
@@ -1401,8 +1383,8 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
             params["api_key"] = dict_key
         else:
             log.info(
-                """The api_key is None.
-                Make sure to set an api_key to use the personal or the professional functions of forecastsolar.api
+                """'api_key' is None.
+                Make sure to pass a valid API key to use the personal or the professional functions of forecastsolar.api
                 otherwise the public functions are only available."""
             )
 

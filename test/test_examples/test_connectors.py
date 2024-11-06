@@ -92,8 +92,8 @@ def test_example_read_forecast_solar():
     data = ex_read_forecast_solar()
 
     assert isinstance(data, pd.DataFrame)
-    assert set(data.columns) == {("ForecastSolar Node", 0)}
-    assert data.shape == (86401, 1)
+    assert set(data.columns) == {"ForecastSolar Node"}
+    assert data.shape == (97, 1)
 
 
 class TestEmonio:
