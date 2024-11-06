@@ -1,15 +1,11 @@
 .. _development:
 
-Contributing to development
+Installation and Guide for Developers
 ===========================
 
-Before contributing to development of *eta_utility*, please read this development
-guide carefully. If you are looking for instructions on how to install *eta_utility* for usage
-only, please take a look at the :ref:`install` guide.
+This setion describes how to install *eta_utility* using *poetry*, and how to contribute to development.
 
-If you need help installing Python or git, please consult the :ref:`python_install` guide.
-
-The most important things
+Contributing to development
 -----------------------------
 
 If you would like to contribute, please create an issue in the repository to discuss your suggestions.
