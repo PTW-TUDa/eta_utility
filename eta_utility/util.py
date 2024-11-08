@@ -508,7 +508,7 @@ class SelfsignedKeyCertPair(KeyCertPair):
 
     :param common_name: Common name the certificate should be valid for.
     :param passphrase: Pass phrase for encryption of the private key.
-    :param country: Country code for the certificate owner, for example "DE" oder "US".
+    :param country: Country code for the certificate owner, for example "DE" or "US".
     :param province: Province name of the certificate owner. Empty by default.
     :param city: City name of the certificate owner. Empty by default.
     :param organization: Name of the certificate owner's organization. "OPC UA Client" by default.

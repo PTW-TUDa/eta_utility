@@ -353,7 +353,7 @@ class ETAx:
                 log.debug("Resetting environment one more time to call environment callback one last time.")
                 self.environments.reset()
             except ValueError as e:
-                raise ValueError("An error occured when the environment is resetting.") from e
+                raise ValueError("An error occurred when the environment is resetting.") from e
 
             # Save model
             log.debug(f"Saving model to file: {self.config_run.path_run_model}.")

@@ -142,7 +142,7 @@ class ModbusConnection(Connection[NodeModbus], protocol="modbus"):
         self._sub = loop.create_task(self._subscription_loop(handler, float(interval.total_seconds())))
 
     def close_sub(self) -> None:
-        """Close the subsription."""
+        """Close the subscription."""
         self._subscription_open = False
         if self.exc:
             raise self.exc

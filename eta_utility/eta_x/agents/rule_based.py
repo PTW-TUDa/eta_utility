@@ -29,7 +29,7 @@ class RuleBased(BaseAlgorithm, abc.ABC):
     :param policy: Agent policy. Parameter is not used in this agent and can be set to NoPolicy.
     :param env: Environment to be controlled.
     :param verbose: Logging verbosity.
-    :param kwargs: Additional arguments as specified in stable_baselins3.commom.base_class.
+    :param kwargs: Additional arguments as specified in stable_baselins3.common.base_class.
     """
 
     def __init__(
@@ -131,7 +131,7 @@ class RuleBased(BaseAlgorithm, abc.ABC):
 
     def get_parameter_list(self) -> None:
         """Getting tensorflow parameters is not implemented for the rule based agent."""
-        raise NotImplementedError("The rule pased agent cannot provide a tensorflow parameter list.")
+        raise NotImplementedError("The rule based agent cannot provide a tensorflow parameter list.")
 
     def learn(
         self,
@@ -148,7 +148,7 @@ class RuleBased(BaseAlgorithm, abc.ABC):
         :param callback: Callback(s) called at every step with state of the algorithm.
         :param log_interval: The number of timesteps before logging.
         :param tb_log_name: The name of the run for TensorBoard logging.
-        :param reset_num_timesteps: Wether or not to reset the current timestep number (used in logging).
+        :param reset_num_timesteps: Whether or not to reset the current timestep number (used in logging).
         :param progress_bar: Display a progress bar using tqdm and rich.
         :return: The trained model.
         """

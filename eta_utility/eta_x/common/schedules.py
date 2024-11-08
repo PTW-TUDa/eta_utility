@@ -10,9 +10,9 @@ class BaseSchedule(ABC):
 
     @abstractmethod
     def value(self, progress_remaining: float) -> float:
-        """Calculate the value of the learning rate based on the remaining progess.
+        """Calculate the value of the learning rate based on the remaining progress.
 
-        :param progress_remaining: Remaing progress, which is calculcated in the base class: 1 (start), 0 (end).
+        :param progress_remaining: Remaining progress, which is calculated in the base class: 1 (start), 0 (end).
         :return: Output value.
         """
         raise NotImplementedError("You can only instantiate subclasses of BaseSchedule.")
@@ -43,9 +43,9 @@ class LinearSchedule(BaseSchedule):
         self.final_p = final_p
 
     def value(self, progress_remaining: float) -> float:
-        """Calculate the value of the learning rate based on the remaining progess.
+        """Calculate the value of the learning rate based on the remaining progress.
 
-        :param progress_remaining: Remaing progress, which is calculcated in the base class: 1 (start), 0 (end).
+        :param progress_remaining: Remaining progress, which is calculated in the base class: 1 (start), 0 (end).
         :return: Output value.
         """
         return self.final_p + progress_remaining * (self.initial_p - self.final_p)

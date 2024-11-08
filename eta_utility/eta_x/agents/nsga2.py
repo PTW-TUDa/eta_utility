@@ -75,7 +75,7 @@ class _VariableParameters:
 class Nsga2(BaseAlgorithm):
     """The NSGA2 class implements the non-dominated sorting genetic algorithm 2
 
-    The agent can work with discrete event systems and with continous or mixed integer problems. Alternatively a
+    The agent can work with discrete event systems and with continuous or mixed integer problems. Alternatively a
     mixture of the above may be specified.
 
     The action space can specify both events and variables using spaces.Dict in the form::
@@ -84,12 +84,12 @@ class Nsga2(BaseAlgorithm):
                                    'variables': spaces.MultiDiscrete([15]*3)})
 
     This specifies 15 events and an additional 3 variables. The variables will be integers and have an upper
-    boudary value of 15. Other spaces (except Tuple and Dict) can be defined for the variables. Events only takes
+    boundary value of 15. Other spaces (except Tuple and Dict) can be defined for the variables. Events only takes
     the Discrete space as an input.
 
     When events is specified, a list will be returned with ordered values, that should achieve a near optimal
     reward. For variables the values will be adjusted to achieve the highest reward. Upper and lower boundaries as
-    well as types will be infered from the space.
+    well as types will be inferred from the space.
 
     .. note:: This agent does not use the observation space. Instead it only relies on rewards returned by the
         environment. Returned rewards can be tuples, if multi-objective optimization is required. Existing

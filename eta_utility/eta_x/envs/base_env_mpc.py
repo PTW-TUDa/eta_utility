@@ -581,7 +581,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         log.info("Pyomo model parameters updated.")
 
     def pyo_get_solution(self, names: set[str] | None = None) -> dict[str, float | int | dict[int, float | int]]:
-        """Convert the pyomo solution into a more useable format for plotting.
+        """Convert the pyomo solution into a more usable format for plotting.
 
         :param names: Names of the model parameters that are returned.
         :return: Dictionary of {parameter name: value} pairs. Value may be a dictionary of {time: value} pairs which

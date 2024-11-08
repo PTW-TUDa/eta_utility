@@ -183,7 +183,7 @@ Or if you have the virtual environment already activated:
 
 Please always refresh the *test_nsga2_agent.zip* file when changes are made in the nsga2 agent and in julia files. The zip-file is located
 in *eta-utility/test/resources/agents* and creates a new NSGA2 model for the tests. To do this, execute the following
-comand in the terminal:
+command in the terminal:
 
 .. code-block:: console
 

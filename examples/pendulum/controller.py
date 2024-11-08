@@ -23,7 +23,7 @@ class PendulumControl(RuleBased):
         :param env: The environment to learn from.
         :param verbose: Logging verbosity.
         :param kwargs: Additional arguments as specified in
-            :py:class:`stable_baselins3.commom.base_class.BaseAlgorithm`.
+            :py:class:`stable_baselins3.common.base_class.BaseAlgorithm`.
         """
 
         super().__init__(policy=policy, env=env, verbose=verbose, **kwargs)

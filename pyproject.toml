@@ -96,6 +96,7 @@ types-requests = {version = "^2.31.0.4", optional = true}
 types-pytz = {version = "^2024.1.0.20240203", optional = true}
 # Ruff
 ruff = {version = "~0.6.0", optional = true}
+codespell = {version= "^2.3.0", optional = true}
 
 
 [tool.poetry.extras]
@@ -103,7 +104,7 @@ develop = ["gymnasium", "torch", "stable_baselines3", "tensorboard", "pyomo",  #
             "matplotlib", "keyboard", "pygame", "pyglet", "onnxruntime",    # include examples
             "pytest", "pytest-cov", "openpyxl", "sphinx", "sphinx-rtd-theme", "sphinx-copybutton", "pre-commit",
             "black", "blacken_docs", "mypy", "types-python-dateutil",
-            "types-requests", "types-pytz", "ruff"]
+            "types-requests", "types-pytz", "ruff", "codespell"]
 eta-x = ["gymnasium", "torch", "stable_baselines3", "tensorboard", "pyomo"]
 examples = ["matplotlib", "keyboard", "pygame", "pyglet", "onnxruntime"]
 
@@ -244,3 +245,8 @@ max-args = 15
 max-branches = 21
 max-statements = 62
 max-returns = 6
+
+[tool.codespell]
+skip = "*.js, *.html, *.lock, */Manifest.toml, ./docs/_build"
+ignore-words-list = ["Temperatur"]
+quiet-level = 3

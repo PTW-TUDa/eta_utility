@@ -676,6 +676,23 @@ files = [
 test = ["coverage (>=4.2)", "pytest (>=3.0.3)", "pytest-cov (>=2.4.0)"]
 
 [[package]]
+name = "codespell"
+version = "2.3.0"
+description = "Codespell"
+optional = true
+python-versions = ">=3.8"
+files = [
+    {file = "codespell-2.3.0-py3-none-any.whl", hash = "sha256:a9c7cef2501c9cfede2110fd6d4e5e62296920efe9abfb84648df866e47f58d1"},
+    {file = "codespell-2.3.0.tar.gz", hash = "sha256:360c7d10f75e65f67bad720af7007e1060a5d395670ec11a7ed1fed9dd17471f"},
+]
+
+[package.extras]
+dev = ["Pygments", "build", "chardet", "pre-commit", "pytest", "pytest-cov", "pytest-dependency", "ruff", "tomli", "twine"]
+hard-encoding-detection = ["chardet"]
+toml = ["tomli"]
+types = ["chardet (>=5.1.0)", "mypy", "pytest", "pytest-cov", "pytest-dependency"]
+
+[[package]]
 name = "colorama"
 version = "0.4.6"
 description = "Cross-platform colored terminal text."
@@ -7486,11 +7503,11 @@ docs = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "rst.link
 testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=2.2)", "pytest-ignore-flaky", "pytest-mypy", "pytest-ruff (>=0.2.1)"]
 
 [extras]
-develop = ["black", "blacken_docs", "gymnasium", "keyboard", "matplotlib", "mypy", "onnxruntime", "openpyxl", "pre-commit", "pygame", "pyglet", "pyomo", "pytest", "pytest-cov", "ruff", "sphinx", "sphinx-copybutton", "sphinx-rtd-theme", "stable-baselines3", "tensorboard", "torch", "types-python-dateutil", "types-pytz", "types-requests"]
+develop = ["black", "blacken_docs", "codespell", "gymnasium", "keyboard", "matplotlib", "mypy", "onnxruntime", "openpyxl", "pre-commit", "pygame", "pyglet", "pyomo", "pytest", "pytest-cov", "ruff", "sphinx", "sphinx-copybutton", "sphinx-rtd-theme", "stable-baselines3", "tensorboard", "torch", "types-python-dateutil", "types-pytz", "types-requests"]
 eta-x = ["gymnasium", "pyomo", "stable-baselines3", "tensorboard", "torch"]
 examples = ["keyboard", "matplotlib", "onnxruntime", "pygame", "pyglet"]
 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9, <3.12"
-content-hash = "7f95acc8f2aa504366b2ab8aaef1e7fce4762059f8460586c04bc63a6d819ed3"
+content-hash = "9d949da1dd1a46479c2a6d9a63877e8ef299e78bf627db0d013193ee70e6c04b"
