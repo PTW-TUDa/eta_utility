@@ -101,7 +101,7 @@ class SubscriptionHandler(ABC):
 
     @abstractmethod
     def push(self, node: Node, value: Any, timestamp: datetime | None = None) -> None:
-        """Receive data from a subcription. This should contain the node that was requested, a value and a timestamp
+        """Receive data from a subscription. This should contain the node that was requested, a value and a timestamp
         when data was received. If the timestamp is not provided, current time will be used.
 
         :param node: Node object the data belongs to.
@@ -141,7 +141,7 @@ class Connection(ABC, Generic[N]):
     ) -> None:
         #: URL of the server to connect to
         self._url: ParseResult
-        #: Username fot login to server
+        #: Username for login to server
         self.usr: str | None
         #: Password for login to server
         self.pwd: str | None
@@ -281,7 +281,7 @@ class Connection(ABC, Generic[N]):
 
     @abstractmethod
     def close_sub(self) -> None:
-        """Close an open subscription. This should gracefully handle non-existant subscriptions."""
+        """Close an open subscription. This should gracefully handle non-existent subscriptions."""
         pass
 
     @property

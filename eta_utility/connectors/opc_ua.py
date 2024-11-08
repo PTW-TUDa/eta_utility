@@ -538,7 +538,7 @@ class _OPCSubHandler:
 
     def datachange_notification(self, node: NodeOpcUa, val: Any, data: Any) -> None:
         """
-        datachange_notification is called whenever subscribed input data is recieved via OPC UA. This pushes data
+        datachange_notification is called whenever subscribed input data is received via OPC UA. This pushes data
         to the actual eta_utility subscription handler.
 
         :param node: Node Object, which was subscribed to and which has sent an updated value.

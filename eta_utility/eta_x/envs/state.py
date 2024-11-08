@@ -427,7 +427,7 @@ class StateConfig:
         try:
             return spaces.Box(action_low, action_high, dtype=np.float32)
         except ValueError as e:
-            log.error(f"The following {e} occured. Check the the StateConfig parameters low_value and high_value")
+            log.error(f"The following {e} occurred. Check the the StateConfig parameters low_value and high_value")
 
     def continuous_obs_space(self) -> spaces.Box:  # type: ignore
         """Generate a continuous observation space according to the format required by the OpenAI
@@ -448,7 +448,7 @@ class StateConfig:
             return spaces.Box(observation_low, observation_high, dtype=np.float32)
         except ValueError as e:
             log.error(
-                f"The following error occured: {e}. Check the the StateConfig parameters low_value and high_value"
+                f"The following error occurred: {e}. Check the the StateConfig parameters low_value and high_value"
             )
 
     def continuous_observation_space(self) -> spaces.Box:

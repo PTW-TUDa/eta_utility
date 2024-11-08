@@ -120,7 +120,7 @@ class ENTSOEConnection(SeriesConnection[NodeEntsoE], protocol="entsoe"):
         self.subscribe_series(handler=handler, req_interval=1, nodes=nodes, interval=interval, data_interval=interval)
 
     def _handle_xml(self, xml_content: bytes) -> dict[str, dict[str, list[pd.Series]]]:
-        """Transform XML data from request response into dictionary containig resolutions and time series for the node.
+        """Transform XML data from request response into dictionary containing resolutions and time series for the node.
 
         :param xml_content: XML data
         :return: Dictionary with resolutions and time series data
@@ -219,7 +219,7 @@ class ENTSOEConnection(SeriesConnection[NodeEntsoE], protocol="entsoe"):
             data = self._handle_xml(result.content)
 
             df_dict = {}
-            # All resolutions are resampled separatly and concatenated to one dataframe in the end
+            # All resolutions are resampled separately and concatenated to one dataframe in the end
             for resolution in data:
                 data_resolution = {
                     f"{node.name}_{column}": pd.concat(series) for column, series in data[resolution].items()
@@ -546,7 +546,7 @@ class _ConnectionConfiguration:
 
     def create_params(self, node: NodeEntsoE, from_time: datetime, to_time: datetime) -> dict[str, str]:
         """Create request parameters object according to API specifications
-        Handle configuration paramters for each type of connection
+        Handle configuration parameters for each type of connection
 
         :param node: ENTSO-E Node
         :param from_time: Starting time

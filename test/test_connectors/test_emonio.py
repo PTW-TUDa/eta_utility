@@ -12,7 +12,7 @@ node_values = {
     "Serv.Strom": 2,
     "Serv.Frequenz": 49.984005,
     "Serv.Watt": 460,
-    "Serv.Temperatur": 25,
+    "Serv.Temperature": 25,
 }
 
 

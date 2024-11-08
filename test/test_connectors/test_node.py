@@ -556,25 +556,25 @@ nodes = (
     ),
     (
         {
-            "name": "Serv.Temperatur",
+            "name": "Serv.Temperature",
             "url": "https://some_url.de/path",
             "protocol": "emonio",
             "phase": "a",
         },
         {
-            "name": "Serv.Temperatur",
+            "name": "Serv.Temperature",
             "address": 500,
         },
     ),
     (
         {
-            "name": "Serv.Temperatur",
+            "name": "Serv.Temperature",
             "url": "https://some_url.de/path",
             "protocol": "emonio",
             "phase": "a",
         },
         {
-            "name": "Serv.Temperatur",
+            "name": "Serv.Temperature",
             "address": 500,
         },
     ),

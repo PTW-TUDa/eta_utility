@@ -171,7 +171,7 @@ with the probability.
 :param rng: Random generator for generating the probability.
 :param nevents: Length of the events chromosomes.
 :param nvariables: Length of the variables chromosome.
-:param probility: General probility.
+:param probability: General probability.
 """
 function distribute_rates(rng::AbstractRNG, nevents, nvariables, probability)
     # Return probability directly, if one of the chromosomes is missing
@@ -205,7 +205,7 @@ Mutate values of the chromosomes. Returns a new genetic solution and does not mo
 :param solution: Offspring solution.
 :param parent: Parent solution which will be mutated.
 :param probability: Mutation probability.
-:param variable_params: Paramters for variable mutation.
+:param variable_params: Parameters for variable mutation.
 """
 function mutate!(
     solution::Solution,
@@ -318,7 +318,7 @@ struct ComparisonFunctions
         checkmax(status, reward, idx) = reward[idx] > status.currentminima[idx]
 
         # Determine which functions to use for comparisons, depending on the optimization sense
-        # of the algorith (minimize vs. maximize).
+        # of the algorithm (minimize vs. maximize).
         if sense == "minimize"
             return new(smaller, greater, checkmin)
         elseif sense == "maximize"
@@ -535,7 +535,7 @@ function evolve!(algo::Algorithm, generation::Generation, generationparent::Gene
         ceil(Int, population * crossovers),
         replace=false,
     )
-    @info "Perfoming crossover for generation with $(length(matchesfrom)) of $population solutions crossed."
+    @info "Performing crossover for generation with $(length(matchesfrom)) of $population solutions crossed."
     adjustedrate = population * lengenome * crossovers / (length(matchesfrom) * lengenome)
     for i in eachindex(matchesfrom)
         crossover!(generation[matchesto[i]], generation[matchesfrom[i]], algo.rng, adjustedrate, algo.maxcrosslen)
@@ -628,7 +628,7 @@ function evaluate!(algo::Algorithm, generation::Generation, generationparent::Ge
 end
 
 """
-Perform the non-dominated sort and return as many fronts as necessary to completey fill the offspring
+Perform the non-dominated sort and return as many fronts as necessary to completely fill the offspring
 generation. Calculating all the other fronts is unnecessary because they are discarded anyway.
 
 :param algo: The algorithm.
