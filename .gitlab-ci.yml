@@ -81,7 +81,7 @@ codespell:
   script:
     - codespell --version
     - codespell
-    
+
 mypy:
   stage: check
   script:
