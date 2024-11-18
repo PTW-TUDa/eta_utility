@@ -94,10 +94,10 @@ def get_logger(
     if not log.hasHandlers():
         log_add_streamhandler(level, log_format)
 
-        from eta_utility.util_julia import julia_extensions_available
+    from eta_utility.util_julia import julia_extensions_available
 
-        if julia_extensions_available():
-            from julia import ju_extensions
+    if julia_extensions_available():
+        from julia import ju_extensions
 
         if log_format not in LOG_FORMATS:
             log_format = "simple"
