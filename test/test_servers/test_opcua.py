@@ -92,18 +92,22 @@ class TestServerOperations:
 
     @pytest.mark.parametrize(("index", "value"), values)
     def test_write_node(self, server: OpcUaServer, local_nodes, index, value):
+        server.create_nodes(local_nodes[index])
         server.write({local_nodes[index]: value})
 
         assert server._server.get_node(local_nodes[index].opc_id).get_value() == value
 
     @pytest.mark.parametrize(("index", "expected"), values)
     def test_read_node(self, server: OpcUaServer, local_nodes, index, expected):
+        server.create_nodes(local_nodes[index])
+        server.write({local_nodes[index]: expected})
         val = server.read({local_nodes[index]})
 
         assert val.iloc[0, 0] == expected
         assert val.columns[0] == local_nodes[index].name
 
     def test_delete_nodes(self, server: OpcUaServer, local_nodes):
+        server.create_nodes(local_nodes)
         server.delete_nodes(local_nodes)
 
         with pytest.raises(RuntimeError, match=".*BadNodeIdUnknown.*"):
