@@ -34,7 +34,7 @@
             }],
         "prediction_scope": 1200, // time in seconds, optimization horizon K, is constant
         "model_parameters": {
-            "N": 5, // N = 5, 9, 13, ...  Increases 4 for every planed cleaning process. Should be set by plant process control in the future.
+            "N": 5, // N = 5, 9, 13, ...  Increases 4 for every planned cleaning process. Should be set by plant process control in the future.
             "n_start": 1, // should be read from OPC UA server of KEA in the future
             "S": 1200,  // time ins seconds, S, should be set by plant process control in the future.
             "p_heat": 10,

@@ -147,6 +147,7 @@ class TestServerOperations:
     @pytest.mark.parametrize(("index", "value"), values)
     def test_read(self, server, local_nodes, index, value):
         node = local_nodes[index]
+        server.write({node: value})
         result = server.read(node)
 
         if isinstance(value, str):

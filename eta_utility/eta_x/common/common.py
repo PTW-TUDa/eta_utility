@@ -245,7 +245,7 @@ def deserialize_net_arch(
     net_arch: Sequence[Mapping[str, Any]], in_features: int, device: th.device | str = "auto"
 ) -> th.nn.Sequential:
     """Deserialize_net_arch can take a list of dictionaries describing a sequential torch network and deserialize
-    it by instatiating the corresponding classes.
+    it by instantiating the corresponding classes.
 
     An example for a possible net_arch would be:
 

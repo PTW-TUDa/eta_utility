@@ -33,7 +33,7 @@ log = getLogger(__name__)
 
 
 class MultiSubHandler(SubscriptionHandler):
-    """The MultiSubHandler can be used to distribute subcribed values to multiple different subscription handlers.
+    """The MultiSubHandler can be used to distribute subscribed values to multiple different subscription handlers.
     The handlers can be registered using the register method.
     """
 
@@ -53,7 +53,7 @@ class MultiSubHandler(SubscriptionHandler):
         self._handlers.append(sub_handler)
 
     def push(self, node: Node, value: Any, timestamp: datetime | None = None) -> None:
-        """Receive data from a subcription. This should contain the node that was requested, a value and a timestemp
+        """Receive data from a subscription. This should contain the node that was requested, a value and a timestamp
         when data was received. Push data to all registered sub-handlers.
 
         :param node: Node object the data belongs to.
@@ -104,7 +104,7 @@ class CsvSubHandler(SubscriptionHandler):
         self._thread.start()
 
     def push(self, node: Node, value: Any, timestamp: datetime | None = None) -> None:
-        """Receive data from a subcription. THis should contain the node that was requested, a value and a timestemp
+        """Receive data from a subscription. THis should contain the node that was requested, a value and a timestamp
         when data was received. If the timestamp is not provided, current time will be used.
 
         :param node: Node object the data belongs to.

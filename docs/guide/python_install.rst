@@ -3,8 +3,8 @@
 Set up Python and Git
 ======================
 
-This section explains how to set up Python and Git and also how to create a virtual environment. Additional information can be found in the `Beginner's Guide to Python (external link) <https://wiki.python.org/moin/BeginnersGuide>`_.
-If you have already set this up, you can go to the :ref:`install` section.
+This section explains how to set up Python and Git. Additional information can be found in the `Beginner's Guide to Python (external link) <https://wiki.python.org/moin/BeginnersGuide>`_.
+If you have already set this up, you can go to the :ref:`install` or :ref:`development` sections.
 
 Installation of Python
 ------------------------
@@ -56,47 +56,3 @@ Installation of Git
 If you do not already have it, install Git on your device. For Windows, you can download
 it from `git-scm.com <https://git-scm.com/download/win>`_. Alternatively, it is also
 possible to use GUIs (Graphical User Interfaces) for git such as SourceTree or `GitHub Desktop <https://desktop.github.com/>`_. If you have problems with git, see the :ref:`faq`.
-
-.. _create_virtual_environment:
-
-
-Creating a virtual environment (recommended)
------------------------------------------------------
-
-A **virtual environment** is a Python environment which isolates its Python interpreter, libraries,
-and scripts installed. It's isolated from other virtual environments, and (by default)
-from any libraries installed in the "system" Python (the main Python environment installed on your
-operating system). This isolation prevents conflicting libraries or versions from affecting each other.
-
-
-
-In order to use a virtual environment, it must first be created in an arbitrary directory
-on the computer. Open a terminal (for example cmd or PowerShell on Windows) and execute the
-following commands.
-
-.. code-block:: console
-
-    $ python -m venv <Any folder>/.venv
-
-Navigate to your chosen directory, then activate the virtual environment:
-
-.. code-block:: console
-
-    $ .venv/scripts/activate
-
-The creation and activation of the environment are shown in the following figure.
-
-.. figure:: figures/6_ActivateVE.png
-   :width: 700
-   :alt: Activate virtual environment
-
-   Create and activate virtual environment.
-
-When the virtual environment is activated, *(.venv)* is prefixed to the console line.
-The commands in the following chapters can be executed in the virtual environment without
-any adjustments.
-
-.. note::
-
-   Some IDEs (Integrated Development Environments) such as PyCharm or code editors like VS Code
-   will automate the activation of the virtual environment for you.

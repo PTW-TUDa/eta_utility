@@ -190,7 +190,7 @@ def _fix_col_name(
     """Figure out correct name for the column.
 
     :param name: Name to rename.
-    :param prefix: Prefix to preprend to the name.
+    :param prefix: Prefix to prepend to the name.
     :param prefix_renamed: Prepend prefix if name is renamed?
     :param rename_cols: Mapping of old names to new names.
     """
