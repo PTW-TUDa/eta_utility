@@ -248,7 +248,7 @@ def local_nodes(config_host_ip):
 
 
 class TestConnectorOperations:
-    @pytest.fixture(scope="class", autouse=True)
+    @pytest.fixture(autouse=True)
     def server(self, config_host_ip):
         with OpcUaServer(5, ip=config_host_ip) as server:
             yield server
@@ -268,35 +268,43 @@ class TestConnectorOperations:
 
     @pytest.mark.parametrize(("index", "value"), values)
     def test_write_node(self, server: OpcUaServer, connection: OpcUaConnection, local_nodes, index, value):
+        server.create_nodes(local_nodes)
         connection.write({local_nodes[index]: value})
 
         assert server.read(local_nodes[index]).iloc[0, 0] == value
 
     @pytest.mark.parametrize(("index", "expected"), values)
-    def test_read_node(self, connection: OpcUaConnection, local_nodes, index, expected):
+    def test_read_node(self, server: OpcUaServer, connection: OpcUaConnection, local_nodes, index, expected):
+        server.create_nodes(local_nodes)
+        server.write({local_nodes[index]: expected})
         val = connection.read({local_nodes[index]})
 
         assert val.iloc[0, 0] == expected
         assert val.columns[0] == local_nodes[index].name
 
-    def test_read_fail(self, connection: OpcUaConnection, local_nodes):
+    def test_read_fail(self, server, connection: OpcUaConnection, local_nodes):
         n = local_nodes[0]
+        server.create_nodes(local_nodes[0])
         fail_node = Node(n.name, n.url, n.protocol, usr=n.usr, pwd=n.pwd, opc_id="ns=6;s=AnotherNamespace.DoesNotExist")
         with pytest.raises(ConnectionError, match=".*BadNodeIdUnknown.*"):
             connection.read(fail_node)
 
-    def test_recreate_existing_node(self, connection: OpcUaConnection, local_nodes, caplog):
+    def test_recreate_existing_node(self, server, connection: OpcUaConnection, local_nodes, caplog):
         # Create Node that already exists
+        server.create_nodes(local_nodes[0])
         connection.create_nodes(local_nodes[0])
         assert f"Node with NodeId : {local_nodes[0].opc_id} could not be created. It already exists." in caplog.messages
 
-    def test_login_fail_write(self, local_nodes):
+    def test_login_fail_write(self, server, local_nodes):
         n = local_nodes[0]
+        server.create_nodes(local_nodes[0])
         connection = OpcUaConnection.from_node(n, usr="another", pwd="something")
         with pytest.raises(ConnectionError, match=".*BadUserAccessDenied.*"):
             connection.write({n: 123})
 
-    def test_delete_nodes(self, connection: OpcUaConnection, local_nodes):
+    def test_delete_nodes(self, server, connection: OpcUaConnection, local_nodes):
+        server.create_nodes(local_nodes)
+
         connection.delete_nodes(local_nodes)
 
         with pytest.raises(ConnectionError, match=".*BadNodeIdUnknown.*"):

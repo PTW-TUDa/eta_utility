@@ -1,4 +1,5 @@
 import asyncio
+from collections.abc import Generator
 
 import pytest
 
@@ -49,13 +50,13 @@ def phase_node(config_modbus_port, config_host_ip):
 
 
 class TestConnectorOperations:
-    @pytest.fixture(scope="class")
-    def server(self, config_modbus_port, config_host_ip):
+    @pytest.fixture(scope="class", autouse=True)
+    def server(self, config_modbus_port, config_host_ip) -> Generator[ModbusServer, None, None]:
         with ModbusServer(ip=config_host_ip, port=config_modbus_port) as server:
             yield server
 
     @pytest.fixture(scope="class")
-    def connection(self, local_nodes):
+    def connection(self, local_nodes) -> EmonioConnection:
         return EmonioConnection.from_node(local_nodes)
 
     def test_read(self, server, connection):
@@ -77,7 +78,7 @@ class TestConnectorOperations:
             server.write({node: values[i]})
             await asyncio.sleep(0.9)
 
-    def test_subscribe(self, connection: EmonioConnection, server: ModbusServer, local_nodes):
+    def test_subscribe(self, server: ModbusServer, connection: EmonioConnection, local_nodes):
         voltage_node = connection._prepare_modbus_nodes(local_nodes[0])[0]
         voltage_values = [299.5, 230, 230.001]
 
@@ -91,7 +92,7 @@ class TestConnectorOperations:
         data = handler.data.round(3)
         assert (voltage_values == data["Serv.Spannung"].to_numpy()).all()
 
-    def test_check_phase(self, server, connection, phase_node):
+    def test_check_phase(self, connection, phase_node):
         # Set 'connected' for a at address 0 to 1 (True)
         connection._phases_connected = {"a": True, "b": False, "c": False}
         connection._check_phases(phase_node)
@@ -127,6 +128,8 @@ class TestConnectorOperations:
         msg = "Error bit 'a' is set. See https://wiki.emonio.de/de/Emonio_P3 for more information."
         with pytest.raises(ValueError, match=msg):
             connection = EmonioConnection.from_node(local_nodes)  # noqa: F841
+
+        server.write({error_node: 0})  # Reset error bit
 
     test_nodes = (
         # single node
