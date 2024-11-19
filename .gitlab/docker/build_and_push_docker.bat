@@ -12,6 +12,7 @@ set "IMAGE_PATH=/eta-fabrik/public/eta-utility/"
 REM Login to the Docker registry
 docker login %REGISTRY_URL%
 if errorlevel 1 (
+    echo Failed to login to the Docker registry.
     exit /b 1
 )
 

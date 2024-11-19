@@ -339,7 +339,7 @@ class BaseEnv(Env, abc.ABC):
         """Check if the episode is over or not using the number of steps (n_steps) and the total number of
         steps in an episode (n_episode_steps).
 
-        :return: boolean showing, whether the epsiode is done.
+        :return: boolean showing, whether the episode is done.
         """
         return self.n_steps >= self.n_episode_steps
 

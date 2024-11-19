@@ -35,7 +35,7 @@ See :ref:`Connection instantiation <connection instantiation>` for more informat
 Nodes
 ----------
 Each *Node* object uniquely identifies a specific data point. All *Node* objects have some information in
-common. This information idenfies the device which the data point belongs to and can also contain information
+common. This information identifies the device which the data point belongs to and can also contain information
 required for authentication with the device. Depending on the protocol the *Node* object contains additional
 information to correctly identify the data points.
 

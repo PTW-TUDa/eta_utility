@@ -1,15 +1,11 @@
 .. _development:
 
-Contributing to development
+Installation and Guide for Developers
 ===========================
 
-Before contributing to development of *eta_utility*, please read this development
-guide carefully. If you are looking for instructions on how to install *eta_utility* for usage
-only, please take a look at the :ref:`install` guide.
+This section describes how to install *eta_utility* using *poetry*, and how to contribute to development.
 
-If you need help installing Python or git, please consult the :ref:`python_install` guide.
-
-The most important things
+Contributing to development
 -----------------------------
 
 If you would like to contribute, please create an issue in the repository to discuss your suggestions.
@@ -187,7 +183,7 @@ Or if you have the virtual environment already activated:
 
 Please always refresh the *test_nsga2_agent.zip* file when changes are made in the nsga2 agent and in julia files. The zip-file is located
 in *eta-utility/test/resources/agents* and creates a new NSGA2 model for the tests. To do this, execute the following
-comand in the terminal:
+command in the terminal:
 
 .. code-block:: console
 

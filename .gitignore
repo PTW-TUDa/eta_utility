@@ -8,7 +8,7 @@
 !*/resources/**/*.csv
 !*/resources/**/*.xls
 *_version.py
-!test/utilities/requests/*.json
+!test/utilities/requests/**/*.json
 
 # results of example run
 examples/*/results

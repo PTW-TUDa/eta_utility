@@ -13,6 +13,7 @@ IMAGE_PATH="/eta-fabrik/public/eta-utility/"
 
 docker login ${REGISTRY_URL}
 if [ $? -ne 0 ]; then
+    echo -e "${RED}Failed to login to the Docker registry${NC}"
     exit 1
 fi
 
