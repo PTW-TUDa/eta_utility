@@ -7,12 +7,14 @@ This page gives a short overview of the examples.
 
 Connectors
 --------------
-There are two examples for the *connectors*: The *read_series_eneffco* example illustrates a simple usage of the *connectors* module. It selects some data points
-and reads them as series data from the server.
+There are two examples for the *connectors*: The *read_series_eneffco* example illustrates a simple usage of the *connectors* module. It selects some data points and reads them as series data from the server.
 
-The *data_recorder* example is more complex in that it uses multiple *connectors*,
-can connect to different protocols and provides a command line interface for
+The *data_recorder* example is more complex in that it uses multiple *connectors*, can connect to different protocols and provides a command line interface for
 configuration.
+
+In addition to these features, the DataRecorder offers both a graphical user interface (GUI) and a command-line interface. It allows data retrieval from various servers within the ETA-Factory and can output the data as CSV files.
+
+You can access the DataRecorder at: (https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-datarecorder).
 
 Forecasting
 --------------

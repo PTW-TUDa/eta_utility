@@ -7,9 +7,6 @@ from eta_utility.connectors.emonio import NodeModbusFactory
 from eta_utility.connectors.node import Node
 from eta_utility.servers import OpcUaServer
 from eta_utility.servers.modbus import ModbusServer
-from examples.connectors.data_recorder import (
-    execution_loop as ex_data_recorder,
-)
 from examples.connectors.read_emonio_live import (
     emonio_manuell,
     live_from_dict,
@@ -59,23 +56,6 @@ def test_example_read_eneffco():
 
     assert isinstance(data, pd.DataFrame)
     assert set(data.columns) == {"CH1.Elek_U.L1-N", "Pu3.425.ThHy_Q"}
-
-
-@pytest.mark.usefixtures("_local_eneffco_requests", "_mock_client")
-def test_example_data_recorder(temp_dir, config_nodes_file, config_eneffco):
-    file = temp_dir / "data_recorder_example_output.csv"
-    ex_data_recorder(
-        config_nodes_file["file"],
-        config_nodes_file["sheet"],
-        file,
-        5,
-        1,
-        3,
-        config_eneffco["user"],
-        config_eneffco["pw"],
-        config_eneffco["postman_token"],
-        3,
-    )
 
 
 @pytest.mark.skip(reason="wetterdienst API for observations is not working properly.")
