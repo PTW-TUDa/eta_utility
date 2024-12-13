@@ -17,8 +17,9 @@ if check_julia_package():
     from eta_utility.util_julia import import_jl_file
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from types import ModuleType
-    from typing import Any, Callable
+    from typing import Any
 
     from eta_utility.eta_x import ConfigOptRun
     from eta_utility.type_hints import StepResult, TimeStep

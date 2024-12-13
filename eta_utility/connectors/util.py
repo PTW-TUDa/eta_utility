@@ -13,8 +13,8 @@ from eta_utility.connectors.node import Node
 from eta_utility.util import ensure_timezone
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
-    from typing import Any, Callable, Final
+    from collections.abc import Callable, Iterable, Sequence
+    from typing import Any, Final
 
     from eta_utility.type_hints import TimeStep
 

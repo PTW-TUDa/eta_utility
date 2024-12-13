@@ -9,8 +9,9 @@ from eta_utility.eta_x.envs import BaseEnvLive, StateConfig, StateVar
 from eta_utility.util import csv_export
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from datetime import datetime
-    from typing import Any, Callable
+    from typing import Any
 
     from eta_utility.eta_x import ConfigOptRun
     from eta_utility.type_hints import ObservationType, StepResult, TimeStep
