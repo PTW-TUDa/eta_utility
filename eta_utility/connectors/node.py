@@ -20,6 +20,7 @@ from attrs import (
     field,
     validators as vld,
 )
+from typing_extensions import deprecated
 from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.provider.dwd.mosmix.api import DwdMosmixParameter
 from wetterdienst.provider.dwd.observation import (
@@ -526,7 +527,6 @@ class NodeOpcUa(Node, protocol="opcua"):
     opc_name: str = field(init=False, repr=False, eq=False, order=False, converter=str)
     #: Path to the OPC UA node in list representation. Nodes in this list can be used to access any
     #: parent objects.
-    opc_path: list[NodeOpcUa] = field(init=False, repr=False, eq=False, order=False)
 
     def __attrs_post_init__(self) -> None:
         """Add default port to the URL and convert mb_byteorder values."""
@@ -568,18 +568,22 @@ class NodeOpcUa(Node, protocol="opcua"):
         else:
             raise ValueError("Specify opc_id or opc_path_str and ns for OPC UA nodes.")
 
-        # Determine the name and path of the opc node
+        # Determine the name of the opc node
+        object.__setattr__(self, "opc_name", self.opc_path_str.split(".")[-1])  # type: ignore
+
+    @property
+    @deprecated("This attribute will be removed in the future")
+    def opc_path(self) -> list[NodeOpcUa]:
         split_path = (
             self.opc_path_str.rsplit(".", maxsplit=len(self.opc_path_str.split(".")) - 2)  # type: ignore
             if self.opc_path_str[0] == "."  # type: ignore
             else self.opc_path_str.split(".")  # type: ignore
         )
 
-        object.__setattr__(self, "opc_name", split_path[-1].split(".")[-1])
         path = []
         for k in range(len(split_path) - 1):
             path.append(
-                Node(
+                NodeOpcUa(
                     split_path[k].strip(" ."),
                     self.url,
                     "opcua",
@@ -588,7 +592,7 @@ class NodeOpcUa(Node, protocol="opcua"):
                     opc_id="ns={};s={}".format(self.opc_ns, ".".join(split_path[: k + 1])),
                 )
             )
-        object.__setattr__(self, "opc_path", path)
+        return path
 
     @classmethod
     def _from_dict(cls, dikt: dict[str, Any]) -> Self:

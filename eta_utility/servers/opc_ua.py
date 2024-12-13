@@ -114,28 +114,31 @@ class OpcUaServer:
         :param nodes: List or set of nodes to create.
         """
 
-        def create_object(parent: SyncOpcNode, child: NodeOpcUa) -> SyncOpcNode:
+        def create_object(parent: SyncOpcNode, opc_name: str, opc_path_str: str, opc_id: str) -> SyncOpcNode:
             children: list[SyncOpcNode] = asyncua.sync._to_sync(parent.tloop, parent.get_children())
-            for obj in children:
-                ident = obj.nodeid.Identifier
-                ident = ident.strip() if isinstance(ident, str) else ident
-                if child.opc_path_str == ident:
-                    return obj
-            return asyncua.sync._to_sync(parent.tloop, parent.add_object(child.opc_id, child.opc_name))
+            for child in children:
+                ident = child.nodeid.Identifier
+                if isinstance(ident, str) and ident.strip() == opc_path_str:
+                    return child
+            return asyncua.sync._to_sync(parent.tloop, parent.add_object(opc_id, opc_name))
 
         _nodes = self._validate_nodes(nodes)
 
         for node in _nodes:
             try:
-                if len(node.opc_path) == 0:
-                    last_obj = asyncua.sync._to_sync(self._server.tloop, self._server.aio_obj.get_objects_node())
-                else:
-                    # Create SyncNode from asyncNode
-                    sync_node = asyncua.sync._to_sync(self._server.tloop, self._server.aio_obj.get_objects_node())
-                    last_obj = create_object(sync_node, node.opc_path[0])
+                split_path = node.opc_path_str.split(".")  # type: ignore
+                # If the path starts with a dot, the dot belongs to the root node and is not a separator
+                if node.opc_path_str.startswith("."):  # type: ignore
+                    split_path = node.opc_path_str.rsplit(".", maxsplit=len(split_path) - 2)  # type: ignore
 
-                for key in range(1, len(node.opc_path)):
-                    last_obj = create_object(last_obj, node.opc_path[key])
+                # Create SyncNode from asyncNode
+                last_obj = asyncua.sync._to_sync(self._server.tloop, self._server.aio_obj.get_objects_node())
+                for i in range(len(split_path) - 1):
+                    _opc_name = split_path[i].strip(" .")
+                    _opc_path_str = ".".join(split_path[: i + 1])
+                    _opc_id = f"ns={node.opc_ns};s={_opc_path_str}"
+
+                    last_obj = create_object(last_obj, _opc_name, _opc_path_str, _opc_id)
 
                 init_val: Any
                 if not hasattr(node, "dtype"):
