@@ -28,6 +28,7 @@ from asyncua.crypto.security_policies import SecurityPolicyBasic256Sha256
 # Synchronous imports
 from asyncua.sync import Client, Subscription
 from asyncua.ua import SecurityPolicy, uaerrors
+from typing_extensions import deprecated
 
 from eta_utility import KeyCertPair, Suppressor
 from eta_utility.connectors.node import NodeOpcUa
@@ -190,6 +191,7 @@ class OpcUaConnection(Connection[NodeOpcUa], protocol="opcua"):
                 except RuntimeError as e:
                     raise ConnectionError(str(e)) from e
 
+    @deprecated("This functionality is deprecated and will be removed in the future.")
     def create_nodes(self, nodes: Nodes[NodeOpcUa]) -> None:
         """Create nodes on the server from a list of nodes. This will try to create the entire node path.
 
@@ -243,6 +245,7 @@ class OpcUaConnection(Connection[NodeOpcUa], protocol="opcua"):
                 except RuntimeError as e:
                     raise ConnectionError(str(e)) from e
 
+    @deprecated("This functionality is deprecated and will be removed in the future.")
     def delete_nodes(self, nodes: Nodes[NodeOpcUa]) -> None:
         """Delete the given nodes and their parents (if the parents do not have other children).
 
