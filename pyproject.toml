@@ -47,7 +47,7 @@ format="sdist"
 # e.g. ^3.9.0: 3.9.0 <= x < 4.0.0 and ~3.9.0: 3.9.0 <= x < 3.10.0
 [tool.poetry.dependencies]
 # default dependencies of eta_utility
-python = ">=3.9, <3.12"
+python = ">=3.9.2, <3.12"
 attrs = "^23.1.0"
 python-dateutil = "^2.8.2"
 numpy = {version= "~1.26.0"}

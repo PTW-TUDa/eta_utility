@@ -30,8 +30,8 @@ from wetterdienst.provider.dwd.observation import (
 from eta_utility import dict_get_any, url_parse
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-    from typing import Any, Callable, ClassVar, Final
+    from collections.abc import Callable, Sequence
+    from typing import Any, ClassVar, Final
     from urllib.parse import ParseResult
 
     from typing_extensions import Self, TypeAlias

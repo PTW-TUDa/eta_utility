@@ -79,10 +79,10 @@ class OpcUaServer:
         for node in nodes:
             var = self._server.get_node(node.opc_id)
             try:
-                opc_type = var.get_data_type_as_variant_type()
+                opc_type = var.read_data_type_as_variant_type()
             except asyncua.sync.ThreadLoopNotRunning as e:
                 raise ConnectionError(f"Server {self} is not running.") from e
-            var.set_value(ua.Variant(values[node], opc_type))
+            var.write_value(ua.Variant(values[node], opc_type))
 
     def read(self, nodes: Nodes[NodeOpcUa] | None = None) -> pd.DataFrame:
         """
@@ -98,7 +98,7 @@ class OpcUaServer:
         for node in _nodes:
             try:
                 opcua_variable = self._server.get_node(node.opc_id)
-                value = opcua_variable.get_value()
+                value = opcua_variable.read_value()
                 _dikt[node.name] = [value]
             except uaerrors.BadNodeIdUnknown as e:
                 raise RuntimeError(

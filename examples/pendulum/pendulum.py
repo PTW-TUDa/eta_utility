@@ -22,8 +22,9 @@ else:
 from eta_utility.eta_x.envs import BaseEnv, StateConfig, StateVar
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from datetime import datetime
-    from typing import Any, Callable
+    from typing import Any
 
     from eta_utility.eta_x import ConfigOptRun
     from eta_utility.type_hints import ObservationType, StepResult, TimeStep

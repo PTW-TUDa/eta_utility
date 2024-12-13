@@ -263,7 +263,7 @@ def df_resample(dataframe: pd.DataFrame, *periods_deltas: TimeStep, missing_data
     if dataframe.isna().to_numpy().any():
         log.warning(
             "Resampled Dataframe has missing values. Before using this data, ensure you deal with the missing values. "
-            "For example, you could interpolate(), fillna() or dropna()."
+            "For example, you could interpolate(), ffill() or dropna()."
         )
 
     return new_df

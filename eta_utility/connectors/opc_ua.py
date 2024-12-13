@@ -141,7 +141,7 @@ class OpcUaConnection(Connection[NodeOpcUa], protocol="opcua"):
         def read_node(node: NodeOpcUa) -> dict[str, list]:
             try:
                 opcua_variable = self.connection.get_node(node.opc_id)
-                value = opcua_variable.get_value()
+                value = opcua_variable.read_value()
                 if node.dtype is not None:
                     try:
                         value = node.dtype(value)
@@ -179,9 +179,9 @@ class OpcUaConnection(Connection[NodeOpcUa], protocol="opcua"):
             for node in nodes:
                 try:
                     opcua_variable = self.connection.get_node(node.opc_id)
-                    opcua_variable_type = opcua_variable.get_data_type_as_variant_type()
+                    opcua_variable_type = opcua_variable.read_data_type_as_variant_type()
                     value = node.dtype(values[node]) if node.dtype is not None else values[node]
-                    opcua_variable.set_value(ua.DataValue(ua.Variant(value, opcua_variable_type)))
+                    opcua_variable.write_value(ua.DataValue(ua.Variant(value, opcua_variable_type)))
                 except uaerrors.BadNodeIdUnknown as e:
                     raise ConnectionError(
                         f"The node id ({node.opc_id}) refers to a node that does not exist in the server address space "
@@ -473,7 +473,7 @@ class OpcUaConnection(Connection[NodeOpcUa], protocol="opcua"):
     def _check_connection(self) -> bool:
         if self._connected:
             try:
-                self.connection.get_node(ua.FourByteNodeId(ua.ObjectIds.Server_ServerStatus_State)).get_value()
+                self.connection.get_node(ua.FourByteNodeId(ua.ObjectIds.Server_ServerStatus_State)).read_value()
             except AttributeError:
                 self._connected = False
                 log.debug(f"Connection to server {self.url} did not exist - connection check failed.")

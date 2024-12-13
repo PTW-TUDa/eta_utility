@@ -10,9 +10,9 @@ from eta_utility.connectors import LiveConnect
 from eta_utility.eta_x.envs import BaseEnv
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
     from datetime import datetime
-    from typing import Any, Callable
+    from typing import Any
 
     from eta_utility.eta_x import ConfigOptRun
     from eta_utility.type_hints import ObservationType, Path, StepResult, TimeStep

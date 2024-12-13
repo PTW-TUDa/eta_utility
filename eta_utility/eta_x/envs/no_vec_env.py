@@ -9,7 +9,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.vec_env.util import obs_space_info
 
 if TYPE_CHECKING:
-    from typing import Callable
+    from collections.abc import Callable
 
     import gymnasium
     from stable_baselines3.common.vec_env.base_vec_env import (

@@ -10,11 +10,12 @@ from typing import TYPE_CHECKING, Generic
 import pandas as pd
 from attr import field
 from dateutil import tz
+from typing_extensions import deprecated
 
 from eta_utility import url_parse
 from eta_utility.connectors.node import Node
 from eta_utility.type_hints.types_connectors import N, Nodes
-from eta_utility.util import deprecated, ensure_timezone, round_timestamp
+from eta_utility.util import ensure_timezone, round_timestamp
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence

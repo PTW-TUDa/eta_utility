@@ -55,6 +55,6 @@ class PendulumControl(RuleBased):
         else:
             torque *= -1.5
 
-        action: np.ndarray = np.fromiter([torque], dtype=np.floating)
+        action: np.ndarray = np.fromiter([torque], dtype=np.float64)
 
         return action

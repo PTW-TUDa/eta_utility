@@ -227,7 +227,7 @@ class ENTSOEConnection(SeriesConnection[NodeEntsoE], protocol="entsoe"):
                 df_resolution = pd.DataFrame.from_dict(data_resolution, orient="columns")
                 # entsoe always returns a dataframe in UTC time, convert to same time zone as given from_time
                 df_resolution.index = df_resolution.index.tz_convert(tz=from_time.tzinfo)
-                df_resolution = df_resample(df_resolution, interval, missing_data="fillna")
+                df_resolution = df_resample(df_resolution, interval, missing_data="ffill")
                 df_resolution = df_time_slice(df_resolution, from_time, to_time)
                 df_dict[resolution] = df_resolution
 
@@ -585,7 +585,7 @@ class _ConnectionConfiguration:
 
         :return: tree of elements with the pre-defined values for the request
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         # Prepare XML Header data
         data = E("StatusRequest_MarketDocument", xmlns=self._XMLNS)
         data.append(E("mRID", f"Request_{now.isoformat(sep='T', timespec='seconds')}"))

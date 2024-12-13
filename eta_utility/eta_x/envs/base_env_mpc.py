@@ -15,7 +15,8 @@ from eta_utility.eta_x.envs import BaseEnv
 from eta_utility.eta_x.envs.state import StateConfig, StateVar
 
 if TYPE_CHECKING:
-    from typing import Any, Callable
+    from collections.abc import Callable
+    from typing import Any
 
     from pyomo.opt import SolverResults
 

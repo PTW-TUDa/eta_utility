@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import copy
 import csv
-import functools
 import io
 import json
 import logging
@@ -35,7 +34,7 @@ if TYPE_CHECKING:
     import types
     from collections.abc import Generator
     from tempfile import _TemporaryFileWrapper
-    from typing import Any, Callable
+    from typing import Any
     from urllib.parse import ParseResult
 
     from typing_extensions import Self
@@ -430,39 +429,6 @@ def round_timestamp(dt_value: datetime, interval: float = 1, ensure_tz: bool = T
     rounded_timestamp = math.ceil(dt_value.timestamp() / interval) * interval
 
     return datetime.fromtimestamp(rounded_timestamp, tz=timezone_store)
-
-
-def deprecated(message: str) -> Callable:
-    """
-    This is a decorator which can be used to mark functions
-    or classes as deprecated. It will result in a warning being emitted
-    when the function or class is used.
-
-    :param message: Message to be displayed when the function is called.
-    """
-
-    def decorator(func_or_class: Callable | type) -> Callable | type:
-        if isinstance(func_or_class, type):
-            # If applied to a class
-            orig_init = func_or_class.__init__  # type: ignore
-
-            @functools.wraps(orig_init)
-            def new_init(self: Any, *args: Any, **kwargs: Any) -> None:
-                warnings.warn(f"{func_or_class.__name__} is deprecated: {message}", DeprecationWarning, stacklevel=2)
-                orig_init(self, *args, **kwargs)
-
-            func_or_class.__init__ = new_init  # type: ignore
-            return func_or_class
-
-        # If applied to a function
-        @functools.wraps(func_or_class)
-        def new_func(*args: Any, **kwargs: Any) -> Any:
-            warnings.warn(f"{func_or_class.__name__} is deprecated: {message}", DeprecationWarning, stacklevel=2)
-            return func_or_class(*args, **kwargs)
-
-        return new_func
-
-    return decorator
 
 
 class KeyCertPair(ABC):
