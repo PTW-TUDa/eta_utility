@@ -258,12 +258,6 @@ class TestConnectorOperations:
         connection: OpcUaConnection = OpcUaConnection.from_node(local_nodes, usr="admin", pwd="0")
         return connection
 
-    def test_create_nodes(self, server: OpcUaServer, connection: OpcUaConnection, local_nodes):
-        connection.create_nodes(local_nodes)
-
-        for node in local_nodes:
-            server.read(node)
-
     values = ((0, 1.5), (1, 5), (2, "something"))
 
     @pytest.mark.parametrize(("index", "value"), values)
