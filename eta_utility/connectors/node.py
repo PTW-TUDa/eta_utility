@@ -843,7 +843,7 @@ class NodeWetterdienst(Node):
         if self.parameter not in parameters:
             raise ValueError(
                 f"Parameter {self.parameter} is not valid. Valid parameters can be found here:"
-                f"https://wetterdienst.readthedocs.io/en/latest/data/parameters.html"
+                f"https://wetterdienst.readthedocs.io/en/latest/data/parameters/"
             )
 
     @classmethod
@@ -864,7 +864,7 @@ class NodeWetterdienst(Node):
 class NodeWetterdienstObservation(NodeWetterdienst, protocol="wetterdienst_observation"):
     """
     Node for the Wetterdienst API to get weather observations.
-    For more information see: https://wetterdienst.readthedocs.io/en/latest/data/coverage/dwd/observation.html
+    For more information see: https://wetterdienst.readthedocs.io/en/latest/data/provider/dwd/observation/
     """
 
     #: Redeclare interval attribute, but don't allow it to be optional
@@ -928,7 +928,7 @@ class NodeWetterdienstObservation(NodeWetterdienst, protocol="wetterdienst_obser
 class NodeWetterdienstPrediction(NodeWetterdienst, protocol="wetterdienst_prediction"):
     """
     Node for the Wetterdienst API to get weather predictions.
-    For more information see: https://wetterdienst.readthedocs.io/en/latest/data/coverage/dwd/mosmix.html
+    For more information see: https://wetterdienst.readthedocs.io/en/latest/data/provider/dwd/mosmix/
     """
 
     #: Type of the MOSMIX prediction. Either 'SMALL' or 'LARGE'
@@ -945,7 +945,7 @@ class NodeWetterdienstPrediction(NodeWetterdienst, protocol="wetterdienst_predic
             raise ValueError(
                 f"Parameter {self.parameter} is not valid for the given resolution."
                 f"Valid parameters for resolution {self.mosmix_type} can be found here:"
-                f"https://wetterdienst.readthedocs.io/en/latest/data/coverage/dwd/mosmix/hourly.html"
+                f"https://wetterdienst.readthedocs.io/en/latest/data/provider/dwd/mosmix/hourly/"
             )
 
     @classmethod

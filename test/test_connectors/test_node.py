@@ -64,7 +64,7 @@ fail_nodes = (
             "interval": "60",
         },
         "Parameter FOO-BAR is not valid. Valid parameters can be found here:"
-        "https://wetterdienst.readthedocs.io/en/latest/data/parameters.html",
+        "https://wetterdienst.readthedocs.io/en/latest/data/parameters/",
     ),
     (
         {
