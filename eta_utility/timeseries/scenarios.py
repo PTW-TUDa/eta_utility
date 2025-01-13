@@ -56,7 +56,7 @@ def scenario_from_csv(
     :param resample_time: Resample the scenario data to the specified interval. If this is specified
                           one of 'upsample_fill' or downsample_method' must be supplied as well to determine how
                           the new data points should be determined. If given as an int, this will be interpreted as
-                          seconds (default: no resampling).
+                          seconds (default: no resampling). If resample_time is None, it will be treated as 0(default).
     :param interpolation_method: Method for interpolating missing data values. Pandas missing data
                                  handling methods are supported. If a list with one value per file is given, the
                                  specified method will be selected according to the order of paths.
@@ -81,7 +81,9 @@ def scenario_from_csv(
     :param time_conversion_str: Time conversion string. This must be specified if the
                                 infer_datetime_from parameter is set to 'string'. The string should specify the
                                 datetime format in the python strptime format.
-    :param scaling_factors: Scaling factors for each imported column.
+    :param scaling_factors: Scaling factors for each imported column. The scaling_factors must be a sequence with
+                            the same length as _paths, where each element corresponds to a scaling factor for a specific
+                            path. If there is only one path, the scaling_factors can have a length of 1.
     :return: Imported and processed data as pandas.DataFrame.
     """
 
@@ -124,8 +126,9 @@ def scenario_from_csv(
     if total_time is not None:
         total_time = total_time if isinstance(total_time, timedelta) else timedelta(seconds=total_time)
 
-    # If resample_time is None, set it to 0
-    resample_time = resample_time or 0
+    # If resample_time is None, default to 0
+    if resample_time is None:
+        resample_time = 0  # Default behavior for None
     _resample_time = resample_time if isinstance(resample_time, timedelta) else timedelta(seconds=resample_time)
 
     _random = random if random is not None else False
