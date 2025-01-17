@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pathlib
-from collections.abc import Sequence, Sized
+from collections.abc import Sequence
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -87,11 +87,9 @@ def scenario_from_csv(
     :return: Imported and processed data as pandas.DataFrame.
     """
 
-    if not isinstance(paths, Sized):
+    if not isinstance(paths, Sequence) or isinstance(paths, str):
         paths = [paths]
-    _paths = []
-    for path in paths:
-        _paths.append(path if isinstance(path, pathlib.Path) else pathlib.Path(path))
+    _paths = [path if isinstance(path, pathlib.Path) else pathlib.Path(path) for path in paths]
 
     # interpolation methods needs to be a list, so in case of None create a list of Nones
     if isinstance(interpolation_method, str) or interpolation_method is None:
