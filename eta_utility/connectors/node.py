@@ -1184,11 +1184,9 @@ attrs_args = {"kw_only": True, "field_transformer": _forecast_solar_transform}
 
 
 class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
-    """
-    Node for using the Forecast.Solar API.
+    """Node for using the Forecast.Solar API.
 
     Mandatory parameters are:
-
     * The location of the forecast solar plane(s): **latitude**, **longitude**,
     * Plane parameters: **declination**, **azimuth** and **kwp**.
 
@@ -1198,6 +1196,9 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
     For multiple planes, the parameters shall be passed as lists of the same length
     (e.g. [0, 30], [180, 180], [5, 5]).
 
+    By default, data is queried as 'watts'. Other options are 'watthours', 'watthours/period' and 'watthours/day'.
+    Either set the **data** parameter or call the appropriate method afterwards of
+    :class:'eta_utility.connectors.forecast_solar.ForecastSolarConnection'.
     """
 
     # URL PARAMETERS
@@ -1209,14 +1210,14 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
     endpoint: str = field(
         default="estimate",
         converter=str,
-        validator=vld.in_(("estimate", "check", "history", "clearsky")),
+        validator=vld.in_(("estimate", "history", "clearsky")),
         metadata={"QUERY_PARAM": False},
     )
-    #: What data to query, i.e. only watts, watt hours, watt hours per period or watt hours per day; string
-    data: str | None = field(
+    #: What data to query, i.e. only 'watts', 'watthours', 'watthours/period' or 'watthours/day'; string
+    data: str = field(
         default="watts",
         converter=str,
-        validator=vld.in_(("watts", "watthours", "watthoursperperiod", "watthoursperday")),
+        validator=vld.in_(("watts", "watthours", "watthours/period", "watthours/day")),
         metadata={"QUERY_PARAM": False},
     )
     #: Latitude of plane location, -90 (south) … 90 (north); handled with a precision of 0.0001 or abt. 10 m
@@ -1294,13 +1295,6 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
 
         if self.api_key is None and (self.endpoint not in ["estimate", "check"]):
             raise ValueError(f"Valid API key is needed for endpoint: {self.endpoint}")
-        if self.endpoint != "estimate" and self.data is not None:
-            log.info("'data' field is not supported for endpoints other than estimate and will be ignored.")
-            object.__setattr__(self, "data", None)
-        elif self.endpoint == "estimate" and self.data is None:
-            log.info("'data' field will be set to 'watts' for endpoint 'estimate'.")
-            object.__setattr__(self, "data", "watts")
-
         # Collect all url parameters and query parameters
         url_params = {}
         query_params = {}
@@ -1327,30 +1321,24 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
         :return: URL for the Forecast Solar API.
         """
         url = "https://api.forecast.solar"
-        keys = []
+        keys = ["endpoint", "latitude", "longitude"]
 
         # Check if the API key is set and add it to the URL
-        if self.api_key is not None:
-            keys.append("api_key")
+        if url_params["api_key"] is not None:
+            keys.insert(0, "api_key")
 
-        keys.append("endpoint")
-
-        if self.endpoint == "estimate":
-            keys.append("data")
-        keys.extend(["latitude", "longitude"])
-
-        for path in keys:
-            try:
-                url += f"/{url_params[path]}"
-            except KeyError:
-                continue
+        for key in keys:
+            url += f"/{url_params[key]}"
+            if key == "endpoint":
+                url += "/watts"
 
         # Unpack plane parameters and add them to the URL
-        if isinstance(self.declination, list):
-            for i in range(len(self.declination)):
-                url += f"/{self.declination[i]}/{self.azimuth[i]}/{self.kwp[i]}"  # type: ignore[index]
+        if isinstance(url_params["declination"], list):
+            url += "".join(
+                f"/{d}/{a}/{k}" for d, a, k in zip(url_params["declination"], url_params["azimuth"], url_params["kwp"])
+            )
         else:
-            url += f"/{self.declination}/{self.azimuth}/{self.kwp}"
+            url += f"/{url_params['declination']}/{url_params['azimuth']}/{url_params['kwp']}"
 
         return url
 
@@ -1362,10 +1350,10 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
         :return: dict with: api_key, endpoint, latitude, longitude, declination, azimuth, kwp
         """
         attr_names = NodeForecastSolar.__annotations__.keys()
-        discard_keys = ["api_key", "data", "_url_params", "_query_params"]
+        discard_keys = ["api_key", "_url_params", "_query_params"]
         attributes = {key: dikt.get(key) for key in attr_names if key not in discard_keys}
-        # return only non-None values
-        return {key: value for key, value in attributes.items() if value is not None}
+        # return only non-"nan" values
+        return {key: value for key, value in attributes.items() if str(value) not in ["None", "nan"]}
 
     @classmethod
     def _from_dict(cls, dikt: dict[str, Any]) -> NodeForecastSolar:
@@ -1378,10 +1366,6 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
 
         params = cls._get_params(dikt)
 
-        _data_point = str(dict_get_any(dikt, "data", fail=False))
-        if _data_point not in ["None", "nan"]:
-            params["data"] = _data_point
-
         dict_key = str(dict_get_any(dikt, "api_key", "apikey", fail=False))
         if dict_key not in ["None", "nan"]:
             params["api_key"] = dict_key
@@ -1392,14 +1376,16 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
                 otherwise the public functions are only available."""
             )
 
+        # Convert lists given as strings to their literal values
         for key in ["declination", "azimuth", "kwp"]:
-            if isinstance(params[key], str):
-                params[key] = ast.literal_eval(params[key])
+            if isinstance(params.get(key), str):
+                try:
+                    params[key] = ast.literal_eval(params[key])
+                except (ValueError, SyntaxError):
+                    raise ValueError(f"Invalid literal for parameter '{key}': {params[key]}") from None
 
+        # Attempt to construct the class, handling potential type errors
         try:
             return cls(name, url, "forecast_solar", **params)
         except (TypeError, AttributeError) as e:
-            raise TypeError(
-                f"""Could not convert all types for node {name}:
-                            \n{e}"""
-            ) from e
+            raise TypeError(f"Could not convert all types for node '{name}':\n{e}") from e

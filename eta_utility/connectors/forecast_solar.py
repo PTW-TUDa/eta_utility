@@ -41,7 +41,7 @@ from .base_classes import SeriesConnection, SubscriptionHandler
 
 if TYPE_CHECKING:
     from types import TracebackType
-    from typing import Any, ClassVar
+    from typing import Any, Callable, ClassVar
 
     from typing_extensions import Self
 
@@ -107,7 +107,7 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
 
         return super()._from_node(node, api_key=api_key)
 
-    def _read_node(self, node: NodeForecastSolar) -> pd.DataFrame:
+    def _read_node(self, node: NodeForecastSolar, **kwargs: Any) -> pd.DataFrame:
         """Download data from the Forecast.Solar Database.
 
         :param node: Node to read values from.
@@ -116,7 +116,7 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
         url, query_params = node.url, node._query_params
         query_params["time"] = "utc"
 
-        raw_response = self._raw_request("GET", url, params=query_params, headers=self._headers)
+        raw_response = self._raw_request("GET", url, params=query_params, headers=self._headers, **kwargs)
         response = raw_response.json()
 
         timestamps = pd.to_datetime(list(response["result"].keys()))
@@ -144,25 +144,11 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
         """
         now = pd.Timestamp.now().tz_localize(self._local_tz)
 
-        if isinstance(from_time, pd.Timestamp):
-            previous_time = from_time.floor("15T") if self._api_key != "None" else from_time.floor("h")
-        else:
-            # When from_time is None, no series is selected
-            previous_time = now.floor("15T") if self._api_key != "None" else now.floor("h")
-
-        if isinstance(to_time, pd.Timestamp):
-            next_time = (
-                to_time.floor("15T") + timedelta(minutes=15)
-                if self._api_key != "None"
-                else to_time.floor("h") + timedelta(minutes=60)
-            )
-        else:
-            # When to_time is None, no series is selected
-            next_time = (
-                previous_time + timedelta(minutes=15)
-                if self._api_key != "None"
-                else previous_time + timedelta(minutes=60)
-            )
+        previous_time = from_time if isinstance(from_time, pd.Timestamp) else now
+        next_time = to_time if isinstance(to_time, pd.Timestamp) else previous_time
+        previous_time = previous_time.floor("15min")
+        next_time = next_time.floor("15min")
+        next_time += pd.Timedelta(minutes=15)
 
         if previous_time not in results:
             results.loc[previous_time] = 0
@@ -173,6 +159,36 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
         results = results.sort_index()
 
         return results.loc[previous_time:next_time], now
+
+    def _process_watts(self, values: pd.DataFrame, nodes: set[NodeForecastSolar]) -> pd.DataFrame:
+        """Process the watt values from the Forecast.Solar API.
+
+        :param values: DataFrame containing the raw data read from the connection.
+        :param nodes: List of nodes to read values from.
+        :return: DataFrame containing the processed data read from the connection.
+        """
+        # Determine the data type to use, defaulting to "watts" if inconsistent
+        if not nodes:
+            raise ValueError("The set of nodes is empty")
+
+        values.attrs["name"] = "watts"
+        iterator = iter(nodes)
+        first_node = next(iterator)
+        data = first_node.data
+
+        if any(node.data != data for node in iterator):
+            data = "watts"
+            log.warning("Multiple data types specified. Falling back to default data type: watts")
+
+        # Define the actions for each data type
+        actions: dict[str, Callable] = {
+            "watts": lambda v: v,
+            "watthours/period": self.calculate_watt_hours_period,
+            "watthours": lambda v: self.cumulative_watt_hours_per_day(v, from_unit="watts"),
+            "watthours/day": lambda v: self.summarize_watt_hours_per_day(v, from_unit="watts"),
+        }
+
+        return actions[data](values)
 
     def read(self, nodes: Nodes | None = None) -> pd.DataFrame:
         """Return forecast data from the Forecast.Solar Database.
@@ -196,8 +212,9 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
         # Insert the current timestamp _now and sort the index column to finish with the linear interpolation method
         values.loc[now] = pd.NA
         values = values.sort_index()
+        values = pd.DataFrame(values.interpolate(method="linear").loc[now])
 
-        return pd.DataFrame(values.interpolate(method="linear").loc[now])
+        return self._process_watts(values, nodes)
 
     def write(self, values: Mapping[AnyNode, Any]) -> None:
         """
@@ -247,9 +264,9 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
 
         values, _ = self._select_data(values, from_time, to_time)
 
-        values = df_interpolate(values, _interval)
+        values = df_interpolate(values, _interval).loc[from_time:to_time]  # type: ignore
 
-        return values.loc[from_time:to_time]  # type: ignore
+        return self._process_watts(values, nodes)
 
     def subscribe_series(
         self,
@@ -313,6 +330,7 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
         if self._api_key != "None":
             log.info("The api_key is None and only the public functions are available of the forecastsolar.api.")
 
+        kwargs.setdefault("timeout", 10)
         response = self._session.request(method, url, **kwargs)
         # Check for request errors
         response.raise_for_status()
@@ -329,7 +347,7 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
         return _nodes
 
     @classmethod
-    def route_valid(cls, nodes: Nodes) -> bool:
+    def route_valid(cls, nodes: Nodes, **kwargs: Any) -> bool:
         """Check if node routes make up a valid route, by using the Forecast.Solar API's check endpoint.
 
         :param nodes: List of nodes to check.
@@ -338,53 +356,89 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
         conn = ForecastSolarConnection()
         nodes = conn._validate_nodes(nodes)
 
-        for node in nodes:
-            _check_node = node.evolve(api_key=None, endpoint="check", data=None)
-            try:
-                conn._raw_request("GET", _check_node.url, headers=conn._headers)
-            except requests.exceptions.HTTPError as e:
-                log.error(f"\nRoute of node: {node.name} could not be verified: \n{e}")
-                return False
+        def _build_url(node: NodeForecastSolar) -> list[str]:
+            """Build the URL for a node's route validation."""
+            base_url = f"https://api.forecast.solar/check/{node.latitude}/{node.longitude}"
+            if isinstance(node.declination, list):
+                return [f"{base_url}/{d}/{a}/{k}" for d, a, k in zip(node.declination, node.azimuth, node.kwp)]  # type: ignore [arg-type]
+            return [f"{base_url}/{node.declination}/{node.azimuth}/{node.kwp}"]
 
-        # If no request error occurred, the routes are valid
-        return True
+        def validate_node_routes(node: NodeForecastSolar) -> bool:
+            """Validate all routes for a node."""
+            urls = _build_url(node)
+            for url in urls:
+                try:
+                    conn._raw_request("GET", url, headers=conn._headers, **kwargs)
+                except requests.exceptions.HTTPError as e:
+                    log.error(f"Route of node: {node.name} could not be verified: {e}")
+                    return False
+            return True
 
-    @classmethod
-    def calculate_watt_hours_period(cls, df: pd.DataFrame, watts_column: str) -> pd.DataFrame:
-        """
-        Calculates watt hours for each period based on the average watts provided.
-        Assumes the DataFrame is indexed by timestamps.
-        """
-        # Calculate the duration of each period in hours
-        df["period_hours"] = df.index.to_series().diff().dt.total_seconds() / 3600
-        df["period_hours"].iloc[0] = df["period_hours"].mean()  # Handle the first NaN
+        # Validate each node's routes
+        return all(validate_node_routes(node) for node in nodes)
 
-        # Calculate watt_hours for each period
-        df["watt_hours_period"] = df[watts_column] * df["period_hours"]
-        return df.drop(columns=["period_hours"])
+    @staticmethod
+    def calculate_watt_hours_period(watt_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Calculates watt hours for each period based on the average watts between consecutive rows.
 
-    @classmethod
-    def summarize_watt_hours_over_day(cls, df: pd.DataFrame) -> pd.DataFrame:
+        :param df: DataFrame with indices representing time intervals and columns representing node's watt estimates
+        :return: DataFrame with the watt-hour-period estimates for each interval
         """
-        Sums up watt hours over each day.
-        """
-        df["date"] = df.index.date
-        daily_energy = df.groupby("date")["watt_hours_period"].sum().reset_index()
-        daily_energy.columns = ["date", "watt_hours"]
-        return daily_energy
+        # Calculate the time difference in hours between consecutive indices
+        time_diff_hours = watt_df.index.to_series().diff().dt.total_seconds().div(3600).fillna(0)
 
-    @classmethod
-    def get_dataframe_of_values(
-        cls, df: pd.DataFrame, watts_column: str = "watts"
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """
-        Process the original DataFrame to return a DataFrame with
-        watt_hours_period, watt_hours (summarized over the day), and watt_hours_day.
-        """
-        watt_hours = cls.calculate_watt_hours_period(df, watts_column)
-        daily_sum = cls.summarize_watt_hours_over_day(watt_hours)
+        # Calculate the mean power output between consecutive rows for all columns
+        mean_watts = watt_df.add(watt_df.shift(1)).div(2)
 
-        return watt_hours, daily_sum
+        # Calculate watt-hours for the period using the mean power and the time difference
+        watt_hours_df = mean_watts.multiply(time_diff_hours, axis=0)
+        watt_hours_df.attrs["name"] = "watthours/period"
+
+        return watt_hours_df.fillna(0).round(3)  # Replace NaN values (the first row will have NaN) with 0
+
+    @staticmethod
+    def cumulative_watt_hours_per_day(watt_hours_df: pd.DataFrame, from_unit: str = "watthours/period") -> pd.DataFrame:
+        """
+        Calculates the cumulative watt-hours throughout each day for each panel.
+
+        :param watt_hours_df: df with indices representing time intervals and columns containing watt-hour estimates.
+        :param from_unit: Unit of the input DataFrame. Default is "watthours/period".
+        :return: DataFrame with cumulative watt-hours per day for each panel, rounded to three decimal places.
+        """
+        if from_unit == "watts":
+            watt_hours_df = ForecastSolarConnection.calculate_watt_hours_period(watt_hours_df)
+        elif from_unit != "watthours/period":
+            raise ValueError(f"Invalid unit: {from_unit}")
+
+        # Group by date and calculate cumulative sum within each group
+        cumulative_watt_hours_df = watt_hours_df.groupby(watt_hours_df.index.date).cumsum()
+
+        # Reset the index to original DateTimeIndex
+        cumulative_watt_hours_df.index = watt_hours_df.index
+        cumulative_watt_hours_df.attrs["name"] = "watthours"
+
+        return cumulative_watt_hours_df.round(3)
+
+    @staticmethod
+    def summarize_watt_hours_per_day(watt_hours_df: pd.DataFrame, from_unit: str = "watthours/period") -> pd.DataFrame:
+        """
+        Sums the watt-hours over each day for each panel.
+
+        :param watt_hours_df: df with indices representing time intervals and columns containing watt-hour estimates.
+        :param from_unit: Unit of the input DataFrame. Default is "watthours/period".
+        :return: DataFrame with total watt-hours per day for each panel, rounded to three decimal places.
+        """
+        if from_unit == "watts":
+            watt_hours_df = ForecastSolarConnection.calculate_watt_hours_period(watt_hours_df)
+        elif from_unit != "watthours/period":
+            raise ValueError(f"Invalid unit: {from_unit}")
+
+        # Resample the data to daily frequency, summing the watt-hours
+        daily_watt_hours_df = watt_hours_df.resample("D").sum()
+        daily_watt_hours_df.attrs["name"] = "watthours/day"
+
+        return daily_watt_hours_df.round(3)
 
     def __enter__(self) -> Self:
         return self

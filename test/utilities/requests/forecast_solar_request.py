@@ -22,12 +22,12 @@ class Response(_Response):
 
 
 class CachedResponse(_CachedResponse):
-    def __init__(self, url, json_data=None, status_code=400):
+    def __init__(self, url, json_data=None, status_code=400, reason=""):
         super().__init__()
         self.url = url
         self.json_data = json_data
         self.status_code = status_code
-        self.reason = "MOCK RESPONSE REASON"
+        self.reason = "MOCK RESPONSE REASON: " + reason
 
     def json(self):
         return self.json_data
