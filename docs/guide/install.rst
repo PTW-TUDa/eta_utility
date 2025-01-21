@@ -86,6 +86,12 @@ Using Julia Extensions
 First, it is necessary to have julia available in your system, the recommended version
 is the latest stable version but minimum v.1.8 (`download julia <https://julialang.org/downloads/>`_).
 
+If your hardware has no installation rights, use the Windows Package Manager **winget**. Open the terminal and run the following command for the Windows operating system:
+
+.. code-block::
+
+    $ winget install Julialang.Julia --version [version_number]
+
 Next, it's important, that you include Julia to the operating system path. For windows 10 do the following steps:
 
 - **1st step**: Open run (Windows Key + R) and write ``rundll32 sysdm.cpl,EditEnvironmentVariables`` .
