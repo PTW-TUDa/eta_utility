@@ -124,7 +124,7 @@ def log_add_filehandler(
         log_path.mkdir(exist_ok=True)
 
         current_time = datetime.now(tz=tz.tzlocal()).strftime("%Y-%m-%d_%H-%M-%S")
-        file_name = f"datarecorder_{current_time}.log"
+        file_name = f"eta_utility_{current_time}.log"
         log.info(f"No filename specified for filehandler. Using default filename {file_name}.")
 
         filename = log_path / file_name
