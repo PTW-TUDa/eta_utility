@@ -1,4 +1,5 @@
 from .custom_types import (
+    FillMethod as FillMethod,
     Number as Number,
     Path as Path,
     PrivateKey as PrivateKey,
