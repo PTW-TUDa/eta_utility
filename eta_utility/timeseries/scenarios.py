@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from typing import SupportsFloat
 
-    from eta_utility.type_hints import Path, TimeStep
+    from eta_utility.type_hints import FillMethod, Path, TimeStep
 
 
 def scenario_from_csv(
@@ -26,7 +26,7 @@ def scenario_from_csv(
     total_time: TimeStep | None = None,
     random: np.random.Generator | bool | None = False,
     resample_time: TimeStep | None = None,
-    interpolation_method: Sequence[str | None] | str | None = None,
+    interpolation_method: Sequence[FillMethod | None] | FillMethod | None = None,
     rename_cols: Mapping[str, str] | None = None,
     prefix_renamed: bool = True,
     infer_datetime_from: str | Sequence[Sequence[int]] | Sequence[str] = "string",
@@ -96,7 +96,7 @@ def scenario_from_csv(
         interpolation_method = [interpolation_method] * len(_paths)
     elif len(interpolation_method) != len(_paths):
         raise ValueError("The number of interpolation methods does not match the number of paths.")
-    _interpolation_method: list[str | None] = list(interpolation_method)
+    _interpolation_method: list[FillMethod | None] = list(interpolation_method)
 
     # scaling needs to be a list, so in case of None create a list of Nones
     if not isinstance(scaling_factors, Sequence):
