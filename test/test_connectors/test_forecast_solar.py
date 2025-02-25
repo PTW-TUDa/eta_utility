@@ -101,9 +101,9 @@ def test_node_from_dict():
     )
 
     for node in nodes:
-        assert (
-            node.endpoint == "estimate"
-        ), "Invalid endpoint for the forecastsolar.api, default endpoint is 'estimate'."
+        assert node.endpoint == "estimate", (
+            "Invalid endpoint for the forecastsolar.api, default endpoint is 'estimate'."
+        )
 
 
 @pytest.mark.usefixtures("_local_requests")

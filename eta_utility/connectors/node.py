@@ -105,8 +105,7 @@ def _dtype_converter(value: str) -> Callable | None:
         dtype = _dtypes[_lower_str(value)]
     except KeyError:
         log.warning(
-            f"The specified data type ({value}) is currently not available in the datatype map and "
-            f"will not be applied."
+            f"The specified data type ({value}) is currently not available in the datatype map and will not be applied."
         )
         dtype = None
 

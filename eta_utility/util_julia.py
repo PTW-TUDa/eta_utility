@@ -126,7 +126,7 @@ def install_julia() -> None:
         [
             "julia",
             "-e",
-            f"import Pkg; Pkg.develop(path=\"{(pathlib.Path(__file__).parent / 'ju_extensions').as_posix()}\")",
+            f'import Pkg; Pkg.develop(path="{(pathlib.Path(__file__).parent / "ju_extensions").as_posix()}")',
         ]
     )
 

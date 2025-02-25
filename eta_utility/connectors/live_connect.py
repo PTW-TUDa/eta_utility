@@ -367,12 +367,12 @@ class LiveConnect(AbstractContextManager):
         # Check that all required parameters are present in config
         errors = False
         for system in config["system"]:
-            for sect in _req_settings:
+            for sect, required_params in _req_settings.items():
                 if sect not in system:
                     log.error(f"Required parameter '{sect}' not found in configuration.")
                     errors = True
                 else:
-                    for name in _req_settings[sect]:
+                    for name in required_params:
                         sec = system[sect].values() if isinstance(system[sect], Mapping) else system[sect]
                         for i in sec:
                             if name not in i:

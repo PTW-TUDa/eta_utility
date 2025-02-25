@@ -30,7 +30,7 @@ def pytest_runtest_setup(item):
 @pytest.fixture(scope="session")
 def temp_dir():
     while True:
-        temp_dir = pathlib.Path.cwd() / f"tmp_{random.randint(10000,99999)}"
+        temp_dir = pathlib.Path.cwd() / f"tmp_{random.randint(10000, 99999)}"
         try:
             temp_dir.mkdir(exist_ok=False)
         except FileExistsError:
