@@ -279,8 +279,7 @@ def dict_get_any(dikt: dict[str, Any], *names: str, fail: bool = True, default: 
 
     if fail is True:
         raise KeyError(
-            f"Did not find one of the required keys in the configuration: {names}. Possibly Check the "
-            f"correct spelling"
+            f"Did not find one of the required keys in the configuration: {names}. Possibly Check the correct spelling"
         )
     return default
 
@@ -565,21 +564,19 @@ class SelfsignedKeyCertPair(KeyCertPair):
         else:
             encryption = serialization.NoEncryption()
 
-        self._key_tempfile = NamedTemporaryFile("w+b", delete=False, suffix=".pem")
-        assert self._key_tempfile is not None
-        self._key_tempfile.write(
-            self.key.private_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.TraditionalOpenSSL,
-                encryption_algorithm=encryption,
+        with NamedTemporaryFile("w+b", delete=False, suffix=".pem") as key_tempfile:
+            key_tempfile.write(
+                self.key.private_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PrivateFormat.TraditionalOpenSSL,
+                    encryption_algorithm=encryption,
+                )
             )
-        )
-
+            self._key_tempfile = key_tempfile
         # store cert
-        self._cert_tempfile = NamedTemporaryFile("w+b", delete=False, suffix=".pem")
-        assert self._cert_tempfile is not None
-        self._cert_tempfile.write(self.cert.public_bytes(serialization.Encoding.PEM))
-
+        with NamedTemporaryFile("w+b", delete=False, suffix=".pem") as cert_tempfile:
+            cert_tempfile.write(self.cert.public_bytes(serialization.Encoding.PEM))
+            self._cert_tempfile = cert_tempfile
         return self.key_path, self.cert_path
 
     @contextmanager

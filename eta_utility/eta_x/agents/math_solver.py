@@ -53,13 +53,13 @@ class MathSolver(BaseAlgorithm):
         **kwargs: Any,
     ) -> None:
         # Prepare kwargs to be sent to the super class and to the solver.
-        super_args = {}
+        super_args: dict[str, Any] = {}
         solver_args = {}
 
         # Set default values for superclass arguments
-        kwargs.setdefault("learning_rate", 0)
+        kwargs.setdefault("learning_rate", 0.0)
 
-        for key in kwargs:
+        for key, value in kwargs.items():
             # Find arguments which are meant for the BaseAlgorithm class and extract them into super_args
             if key in {
                 "policy_base",
@@ -74,14 +74,13 @@ class MathSolver(BaseAlgorithm):
                 "sde_sample_freq",
                 "supported_action_spaces",
             }:
-                super_args[key] = kwargs.get(key, None)
-            elif key in {"tensorboard_log"}:
+                super_args[key] = value
+            elif key == "tensorboard_log":
                 log.warning(
-                    "The MPC Basic agent does not support logging to tensorboard. "
-                    "Ignoring parameter tensorboard_log."
+                    "The MPC Basic agent does not support logging to tensorboard. Ignoring parameter tensorboard_log."
                 )
             else:
-                solver_args[key] = kwargs[key]
+                solver_args[key] = value
 
         super().__init__(policy=policy, env=env, verbose=verbose, **super_args)
         log.setLevel(int(verbose * 10))  # Set logging verbosity

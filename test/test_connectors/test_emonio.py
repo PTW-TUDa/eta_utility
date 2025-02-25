@@ -69,9 +69,9 @@ class TestConnectorOperations:
 
         # Assert received data, round to 6 decimal places
         data = data.round(6)
-        for value_name in node_values:
+        for value_name, expected_value in node_values.items():
             assert value_name in data.columns
-            assert data[value_name].to_numpy()[0] == node_values[value_name]
+            assert data[value_name].to_numpy()[0] == expected_value
 
     async def write_loop(self, server, node, values):
         for i in range(len(values)):

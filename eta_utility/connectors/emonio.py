@@ -194,7 +194,7 @@ class EmonioConnection(Connection[NodeEmonio], protocol="emonio"):
                 if bit == "1":
                     # chr(97) = "a", chr(98) = "b", ...
                     msg = (
-                        f"{name} bit '{chr(97+i)}' is set. "
+                        f"{name} bit '{chr(97 + i)}' is set. "
                         f"See https://wiki.emonio.de/de/Emonio_P3 for more information."
                     )
                     if name == "Warning":

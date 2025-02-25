@@ -435,9 +435,10 @@ class _CSVFileDB(AbstractContextManager):
 
     def __exit__(
         self,
-        __exc_type: type[BaseException] | None,
-        __exc_value: BaseException | None,
-        __traceback: TracebackType | None,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+        /,
     ) -> None:
         """Exit the context manager
 
