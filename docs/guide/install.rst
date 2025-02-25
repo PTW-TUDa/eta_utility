@@ -1,7 +1,7 @@
 .. _install:
 
 Installation for Users
-============
+================================================
 
 This section explains how to install the ETA Utility Functions for usage only. For instructions
 what to consider during the installation process if you want to contribute to development of

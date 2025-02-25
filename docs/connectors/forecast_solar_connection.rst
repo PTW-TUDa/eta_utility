@@ -1,6 +1,6 @@
 .. _forecast_solar_connection:
 
-ForecastSolarConnection
+ForecastSolar Connection
 ====================================================
 This module provides a read-only REST API connector to the forecast.solar API.
 

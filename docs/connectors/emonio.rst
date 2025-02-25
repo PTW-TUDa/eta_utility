@@ -1,6 +1,6 @@
 .. _emonio_connection:
 
-EmonioConnection
+Emonio Connection
 ======================================
 Eta-utility includes a connection class designed to read data from an Emonio device.
 To ensure proper communication, the Emonio must be connected to the same network
@@ -14,6 +14,8 @@ The IP address and port of the Emonio can also be easily found within the app.
 See the Emonio documentation for more information:
 https://wiki.emonio.de/de/Emonio_P3
 
+EmonioConnection
+----------------------------------------------------
 .. autoclass:: eta_utility.connectors::EmonioConnection
     :members:
     :noindex:
@@ -67,8 +69,14 @@ https://wiki.emonio.de/de/Emonio_P3
     :members:
     :noindex:
 
+NodeEmonio
+----------------------------------------------------
+.. autoclass:: eta_utility.connectors.node::NodeEmonio
+    :inherited-members:
+    :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol, as_dict, as_tuple, evolve  upper_cased
+    :noindex:
 
-Examples
+Example Usage
 --------------------------------------
 This example demonstrates how to create a :class:`~eta_utility.connectors.live_connect.LiveConnect` from a dictionary to read data from an Emonio device.
 Alternatively, the LiveConnection can be created from a JSON file, with the JSON having the same structure as the dictionary.

@@ -1,7 +1,7 @@
 .. _development:
 
 Installation and Guide for Developers
-===========================
+=================================================================================
 
 This section describes how to install *eta_utility* using *poetry*, and how to contribute to development.
 
