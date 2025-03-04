@@ -74,7 +74,7 @@ ruff:
   script:
     - ruff --version
     - ruff check
-    - ruff format
+    - ruff format --check
 
 codespell:
   stage: check
