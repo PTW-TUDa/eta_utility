@@ -29,7 +29,7 @@ class RuleBased(BaseAlgorithm, abc.ABC):
     :param policy: Agent policy. Parameter is not used in this agent and can be set to NoPolicy.
     :param env: Environment to be controlled.
     :param verbose: Logging verbosity.
-    :param kwargs: Additional arguments as specified in stable_baselins3.common.base_class.
+    :param kwargs: Additional arguments as specified in stable_baselines3.common.base_class.
     """
 
     def __init__(

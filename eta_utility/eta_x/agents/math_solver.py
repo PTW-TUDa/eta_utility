@@ -38,7 +38,7 @@ class MathSolver(BaseAlgorithm):
     :param solver_name: Name of the solver, could be cplex or glpk.
     :param action_index: Index of the solution value to be used as action (if this is 0, the first value in a list
         of solution values will be used).
-    :param kwargs: Additional arguments as specified in stable_baselins3.common.base_class or as provided by solver.
+    :param kwargs: Additional arguments as specified in stable_baselines3.common.base_class or as provided by solver.
     """
 
     def __init__(
