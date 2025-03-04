@@ -29,6 +29,7 @@ from datetime import datetime, timedelta
 from logging import getLogger
 from typing import TYPE_CHECKING
 
+import numpy as np
 import pandas as pd
 import requests
 from requests_cache import DO_NOT_CACHE, CachedSession
@@ -45,13 +46,13 @@ if TYPE_CHECKING:
 
     from typing_extensions import Self
 
-    from eta_utility.type_hints import AnyNode, Nodes, TimeStep
+    from eta_utility.type_hints import Nodes, TimeStep
 
 
 log = getLogger(__name__)
 
 
-class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
+class ForecastSolarConnection(SeriesConnection[NodeForecastSolar], protocol="forecast_solar"):
     """
     ForecastSolarConnection is a class to download and upload multiple features from and to the Forecast.Solar database
     as timeseries.
@@ -74,7 +75,7 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
         api_key: str = "None",
         url_params: dict[str, Any] | None = None,
         query_params: dict[str, Any] | None = None,
-        nodes: Nodes | None = None,
+        nodes: Nodes[NodeForecastSolar] | None = None,
     ) -> None:
         super().__init__(url, None, None, nodes=nodes)
 
@@ -96,8 +97,8 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
         )
 
     @classmethod
-    def _from_node(cls, node: AnyNode, **kwargs: Any) -> ForecastSolarConnection:
-        """Initialize the connection object from an Forecast.Solar protocol node object
+    def _from_node(cls, node: NodeForecastSolar, **kwargs: Any) -> ForecastSolarConnection:
+        """Initialize the connection object from a Forecast.Solar protocol node object
 
         :param node: Node to initialize from.
         :param kwargs: Keyword arguments for API authentication, where "api_key" is required
@@ -147,8 +148,7 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
         previous_time = from_time if isinstance(from_time, pd.Timestamp) else now
         next_time = to_time if isinstance(to_time, pd.Timestamp) else previous_time
         previous_time = previous_time.floor("15min")
-        next_time = next_time.floor("15min")
-        next_time += pd.Timedelta(minutes=15)
+        next_time = next_time.ceil("15min")
 
         if previous_time not in results:
             results.loc[previous_time] = 0
@@ -190,14 +190,17 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
 
         return actions[data](values)
 
-    def read(self, nodes: Nodes | None = None) -> pd.DataFrame:
+    def _get_data(
+        self,
+        nodes: set[NodeForecastSolar],
+        from_time: pd.Timestamp | None = None,
+        to_time: pd.Timestamp | None = None,
+    ) -> tuple[pd.DataFrame, pd.Timestamp]:
         """Return forecast data from the Forecast.Solar Database.
 
         :param nodes: List of nodes to read values from.
         :return: pandas.DataFrame containing the data read from the connection.
         """
-        nodes = self._validate_nodes(nodes)
-
         with concurrent.futures.ThreadPoolExecutor() as executor:
             results = executor.map(self._read_node, nodes)
 
@@ -206,17 +209,25 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
 
         # Concatenate the filtered DataFrames
         values = pd.concat(filtered_results, axis=1, sort=False)
+        return self._select_data(values, from_time, to_time)
 
-        values, now = self._select_data(values)
+    def read(self, nodes: Nodes[NodeForecastSolar] | None = None) -> pd.DataFrame:
+        """Return solar forecast for the current time
+
+        :param nodes: List of nodes to read values from.
+        :return: Pandas DataFrame containing the data read from the connection.
+        """
+        nodes = self._validate_nodes(nodes)
+        values, now = self._get_data(nodes)
 
         # Insert the current timestamp _now and sort the index column to finish with the linear interpolation method
-        values.loc[now] = pd.NA
+        values.loc[now] = np.nan
         values = values.sort_index()
-        values = pd.DataFrame(values.interpolate(method="linear").loc[now])
+        values = values.interpolate(method="linear").loc[[now]]
 
         return self._process_watts(values, nodes)
 
-    def write(self, values: Mapping[AnyNode, Any]) -> None:
+    def write(self, values: Mapping[NodeForecastSolar, Any]) -> None:
         """
         .. warning::
             Cannot read single values from the Forecast.Solar API. Use read_series instead
@@ -248,24 +259,12 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
         """
         _interval = interval if isinstance(interval, timedelta) else timedelta(seconds=interval)
 
-        nodes = self._validate_nodes(nodes)
-
         from_time = pd.Timestamp(round_timestamp(from_time, _interval.total_seconds())).tz_convert(self._local_tz)
         to_time = pd.Timestamp(round_timestamp(to_time, _interval.total_seconds())).tz_convert(self._local_tz)
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            results = executor.map(self._read_node, nodes)
-
-        # Filter out empty or all-NA DataFrames
-        filtered_results = [df for df in results if not df.empty and not df.isna().all().all()]
-
-        # Concatenate the filtered DataFrames
-        values = pd.concat(filtered_results, axis=1, sort=False)
-
-        values, _ = self._select_data(values, from_time, to_time)
-
-        values = df_interpolate(values, _interval).loc[from_time:to_time]  # type: ignore
-
+        nodes = self._validate_nodes(nodes)
+        values, _ = self._get_data(nodes, from_time, to_time)
+        values = df_interpolate(values, _interval).loc[from_time:to_time]  # type: ignore # mypy doesn't recognize DatetimeIndex
         return self._process_watts(values, nodes)
 
     def subscribe_series(
@@ -336,15 +335,6 @@ class ForecastSolarConnection(SeriesConnection, protocol="forecast_solar"):
         response.raise_for_status()
 
         return response
-
-    def _validate_nodes(self, nodes: Nodes | None) -> set[NodeForecastSolar]:  # type: ignore
-        vnodes = super()._validate_nodes(nodes)
-        _nodes = set()
-        for node in vnodes:
-            if isinstance(node, NodeForecastSolar):
-                _nodes.add(node)
-
-        return _nodes
 
     @classmethod
     def route_valid(cls, nodes: Nodes, **kwargs: Any) -> bool:

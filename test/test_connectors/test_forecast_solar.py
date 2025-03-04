@@ -146,7 +146,7 @@ def test_read(forecast_solar_nodes: dict[str, NodeForecastSolar], connector: For
     result = connector.read(nodes)
 
     assert isinstance(result, pd.DataFrame)
-    assert result.shape == (2, 1), "The result has the wrong size of data"
+    assert result.shape == (1, 2), "The result has the wrong size of data"
 
 
 @pytest.mark.usefixtures("_local_requests")
