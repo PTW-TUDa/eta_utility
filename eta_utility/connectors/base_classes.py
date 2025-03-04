@@ -14,7 +14,7 @@ from typing_extensions import deprecated
 
 from eta_utility import url_parse
 from eta_utility.connectors.node import Node
-from eta_utility.type_hints.types_connectors import N, Nodes
+from eta_utility.type_hints import N, Nodes
 from eta_utility.util import ensure_timezone, round_timestamp
 
 if TYPE_CHECKING:
