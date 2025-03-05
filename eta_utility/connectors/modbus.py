@@ -77,10 +77,10 @@ class ModbusConnection(Connection[NodeModbus], protocol="modbus"):
 
         return super()._from_node(node, usr=usr, pwd=pwd)
 
-    def read(self, nodes: Nodes[NodeModbus] | None = None) -> pd.DataFrame:
+    def read(self, nodes: NodeModbus | Nodes[NodeModbus] | None = None) -> pd.DataFrame:
         """Read some manually selected nodes from Modbus server.
 
-        :param nodes: List of nodes to read from.
+        :param nodes: Single node or list/set of nodes to read from.
         :return: Dictionary containing current values of the Modbus variables.
         """
         _nodes = self._validate_nodes(nodes)
@@ -116,12 +116,12 @@ class ModbusConnection(Connection[NodeModbus], protocol="modbus"):
                 self._write_mb_value(node, bits)
 
     def subscribe(
-        self, handler: SubscriptionHandler, nodes: Nodes[NodeModbus] | None = None, interval: TimeStep = 1
+        self, handler: SubscriptionHandler, nodes: NodeModbus | Nodes[NodeModbus] | None = None, interval: TimeStep = 1
     ) -> None:
         """Subscribe to nodes and call handler when new data is available. Basic architecture of the subscription is
         the client- server communication. This function works asynchronously.
 
-        :param nodes: Identifiers for the nodes to subscribe to.
+        :param nodes: Single node or list/set of nodes to subscribe to.
         :param handler: SubscriptionHandler object with a push method that accepts node, value pairs.
         :param interval: Interval for receiving new data. It is interpreted as seconds when given as an integer.
         """
@@ -304,7 +304,7 @@ class ModbusConnection(Connection[NodeModbus], protocol="modbus"):
 
         raise ConnectionError(f"Unknown ModbusError at {self.url}")
 
-    def _validate_nodes(self, nodes: Nodes[NodeModbus] | None) -> set[NodeModbus]:
+    def _validate_nodes(self, nodes: NodeModbus | Nodes[NodeModbus] | None) -> set[NodeModbus]:
         vnodes = super()._validate_nodes(nodes)
         _nodes = set()
         for node in vnodes:

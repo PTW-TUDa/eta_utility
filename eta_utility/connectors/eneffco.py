@@ -98,10 +98,10 @@ class EnEffCoConnection(SeriesConnection[NodeEnEffCo], protocol="eneffco"):
         nodes = [NodeEnEffCo(name=name, url=url, protocol="eneffco", eneffco_code=name) for name in ids]
         return cls(url=url, usr=usr, pwd=pwd, api_token=api_token, nodes=nodes)
 
-    def read(self, nodes: Nodes[NodeEnEffCo] | None = None) -> pd.DataFrame:
+    def read(self, nodes: NodeEnEffCo | Nodes[NodeEnEffCo] | None = None) -> pd.DataFrame:
         """Download current value from the EnEffCo Database
 
-        :param nodes: List of nodes to read values from.
+        :param nodes: Single node or list/set of nodes to read values from.
         :return: pandas.DataFrame containing the data read from the connection.
         """
         nodes = self._validate_nodes(nodes)
@@ -167,10 +167,10 @@ class EnEffCoConnection(SeriesConnection[NodeEnEffCo], protocol="eneffco"):
 
         return str(upload_data)
 
-    def read_info(self, nodes: Nodes[NodeEnEffCo] | None = None) -> pd.DataFrame:
+    def read_info(self, nodes: NodeEnEffCo | Nodes[NodeEnEffCo] | None = None) -> pd.DataFrame:
         """Read additional datapoint information from Database.
 
-        :param nodes: List of nodes to read values from.
+        :param nodes: Single node or list/set of nodes values from.
         :return: pandas.DataFrame containing the data read from the connection.
         """
 
@@ -185,14 +185,17 @@ class EnEffCoConnection(SeriesConnection[NodeEnEffCo], protocol="eneffco"):
         return pd.concat(values, axis=1)
 
     def subscribe(
-        self, handler: SubscriptionHandler, nodes: Nodes[NodeEnEffCo] | None = None, interval: TimeStep = 1
+        self,
+        handler: SubscriptionHandler,
+        nodes: NodeEnEffCo | Nodes[NodeEnEffCo] | None = None,
+        interval: TimeStep = 1,
     ) -> None:
         """Subscribe to nodes and call handler when new data is available. This will return only the
         last available values.
 
         :param handler: SubscriptionHandler object with a push method that accepts node, value pairs.
         :param interval: Interval for receiving new data. It is interpreted as seconds when given as an integer.
-        :param nodes: Identifiers for the nodes to subscribe to.
+        :param nodes: Single node or list/set of nodes to subscribe to.
         """
         self.subscribe_series(handler=handler, req_interval=1, nodes=nodes, interval=interval, data_interval=interval)
 
@@ -200,13 +203,13 @@ class EnEffCoConnection(SeriesConnection[NodeEnEffCo], protocol="eneffco"):
         self,
         from_time: datetime,
         to_time: datetime,
-        nodes: Nodes[NodeEnEffCo] | None = None,
+        nodes: NodeEnEffCo | Nodes[NodeEnEffCo] | None = None,
         interval: TimeStep = 1,
         **kwargs: Any,
     ) -> pd.DataFrame:
         """Download timeseries data from the EnEffCo Database
 
-        :param nodes: List of nodes to read values from.
+        :param nodes: Single node or list/set of nodes to read values from.
         :param from_time: Starting time to begin reading (included in output).
         :param to_time: Time to stop reading at (not included in output).
         :param interval: Interval between time steps. It is interpreted as seconds if given as integer.
@@ -248,7 +251,7 @@ class EnEffCoConnection(SeriesConnection[NodeEnEffCo], protocol="eneffco"):
         handler: SubscriptionHandler,
         req_interval: TimeStep,
         offset: TimeStep | None = None,
-        nodes: Nodes[NodeEnEffCo] | None = None,
+        nodes: NodeEnEffCo | Nodes[NodeEnEffCo] | None = None,
         interval: TimeStep = 1,
         data_interval: TimeStep = 1,
         **kwargs: Any,
@@ -263,7 +266,7 @@ class EnEffCoConnection(SeriesConnection[NodeEnEffCo], protocol="eneffco"):
         :param data_interval: Time interval between values in returned data. Interpreted as seconds if given as int.
         :param interval: interval (between requests) for receiving new data.
                          It is interpreted as seconds when given as an integer.
-        :param nodes: Identifiers for the nodes to subscribe to.
+        :param nodes: Single node or list/set of nodes to subscribe to.
         :param kwargs: Other, ignored parameters.
         """
 
@@ -393,7 +396,7 @@ class EnEffCoConnection(SeriesConnection[NodeEnEffCo], protocol="eneffco"):
 
         return response
 
-    def _validate_nodes(self, nodes: Nodes[NodeEnEffCo] | None) -> set[NodeEnEffCo]:  # type: ignore
+    def _validate_nodes(self, nodes: NodeEnEffCo | Nodes[NodeEnEffCo] | None) -> set[NodeEnEffCo]:  # type: ignore
         vnodes = super()._validate_nodes(nodes)
         _nodes = set()
         for node in vnodes:

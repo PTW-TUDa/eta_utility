@@ -129,11 +129,11 @@ class OpcUaConnection(Connection[NodeOpcUa], protocol="opcua"):
         nodes = [NodeOpcUa(name=opc_id, usr=usr, pwd=pwd, url=url, protocol="opcua", opc_id=opc_id) for opc_id in ids]
         return cls(nodes[0].url, usr, pwd, nodes=nodes)
 
-    def read(self, nodes: Nodes[NodeOpcUa] | None = None) -> pd.DataFrame:
+    def read(self, nodes: NodeOpcUa | Nodes[NodeOpcUa] | None = None) -> pd.DataFrame:
         """
         Read some manually selected values from OPC UA capable controller.
 
-        :param nodes: List of nodes to read from.
+        :param nodes: Single node or list/set of nodes to read from.
         :return: pandas.DataFrame containing current values of the OPC UA-variables.
         :raises ConnectionError: When an error occurs during reading.
         """
@@ -279,13 +279,13 @@ class OpcUaConnection(Connection[NodeOpcUa], protocol="opcua"):
                     raise ConnectionError(str(e)) from e
 
     def subscribe(
-        self, handler: SubscriptionHandler, nodes: Nodes[NodeOpcUa] | None = None, interval: TimeStep = 1
+        self, handler: SubscriptionHandler, nodes: NodeOpcUa | Nodes[NodeOpcUa] | None = None, interval: TimeStep = 1
     ) -> None:
         """Subscribe to nodes and call handler when new data is available. Basic architecture of the subscription is
         the client- server communication via subscription notify. This function works asynchronously. Subscriptions
         must always be closed using the close_sub function (use try, finally!).
 
-        :param nodes: Identifiers for the nodes to subscribe to.
+        :param nodes: Single node or list/set of nodes to subscribe to.
         :param handler: SubscriptionHandler object with a push method that accepts node, value pairs.
         :param interval: Interval for receiving new data. It is interpreted as seconds when given as an integer.
         """
@@ -513,7 +513,7 @@ class OpcUaConnection(Connection[NodeOpcUa], protocol="opcua"):
         finally:
             self._disconnect()
 
-    def _validate_nodes(self, nodes: Nodes[NodeOpcUa] | None) -> set[NodeOpcUa]:
+    def _validate_nodes(self, nodes: NodeOpcUa | Nodes[NodeOpcUa] | None) -> set[NodeOpcUa]:
         vnodes = super()._validate_nodes(nodes)
         _nodes = set()
         for node in vnodes:

@@ -211,10 +211,10 @@ class ForecastSolarConnection(SeriesConnection[NodeForecastSolar], protocol="for
         values = pd.concat(filtered_results, axis=1, sort=False)
         return self._select_data(values, from_time, to_time)
 
-    def read(self, nodes: Nodes[NodeForecastSolar] | None = None) -> pd.DataFrame:
+    def read(self, nodes: NodeForecastSolar | Nodes[NodeForecastSolar] | None = None) -> pd.DataFrame:
         """Return solar forecast for the current time
 
-        :param nodes: List of nodes to read values from.
+        :param nodes: Single node or list/set of nodes to read values from.
         :return: Pandas DataFrame containing the data read from the connection.
         """
         nodes = self._validate_nodes(nodes)
@@ -236,7 +236,12 @@ class ForecastSolarConnection(SeriesConnection[NodeForecastSolar], protocol="for
         """
         raise NotImplementedError("Write is not implemented for Forecast.Solar.")
 
-    def subscribe(self, handler: SubscriptionHandler, nodes: Nodes | None = None, interval: TimeStep = 1) -> None:
+    def subscribe(
+        self,
+        handler: SubscriptionHandler,
+        nodes: NodeForecastSolar | Nodes[NodeForecastSolar] | None = None,
+        interval: TimeStep = 1,
+    ) -> None:
         """
         .. warning::
             Cannot read single values from the Forecast.Solar API. Use read_series instead
@@ -246,11 +251,16 @@ class ForecastSolarConnection(SeriesConnection[NodeForecastSolar], protocol="for
         raise NotImplementedError("Subscribe is not implemented for Forecast.Solar.")
 
     def read_series(
-        self, from_time: datetime, to_time: datetime, nodes: Nodes | None = None, interval: TimeStep = 1, **kwargs: Any
+        self,
+        from_time: datetime,
+        to_time: datetime,
+        nodes: NodeForecastSolar | Nodes[NodeForecastSolar] | None = None,
+        interval: TimeStep = 1,
+        **kwargs: Any,
     ) -> pd.DataFrame:
         """Return a time series of forecast data from the Forecast.Solar Database.
 
-        :param nodes: List of nodes to read values from.
+        :param nodes: Single node or list/set of nodes to read values from.
         :param from_time: Starting time to begin reading (included in output).
         :param to_time: Time to stop reading at (not included in output).
         :param interval: Interval between time steps. It is interpreted as seconds if given as integer.
@@ -272,7 +282,7 @@ class ForecastSolarConnection(SeriesConnection[NodeForecastSolar], protocol="for
         handler: SubscriptionHandler,
         req_interval: TimeStep,
         offset: TimeStep | None = None,
-        nodes: Nodes | None = None,
+        nodes: NodeForecastSolar | Nodes[NodeForecastSolar] | None = None,
         interval: TimeStep = 1,
         data_interval: TimeStep = 1,
         **kwargs: Any,

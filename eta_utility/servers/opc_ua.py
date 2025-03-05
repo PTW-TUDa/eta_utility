@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import socket
-from collections.abc import Sized
 from datetime import datetime
 from logging import getLogger
 from typing import TYPE_CHECKING
@@ -84,11 +83,11 @@ class OpcUaServer:
                 raise ConnectionError(f"Server {self} is not running.") from e
             var.write_value(ua.Variant(values[node], opc_type))
 
-    def read(self, nodes: Nodes[NodeOpcUa] | None = None) -> pd.DataFrame:
+    def read(self, nodes: NodeOpcUa | Nodes[NodeOpcUa] | None = None) -> pd.DataFrame:
         """
         Read some manually selected values directly from the OPC UA server.
 
-        :param nodes: List of nodes to read from.
+        :param nodes: Single node or list/set of nodes to read from.
         :return: pandas.DataFrame containing current values of the OPC UA-variables.
         :raises RuntimeError: When an error occurs during reading.
         """
@@ -207,7 +206,7 @@ class OpcUaServer:
         """
         self._server.aio_obj.allow_remote_admin(allow)
 
-    def _validate_nodes(self, nodes: Nodes[NodeOpcUa] | None) -> set[NodeOpcUa]:
+    def _validate_nodes(self, nodes: NodeOpcUa | Nodes[NodeOpcUa] | None) -> set[NodeOpcUa]:
         """Make sure that nodes are a Set of nodes and that all nodes correspond to the protocol and url
         of the connection.
 
@@ -217,10 +216,8 @@ class OpcUaServer:
         _nodes = None
 
         if nodes:
-            if not isinstance(nodes, Sized):
-                nodes = {nodes}
-
             # If not using preselected nodes from self.selected_nodes, check if nodes correspond to the connection
+            nodes = {nodes} if isinstance(nodes, NodeOpcUa) else nodes
             _nodes = {
                 node for node in nodes if isinstance(node, NodeOpcUa) and node.url_parsed.hostname == self._url.hostname
             }
