@@ -228,7 +228,7 @@ class TestConnectorOperations:
     @pytest.mark.parametrize(("index", "expected"), values)
     def test_read_node(self, server, connection, local_nodes, index, expected):
         server.write({local_nodes[index]: expected})
-        val = connection.read({local_nodes[index]})
+        val = connection.read(local_nodes[index])
 
         assert val.iloc[0, 0] == expected
         assert val.columns[0] == local_nodes[index].name
@@ -281,12 +281,12 @@ class TestConnectorOperationsLittleEndian:
     def test_write_node(self, server, connection, local_nodes, index, value):
         connection.write({local_nodes[index]: value})
 
-        assert server.read(local_nodes[index]).iloc[0, 0] == value
+        assert server.read([local_nodes[index]]).iloc[0, 0] == value
 
     @pytest.mark.parametrize(("index", "expected"), values)
     def test_read_node(self, server, connection, local_nodes, index, expected):
         server.write({local_nodes[index]: expected})
-        val = connection.read({local_nodes[index]})
+        val = connection.read(local_nodes[index])
 
         assert val.iloc[0, 0] == expected
         assert val.columns[0] == local_nodes[index].name

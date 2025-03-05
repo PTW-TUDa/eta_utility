@@ -187,9 +187,9 @@ def test_read_data_types(forecast_solar_nodes: dict[str, NodeForecastSolar], con
     # Test multiple nodes with default data type fallback to "watts"
     nodes = [node.evolve(data=data_type) for data_type in data_types]
     res = connector.read_series(start, end, nodes, interval)
-    assert (
-        res.attrs["name"] == "watts"
-    ), "Default data type 'watts' is not correctly processed for multiple specifications"
+    assert res.attrs["name"] == "watts", (
+        "Default data type 'watts' is not correctly processed for multiple specifications"
+    )
 
     # Test multiple nodes with explicit data type "watthours"
     nodes = [node.evolve(data="watthours") for node in forecast_solar_nodes.values()]

@@ -71,7 +71,7 @@ class WetterdienstConnection(Generic[NW], SeriesConnection[NW], ABC):
         self,
         from_time: datetime,
         to_time: datetime,
-        nodes: Nodes[NW] | None = None,
+        nodes: NW | Nodes[NW] | None = None,
         interval: TimeStep = 60,
         **kwargs: Any,
     ) -> pd.DataFrame:
@@ -79,7 +79,7 @@ class WetterdienstConnection(Generic[NW], SeriesConnection[NW], ABC):
         :func:`~wetterdienst.WetterdienstObservationConnection.read_series` and
         :func:`~wetterdienst.WetterdienstPredictionConnection.read_series`.
 
-        :param nodes: List of nodes to read values from.
+        :param nodes: Single node or list/set of nodes to read values from.
         :param from_time: Starting time to begin reading (included in output).
         :param to_time: Time to stop reading at (not included in output).
         :param interval: interval between time steps. It is interpreted as seconds if given as integer.
@@ -91,12 +91,12 @@ class WetterdienstConnection(Generic[NW], SeriesConnection[NW], ABC):
                 f"Timezone of from_time and to_time are different. Using from_time timezone: {from_time.tzinfo}"
             )
 
-    def read(self, nodes: Nodes[NW] | None = None) -> pd.DataFrame:
+    def read(self, nodes: NW | Nodes[NW] | None = None) -> pd.DataFrame:
         """
         .. warning::
             Cannot read single values from the Wetterdienst API. Use read_series instead
 
-        :param nodes: List of nodes to read values from
+        :param nodes: Single node or list/set of nodes to read values from
         :return: Pandas DataFrame containing the data read from the connection
         """
         raise NotImplementedError("Cannot read single values from the Wetterdienst API. Use read_series instead")
@@ -111,13 +111,15 @@ class WetterdienstConnection(Generic[NW], SeriesConnection[NW], ABC):
         """
         raise NotImplementedError("Cannot write to the Wetterdienst API.")
 
-    def subscribe(self, handler: SubscriptionHandler, nodes: Nodes[NW] | None = None, interval: TimeStep = 1) -> None:
+    def subscribe(
+        self, handler: SubscriptionHandler, nodes: NW | Nodes[NW] | None = None, interval: TimeStep = 1
+    ) -> None:
         """Subscribe to nodes and call handler when new data is available. This will return only the
         last available values.
 
         :param handler: SubscriptionHandler object with a push method that accepts node, value pairs
         :param interval: interval for receiving new data. It is interpreted as seconds when given as an integer.
-        :param nodes: identifiers for the nodes to subscribe to
+        :param nodes: Single node or list/set of nodes to subscribe to
         """
         raise NotImplementedError("Cannot subscribe to data from the Wetterdienst API.")
 
@@ -126,7 +128,7 @@ class WetterdienstConnection(Generic[NW], SeriesConnection[NW], ABC):
         handler: SubscriptionHandler,
         req_interval: TimeStep,
         offset: TimeStep | None = None,
-        nodes: Nodes[NW] | None = None,
+        nodes: NW | Nodes[NW] | None = None,
         interval: TimeStep = 1,
         data_interval: TimeStep = 1,
         **kwargs: Any,
@@ -142,7 +144,7 @@ class WetterdienstConnection(Generic[NW], SeriesConnection[NW], ABC):
         :param data_interval: Time interval between values in returned data. Interpreted as seconds if given as int.
         :param interval: interval (between requests) for receiving new data.
                          It it interpreted as seconds when given as an integer.
-        :param nodes: identifiers for the nodes to subscribe to
+        :param nodes: Single node or list/set of nodes to subscribe to
         """
         raise NotImplementedError("Cannot subscribe to data from the Wetterdienst API.")
 
@@ -191,7 +193,7 @@ class WetterdienstObservationConnection(
         self,
         from_time: datetime,
         to_time: datetime,
-        nodes: Nodes[NodeWetterdienstObservation] | None = None,
+        nodes: NodeWetterdienstObservation | Nodes[NodeWetterdienstObservation] | None = None,
         interval: TimeStep = 60,
         **kwargs: Any,
     ) -> pd.DataFrame:
@@ -200,7 +202,7 @@ class WetterdienstObservationConnection(
 
         :param from_time: Start time for the data retrieval
         :param to_time: End time for the data retrieval
-        :param nodes: Nodes to read data from
+        :param nodes: Single node or list/set of nodes to read data from
         :param interval: Time interval between data points in seconds
         :return: Pandas DataFrame containing the data read from the connection
         """
@@ -246,7 +248,7 @@ class WetterdienstPredictionConnection(
         self,
         from_time: datetime,
         to_time: datetime,
-        nodes: Nodes[NodeWetterdienstPrediction] | None = None,
+        nodes: NodeWetterdienstPrediction | Nodes[NodeWetterdienstPrediction] | None = None,
         interval: TimeStep = 0,
         **kwargs: Any,
     ) -> pd.DataFrame:
@@ -256,7 +258,7 @@ class WetterdienstPredictionConnection(
 
         :param from_time: Start time for the data retrieval
         :param to_time: End time for the data retrieval
-        :param nodes: Nodes to read data from
+        :param nodes: Single node or list/set of nodes to read data from
         :param interval: - Not used for prediction data
         :return: Pandas DataFrame containing the data read from the connection
         """

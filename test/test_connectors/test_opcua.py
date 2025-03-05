@@ -271,21 +271,21 @@ class TestConnectorOperations:
     def test_read_node(self, server: OpcUaServer, connection: OpcUaConnection, local_nodes, index, expected):
         server.create_nodes(local_nodes)
         server.write({local_nodes[index]: expected})
-        val = connection.read({local_nodes[index]})
+        val = connection.read(local_nodes[index])
 
         assert val.iloc[0, 0] == expected
         assert val.columns[0] == local_nodes[index].name
 
     def test_read_fail(self, server, connection: OpcUaConnection, local_nodes):
         n = local_nodes[0]
-        server.create_nodes(local_nodes[0])
+        server.create_nodes(local_nodes)
         fail_node = Node(n.name, n.url, n.protocol, usr=n.usr, pwd=n.pwd, opc_id="ns=6;s=AnotherNamespace.DoesNotExist")
         with pytest.raises(ConnectionError, match=".*BadNodeIdUnknown.*"):
             connection.read(fail_node)
 
     def test_login_fail_write(self, server, local_nodes):
         n = local_nodes[0]
-        server.create_nodes(n)
+        server.create_nodes(local_nodes)
         connection = OpcUaConnection.from_node(n, usr="another", pwd="something")
         with pytest.raises(ConnectionError, match=".*BadUserAccessDenied.*"):
             connection.write({n: 123})

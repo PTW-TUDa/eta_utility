@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sized
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING
 
 from eta_utility.connectors.base_classes import Connection
 from eta_utility.connectors.node import Node
@@ -37,10 +36,7 @@ def connections_from_nodes(
     return Connection.from_nodes(nodes, usr=usr, pwd=pwd, api_token=eneffco_api_token, key_cert=key_cert)
 
 
-N = TypeVar("N", bound=Node)
-
-
-def name_map_from_node_sequence(nodes: Nodes) -> dict[str, N]:
+def name_map_from_node_sequence(nodes: Nodes[Node]) -> dict[str, Node]:
     """Convert a Sequence/List of Nodes into a dictionary of nodes, identified by their name.
 
     .. warning ::
@@ -50,9 +46,6 @@ def name_map_from_node_sequence(nodes: Nodes) -> dict[str, N]:
     :param nodes: Sequence of Node objects.
     :return: Dictionary of Node objects (format: {node.name: Node}).
     """
-    if not isinstance(nodes, Sized):
-        nodes = {nodes}
-
     if len({node.name for node in nodes}) != len([node.name for node in nodes]):
         raise ValueError("Not all node names are unique. Cannot safely convert to named dictionary.")
 
