@@ -155,6 +155,12 @@ class BaseEnvLive(BaseEnv, abc.ABC):
 
         self.state = {name: results[str(self.state_config.map_ext_ids[name])] for name in self.state_config.ext_outputs}
         self.state.update(self.get_scenario_state())
+
+        # Execute optional state modification callback function
+        if self.state_modification_callback:
+            self.state_modification_callback()
+
+        # Log the state
         self.state_log.append(self.state)
 
         # Render the environment at each step
