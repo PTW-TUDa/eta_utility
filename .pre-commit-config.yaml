@@ -61,8 +61,7 @@ repos:
          - onnxruntime==1.17.3
          - matplotlib==3.7.5
   - repo: https://github.com/python-poetry/poetry
-    rev: 1.8.2
+    rev: 2.1.1
     hooks:
       -   id: poetry-check
       -   id: poetry-lock
-          args: [--no-update]

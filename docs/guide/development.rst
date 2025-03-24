@@ -48,7 +48,7 @@ Then install Poetry with pipx:
 
 .. code-block:: console
 
-    $ pipx install poetry==1.8.2
+    $ pipx install poetry==2.1.1
 
 
 .. note::
@@ -95,7 +95,7 @@ and continuous integration checks:
 
 .. code-block:: console
 
-   $ poetry install --extras develop --sync
+   $ poetry install -E develop
 
 .. note::
     Updating the project dependencies is done with the same command.
@@ -133,12 +133,6 @@ You can run commands in the virtual environment by using the following command:
 .. code-block:: console
 
     $ poetry run <command>
-
-\.. or spawn a terminal with the virtual environment activated:
-
-.. code-block:: console
-
-    $ poetry shell
 
 
 To check which Python version Poetry is using and get the path of that environment,

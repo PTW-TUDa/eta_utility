@@ -26,7 +26,7 @@ include:
 
 variables:
   # Poetry settings
-  POETRY_VERSION: 1.8.3
+  POETRY_VERSION: 2.1.1
   REGISTRY_IMAGE: $CI_REGISTRY/$CI_PROJECT_PATH/poetry${POETRY_VERSION}
 
 default:
@@ -41,7 +41,7 @@ default:
     - rm -rf docs/_build docs/_stubs
     - ls -la
     # Install development dependencies
-    - poetry install -E develop --sync
+    - poetry sync -E develop
   # Cache gets invalidated when poetry.lock changes
   cache:
     key: "global-deps-$(checksum poetry.lock)"
@@ -60,7 +60,7 @@ update-cache:
     - poetry remove torch
     - poetry source add --priority explicit pytorch_cpu https://download.pytorch.org/whl/cpu
     - poetry add --source pytorch_cpu torch==2.0.0
-    - poetry install -E develop --sync
+    - poetry sync -E develop
   cache:
     policy: pull-push
   artifacts:
