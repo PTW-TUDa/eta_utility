@@ -1,21 +1,30 @@
-[build-system]
-requires = ["poetry-core>=1.6.0"]
-build-backend = "poetry.core.masonry.api"
-
-[tool.poetry]
+[project]
 name = "eta-utility"
 version = "v3.2.5"
 description = "A framework for researching energy optimization of factory operations"
-authors = [
-    "Technical University of Darmstadt, Institute for Production Management, Technology and Machine Tools (PTW). <info@ptw.tu-darmstadt.de>"
-]
-readme = "README.rst"
 license = "BSD-2-Clause"
-
+readme = "README.rst"
+requires-python = ">=3.9.2, <3.12"
+authors = [
+    {name = "Technical University of Darmstadt, Institute for Production Management, Technology and Machine Tools (PTW)", email="info@ptw.tu-darmstadt.de"}
+]
 keywords = [
     "connectors","servers","simulators","industrial energy optimization","rolling horizon optimization"
 ]
+dynamic = ["classifiers", "dependencies"]
 
+[project.urls]
+homepage = "https://www.ptw.tu-darmstadt.de"
+repository = "https://github.com/PTW-TUDa/eta_utility/"
+documentation = "https://eta-utility.readthedocs.io/"
+issues = "https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility/-/issues"
+
+[project.scripts]
+    install-julia = "eta_utility:install_julia"
+    update-julia-agent = "eta_utility:update_agent"
+
+[tool.poetry]
+# Classifiers are defined in the poetry section to dynamically add the python version
 classifiers = [
     "License :: OSI Approved :: BSD License",
     "Development Status :: 4 - Beta",
@@ -25,29 +34,16 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Software Development :: Libraries",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3 :: Only",
+]
+include = [
+    {path="examples/", format=["sdist", "wheel"]}
 ]
 
-homepage = "https://www.ptw.tu-darmstadt.de"
-documentation = "https://eta-utility.readthedocs.io/"
-repository = "https://github.com/PTW-TUDa/eta_utility/"
-
-[tool.poetry.urls]
-"Issues" = "https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility/-/issues"
-
-[[tool.poetry.include]]
-path="examples/"
-format="sdist"
-
-[tool.poetry.scripts]
-    install-julia = "eta_utility:install_julia"
-    update-julia-agent = "eta_utility:update_agent"
 
 #  '^' limits to the next major version, '~' limits to the next minor version
 # e.g. ^3.9.0: 3.9.0 <= x < 4.0.0 and ~3.9.0: 3.9.0 <= x < 3.10.0
 [tool.poetry.dependencies]
 # default dependencies of eta_utility
-python = ">=3.9.2, <3.12"
 attrs = "^23.1.0"
 python-dateutil = "^2.8.2"
 numpy = {version= "~1.26.0"}
@@ -108,15 +104,6 @@ develop = ["gymnasium", "torch", "stable_baselines3", "tensorboard", "pyomo",  #
 eta-x = ["gymnasium", "torch", "stable_baselines3", "tensorboard", "pyomo"]
 examples = ["matplotlib", "keyboard", "pygame", "pyglet", "onnxruntime"]
 
-
-
-[tool.black]
-include = "\\.pyi?$|^eta_utility/|^test/"
-exclude = "\\.xlsx?$|\\.fmu?$|test_resources/|__pycache__/|_version.py|.venv/$"
-line_length = 120
-target_version = ["py39","py310", "py311"]
-
-
 [tool.mypy]
 python_version = "3.9"
 files = ["eta_utility", "examples"]
@@ -154,6 +141,7 @@ module = [
     "yaml.*",
 ]
 ignore_missing_imports = true
+
 [[tool.mypy.overrides]]
 module = "test.*"
 ignore_errors = true
@@ -253,3 +241,7 @@ max-returns = 6
 skip = "*.js, *.html, *.lock, */Manifest.toml, ./docs/_build"
 ignore-words-list = ["Temperatur"]
 quiet-level = 3
+
+[build-system]
+requires = ["poetry-core>=1.6.0"]
+build-backend = "poetry.core.masonry.api"
