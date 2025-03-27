@@ -24,6 +24,7 @@ issues = "https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-uti
     update-julia-agent = "eta_utility:update_agent"
 
 [tool.poetry]
+requires-poetry = ">=2.0"
 # Classifiers are defined in the poetry section to dynamically add the python version
 classifiers = [
     "License :: OSI Approved :: BSD License",
