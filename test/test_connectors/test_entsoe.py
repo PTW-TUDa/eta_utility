@@ -9,7 +9,7 @@ from eta_utility.connectors import ENTSOEConnection, Node
 from eta_utility.connectors.entso_e import _ConnectionConfiguration
 from eta_utility.util import dict_search, round_timestamp
 
-ENTSOE_TOKEN = ""
+ENTSOE_TOKEN = "FAKE_TOKEN"
 
 
 def create_node(endpoint: str, name: str = "Node1") -> Node:
@@ -24,7 +24,7 @@ def create_node(endpoint: str, name: str = "Node1") -> Node:
 
 @pytest.fixture(autouse=True)
 def _local_requests(monkeypatch, config_entsoe):
-    if ENTSOE_TOKEN == "":
+    if ENTSOE_TOKEN == "FAKE_TOKEN":
         monkeypatch.setattr(requests_cache.CachedSession, "get", Getable(config_entsoe["path"]))
 
 

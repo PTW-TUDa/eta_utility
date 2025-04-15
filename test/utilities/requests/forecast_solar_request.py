@@ -38,7 +38,7 @@ class CachedResponse(_CachedResponse):
 
 def request(self, method, url: str, *args, **kwargs):
     url_path = url.split("https://api.forecast.solar", 1)[1]
-    url_path = re.sub(r"^/[A-Za-z0-9]{16}/", r"/", url_path)  # Remove API key
+    url_path = re.sub(r"^/[A-Za-z0-9]{16}/", r"/", url_path)  # Remove API token
     endpoint = re.sub(r"/\d.*", r"", url_path)  # Remove any trailing (digit) parameters
 
     # Cover the simple cases first

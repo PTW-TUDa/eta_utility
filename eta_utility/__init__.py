@@ -1,3 +1,5 @@
+from dotenv import load_dotenv
+
 from .util import (
     LOG_DEBUG as LOG_DEBUG,
     LOG_ERROR as LOG_ERROR,
@@ -21,3 +23,6 @@ from .util_julia import (
     install_julia as install_julia,
     update_agent as update_agent,
 )
+
+# Load environment variables from .env file
+load_dotenv()

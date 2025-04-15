@@ -330,12 +330,6 @@
       "timezone": "Europe/Paris",
       "time": "2024-10-16T19:11:07+02:00",
       "time_utc": "2024-10-16T17:11:07+00:00"
-    },
-    "ratelimit": {
-      "zone": "API key 87Fpb6aShqa5Hbmf",
-      "period": 3600,
-      "limit": 300,
-      "remaining": 297
     }
   }
 }

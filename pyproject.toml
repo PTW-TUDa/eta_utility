@@ -60,34 +60,35 @@ wetterdienst = "~0.88.0"  # breaking changes expected
 requests-cache = "^1.2.0"
 pyyaml = "^6.0.2"
 toml = "^0.10.2"
+python-dotenv = "^1.0.1"
 
 # Specific requirements for eta-x
-gymnasium =  {version = "==0.29.1", optional=true} # no SemVer
+gymnasium =  {version = "==1.0.0", optional=true} # no SemVer
 torch = {version = "==2.0.0", optional=true} # nvidia packages are not included in 2.0.1, see https://github.com/pytorch/pytorch/issues/100974
-stable-baselines3 = {version = "==2.2.1", optional=true} # no SemVer
+stable-baselines3 = {version = "^2.4.0", optional=true}  # no SemVer
 tensorboard = {version = "~2.14.0", optional=true}
 pyomo = {version = "~6.6.2", optional=true}
 
 # Specific requirements for the examples
-matplotlib = {version= "~3.7.0", optional = true}
+matplotlib = {version= "~3.7.5", optional = true}
 keyboard = {version="^0.13.5", optional=true}
 pygame = {version="^2.5.2", optional=true}
 pyglet = {version="<2", optional=true}
-onnxruntime = {version="^1.16.0", optional=true}
+onnxruntime = {version="1.19.0", optional=true}
 
 # Specific requirements for tests
 pytest = {version = "^7.4.2", optional = true}
-pytest-cov = {version = "^4.1.0", optional = true}
+pytest-cov = {version = "^6.0.0", optional = true}
 openpyxl = {version = "^3.1.2", optional = true}
 # Specific requirements for development
 sphinx = {version ="^7.1.2", optional = true}
 sphinx-rtd-theme = {version = "^1.3.0", optional = true}
 sphinx-copybutton = {version = "^0.5.2", optional = true}
 pre-commit = {version = "^3.4.0", optional = true}
-black = {version = "~23.7", optional = true}
-blacken_docs = {version = "~1.16", optional = true}
+black = {version = "~23.7.0", optional = true}
+blacken_docs = {version = "~1.16.0", optional = true}
 # MyPy requirements and typing packages
-mypy = {version = "~1.9", optional = true}
+mypy = {version = "~1.9.0", optional = true}
 types-python-dateutil = {version = "^2.8.19.14", optional = true}
 types-requests = {version = "^2.31.0.4", optional = true}
 types-pytz = {version = "^2024.1.0.20240203", optional = true}
