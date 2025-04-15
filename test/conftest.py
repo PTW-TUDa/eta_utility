@@ -64,7 +64,7 @@ def config_host_ip():
 @pytest.fixture(scope="session")
 def config_eneffco():
     """Test configuration for EnEffCo."""
-    return {"user": "", "pw": "", "url": "", "postman_token": ""}
+    return {"user": "", "pw": "", "url": "", "postman_token": "fake_token"}
 
 
 @pytest.fixture(scope="session")

@@ -23,6 +23,7 @@ For more information, visit the `forecast.solar API documentation <https://doc.f
 from __future__ import annotations
 
 import concurrent.futures
+import os
 import traceback
 from collections.abc import Mapping
 from datetime import datetime, timedelta
@@ -60,7 +61,7 @@ class ForecastSolarConnection(SeriesConnection[NodeForecastSolar], protocol="for
     :param url: URL of the server with scheme (https://).
     :param usr: Not needed for Forecast.Solar.
     :param pwd: Not needed for Forecast.Solar.
-    :param api_key: Token for API authentication.
+    :param api_token: Token for API authentication.
     :param nodes: Nodes to select in connection.
     """
 
@@ -72,7 +73,7 @@ class ForecastSolarConnection(SeriesConnection[NodeForecastSolar], protocol="for
         self,
         url: str = _baseurl,
         *,
-        api_key: str = "None",
+        api_token: str | None = None,
         url_params: dict[str, Any] | None = None,
         query_params: dict[str, Any] | None = None,
         nodes: Nodes[NodeForecastSolar] | None = None,
@@ -83,8 +84,8 @@ class ForecastSolarConnection(SeriesConnection[NodeForecastSolar], protocol="for
         self.url_params: dict[str, Any] | None = url_params
         #: Query parameters for the forecast.Solar api
         self.query_params: dict[str, Any] | None = query_params
-        #: Key to use the Forecast.Solar api. If API key is none, only the public functions are usable.
-        self._api_key: str = api_key
+        #: Key to use the Forecast.Solar api. If API token is none, only the public functions are usable.
+        self._api_token: str = api_token if api_token is not None else os.getenv("FORECAST_SOLAR_API_TOKEN", "None")
         #: Cached session to handle the requests
         self._session: CachedSession = CachedSession(
             cache_name="eta_utility/connectors/requests_cache/forecast_solar_cache",
@@ -101,12 +102,12 @@ class ForecastSolarConnection(SeriesConnection[NodeForecastSolar], protocol="for
         """Initialize the connection object from a Forecast.Solar protocol node object
 
         :param node: Node to initialize from.
-        :param kwargs: Keyword arguments for API authentication, where "api_key" is required
+        :param kwargs: Keyword arguments for API authentication, where "api_token" is required
         :return: ForecastSolarConnection object.
         """
-        api_key = kwargs.get("api_key", "None")
+        api_token = kwargs.get("api_token", "None")
 
-        return super()._from_node(node, api_key=api_key)
+        return super()._from_node(node, api_token=api_token)
 
     def _read_node(self, node: NodeForecastSolar, **kwargs: Any) -> pd.DataFrame:
         """Download data from the Forecast.Solar Database.
@@ -336,8 +337,8 @@ class ForecastSolarConnection(SeriesConnection[NodeForecastSolar], protocol="for
         :param endpoint: Endpoint for the request (server URI is added automatically).
         :param kwargs: Additional arguments for the request.
         """
-        if self._api_key != "None":
-            log.info("The api_key is None and only the public functions are available of the forecastsolar.api.")
+        if self._api_token != "None":
+            log.info("The api_token is None and only the public functions are available of the forecastsolar.api.")
 
         kwargs.setdefault("timeout", 10)
         response = self._session.request(method, url, **kwargs)

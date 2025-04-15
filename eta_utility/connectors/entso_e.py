@@ -5,6 +5,7 @@ does not have the ability to write data.
 from __future__ import annotations
 
 import concurrent.futures
+import os
 from datetime import datetime, timedelta, timezone
 from logging import getLogger
 from typing import TYPE_CHECKING
@@ -48,11 +49,14 @@ class ENTSOEConnection(SeriesConnection[NodeEntsoE], protocol="entsoe"):
         self,
         url: str = "https://web-api.tp.entsoe.eu/",
         *,
-        api_token: str,
+        api_token: str | None = None,
         nodes: Nodes[NodeEntsoE] | None = None,
     ) -> None:
         url = url.rstrip("/") + "/" + self.API_PATH
-        self._api_token: str = api_token
+        _api_token = api_token or os.getenv("ENTSOE_API_TOKEN")
+        if _api_token is None:
+            raise ValueError("ENTSOE_API_TOKEN environment variable is not set.")
+        self._api_token: str = _api_token
         super().__init__(url, None, None, nodes=nodes)
 
         self._node_ids: str | None = None
@@ -72,15 +76,11 @@ class ENTSOEConnection(SeriesConnection[NodeEntsoE], protocol="entsoe"):
         """Initialize the connection object from an entso-e protocol node object
 
         :param node: Node to initialize from
-        :param kwargs: Keyword arguments for API authentication, where "api_token" is required
+        :param kwargs: Keyword arguments for API authentication
         :return: ENTSOEConnection object
         """
 
-        if "api_token" not in kwargs:
-            raise AttributeError("Missing required function parameter api_token.")
-        api_token = kwargs["api_token"]
-
-        return super()._from_node(node, api_token=api_token)
+        return super()._from_node(node, api_token=kwargs.get("api_token"))
 
     def read(self, nodes: NodeEntsoE | Nodes[NodeEntsoE] | None = None) -> pd.DataFrame:
         """

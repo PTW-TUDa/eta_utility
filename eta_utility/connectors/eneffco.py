@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import os
 from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
 from logging import getLogger
@@ -42,16 +43,26 @@ class EnEffCoConnection(SeriesConnection[NodeEnEffCo], protocol="eneffco"):
     API_PATH: str = "/API/v1.0"
 
     def __init__(
-        self, url: str, usr: str | None, pwd: str | None, *, api_token: str, nodes: Nodes[NodeEnEffCo] | None = None
+        self,
+        url: str,
+        usr: str | None,
+        pwd: str | None,
+        *,
+        api_token: str | None = None,
+        nodes: Nodes[NodeEnEffCo] | None = None,
     ) -> None:
         url = url + self.API_PATH
-        self._api_token: str = api_token
+        _api_token = api_token or os.getenv("ENEFFCO_API_TOKEN")
         super().__init__(url, usr, pwd, nodes=nodes)
 
         if self.usr is None:
             raise ValueError("Username must be provided for the EnEffCo connector.")
         if self.pwd is None:
             raise ValueError("Password must be provided for the EnEffCo connector.")
+        if _api_token is None:
+            raise ValueError("API token must be provided for the EnEffCo connector.")
+
+        self._api_token: str = _api_token
 
         self._node_ids: pd.DataFrame | None = None
         self._node_ids_raw: pd.DataFrame | None = None
@@ -85,7 +96,9 @@ class EnEffCoConnection(SeriesConnection[NodeEnEffCo], protocol="eneffco"):
         return super()._from_node(node, usr=usr, pwd=pwd, api_token=api_token)
 
     @classmethod
-    def from_ids(cls, ids: Sequence[str], url: str, usr: str, pwd: str, api_token: str) -> EnEffCoConnection:
+    def from_ids(
+        cls, ids: Sequence[str], url: str, usr: str, pwd: str, api_token: str | None = None
+    ) -> EnEffCoConnection:
         """Initialize the connection object from an EnEffCo protocol through the node IDs
 
         :param ids: Identification of the Node.

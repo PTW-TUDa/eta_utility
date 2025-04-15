@@ -54,7 +54,7 @@ def forecast_solar_nodes(config_forecast_solar: dict[str, str]) -> dict[str, Nod
             name="node_forecast_solar3",
             url=config_forecast_solar["url"],
             protocol="forecast_solar",
-            api_key="A1B2C3D4E5F6G7H8",
+            api_token="A1B2C3D4E5F6G7H8",
             latitude=49.86381,
             longitude=8.68105,
             declination=[14, 10, 10],
@@ -166,7 +166,7 @@ def test_read_series(forecast_solar_nodes: dict[str, NodeForecastSolar], connect
 
     assert isinstance(res, pd.DataFrame)
     assert res.shape == (385, 2), "The result has the wrong size of data"
-    assert connector._api_key == "None", "The api_key is not set correctly"
+    assert connector._api_token == "None", "The api_token is not set correctly"
 
 
 @pytest.mark.usefixtures("_local_requests")
@@ -199,8 +199,8 @@ def test_read_data_types(forecast_solar_nodes: dict[str, NodeForecastSolar], con
 
 @pytest.mark.usefixtures("_local_requests")
 def test_read_multiple_nodes(forecast_solar_nodes: dict[str, NodeForecastSolar], connector: ForecastSolarConnection):
-    api_key = "A1B2C3D4E5F6G7H8"
-    n = forecast_solar_nodes["node"].evolve(api_key=api_key)
+    api_token = "A1B2C3D4E5F6G7H8"
+    n = forecast_solar_nodes["node"].evolve(api_token=api_token)
     nodes = [n]
     nodes.append(n.evolve(declination=30, azimuth=90, kwp=10))
     nodes.append(n.evolve(declination=10, azimuth=60, kwp=40))
