@@ -232,5 +232,5 @@ https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility/-/iss
 I want to start a julia experiment, but there is a PyJulia import error with PyCall
 -------------------------------------------------------------------------------------
 
-Ensure you have the necessary installation rights. If not, follow the installation process with no installation 
+Ensure you have the necessary installation rights. If not, follow the installation process with no installation
 rights as outlined in :ref:`install_julia` and restart the Julia experiment.

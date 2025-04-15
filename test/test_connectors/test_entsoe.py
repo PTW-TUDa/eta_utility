@@ -4,7 +4,6 @@ from datetime import datetime, timedelta, timezone
 import pandas as pd
 import pytest
 import requests_cache
-from lxml import etree
 
 from eta_utility.connectors import ENTSOEConnection, Node
 from eta_utility.connectors.entso_e import _ConnectionConfiguration
@@ -26,7 +25,7 @@ def create_node(endpoint: str, name: str = "Node1") -> Node:
 @pytest.fixture(autouse=True)
 def _local_requests(monkeypatch, config_entsoe):
     if ENTSOE_TOKEN == "":
-        monkeypatch.setattr(requests_cache.CachedSession, "post", Postable(config_entsoe["path"]))
+        monkeypatch.setattr(requests_cache.CachedSession, "get", Getable(config_entsoe["path"]))
 
 
 multiple_nodes_expected = [
@@ -161,20 +160,12 @@ class MockResponse(requests_cache.CachedResponse):
             return f.read().encode()
 
 
-class Postable:
+class Getable:
     def __init__(self, path):
         self.path = path
 
-    def __call__(self, url, data, headers, **kwargs):
-        parser = etree.XMLParser(load_dtd=False, ns_clean=True, remove_pis=True)
-        e_msg = etree.XML(data, parser)
-        ns = e_msg.nsmap
-
-        endpoint_code = (
-            e_msg.find(".//AttributeInstanceComponent", namespaces=ns).find("attributeValue", namespaces=ns).text
-        )
+    def __call__(self, url, params, **kwargs):
         doc_types = _ConnectionConfiguration().doc_types
-
-        endpoint = dict_search(doc_types, endpoint_code)
+        endpoint = dict_search(doc_types, params.get("documentType"))
 
         return MockResponse(endpoint, self.path)
