@@ -563,7 +563,6 @@ class SelfsignedKeyCertPair(KeyCertPair):
             )
         else:
             encryption = serialization.NoEncryption()
-
         with NamedTemporaryFile("w+b", delete=False, suffix=".pem") as key_tempfile:
             key_tempfile.write(
                 self.key.private_bytes(
