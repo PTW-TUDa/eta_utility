@@ -552,7 +552,7 @@ class _ConnectionConfiguration:
         params = dict([bidding_zone, document_type])
 
         if node.endpoint == "Price":
-            params.update({"processType": "A01", "Out_Domain": bidding_zone})
+            params.update({"processType": "A01", "Out_Domain": bidding_zone[1]})
         elif node.endpoint == "ActualGenerationPerType":
             params.update({"processType": "A16"})
         else:
