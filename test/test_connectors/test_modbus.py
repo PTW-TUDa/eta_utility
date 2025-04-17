@@ -379,12 +379,14 @@ class TestConnectorSubscriptions:
 
         for node, values in self.values.items():
             # Check whether Dataframe contains NaN
-            assert pd.isna(handler.data[node]).any()
+            data = handler.data
+            assert pd.isna(data[node]).any()
 
             # Don't check floating point values in this case because it is hard to deal with precision problems here.
-            if handler.data[node].dtype == "float":
+            # if not pd.api.types.is_float_dtype(handler.data[node].dtype):
+            if data[node].dtype.kind == "f":
                 continue
-            assert set(handler.data[node].dropna()) <= set(values)
+            assert set(data[node].dropna()) <= set(values)
 
         # Check if connection was actually interrupted during the test.
         messages_found = 0

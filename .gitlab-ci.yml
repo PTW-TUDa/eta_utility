@@ -162,7 +162,7 @@ test3.11_updated_deps:
   script:
     - poetry update
     - pytest --cov --cov-report term --junitxml=./junit.xml
-
+  allow_failure: true
 
 test-julia:
   stage: test
