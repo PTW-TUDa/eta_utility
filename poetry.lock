@@ -1660,6 +1660,22 @@ files = [
 ]
 
 [[package]]
+name = "julia"
+version = "0.6.2"
+description = "Julia/Python bridge with IPython support."
+optional = true
+python-versions = ">=3.4"
+groups = ["main"]
+markers = "extra == \"develop\" or extra == \"eta-x\""
+files = [
+    {file = "julia-0.6.2-py2.py3-none-any.whl", hash = "sha256:90752f71376fdb9919439d20496c2dab24486dfa4fe8a831d6dd14a1bcbc04d1"},
+    {file = "julia-0.6.2.tar.gz", hash = "sha256:35eefc030671392b79ba0e1898b7103ed1286ad044783c4cadc99d4401c368e3"},
+]
+
+[package.extras]
+test = ["ipython", "mock", "numpy", "pytest (>=4.4)"]
+
+[[package]]
 name = "keyboard"
 version = "0.13.5"
 description = "Hook and simulate keyboard events on Windows and Linux"
@@ -8107,11 +8123,11 @@ docs = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "rst.link
 testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=2.2)", "pytest-ignore-flaky", "pytest-mypy ; platform_python_implementation != \"PyPy\"", "pytest-ruff (>=0.2.1)"]
 
 [extras]
-develop = ["black", "blacken_docs", "codespell", "gymnasium", "keyboard", "matplotlib", "mypy", "onnxruntime", "openpyxl", "pre-commit", "pygame", "pyglet", "pyomo", "pytest", "pytest-cov", "ruff", "sphinx", "sphinx-copybutton", "sphinx-rtd-theme", "stable-baselines3", "tensorboard", "torch", "types-python-dateutil", "types-pytz", "types-requests"]
-eta-x = ["gymnasium", "pyomo", "stable-baselines3", "tensorboard", "torch"]
+develop = ["black", "blacken_docs", "codespell", "gymnasium", "julia", "keyboard", "matplotlib", "mypy", "onnxruntime", "openpyxl", "pre-commit", "pygame", "pyglet", "pyomo", "pytest", "pytest-cov", "ruff", "sphinx", "sphinx-copybutton", "sphinx-rtd-theme", "stable-baselines3", "tensorboard", "torch", "types-python-dateutil", "types-pytz", "types-requests"]
+eta-x = ["gymnasium", "julia", "pyomo", "stable-baselines3", "tensorboard", "torch"]
 examples = ["keyboard", "matplotlib", "onnxruntime", "pygame", "pyglet"]
 
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9.2, <3.12"
-content-hash = "8aaa0175356ee4d3f2c0f5ff08cebe64c418a1b66987ccccd15d9225f61ce44a"
+content-hash = "04d76d9224fe8ba3af05719d478561371f9b51aff0b88c4f0fae9ea83efd1186"
