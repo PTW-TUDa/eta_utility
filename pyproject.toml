@@ -1,6 +1,6 @@
 [project]
 name = "eta-utility"
-version = "v3.3.0"
+version = "v3.3.1"
 description = "A framework for researching energy optimization of factory operations"
 license = "BSD-2-Clause"
 readme = "README.rst"
