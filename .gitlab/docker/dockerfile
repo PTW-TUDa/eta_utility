@@ -4,7 +4,7 @@
 
 # Pass the python version as a build argument
 ARG PYTHON_VERSION=3.9
-ARG POETRY_VERSION=1.8.3
+ARG POETRY_VERSION=2.1.1
 
 # Stage 1: Julia base image
 FROM julia:1.9-bullseye AS julia-image
@@ -47,7 +47,7 @@ RUN curl -sSL https://install.python-poetry.org | POETRY_VERSION=${POETRY_VERSIO
     poetry remove torch && \
     poetry source add --priority explicit pytorch_cpu https://download.pytorch.org/whl/cpu && \
     poetry add --source pytorch_cpu torch==2.0.0 && \
-    poetry install -E develop --sync && \
+    poetry sync -E develop && \
     # Install julia packages
     install-julia && \
     julia -e 'ENV["PYTHON"] = Sys.which("python"); using Pkg; Pkg.add("PyCall"); Pkg.build("PyCall"); Pkg.add("JuliaFormatter")' && \

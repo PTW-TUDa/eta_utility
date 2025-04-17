@@ -136,10 +136,10 @@ class ConfigOpt:
         possible_extensions = {".json": json_import, ".toml": toml_import, ".yml": yaml_import, ".yaml": yaml_import}
         file_path = pathlib.Path(file)
 
-        for extension in possible_extensions:
+        for extension, import_func in possible_extensions.items():
             _file_path: pathlib.Path = file_path.with_suffix(extension)
             if _file_path.exists():
-                result = possible_extensions[extension](_file_path)
+                result = import_func(_file_path)
                 break
         else:
             raise FileNotFoundError(f"Config file not found: {file}")

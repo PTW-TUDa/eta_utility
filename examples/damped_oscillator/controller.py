@@ -23,7 +23,7 @@ class DampedOscillatorControl(RuleBased):
     :param p: Proportional factor for the PID controller
     :param i: Integral factor for the PID controller
     :param d: Derivative factor for the PID controller
-    :param kwargs: Additional arguments as specified in stable_baselins3.common.base_class.
+    :param kwargs: Additional arguments as specified in stable_baselines3.common.base_class.
     """
 
     def __init__(

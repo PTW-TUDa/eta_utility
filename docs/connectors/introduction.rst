@@ -1,4 +1,5 @@
 .. _intro_connectors:
+.. _connectors:
 
 Introduction
 =================
@@ -42,63 +43,16 @@ information to correctly identify the data points.
 The URL may contain the username and password (``schema://username:password@hostname:port/path``). This is handled
 automatically by the connectors and the username and password will be removed before creating a connection.
 
-The *Node* class should always be used to instantiate nodes. The type of the node can be specified using the
-*protocol* parameter.
-
 
 .. autoclass:: eta_utility.connectors::Node
     :noindex:
 
 The following classes are there to document the required parameters for each type of node.
 
- .. note::
-     Always use the *Node* class to instantiate nodes! (not its subclasses)
-
 .. autoclass:: eta_utility.connectors.node::NodeLocal
     :inherited-members:
     :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol, as_dict, as_tuple, evolve
     :noindex:
-
-.. autoclass:: eta_utility.connectors.node::NodeModbus
-    :inherited-members:
-    :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol, as_dict, as_tuple, evolve
-    :noindex:
-
-.. autoclass:: eta_utility.connectors.node::NodeOpcUa
-    :inherited-members:
-    :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol, as_dict, as_tuple
-    :noindex:
-
-.. autoclass:: eta_utility.connectors.node::NodeEnEffCo
-    :inherited-members:
-    :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol, as_dict, as_tuple, evolve
-    :noindex:
-
-.. autoclass:: eta_utility.connectors.node::NodeEntsoE
-    :inherited-members:
-    :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol, as_dict, as_tuple, evolve
-    :noindex:
-
-.. autoclass:: eta_utility.connectors.node::NodeWetterdienstObservation
-    :inherited-members:
-    :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol, as_dict, as_tuple, evolve
-    :noindex:
-
-.. autoclass:: eta_utility.connectors.node::NodeWetterdienstPrediction
-    :inherited-members:
-    :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol, as_dict, as_tuple, evolve
-    :noindex:
-
-.. autoclass:: eta_utility.connectors.node::NodeEmonio
-    :inherited-members:
-    :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol, as_dict, as_tuple, evolve  upper_cased
-    :noindex:
-
-.. autoclass:: eta_utility.connectors.node::NodeForecastSolar
-    :inherited-members:
-    :exclude-members: get_eneffco_nodes_from_codes, from_dict, from_excel, protocol, as_dict, as_tuple, evolve
-    :noindex:
-
 
 Node Typing
 ---------------
@@ -182,7 +136,7 @@ connection.
 
  .. note::
     This is not available for all connectors, since the concept of IDs does not apply universally. An
-    example is shown :ref:`here <connectors>`. Refer to the API documentation of the connector you would like to use to see if the
+    example is shown :ref:`connectors`. Refer to the API documentation of the connector you would like to use to see if the
     method exists and which parameters are required.
 
 .. autofunction:: eta_utility.connectors::EnEffCoConnection.from_ids

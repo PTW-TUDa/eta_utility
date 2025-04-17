@@ -16,15 +16,21 @@ def _silence_logging():
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_runtest_setup(item):
+    # Check for the disable_logging marker
+    root_level = logging.CRITICAL if "disable_logging" in item.keywords else logging.NOTSET
     # Set logging level to INFO if caplog is used
-    level = logging.INFO if "caplog" in item.fixturenames else logging.ERROR
-    logging.getLogger("eta_utility").setLevel(level)
+    eta_utility_level = logging.INFO if "caplog" in item.fixturenames else logging.ERROR
+
+    # Set disable logging level for root logger
+    logging.disable(root_level)
+    # Set logger level for "eta_utility" namespace
+    logging.getLogger("eta_utility").setLevel(eta_utility_level)
 
 
 @pytest.fixture(scope="session")
 def temp_dir():
     while True:
-        temp_dir = pathlib.Path.cwd() / f"tmp_{random.randint(10000,99999)}"
+        temp_dir = pathlib.Path.cwd() / f"tmp_{random.randint(10000, 99999)}"
         try:
             temp_dir.mkdir(exist_ok=False)
         except FileExistsError:
@@ -58,7 +64,7 @@ def config_host_ip():
 @pytest.fixture(scope="session")
 def config_eneffco():
     """Test configuration for EnEffCo."""
-    return {"user": "", "pw": "", "url": "", "postman_token": ""}
+    return {"user": "", "pw": "", "url": "", "postman_token": "fake_token"}
 
 
 @pytest.fixture(scope="session")

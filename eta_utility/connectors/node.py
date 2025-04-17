@@ -20,6 +20,7 @@ from attrs import (
     field,
     validators as vld,
 )
+from typing_extensions import deprecated
 from wetterdienst.metadata.parameter import Parameter
 from wetterdienst.provider.dwd.mosmix.api import DwdMosmixParameter
 from wetterdienst.provider.dwd.observation import (
@@ -30,8 +31,8 @@ from wetterdienst.provider.dwd.observation import (
 from eta_utility import dict_get_any, url_parse
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-    from typing import Any, Callable, ClassVar, Final
+    from collections.abc import Callable, Sequence
+    from typing import Any, ClassVar, Final
     from urllib.parse import ParseResult
 
     from typing_extensions import Self, TypeAlias
@@ -104,8 +105,7 @@ def _dtype_converter(value: str) -> Callable | None:
         dtype = _dtypes[_lower_str(value)]
     except KeyError:
         log.warning(
-            f"The specified data type ({value}) is currently not available in the datatype map and "
-            f"will not be applied."
+            f"The specified data type ({value}) is currently not available in the datatype map and will not be applied."
         )
         dtype = None
 
@@ -526,7 +526,6 @@ class NodeOpcUa(Node, protocol="opcua"):
     opc_name: str = field(init=False, repr=False, eq=False, order=False, converter=str)
     #: Path to the OPC UA node in list representation. Nodes in this list can be used to access any
     #: parent objects.
-    opc_path: list[NodeOpcUa] = field(init=False, repr=False, eq=False, order=False)
 
     def __attrs_post_init__(self) -> None:
         """Add default port to the URL and convert mb_byteorder values."""
@@ -568,18 +567,22 @@ class NodeOpcUa(Node, protocol="opcua"):
         else:
             raise ValueError("Specify opc_id or opc_path_str and ns for OPC UA nodes.")
 
-        # Determine the name and path of the opc node
+        # Determine the name of the opc node
+        object.__setattr__(self, "opc_name", self.opc_path_str.split(".")[-1])  # type: ignore
+
+    @property
+    @deprecated("This attribute will be removed in the future")
+    def opc_path(self) -> list[NodeOpcUa]:
         split_path = (
             self.opc_path_str.rsplit(".", maxsplit=len(self.opc_path_str.split(".")) - 2)  # type: ignore
             if self.opc_path_str[0] == "."  # type: ignore
             else self.opc_path_str.split(".")  # type: ignore
         )
 
-        object.__setattr__(self, "opc_name", split_path[-1].split(".")[-1])
         path = []
         for k in range(len(split_path) - 1):
             path.append(
-                Node(
+                NodeOpcUa(
                     split_path[k].strip(" ."),
                     self.url,
                     "opcua",
@@ -588,7 +591,7 @@ class NodeOpcUa(Node, protocol="opcua"):
                     opc_id="ns={};s={}".format(self.opc_ns, ".".join(split_path[: k + 1])),
                 )
             )
-        object.__setattr__(self, "opc_path", path)
+        return path
 
     @classmethod
     def _from_dict(cls, dikt: dict[str, Any]) -> Self:
@@ -839,7 +842,7 @@ class NodeWetterdienst(Node):
         if self.parameter not in parameters:
             raise ValueError(
                 f"Parameter {self.parameter} is not valid. Valid parameters can be found here:"
-                f"https://wetterdienst.readthedocs.io/en/latest/data/parameters.html"
+                f"https://wetterdienst.readthedocs.io/en/latest/data/parameters/"
             )
 
     @classmethod
@@ -860,7 +863,7 @@ class NodeWetterdienst(Node):
 class NodeWetterdienstObservation(NodeWetterdienst, protocol="wetterdienst_observation"):
     """
     Node for the Wetterdienst API to get weather observations.
-    For more information see: https://wetterdienst.readthedocs.io/en/latest/data/coverage/dwd/observation.html
+    For more information see: https://wetterdienst.readthedocs.io/en/latest/data/provider/dwd/observation/
     """
 
     #: Redeclare interval attribute, but don't allow it to be optional
@@ -924,7 +927,7 @@ class NodeWetterdienstObservation(NodeWetterdienst, protocol="wetterdienst_obser
 class NodeWetterdienstPrediction(NodeWetterdienst, protocol="wetterdienst_prediction"):
     """
     Node for the Wetterdienst API to get weather predictions.
-    For more information see: https://wetterdienst.readthedocs.io/en/latest/data/coverage/dwd/mosmix.html
+    For more information see: https://wetterdienst.readthedocs.io/en/latest/data/provider/dwd/mosmix/
     """
 
     #: Type of the MOSMIX prediction. Either 'SMALL' or 'LARGE'
@@ -941,7 +944,7 @@ class NodeWetterdienstPrediction(NodeWetterdienst, protocol="wetterdienst_predic
             raise ValueError(
                 f"Parameter {self.parameter} is not valid for the given resolution."
                 f"Valid parameters for resolution {self.mosmix_type} can be found here:"
-                f"https://wetterdienst.readthedocs.io/en/latest/data/coverage/dwd/mosmix/hourly.html"
+                f"https://wetterdienst.readthedocs.io/en/latest/data/provider/dwd/mosmix/hourly/"
             )
 
     @classmethod
@@ -1098,10 +1101,10 @@ def _convert_list(_type: TypeAlias) -> Callable:
     return converter
 
 
-def _check_api_key(instance, attribute, value):  # type: ignore[no-untyped-def]
-    """attrs validator to check if the API key is set."""
+def _check_api_token(instance, attribute, value):  # type: ignore[no-untyped-def]
+    """attrs validator to check if the API token is set."""
     if re.match(r"[A-Za-z0-9]{16}", value) is None:
-        raise ValueError("'api_key' must be a 16 character long alphanumeric string.")
+        raise ValueError("'api_token' must be a 16 character long alphanumeric string.")
 
 
 def _check_plane(_type: TypeAlias, lower: int, upper: int) -> Callable:
@@ -1180,39 +1183,42 @@ attrs_args = {"kw_only": True, "field_transformer": _forecast_solar_transform}
 
 
 class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
-    """
-    Node for using the Forecast.Solar API.
+    """Node for using the Forecast.Solar API.
 
     Mandatory parameters are:
-
     * The location of the forecast solar plane(s): **latitude**, **longitude**,
     * Plane parameters: **declination**, **azimuth** and **kwp**.
 
-    Additionally **api_key** must be set for endpoints other than 'estimate',
+    Additionally **api_token** must be set for endpoints other than 'estimate',
     multiple planes or if requests capacity is exceeded.
 
     For multiple planes, the parameters shall be passed as lists of the same length
     (e.g. [0, 30], [180, 180], [5, 5]).
 
+    By default, data is queried as 'watts'. Other options are 'watthours', 'watthours/period' and 'watthours/day'.
+    Either set the **data** parameter or call the appropriate method afterwards of
+    :class:'eta_utility.connectors.forecast_solar.ForecastSolarConnection'.
     """
 
     # URL PARAMETERS
     # ----------------
 
-    #: API key for the Forecast.Solar API; string
-    api_key: str | None = field(repr=False, converter=str, validator=_check_api_key, metadata={"QUERY_PARAM": False})
+    #: API token for the Forecast.Solar API; string
+    api_token: str | None = field(
+        repr=False, converter=str, validator=_check_api_token, metadata={"QUERY_PARAM": False}
+    )
     #: Endpoint in (estimate, history, clearsky), defaults to estimate; string
     endpoint: str = field(
         default="estimate",
         converter=str,
-        validator=vld.in_(("estimate", "check", "history", "clearsky")),
+        validator=vld.in_(("estimate", "history", "clearsky")),
         metadata={"QUERY_PARAM": False},
     )
-    #: What data to query, i.e. only watts, watt hours, watt hours per period or watt hours per day; string
-    data: str | None = field(
+    #: What data to query, i.e. only 'watts', 'watthours', 'watthours/period' or 'watthours/day'; string
+    data: str = field(
         default="watts",
         converter=str,
-        validator=vld.in_(("watts", "watthours", "watthoursperperiod", "watthoursperday")),
+        validator=vld.in_(("watts", "watthours", "watthours/period", "watthours/day")),
         metadata={"QUERY_PARAM": False},
     )
     #: Latitude of plane location, -90 (south) … 90 (north); handled with a precision of 0.0001 or abt. 10 m
@@ -1281,22 +1287,15 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
             if isinstance(self.declination, list) and isinstance(self.azimuth, list) and isinstance(self.kwp, list):
                 if not len(self.declination) == len(self.azimuth) == len(self.kwp):
                     raise ValueError("'declination', 'azimuth' and 'kwp' must be passed for all planes")
-                if self.api_key is None:
-                    raise ValueError("Valid API key is needed for multiple planes")
+                if self.api_token is None:
+                    raise ValueError("Valid API token is needed for multiple planes")
             else:
                 raise ValueError(
                     "'declination', 'azimuth' and 'kwp' must be passed either as lists or as single values."
                 )
 
-        if self.api_key is None and (self.endpoint not in ["estimate", "check"]):
-            raise ValueError(f"Valid API key is needed for endpoint: {self.endpoint}")
-        if self.endpoint != "estimate" and self.data is not None:
-            log.info("'data' field is not supported for endpoints other than estimate and will be ignored.")
-            object.__setattr__(self, "data", None)
-        elif self.endpoint == "estimate" and self.data is None:
-            log.info("'data' field will be set to 'watts' for endpoint 'estimate'.")
-            object.__setattr__(self, "data", "watts")
-
+        if self.api_token is None and (self.endpoint not in ["estimate", "check"]):
+            raise ValueError(f"Valid API token is needed for endpoint: {self.endpoint}")
         # Collect all url parameters and query parameters
         url_params = {}
         query_params = {}
@@ -1323,30 +1322,24 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
         :return: URL for the Forecast Solar API.
         """
         url = "https://api.forecast.solar"
-        keys = []
+        keys = ["endpoint", "latitude", "longitude"]
 
-        # Check if the API key is set and add it to the URL
-        if self.api_key is not None:
-            keys.append("api_key")
+        # Check if the API token is set and add it to the URL
+        if url_params["api_token"] is not None:
+            keys.insert(0, "api_token")
 
-        keys.append("endpoint")
-
-        if self.endpoint == "estimate":
-            keys.append("data")
-        keys.extend(["latitude", "longitude"])
-
-        for path in keys:
-            try:
-                url += f"/{url_params[path]}"
-            except KeyError:
-                continue
+        for key in keys:
+            url += f"/{url_params[key]}"
+            if key == "endpoint":
+                url += "/watts"
 
         # Unpack plane parameters and add them to the URL
-        if isinstance(self.declination, list):
-            for i in range(len(self.declination)):
-                url += f"/{self.declination[i]}/{self.azimuth[i]}/{self.kwp[i]}"  # type: ignore[index]
+        if isinstance(url_params["declination"], list):
+            url += "".join(
+                f"/{d}/{a}/{k}" for d, a, k in zip(url_params["declination"], url_params["azimuth"], url_params["kwp"])
+            )
         else:
-            url += f"/{self.declination}/{self.azimuth}/{self.kwp}"
+            url += f"/{url_params['declination']}/{url_params['azimuth']}/{url_params['kwp']}"
 
         return url
 
@@ -1355,13 +1348,13 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
         """Get the common parameters for a Forecast Solar node.
 
         :param dikt: dictionary with node information.
-        :return: dict with: api_key, endpoint, latitude, longitude, declination, azimuth, kwp
+        :return: dict with: api_token, endpoint, latitude, longitude, declination, azimuth, kwp
         """
         attr_names = NodeForecastSolar.__annotations__.keys()
-        discard_keys = ["api_key", "data", "_url_params", "_query_params"]
+        discard_keys = ["api_token", "_url_params", "_query_params"]
         attributes = {key: dikt.get(key) for key in attr_names if key not in discard_keys}
-        # return only non-None values
-        return {key: value for key, value in attributes.items() if value is not None}
+        # return only non-"nan" values
+        return {key: value for key, value in attributes.items() if str(value) not in ["None", "nan"]}
 
     @classmethod
     def _from_dict(cls, dikt: dict[str, Any]) -> NodeForecastSolar:
@@ -1374,28 +1367,26 @@ class NodeForecastSolar(Node, protocol="forecast_solar", attrs_args=attrs_args):
 
         params = cls._get_params(dikt)
 
-        _data_point = str(dict_get_any(dikt, "data", fail=False))
-        if _data_point not in ["None", "nan"]:
-            params["data"] = _data_point
-
-        dict_key = str(dict_get_any(dikt, "api_key", "apikey", fail=False))
+        dict_key = str(dict_get_any(dikt, "api_token", "apitoken", "api_key", fail=False))
         if dict_key not in ["None", "nan"]:
-            params["api_key"] = dict_key
+            params["api_token"] = dict_key
         else:
             log.info(
-                """'api_key' is None.
-                Make sure to pass a valid API key to use the personal or the professional functions of forecastsolar.api
-                otherwise the public functions are only available."""
+                """'api_token' is None.
+                Make sure to pass a valid API token to use the personal or the professional functions of forecastsolar.
+                Otherwise the public functions are only available."""
             )
 
+        # Convert lists given as strings to their literal values
         for key in ["declination", "azimuth", "kwp"]:
-            if isinstance(params[key], str):
-                params[key] = ast.literal_eval(params[key])
+            if isinstance(params.get(key), str):
+                try:
+                    params[key] = ast.literal_eval(params[key])
+                except (ValueError, SyntaxError):
+                    raise ValueError(f"Invalid literal for parameter '{key}': {params[key]}") from None
 
+        # Attempt to construct the class, handling potential type errors
         try:
             return cls(name, url, "forecast_solar", **params)
         except (TypeError, AttributeError) as e:
-            raise TypeError(
-                f"""Could not convert all types for node {name}:
-                            \n{e}"""
-            ) from e
+            raise TypeError(f"Could not convert all types for node '{name}':\n{e}") from e

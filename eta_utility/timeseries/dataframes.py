@@ -8,6 +8,7 @@ import csv
 import operator as op
 import pathlib
 import re
+import warnings
 from datetime import datetime, timedelta
 from logging import getLogger
 from typing import TYPE_CHECKING
@@ -19,7 +20,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
     from typing import Literal
 
-    from eta_utility.type_hints import Path, TimeStep
+    from eta_utility.type_hints import FillMethod, Path, TimeStep
 
 log = getLogger(__name__)
 
@@ -208,7 +209,9 @@ def df_time_slice(
     return df[slice_begin:slice_end].copy()  # type: ignore
 
 
-def df_resample(dataframe: pd.DataFrame, *periods_deltas: TimeStep, missing_data: str | None = None) -> pd.DataFrame:
+def df_resample(
+    dataframe: pd.DataFrame, *periods_deltas: TimeStep, missing_data: FillMethod | None = None
+) -> pd.DataFrame:
     """Resample the time index of a data frame. This method can be used for resampling in multiple different
     periods with multiple different deltas between single time entries.
 
@@ -219,51 +222,56 @@ def df_resample(dataframe: pd.DataFrame, *periods_deltas: TimeStep, missing_data
                            be resampled, the second value specifies the interval that these periods should be
                            resampled to. A third argument would determine the next number of periods that should
                            be resampled to the interval specified by the fourth argument and so on.
-    :param missing_data: Specify a method for handling missing data values. If this is not specified, missing data
-                         will not be handled. All missing data handling functions for pandas dataframes are valid.
-                         See also: https://pandas.pydata.org/docs/reference/frame.html#missing-data-handling. Some
-                         examples: 'interpolate', 'ffill' (default: asfreq).
-    :return: Copy of the DataFrame.
+    :param missing_data: Specify a method for handling missing data values. If this is not specified, missing
+                         data will not be handled. Valid methods are: 'ffill', 'bfill', 'interpolate', 'asfreq'.
+                         Default is 'asfreq'. 'fillna' is supported for backwards compatibility, but deprecated.
+    :return: Resampled copy of the DataFrame.
     """
-    if missing_data in {"fillna", "ffill"}:
-        interpolation_method = op.methodcaller("ffill")
-    elif missing_data == "interpolate":
-        interpolation_method = op.methodcaller(missing_data, method="time")
-    elif missing_data is None:
-        interpolation_method = op.methodcaller("asfreq")
-    else:
-        interpolation_method = op.methodcaller(missing_data)
+    # Set default value for missing_data
+    missing_data = missing_data or "asfreq"
+    if missing_data == "fillna":
+        msg = "fillna is deprecated for parameter 'missing_data', use ffill instead."
+        warnings.warn(msg, DeprecationWarning, stacklevel=2)
+        missing_data = "ffill"
+
+    valid_methods = ("ffill", "bfill", "interpolate", "asfreq")  # ref to FillMethod
+    if missing_data not in valid_methods:
+        raise ValueError(f"Invalid value for 'missing_data': {missing_data}. Valid values are: {valid_methods}")
+
+    interpolation_method = op.methodcaller(missing_data)
 
     if not dataframe.index.is_unique:
-        log.warning(
-            f"Index has non-unique values. Dropping duplicates: "
-            f"{dataframe.index[dataframe.index.duplicated(keep='first')].to_list()}."
+        duplicates = dataframe.index.duplicated(keep="first")
+        log.warning(f"Index has non-unique values. Dropping duplicates: {dataframe.index[duplicates].to_list()}.")
+        dataframe = dataframe[~duplicates]
+
+    _periods_deltas: list[int] = [int(t.total_seconds() if isinstance(t, timedelta) else t) for t in periods_deltas]
+
+    if len(_periods_deltas) == 1:
+        delta = _periods_deltas[0]
+        new_df = (
+            df_interpolate(dataframe, delta)  # interpolate needs an extra method for handling indices
+            if missing_data == "interpolate"
+            else interpolation_method(dataframe.resample(f"{int(delta)}s"))
         )
-        dataframe = dataframe[~dataframe.index.duplicated(keep="first")]
-
-    if len(periods_deltas) == 1:
-        delta = periods_deltas[0]
-        if isinstance(delta, timedelta):
-            delta = delta.total_seconds()
-        new_df = interpolation_method(dataframe.resample(f"{int(delta)}s"))
     else:
-        new_df = pd.DataFrame()
-        total_periods = 0
-        for i in range(len(periods_deltas) // 2):
-            key = i * 2
-            delta = periods_deltas[key + 1]
-            if isinstance(delta, timedelta):
-                delta = delta.total_seconds()
-            interpolated_df = interpolation_method(
-                dataframe.iloc[total_periods : periods_deltas[key]].resample(f"{int(delta)}s")  # type: ignore
-            )
-            new_df = pd.concat((None if "new_df" not in locals() else new_df, interpolated_df))
-            total_periods += periods_deltas[key]  # type: ignore
+        period_delta = [(_periods_deltas[i], _periods_deltas[i + 1]) for i in range(0, len(_periods_deltas), 2)]
+        total_periods: int = 0
+        new_df = None
+        for period, delta in period_delta:
+            period_df = dataframe.iloc[total_periods : total_periods + period + 1]
+            resampled_df = df_resample(period_df, delta, missing_data=missing_data)
+            new_df = resampled_df if new_df is None else pd.concat((new_df, resampled_df))
 
-    if dataframe.isna().to_numpy().any():
+            total_periods += period
+
+    # Remove the duplicate value between periods
+    new_df = new_df[~new_df.index.duplicated(keep="first")]
+
+    if new_df.isna().to_numpy().any():
         log.warning(
             "Resampled Dataframe has missing values. Before using this data, ensure you deal with the missing values. "
-            "For example, you could interpolate(), fillna() or dropna()."
+            "For example, you could interpolate(), ffill() or dropna()."
         )
 
     return new_df

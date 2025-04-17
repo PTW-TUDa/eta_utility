@@ -1,10 +1,11 @@
 @echo off
 setlocal enabledelayedexpansion
 
+REM NEEDS TO BE RUN IN THE ROOT OF THE REPOSITORY
 
 REM Define the Python versions to build
 set "PYTHON_VERSIONS=3.9 3.10 3.11"
-set "POETRY_VERSION=1.8.3"
+set "POETRY_VERSION=2.1.1"
 set "DOCKERFILE_PATH=.gitlab/docker/dockerfile"
 set "REGISTRY_URL=git-reg.ptw.maschinenbau.tu-darmstadt.de"
 set "IMAGE_PATH=/eta-fabrik/public/eta-utility/"

@@ -24,7 +24,8 @@ if check_julia_package():
 if TYPE_CHECKING:
     import io
     import pathlib
-    from typing import Any, Callable
+    from collections.abc import Callable
+    from typing import Any
 
     import torch as th
     from julia import _jlwrapper

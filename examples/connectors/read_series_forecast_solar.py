@@ -13,7 +13,7 @@ def read_series() -> pd.DataFrame:
     from eta_utility.connectors.node import NodeForecastSolar
 
     # ------------------------------
-    # Simple node without API key:
+    # Simple node without API token:
     # ------------------------------
     node_simple = NodeForecastSolar(
         name="ForecastSolar Node",
@@ -37,13 +37,13 @@ def read_series() -> pd.DataFrame:
     # --begin_forecast_solar_doc_example2--
 
     # ------------------------------
-    # Node with api key and multiple planes:
+    # Node with api token and multiple planes:
     # ------------------------------
     node_eta = NodeForecastSolar(
         name="ForecastSolar Node",
         url="https://api.forecast.solar",
         protocol="forecast_solar",
-        api_key="A1B2C3D4E5F6G7H8",  # Your API key
+        api_token="A1B2C3D4E5F6G7H8",  # Your API token
         latitude=49.86381,
         longitude=8.68105,
         declination=[14, 10, 10],

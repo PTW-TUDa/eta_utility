@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
 from datetime import datetime, timedelta
 from logging import getLogger
 from typing import TYPE_CHECKING
@@ -9,7 +8,7 @@ import pandas as pd
 
 from eta_utility.connectors.base_classes import Connection, SubscriptionHandler
 from eta_utility.connectors.modbus import ModbusConnection
-from eta_utility.connectors.node import Node, NodeEmonio, NodeModbus
+from eta_utility.connectors.node import NodeEmonio, NodeModbus
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -68,12 +67,12 @@ class EmonioConnection(Connection[NodeEmonio], protocol="emonio"):
         """
         return super()._from_node(node)
 
-    def read(self, nodes: Nodes[NodeEmonio] | None = None) -> pd.DataFrame:
+    def read(self, nodes: NodeEmonio | Nodes[NodeEmonio] | None = None) -> pd.DataFrame:
         """
         Read the values of the selected nodes.
         If nodes is None, all previously selected nodes will be read.
 
-        :param nodes: List of nodes to read from.
+        :param nodes: Single node or list/set of nodes to read from.
         :return: Dataframe with the read values.
         """
 
@@ -88,13 +87,13 @@ class EmonioConnection(Connection[NodeEmonio], protocol="emonio"):
         raise NotImplementedError("Writing to Emonio nodes is not supported")
 
     def subscribe(
-        self, handler: SubscriptionHandler, nodes: Nodes[NodeEmonio] | None = None, interval: TimeStep = 1
+        self, handler: SubscriptionHandler, nodes: NodeEmonio | Nodes[NodeEmonio] | None = None, interval: TimeStep = 1
     ) -> None:
         """
         Subscribe to the selected nodes. The Modbus connection does all the handling.
 
         :param handler: The handler to subscribe.
-        :param nodes: List of nodes to subscribe to.
+        :param nodes: Single node or list/set of nodes to subscribe to.
         :param interval: The interval in seconds to read the values.
         """
 
@@ -114,11 +113,9 @@ class EmonioConnection(Connection[NodeEmonio], protocol="emonio"):
         :param nodes: List of Emonio nodes.
         :return: List of modbus nodes (will return empty list when no nodes are passed).
         """
-        if not isinstance(nodes, Iterable):
-            nodes = {nodes}
         return [self.nodes_factory.get_default_node(node.name, node.address) for node in nodes]
 
-    def _validate_nodes(self, nodes: Nodes[NodeEmonio] | None) -> set[NodeEmonio]:
+    def _validate_nodes(self, nodes: NodeEmonio | Nodes[NodeEmonio] | None) -> set[NodeEmonio]:
         """
         Validate the nodes and return the set of nodes.
         If nodes is none, return the previously selected nodes.
@@ -153,8 +150,6 @@ class EmonioConnection(Connection[NodeEmonio], protocol="emonio"):
 
         :param nodes: List of nodes to check.
         """
-        if isinstance(nodes, Node):
-            nodes = [nodes]
 
         for node in nodes:
             phase = node.phase
@@ -194,7 +189,7 @@ class EmonioConnection(Connection[NodeEmonio], protocol="emonio"):
                 if bit == "1":
                     # chr(97) = "a", chr(98) = "b", ...
                     msg = (
-                        f"{name} bit '{chr(97+i)}' is set. "
+                        f"{name} bit '{chr(97 + i)}' is set. "
                         f"See https://wiki.emonio.de/de/Emonio_P3 for more information."
                     )
                     if name == "Warning":

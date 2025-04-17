@@ -136,13 +136,13 @@ class TestConfigOptSetup:
         with pytest.raises(ValueError, match=error_msg):
             ConfigOptSetup.from_dict(config_dict["setup"])
         log_msg = (
-            f"'{missing}_import' or both of '{missing}_package' and " f"'{missing}_class' parameters must be specified."
+            f"'{missing}_import' or both of '{missing}_package' and '{missing}_class' parameters must be specified."
         )
         assert log_msg in caplog.messages
 
     def test_module_not_found(self, config_dict: dict):
         config_dict["setup"]["environment_import"] = "foobar.FooBar"
-        error_msg = "Could not find module 'foobar'. " "While importing class 'FooBar' from 'environment_import' value."
+        error_msg = "Could not find module 'foobar'. While importing class 'FooBar' from 'environment_import' value."
         with pytest.raises(ModuleNotFoundError, match=error_msg):
             ConfigOptSetup.from_dict(config_dict["setup"])
 

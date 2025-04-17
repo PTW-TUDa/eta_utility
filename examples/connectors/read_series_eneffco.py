@@ -21,7 +21,7 @@ def read_series() -> pd.DataFrame:
         url="https://someurl.com/",
         usr="username",
         pwd="password",
-        api_token="your_server_auth_token",
+        api_token="your_api_token",
     )
 
     # Read series data within a specified time interval

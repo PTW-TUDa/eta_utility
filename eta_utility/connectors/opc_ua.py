@@ -28,6 +28,7 @@ from asyncua.crypto.security_policies import SecurityPolicyBasic256Sha256
 # Synchronous imports
 from asyncua.sync import Client, Subscription
 from asyncua.ua import SecurityPolicy, uaerrors
+from typing_extensions import deprecated
 
 from eta_utility import KeyCertPair, Suppressor
 from eta_utility.connectors.node import NodeOpcUa
@@ -128,11 +129,11 @@ class OpcUaConnection(Connection[NodeOpcUa], protocol="opcua"):
         nodes = [NodeOpcUa(name=opc_id, usr=usr, pwd=pwd, url=url, protocol="opcua", opc_id=opc_id) for opc_id in ids]
         return cls(nodes[0].url, usr, pwd, nodes=nodes)
 
-    def read(self, nodes: Nodes[NodeOpcUa] | None = None) -> pd.DataFrame:
+    def read(self, nodes: NodeOpcUa | Nodes[NodeOpcUa] | None = None) -> pd.DataFrame:
         """
         Read some manually selected values from OPC UA capable controller.
 
-        :param nodes: List of nodes to read from.
+        :param nodes: Single node or list/set of nodes to read from.
         :return: pandas.DataFrame containing current values of the OPC UA-variables.
         :raises ConnectionError: When an error occurs during reading.
         """
@@ -141,7 +142,7 @@ class OpcUaConnection(Connection[NodeOpcUa], protocol="opcua"):
         def read_node(node: NodeOpcUa) -> dict[str, list]:
             try:
                 opcua_variable = self.connection.get_node(node.opc_id)
-                value = opcua_variable.get_value()
+                value = opcua_variable.read_value()
                 if node.dtype is not None:
                     try:
                         value = node.dtype(value)
@@ -179,9 +180,9 @@ class OpcUaConnection(Connection[NodeOpcUa], protocol="opcua"):
             for node in nodes:
                 try:
                     opcua_variable = self.connection.get_node(node.opc_id)
-                    opcua_variable_type = opcua_variable.get_data_type_as_variant_type()
+                    opcua_variable_type = opcua_variable.read_data_type_as_variant_type()
                     value = node.dtype(values[node]) if node.dtype is not None else values[node]
-                    opcua_variable.set_value(ua.DataValue(ua.Variant(value, opcua_variable_type)))
+                    opcua_variable.write_value(ua.DataValue(ua.Variant(value, opcua_variable_type)))
                 except uaerrors.BadNodeIdUnknown as e:
                     raise ConnectionError(
                         f"The node id ({node.opc_id}) refers to a node that does not exist in the server address space "
@@ -190,6 +191,7 @@ class OpcUaConnection(Connection[NodeOpcUa], protocol="opcua"):
                 except RuntimeError as e:
                     raise ConnectionError(str(e)) from e
 
+    @deprecated("This functionality is deprecated and will be removed in the future.")
     def create_nodes(self, nodes: Nodes[NodeOpcUa]) -> None:
         """Create nodes on the server from a list of nodes. This will try to create the entire node path.
 
@@ -243,6 +245,7 @@ class OpcUaConnection(Connection[NodeOpcUa], protocol="opcua"):
                 except RuntimeError as e:
                     raise ConnectionError(str(e)) from e
 
+    @deprecated("This functionality is deprecated and will be removed in the future.")
     def delete_nodes(self, nodes: Nodes[NodeOpcUa]) -> None:
         """Delete the given nodes and their parents (if the parents do not have other children).
 
@@ -276,13 +279,13 @@ class OpcUaConnection(Connection[NodeOpcUa], protocol="opcua"):
                     raise ConnectionError(str(e)) from e
 
     def subscribe(
-        self, handler: SubscriptionHandler, nodes: Nodes[NodeOpcUa] | None = None, interval: TimeStep = 1
+        self, handler: SubscriptionHandler, nodes: NodeOpcUa | Nodes[NodeOpcUa] | None = None, interval: TimeStep = 1
     ) -> None:
         """Subscribe to nodes and call handler when new data is available. Basic architecture of the subscription is
         the client- server communication via subscription notify. This function works asynchronously. Subscriptions
         must always be closed using the close_sub function (use try, finally!).
 
-        :param nodes: Identifiers for the nodes to subscribe to.
+        :param nodes: Single node or list/set of nodes to subscribe to.
         :param handler: SubscriptionHandler object with a push method that accepts node, value pairs.
         :param interval: Interval for receiving new data. It is interpreted as seconds when given as an integer.
         """
@@ -473,7 +476,7 @@ class OpcUaConnection(Connection[NodeOpcUa], protocol="opcua"):
     def _check_connection(self) -> bool:
         if self._connected:
             try:
-                self.connection.get_node(ua.FourByteNodeId(ua.ObjectIds.Server_ServerStatus_State)).get_value()
+                self.connection.get_node(ua.FourByteNodeId(ua.ObjectIds.Server_ServerStatus_State)).read_value()
             except AttributeError:
                 self._connected = False
                 log.debug(f"Connection to server {self.url} did not exist - connection check failed.")
@@ -510,7 +513,7 @@ class OpcUaConnection(Connection[NodeOpcUa], protocol="opcua"):
         finally:
             self._disconnect()
 
-    def _validate_nodes(self, nodes: Nodes[NodeOpcUa] | None) -> set[NodeOpcUa]:
+    def _validate_nodes(self, nodes: NodeOpcUa | Nodes[NodeOpcUa] | None) -> set[NodeOpcUa]:
         vnodes = super()._validate_nodes(nodes)
         _nodes = set()
         for node in vnodes:

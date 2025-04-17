@@ -36,7 +36,7 @@ def request(method, url, **kwargs):
             except IndexError:
                 device_id = ""
 
-            if current_page == "1" and device_id in {"1234", "1235"} or current_page == "2":
+            if (current_page == "1" and device_id in {"1234", "1235"}) or current_page == "2":
                 # Return data for id: 1234 and fragment: P if page is 1
                 json_data = data if current_page == "1" else {"measurements": []}
                 return Response(json_data, 200)

@@ -10,9 +10,9 @@ from eta_utility.connectors import LiveConnect
 from eta_utility.eta_x.envs import BaseEnv
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
     from datetime import datetime
-    from typing import Any, Callable
+    from typing import Any
 
     from eta_utility.eta_x import ConfigOptRun
     from eta_utility.type_hints import ObservationType, Path, StepResult, TimeStep
@@ -90,9 +90,9 @@ class BaseEnvLive(BaseEnv, abc.ABC):
         _files = self.live_connect_config if files is None else files
         self.live_connect_config = _files
 
-        assert (
-            _files is not None
-        ), "Configuration files or a dictionary must be specified before the connector can be initialized."
+        assert _files is not None, (
+            "Configuration files or a dictionary must be specified before the connector can be initialized."
+        )
 
         if isinstance(_files, dict):
             self.live_connector = LiveConnect.from_dict(
@@ -155,6 +155,12 @@ class BaseEnvLive(BaseEnv, abc.ABC):
 
         self.state = {name: results[str(self.state_config.map_ext_ids[name])] for name in self.state_config.ext_outputs}
         self.state.update(self.get_scenario_state())
+
+        # Execute optional state modification callback function
+        if self.state_modification_callback:
+            self.state_modification_callback()
+
+        # Log the state
         self.state_log.append(self.state)
 
         # Render the environment at each step

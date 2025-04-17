@@ -5,6 +5,7 @@ does not have the ability to write data.
 from __future__ import annotations
 
 import concurrent.futures
+import os
 from datetime import datetime, timedelta, timezone
 from logging import getLogger
 from typing import TYPE_CHECKING
@@ -13,7 +14,6 @@ import numpy as np
 import pandas as pd
 import requests
 from lxml import etree
-from lxml.builder import E
 from requests_cache import DO_NOT_CACHE, CachedSession
 
 from eta_utility.connectors.node import NodeEntsoE
@@ -43,17 +43,20 @@ class ENTSOEConnection(SeriesConnection[NodeEntsoE], protocol="entsoe"):
     :param nodes: Nodes to select in connection
     """
 
-    API_PATH: str = "/api"
+    API_PATH: str = "api"
 
     def __init__(
         self,
         url: str = "https://web-api.tp.entsoe.eu/",
         *,
-        api_token: str,
+        api_token: str | None = None,
         nodes: Nodes[NodeEntsoE] | None = None,
     ) -> None:
-        url = url + self.API_PATH
-        self._api_token: str = api_token
+        url = url.rstrip("/") + "/" + self.API_PATH
+        _api_token = api_token or os.getenv("ENTSOE_API_TOKEN")
+        if _api_token is None:
+            raise ValueError("ENTSOE_API_TOKEN environment variable is not set.")
+        self._api_token: str = _api_token
         super().__init__(url, None, None, nodes=nodes)
 
         self._node_ids: str | None = None
@@ -73,22 +76,18 @@ class ENTSOEConnection(SeriesConnection[NodeEntsoE], protocol="entsoe"):
         """Initialize the connection object from an entso-e protocol node object
 
         :param node: Node to initialize from
-        :param kwargs: Keyword arguments for API authentication, where "api_token" is required
+        :param kwargs: Keyword arguments for API authentication
         :return: ENTSOEConnection object
         """
 
-        if "api_token" not in kwargs:
-            raise AttributeError("Missing required function parameter api_token.")
-        api_token = kwargs["api_token"]
+        return super()._from_node(node, api_token=kwargs.get("api_token"))
 
-        return super()._from_node(node, api_token=api_token)
-
-    def read(self, nodes: Nodes[NodeEntsoE] | None = None) -> pd.DataFrame:
+    def read(self, nodes: NodeEntsoE | Nodes[NodeEntsoE] | None = None) -> pd.DataFrame:
         """
         .. warning::
             Cannot read single values from ENTSO-E transparency platform. Use read_series instead
 
-        :param nodes: List of nodes to read values from
+        :param nodes: Single node or list/set of nodes to read values from
         :return: Pandas DataFrame containing the data read from the connection
         """
         raise NotImplementedError(
@@ -108,16 +107,16 @@ class ENTSOEConnection(SeriesConnection[NodeEntsoE], protocol="entsoe"):
         raise NotImplementedError("Cannot write to ENTSO-E transparency platform.")
 
     def subscribe(
-        self, handler: SubscriptionHandler, nodes: Nodes[NodeEntsoE] | None = None, interval: TimeStep = 1
+        self, handler: SubscriptionHandler, nodes: NodeEntsoE | Nodes[NodeEntsoE] | None = None, interval: TimeStep = 1
     ) -> None:
         """Subscribe to nodes and call handler when new data is available. This will return only the
         last available values.
 
         :param handler: SubscriptionHandler object with a push method that accepts node, value pairs
         :param interval: interval for receiving new data. It is interpreted as seconds when given as an integer.
-        :param nodes: identifiers for the nodes to subscribe to
+        :param nodes: Single node or list/set of nodes to subscribe to
         """
-        self.subscribe_series(handler=handler, req_interval=1, nodes=nodes, interval=interval, data_interval=interval)
+        self.subscribe_series(handler=handler, req_interval=1, nodes=nodes, interval=interval)
 
     def _handle_xml(self, xml_content: bytes) -> dict[str, dict[str, list[pd.Series]]]:
         """Transform XML data from request response into dictionary containing resolutions and time series for the node.
@@ -130,8 +129,8 @@ class ENTSOEConnection(SeriesConnection[NodeEntsoE], protocol="entsoe"):
         ns = xml_data.nsmap
         data: dict[str, dict[str, list[pd.Series]]] = {}
         request_type = xml_data.find(".//type", namespaces=ns).text
-
         timeseries = xml_data.findall(".//TimeSeries", namespaces=ns)
+
         for ts in timeseries:
             # Day-Ahead Price
             if request_type == "A44":
@@ -189,13 +188,13 @@ class ENTSOEConnection(SeriesConnection[NodeEntsoE], protocol="entsoe"):
         self,
         from_time: datetime,
         to_time: datetime,
-        nodes: Nodes[NodeEntsoE] | None = None,
+        nodes: NodeEntsoE | Nodes[NodeEntsoE] | None = None,
         interval: TimeStep = 1,
         **kwargs: Any,
     ) -> pd.DataFrame:
         """Download timeseries data from the ENTSO-E Database
 
-        :param nodes: List of nodes to read values from
+        :param nodes: Single node or list/set of nodes to read values from
         :param from_time: Starting time to begin reading (included in output)
         :param to_time: Time to stop reading at (not included in output)
         :param interval: interval between time steps. It is interpreted as seconds if given as integer.
@@ -214,7 +213,6 @@ class ENTSOEConnection(SeriesConnection[NodeEntsoE], protocol="entsoe"):
 
         def read_node(node: NodeEntsoE) -> pd.DataFrame:
             params = self.config.create_params(node, from_time, to_time)
-
             result = self._raw_request(params)
             data = self._handle_xml(result.content)
 
@@ -227,7 +225,7 @@ class ENTSOEConnection(SeriesConnection[NodeEntsoE], protocol="entsoe"):
                 df_resolution = pd.DataFrame.from_dict(data_resolution, orient="columns")
                 # entsoe always returns a dataframe in UTC time, convert to same time zone as given from_time
                 df_resolution.index = df_resolution.index.tz_convert(tz=from_time.tzinfo)
-                df_resolution = df_resample(df_resolution, interval, missing_data="fillna")
+                df_resolution = df_resample(df_resolution, interval, missing_data="ffill")
                 df_resolution = df_time_slice(df_resolution, from_time, to_time)
                 df_dict[resolution] = df_resolution
 
@@ -244,7 +242,7 @@ class ENTSOEConnection(SeriesConnection[NodeEntsoE], protocol="entsoe"):
         handler: SubscriptionHandler,
         req_interval: TimeStep,
         offset: TimeStep | None = None,
-        nodes: Nodes[NodeEntsoE] | None = None,
+        nodes: NodeEntsoE | Nodes[NodeEntsoE] | None = None,
         interval: TimeStep = 1,
         data_interval: TimeStep = 1,
         **kwargs: Any,
@@ -260,7 +258,7 @@ class ENTSOEConnection(SeriesConnection[NodeEntsoE], protocol="entsoe"):
         :param data_interval: Time interval between values in returned data. Interpreted as seconds if given as int.
         :param interval: interval (between requests) for receiving new data.
                          It it interpreted as seconds when given as an integer.
-        :param nodes: identifiers for the nodes to subscribe to
+        :param nodes: Single node or list/set of nodes to subscribe to
         """
         raise NotImplementedError("Cannot subscribe to data from the ENTSO-E transparency platform.")
 
@@ -278,16 +276,9 @@ class ENTSOEConnection(SeriesConnection[NodeEntsoE], protocol="entsoe"):
         :param kwargs: Additional arguments for the request.
         :return: request response
         """
-
-        # Prepare the basic request for usage in the requests.
-        headers = {"Content-Type": "application/xml", "SECURITY_TOKEN": self._api_token}
-
-        xml = self.config.xml_head()
-        for param, val in params.items():
-            xml.append(self.config.xml_param(param, val))
-
-        response = self._session.post(self.url, data=etree.tostring(xml), headers=headers, **kwargs)
-
+        params = dict(params)
+        params["securityToken"] = self._api_token  # API token added as a query parameter
+        response = self._session.get(self.url, params=params, **kwargs)  # Send GET request
         if response.status_code == 400:
             try:
                 parser = etree.XMLParser(load_dtd=False, ns_clean=True, remove_pis=True)
@@ -301,7 +292,6 @@ class ENTSOEConnection(SeriesConnection[NodeEntsoE], protocol="entsoe"):
                 pass
 
         response.raise_for_status()
-
         return response
 
 
@@ -556,52 +546,37 @@ class _ConnectionConfiguration:
         if node.endpoint not in self._DOC_TYPES:
             raise ValueError(f"Unsupported endpoint for ENTSO-E connection: {node.endpoint}.")
 
-        params = {"DocumentType": node.endpoint}
-        if node.endpoint == "ActualGenerationPerType":
-            params["ProcessType"] = "Realised"
-            params["In_Domain"] = node.bidding_zone
+        bidding_zone = self.map_parameter("In_Domain", node.bidding_zone)
+        document_type = self.map_parameter("documentType", node.endpoint)
 
-        elif node.endpoint == "Price":
-            params["ProcessType"] = "Day ahead"
-            params["In_Domain"] = node.bidding_zone
-            params["Out_Domain"] = node.bidding_zone
+        params = dict([bidding_zone, document_type])
 
+        if node.endpoint == "Price":
+            params.update({"processType": "A01", "Out_Domain": bidding_zone})
+        elif node.endpoint == "ActualGenerationPerType":
+            params.update({"processType": "A16"})
         else:
             raise NotImplementedError(f"Endpoint not available: {node.endpoint}")
 
         # Round down at from_time and up at to_time to receive all necessary values from entsoe
         # entsoe uses always a full hour
-        rounded_from_time_utc = round_timestamp(from_time.astimezone(timezone.utc), 3600) - timedelta(hours=1)
+        rounded_from_time_utc = round_timestamp(from_time.astimezone(timezone.utc), 3600)
         rounded_to_time_utc = round_timestamp(to_time.astimezone(timezone.utc), 3600)
 
-        params["TimeInterval"] = (
-            f"{rounded_from_time_utc.strftime('%Y-%m-%dT%H:%M:%SZ')}/"
-            f"{rounded_to_time_utc.strftime('%Y-%m-%dT%H:%M:%SZ')}"
-        )
+        if rounded_to_time_utc < to_time.astimezone(timezone.utc):
+            rounded_to_time_utc += timedelta(hours=1)
+
+        params["periodStart"] = rounded_from_time_utc.strftime("%Y%m%d%H%M")  # yyyyMMddHHmm
+        params["periodEnd"] = rounded_to_time_utc.strftime("%Y%m%d%H%M")  # yyyyMMddHHmm
+
         return params
 
-    def xml_head(self) -> etree.ElementTree:
-        """Create header of the xml data for the POST method.
+    def map_parameter(self, parameter: str, value: str) -> tuple:
+        """Map parameters to their corresponding values for the GET request.
 
-        :return: tree of elements with the pre-defined values for the request
-        """
-        now = datetime.utcnow()
-        # Prepare XML Header data
-        data = E("StatusRequest_MarketDocument", xmlns=self._XMLNS)
-        data.append(E("mRID", f"Request_{now.isoformat(sep='T', timespec='seconds')}"))
-        data.append(E("type", "A59"))
-        data.append(E("sender_MarketParticipant.mRID", "10X1001A1001A450", codingScheme="A01"))
-        data.append(E("sender_MarketParticipant.marketRole.type", "A07"))
-        data.append(E("receiver_MarketParticipant.mRID", "10X1001A1001A450", codingScheme="A01"))
-        data.append(E("receiver_MarketParticipant.marketRole.type", "A32"))
-        data.append(E("createdDateTime", f"{now.isoformat(sep='T', timespec='seconds')}Z"))
-
-        return data
-
-    def xml_param(self, parameter: str, value: str) -> etree.Element:
-        """Map parameters to request values for the xml document.
-
-        :return: tree with parameters
+        :param parameter: The parameter key
+        :param value: The parameter value
+        :return: Tuple containing the parameter key and its mapped value
         """
         if parameter in {"Contract_MarketAgreement.Type", "Type_MarketAgreement.Type"}:
             value = self._MARKET_AGREEMENTS[value]
@@ -617,12 +592,12 @@ class _ConnectionConfiguration:
             value = self._PROCESS_TYPES[value]
         elif parameter == "DocStatus":
             value = self._DOC_STATES[value]
-        elif parameter == "DocumentType":
+        elif parameter == "documentType":
             value = self._DOC_TYPES[value]
         elif parameter in {"In_Domain", "Out_Domain"}:
-            value = self._BIDDING_ZONES[value]
+            value = self._BIDDING_ZONES.get(value, value)
 
-        return E("AttributeInstanceComponent", E("attribute", parameter), E("attributeValue", value))
+        return parameter, value
 
     @property
     def psr_types(self) -> dict[str, str]:

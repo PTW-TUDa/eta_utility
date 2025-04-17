@@ -64,7 +64,7 @@ fail_nodes = (
             "interval": "60",
         },
         "Parameter FOO-BAR is not valid. Valid parameters can be found here:"
-        "https://wetterdienst.readthedocs.io/en/latest/data/parameters.html",
+        "https://wetterdienst.readthedocs.io/en/latest/data/parameters/",
     ),
     (
         {
@@ -129,7 +129,7 @@ fail_nodes = (
             "name": "Serv.SolarForecast",
             "url": "",
             "protocol": "forecast_solar",
-            "api_key": "InvalidKEy",
+            "api_token": "InvalidKEy",
             "endpoint": "estimate",
             "latitude": "0",
             "longitude": 0,
@@ -137,7 +137,7 @@ fail_nodes = (
             "azimuth": 0,
             "kwp": 0.0,
         },
-        re.escape("'api_key' must be a 16 character long alphanumeric string."),
+        re.escape("'api_token' must be a 16 character long alphanumeric string."),
     ),
     (
         {
@@ -151,7 +151,7 @@ fail_nodes = (
             "azimuth": 0,
             "kwp": 0,
         },
-        re.escape("'endpoint' must be in ('estimate', 'check', 'history', 'clearsky') (got 'sun.core')"),
+        re.escape("'endpoint' must be in ('estimate', 'history', 'clearsky') (got 'sun.core')"),
     ),
     (
         {
@@ -166,7 +166,7 @@ fail_nodes = (
             "azimuth": 0,
             "kwp": 0,
         },
-        re.escape("'data' must be in ('watts', 'watthours', 'watthoursperperiod', 'watthoursperday') (got 'all')"),
+        re.escape("'data' must be in ('watts', 'watthours', 'watthours/period', 'watthours/day') (got 'all')"),
     ),
     (
         {
@@ -193,14 +193,14 @@ fail_nodes = (
             "azimuth": [0, 1, 2],
             "kwp": [0.0, 0.1, 0.4],
         },
-        "Valid API key is needed for multiple planes",
+        "Valid API token is needed for multiple planes",
     ),
     (
         {
             "name": "Serv.SolarForecast",
             "url": "",
             "protocol": "forecast_solar",
-            "api_key": "InvalidKEy",
+            "api_token": "InvalidKEy",
             "endpoint": "estimate",
             "latitude": "0",
             "longitude": 0,
@@ -208,14 +208,14 @@ fail_nodes = (
             "azimuth": [0, 1, 2],
             "kwp": [0.0, 0.1, 0.4],
         },
-        re.escape("'api_key' must be a 16 character long alphanumeric string."),
+        re.escape("'api_token' must be a 16 character long alphanumeric string."),
     ),
     (
         {
             "name": "Serv.SolarForecast",
             "url": "",
             "protocol": "forecast_solar",
-            "api_key": "A1B2C3D4E5F6G7H8",  # Test Key
+            "api_token": "A1B2C3D4E5F6G7H8",  # Test Key
             "latitude": "0",
             "longitude": 0,
             "declination": [0, 1, 2],
@@ -604,7 +604,8 @@ nodes = (
             "name": "Serv.SolarForecast",
             "url": "",
             "protocol": "forecast_solar",
-            "endpoint": "check",
+            "api_token": "A1B2C3D4E5F6G7H8",
+            "endpoint": "clearsky",
             "latitude": "0",
             "longitude": "0",
             "declination": "0",
@@ -613,9 +614,11 @@ nodes = (
         },
         {
             "name": "Serv.SolarForecast",
-            "url": "https://api.forecast.solar/check/0/0/0/0/0.0",
+            "url": "https://api.forecast.solar/A1B2C3D4E5F6G7H8/clearsky/watts/0/0/0/0/0.0",
             "protocol": "forecast_solar",
-            "endpoint": "check",
+            "api_token": "A1B2C3D4E5F6G7H8",
+            "endpoint": "clearsky",
+            "data": "watts",
             "latitude": 0,
             "longitude": 0,
             "declination": 0,
@@ -628,8 +631,7 @@ nodes = (
             "name": "Serv.SolarForecast",
             "url": "",
             "protocol": "forecast_solar",
-            "api_key": "A1B2C3D4E5F6G7H8",
-            "endpoint": "estimate",
+            "api_token": "A1B2C3D4E5F6G7H8",
             "latitude": 9,
             "longitude": 8,
             "declination": [0, 1, 2],
@@ -639,7 +641,7 @@ nodes = (
         {
             "name": "Serv.SolarForecast",
             "url": "https://api.forecast.solar/A1B2C3D4E5F6G7H8/estimate/watts/9/8/0/0/0.0/1/1/1.0/2/2/2.0",
-            "api_key": "A1B2C3D4E5F6G7H8",
+            "api_token": "A1B2C3D4E5F6G7H8",
             "protocol": "forecast_solar",
             "endpoint": "estimate",
             "latitude": 9,
@@ -655,7 +657,7 @@ nodes = (
             "url": "",
             "protocol": "forecast_solar",
             "endpoint": "estimate",
-            "data": None,
+            "data": "watts",
             "latitude": 9,
             "longitude": 8,
             "declination": 1,
@@ -680,7 +682,7 @@ nodes = (
             "name": "Serv.SolarForecast",
             "url": "",
             "protocol": "forecast_solar",
-            "api_key": "A1B2C3D4E5F6G7H8",
+            "api_token": "A1B2C3D4E5F6G7H8",
             "endpoint": "history",
             "latitude": 9,
             "longitude": 8,
@@ -690,11 +692,11 @@ nodes = (
         },
         {
             "name": "Serv.SolarForecast",
-            "url": "https://api.forecast.solar/A1B2C3D4E5F6G7H8/history/9/8/0/0/0.0/1/1/1.0/2/2/2.0",
-            "api_key": "A1B2C3D4E5F6G7H8",
+            "url": "https://api.forecast.solar/A1B2C3D4E5F6G7H8/history/watts/9/8/0/0/0.0/1/1/1.0/2/2/2.0",
+            "api_token": "A1B2C3D4E5F6G7H8",
             "protocol": "forecast_solar",
             "endpoint": "history",
-            "data": None,
+            "data": "watts",
             "latitude": 9,
             "longitude": 8,
             "declination": [0, 1, 2],

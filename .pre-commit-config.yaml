@@ -2,7 +2,7 @@ default_language_version:
   python: python3
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.0
+    rev: v0.9.6
     hooks:
       # Run the linter.
       - id: ruff
@@ -52,17 +52,17 @@ repos:
          - types-requests==2.31.0.10
          - types-pytz==2024.1.0.20240203
          - attrs==23.2.0
-         - gymnasium==0.29.1
-         - stable-baselines3==2.2.1
+         - gymnasium==1.0.0
+         - stable-baselines3==2.4.0
          - pygame==2.5.2
          - importlib-metadata==7.1.0
          - cryptography==41.0.5
          - keyboard==0.13.5
-         - onnxruntime==1.17.3
+         - onnxruntime==1.19.0
          - matplotlib==3.7.5
+         - python-dotenv==1.0.1
   - repo: https://github.com/python-poetry/poetry
-    rev: 1.8.2
+    rev: 2.1.1
     hooks:
       -   id: poetry-check
       -   id: poetry-lock
-          args: [--no-update]

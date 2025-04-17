@@ -1,3 +1,4 @@
+import logging
 import shutil
 from datetime import timedelta
 
@@ -18,6 +19,7 @@ class TestStateLog:
         path = get_oscillator_path()
         yield path
         shutil.rmtree(path / "results", ignore_errors=True)
+        logging.shutdown()
 
     @pytest.fixture(scope="class")
     def results_path(self, experiment_path):
@@ -26,7 +28,7 @@ class TestStateLog:
     @pytest.fixture(scope="class")
     def damped_oscillator_eta(self, experiment_path):
         matplotlib.use("Agg")  # Prevents GUI from opening
-        return ex_oscillator(experiment_path)
+        return ex_oscillator(experiment_path, {"settings": {"log_to_file": False}})
 
     def test_export_state_log(self, damped_oscillator_eta, results_path):
         assert episode_results_path(results_path, "run1", 1, 1).exists()
