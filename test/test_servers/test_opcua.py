@@ -83,7 +83,7 @@ class TestServerOperations:
         missing_node = Node(
             node.name, node.url, node.protocol, usr=node.usr, pwd=node.pwd, opc_id="ns=6;s=thermal_power"
         )
-        server.create_nodes(missing_node)
+        server.create_nodes({missing_node})
 
         for _ in local_nodes:
             server._server.get_node(missing_node.opc_id).get_value()
@@ -92,16 +92,16 @@ class TestServerOperations:
 
     @pytest.mark.parametrize(("index", "value"), values)
     def test_write_node(self, server: OpcUaServer, local_nodes, index, value):
-        server.create_nodes(local_nodes[index])
+        server.create_nodes({local_nodes[index]})
         server.write({local_nodes[index]: value})
 
         assert server._server.get_node(local_nodes[index].opc_id).get_value() == value
 
     @pytest.mark.parametrize(("index", "expected"), values)
     def test_read_node(self, server: OpcUaServer, local_nodes, index, expected):
-        server.create_nodes(local_nodes[index])
+        server.create_nodes({local_nodes[index]})
         server.write({local_nodes[index]: expected})
-        val = server.read({local_nodes[index]})
+        val = server.read(local_nodes[index])
 
         assert val.iloc[0, 0] == expected
         assert val.columns[0] == local_nodes[index].name

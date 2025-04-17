@@ -69,9 +69,9 @@ class TestConnectorOperations:
 
         # Assert received data, round to 6 decimal places
         data = data.round(6)
-        for value_name in node_values:
+        for value_name, expected_value in node_values.items():
             assert value_name in data.columns
-            assert data[value_name].to_numpy()[0] == node_values[value_name]
+            assert data[value_name].to_numpy()[0] == expected_value
 
     async def write_loop(self, server, node, values):
         for i in range(len(values)):
@@ -79,7 +79,7 @@ class TestConnectorOperations:
             await asyncio.sleep(0.9)
 
     def test_subscribe(self, server: ModbusServer, connection: EmonioConnection, local_nodes):
-        voltage_node = connection._prepare_modbus_nodes(local_nodes[0])[0]
+        voltage_node = connection._prepare_modbus_nodes(local_nodes[:1])[0]
         voltage_values = [299.5, 230, 230.001]
 
         handler = DFSubHandler()
@@ -95,7 +95,7 @@ class TestConnectorOperations:
     def test_check_phase(self, connection, phase_node):
         # Set 'connected' for a at address 0 to 1 (True)
         connection._phases_connected = {"a": True, "b": False, "c": False}
-        connection._check_phases(phase_node)
+        connection._check_phases({phase_node})
 
     def test_nodes_phase(self, server, phase_node):
         # Set 'connected' for a at address 0 to 1 (True)
@@ -148,10 +148,11 @@ class TestConnectorOperations:
 
     @pytest.mark.parametrize(("nodes", "address"), test_nodes)
     def test_prepare_modbus_nodes(self, connection, nodes, address):
-        modbus_nodes = connection._prepare_modbus_nodes(nodes)
         if isinstance(nodes, Node):
+            modbus_nodes = connection._prepare_modbus_nodes({nodes})
             assert len(modbus_nodes) == 1
         else:
+            modbus_nodes = connection._prepare_modbus_nodes(nodes)
             assert len(modbus_nodes) == len(nodes)
 
         for i, node in enumerate(modbus_nodes):

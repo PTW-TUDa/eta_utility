@@ -10,11 +10,12 @@ from typing import TYPE_CHECKING, Generic
 import pandas as pd
 from attr import field
 from dateutil import tz
+from typing_extensions import deprecated
 
 from eta_utility import url_parse
 from eta_utility.connectors.node import Node
-from eta_utility.type_hints.types_connectors import N, Nodes
-from eta_utility.util import deprecated, ensure_timezone, round_timestamp
+from eta_utility.type_hints import N, Nodes
+from eta_utility.util import ensure_timezone, round_timestamp
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -111,7 +112,7 @@ class SubscriptionHandler(ABC):
         pass
 
 
-class Connection(ABC, Generic[N]):
+class Connection(Generic[N], ABC):
     """Base class with a common interface for all connection objects
 
     The URL may contain the username and password (schema://username:password@hostname:port/path). In this case, the
@@ -178,7 +179,9 @@ class Connection(ABC, Generic[N]):
         self.exc: BaseException | None = None
 
     @classmethod
-    def from_node(cls, node: Nodes[Node], usr: str | None = None, pwd: str | None = None, **kwargs: Any) -> Connection:
+    def from_node(
+        cls, node: Nodes[Node] | Node, usr: str | None = None, pwd: str | None = None, **kwargs: Any
+    ) -> Connection:
         """Return a single connection for nodes with the same url netloc.
           Initialize the connection object from a node object. When a list of Node objects is provided,
           from_node checks if all nodes match the same connection; it throws an error if they don't.
@@ -189,10 +192,9 @@ class Connection(ABC, Generic[N]):
         :raises: ValueError: if not all nodes match the same connection.
         :return: Connection object
         """
-        # Make sure nodes is always a set of nodes
         nodes = {node} if not isinstance(node, Iterable) else set(node)
         # Check if all nodes have the same netloc
-        if len({f"{node.url_parsed.netloc}" for node in nodes}) != 1:
+        if len({f"{_node.url_parsed.netloc}" for _node in nodes}) != 1:
             raise ValueError("Nodes must all have the same netloc to be used with the same connection.")
 
         for index, _node in enumerate(nodes):
@@ -221,7 +223,6 @@ class Connection(ABC, Generic[N]):
         :return: Dictionary of Connection objects with the netloc as key.
         """
         connections: dict[str, Connection] = {}
-        nodes = {nodes} if not isinstance(nodes, Iterable) else set(nodes)
 
         for node in nodes:
             node_id = f"{node.url_parsed.netloc}"
@@ -252,10 +253,10 @@ class Connection(ABC, Generic[N]):
         return cls(url=node.url, nodes=[node], **kwargs)
 
     @abstractmethod
-    def read(self, nodes: Nodes[N] | None = None) -> pd.DataFrame:
+    def read(self, nodes: N | Nodes[N] | None = None) -> pd.DataFrame:
         """Read data from nodes
 
-        :param nodes: List of nodes to read from.
+        :param nodes: Single node or list/set of nodes to read from.
         :return: Pandas DataFrame with resulting values.
         """
 
@@ -270,10 +271,12 @@ class Connection(ABC, Generic[N]):
         pass
 
     @abstractmethod
-    def subscribe(self, handler: SubscriptionHandler, nodes: Nodes[N] | None = None, interval: TimeStep = 1) -> None:
+    def subscribe(
+        self, handler: SubscriptionHandler, nodes: N | Nodes[N] | None = None, interval: TimeStep = 1
+    ) -> None:
         """Subscribe to nodes and call handler when new data is available.
 
-        :param nodes: Identifiers for the nodes to subscribe to.
+        :param nodes: Single node or list/set of nodes to subscribe to.
         :param handler: Function to be called upon receiving new values, must accept attributes: node, val.
         :param interval: Interval for receiving new data. Interpreted as seconds when given as integer.
         """
@@ -288,19 +291,17 @@ class Connection(ABC, Generic[N]):
     def url(self) -> str:
         return self._url.geturl()
 
-    def _validate_nodes(self, nodes: Nodes[N] | None) -> set[N]:
+    def _validate_nodes(self, nodes: N | Nodes[N] | None) -> set[N]:
         """Make sure that nodes are a Set of nodes and that all nodes correspond to the protocol and url
         of the connection.
 
-        :param nodes: Sequence of Node objects to validate.
-        :return: Set of valid Node objects for this connection.
+        :param nodes: Single node or list/set of nodes to validate.
+        :return: Set of valid node objects for this connection.
         """
         if nodes is None:
             _nodes = self.selected_nodes
         else:
-            if not isinstance(nodes, Iterable):
-                nodes = {nodes}
-
+            nodes = {nodes} if not isinstance(nodes, Iterable) else nodes
             # If not using preselected nodes from self.selected_nodes, check if nodes correspond to the connection
             _nodes = {
                 node for node in nodes if node.protocol == self._PROTOCOL and node.url_parsed.netloc == self._url.netloc
@@ -337,13 +338,13 @@ class SeriesConnection(Connection[N], ABC):
         self,
         from_time: datetime,
         to_time: datetime,
-        nodes: Nodes[N] | None = None,
+        nodes: N | Nodes[N] | None = None,
         interval: TimeStep = 1,
         **kwargs: Any,
     ) -> pd.DataFrame:
         """Read time series data from the connection, within a specified time interval (from_time until to_time).
 
-        :param nodes: List of nodes to read values from.
+        :param nodes: Single node or list/set of nodes to read values from.
         :param from_time: Starting time to begin reading (included in output).
         :param to_time: Time to stop reading at (not included in output).
         :param interval: interval between time steps. It is interpreted as seconds if given as integer.
@@ -357,7 +358,7 @@ class SeriesConnection(Connection[N], ABC):
         handler: SubscriptionHandler,
         req_interval: TimeStep,
         offset: TimeStep | None = None,
-        nodes: Nodes[N] | None = None,
+        nodes: N | Nodes[N] | None = None,
         interval: TimeStep = 1,
         data_interval: TimeStep = 1,
         **kwargs: Any,
@@ -372,7 +373,7 @@ class SeriesConnection(Connection[N], ABC):
         :param data_interval: Time interval between values in returned data. Interpreted as seconds if given as int.
         :param interval: interval (between requests) for receiving new data. It is interpreted as seconds
             when given as an integer.
-        :param nodes: Identifiers for the nodes to subscribe to.
+        :param nodes: Single node or list/set of nodes to subscribe to.
         :param kwargs: Any additional arguments required by subclasses.
         """
         pass

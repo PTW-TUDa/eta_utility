@@ -1,21 +1,31 @@
-[build-system]
-requires = ["poetry-core>=1.6.0"]
-build-backend = "poetry.core.masonry.api"
-
-[tool.poetry]
+[project]
 name = "eta-utility"
-version = "v3.2.5"
+version = "v3.3.0"
 description = "A framework for researching energy optimization of factory operations"
-authors = [
-    "Technical University of Darmstadt, Institute for Production Management, Technology and Machine Tools (PTW). <info@ptw.tu-darmstadt.de>"
-]
-readme = "README.rst"
 license = "BSD-2-Clause"
-
+readme = "README.rst"
+requires-python = ">=3.9.2, <3.12"
+authors = [
+    {name = "Technical University of Darmstadt, Institute for Production Management, Technology and Machine Tools (PTW)", email="info@ptw.tu-darmstadt.de"}
+]
 keywords = [
     "connectors","servers","simulators","industrial energy optimization","rolling horizon optimization"
 ]
+dynamic = ["classifiers", "dependencies"]
 
+[project.urls]
+homepage = "https://www.ptw.tu-darmstadt.de"
+repository = "https://github.com/PTW-TUDa/eta_utility/"
+documentation = "https://eta-utility.readthedocs.io/"
+issues = "https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility/-/issues"
+
+[project.scripts]
+    install-julia = "eta_utility:install_julia"
+    update-julia-agent = "eta_utility:update_agent"
+
+[tool.poetry]
+requires-poetry = ">=2.0"
+# Classifiers are defined in the poetry section to dynamically add the python version
 classifiers = [
     "License :: OSI Approved :: BSD License",
     "Development Status :: 4 - Beta",
@@ -25,29 +35,16 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Software Development :: Libraries",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3 :: Only",
+]
+include = [
+    {path="examples/", format=["sdist", "wheel"]}
 ]
 
-homepage = "https://www.ptw.tu-darmstadt.de"
-documentation = "https://eta-utility.readthedocs.io/"
-repository = "https://github.com/PTW-TUDa/eta_utility/"
-
-[tool.poetry.urls]
-"Issues" = "https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility/-/issues"
-
-[[tool.poetry.include]]
-path="examples/"
-format="sdist"
-
-[tool.poetry.scripts]
-    install-julia = "eta_utility:install_julia"
-    update-julia-agent = "eta_utility:update_agent"
 
 #  '^' limits to the next major version, '~' limits to the next minor version
 # e.g. ^3.9.0: 3.9.0 <= x < 4.0.0 and ~3.9.0: 3.9.0 <= x < 3.10.0
 [tool.poetry.dependencies]
 # default dependencies of eta_utility
-python = ">=3.9, <3.12"
 attrs = "^23.1.0"
 python-dateutil = "^2.8.2"
 numpy = {version= "~1.26.0"}
@@ -63,59 +60,52 @@ wetterdienst = "~0.88.0"  # breaking changes expected
 requests-cache = "^1.2.0"
 pyyaml = "^6.0.2"
 toml = "^0.10.2"
+python-dotenv = "^1.0.1"
 
 # Specific requirements for eta-x
-gymnasium =  {version = "==0.29.1", optional=true} # no SemVer
+gymnasium =  {version = "==1.0.0", optional=true} # no SemVer
 torch = {version = "==2.0.0", optional=true} # nvidia packages are not included in 2.0.1, see https://github.com/pytorch/pytorch/issues/100974
-stable-baselines3 = {version = "==2.2.1", optional=true} # no SemVer
+stable-baselines3 = {version = "^2.4.0", optional=true}  # no SemVer
 tensorboard = {version = "~2.14.0", optional=true}
 pyomo = {version = "~6.6.2", optional=true}
+julia = {version= "^0.6.2", optional= true}
 
 # Specific requirements for the examples
-matplotlib = {version= "~3.7.0", optional = true}
+matplotlib = {version= "~3.7.5", optional = true}
 keyboard = {version="^0.13.5", optional=true}
 pygame = {version="^2.5.2", optional=true}
 pyglet = {version="<2", optional=true}
-onnxruntime = {version="^1.16.0", optional=true}
+onnxruntime = {version="1.19.0", optional=true}
 
 # Specific requirements for tests
 pytest = {version = "^7.4.2", optional = true}
-pytest-cov = {version = "^4.1.0", optional = true}
+pytest-cov = {version = "^6.0.0", optional = true}
 openpyxl = {version = "^3.1.2", optional = true}
 # Specific requirements for development
 sphinx = {version ="^7.1.2", optional = true}
 sphinx-rtd-theme = {version = "^1.3.0", optional = true}
 sphinx-copybutton = {version = "^0.5.2", optional = true}
 pre-commit = {version = "^3.4.0", optional = true}
-black = {version = "~23.7", optional = true}
-blacken_docs = {version = "~1.16", optional = true}
+black = {version = "~23.7.0", optional = true}
+blacken_docs = {version = "~1.16.0", optional = true}
 # MyPy requirements and typing packages
-mypy = {version = "~1.9", optional = true}
+mypy = {version = "~1.9.0", optional = true}
 types-python-dateutil = {version = "^2.8.19.14", optional = true}
 types-requests = {version = "^2.31.0.4", optional = true}
 types-pytz = {version = "^2024.1.0.20240203", optional = true}
 # Ruff
-ruff = {version = "~0.6.0", optional = true}
+ruff = {version = "~0.9.6", optional = true}
 codespell = {version= "^2.3.0", optional = true}
 
 
 [tool.poetry.extras]
-develop = ["gymnasium", "torch", "stable_baselines3", "tensorboard", "pyomo",  # include eta-x
+develop = ["gymnasium", "torch", "stable_baselines3", "tensorboard", "pyomo", "julia",  # include eta-x
             "matplotlib", "keyboard", "pygame", "pyglet", "onnxruntime",    # include examples
             "pytest", "pytest-cov", "openpyxl", "sphinx", "sphinx-rtd-theme", "sphinx-copybutton", "pre-commit",
             "black", "blacken_docs", "mypy", "types-python-dateutil",
             "types-requests", "types-pytz", "ruff", "codespell"]
-eta-x = ["gymnasium", "torch", "stable_baselines3", "tensorboard", "pyomo"]
+eta-x = ["gymnasium", "torch", "stable_baselines3", "tensorboard", "pyomo", "julia"]
 examples = ["matplotlib", "keyboard", "pygame", "pyglet", "onnxruntime"]
-
-
-
-[tool.black]
-include = "\\.pyi?$|^eta_utility/|^test/"
-exclude = "\\.xlsx?$|\\.fmu?$|test_resources/|__pycache__/|_version.py|.venv/$"
-line_length = 120
-target_version = ["py39","py310", "py311"]
-
 
 [tool.mypy]
 python_version = "3.9"
@@ -154,6 +144,7 @@ module = [
     "yaml.*",
 ]
 ignore_missing_imports = true
+
 [[tool.mypy.overrides]]
 module = "test.*"
 ignore_errors = true
@@ -165,6 +156,9 @@ log_cli_level = 20
 log_cli_format = "[%(levelname)s: %(name)s] %(message)s"
 testpaths = [
     "test",
+]
+markers = [
+    "disable_logging: Disable logging for the marked test",
 ]
 
 # Configuration for pytest-cov
@@ -250,3 +244,7 @@ max-returns = 6
 skip = "*.js, *.html, *.lock, */Manifest.toml, ./docs/_build"
 ignore-words-list = ["Temperatur"]
 quiet-level = 3
+
+[build-system]
+requires = ["poetry-core>=1.6.0"]
+build-backend = "poetry.core.masonry.api"

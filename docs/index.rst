@@ -39,12 +39,15 @@ Please read the development guide before starting development on *eta_utility*: 
     :caption: Connectors
 
     /connectors/introduction
-    /connectors/connectors
+    /connectors/Modbus_connection
     /connectors/emonio
-    /connectors/wetterdienst_connection
+    /connectors/OpcUa_connection
+    /connectors/EnEffco_Connection
+    /connectors/ENTSO-E_Connection
     /connectors/forecast_solar_connection
-    /connectors/live_connect
+    /connectors/wetterdienst_connection
     /connectors/sub_handlers
+    /connectors/live_connect
 
 .. toctree::
     :maxdepth: 1

@@ -34,4 +34,4 @@ AnyNode = Union[
 # Generic Template for Nodes, N has to be a subclass of Node
 N = TypeVar("N", bound=Node)
 
-Nodes = Union[Sequence[N], set[N], N]
+Nodes = Union[Sequence[N], set[N]]

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import copy
 import csv
-import functools
 import io
 import json
 import logging
@@ -35,7 +34,7 @@ if TYPE_CHECKING:
     import types
     from collections.abc import Generator
     from tempfile import _TemporaryFileWrapper
-    from typing import Any, Callable
+    from typing import Any
     from urllib.parse import ParseResult
 
     from typing_extensions import Self
@@ -125,7 +124,7 @@ def log_add_filehandler(
         log_path.mkdir(exist_ok=True)
 
         current_time = datetime.now(tz=tz.tzlocal()).strftime("%Y-%m-%d_%H-%M-%S")
-        file_name = f"datarecorder_{current_time}.log"
+        file_name = f"eta_utility_{current_time}.log"
         log.info(f"No filename specified for filehandler. Using default filename {file_name}.")
 
         filename = log_path / file_name
@@ -280,8 +279,7 @@ def dict_get_any(dikt: dict[str, Any], *names: str, fail: bool = True, default: 
 
     if fail is True:
         raise KeyError(
-            f"Did not find one of the required keys in the configuration: {names}. Possibly Check the "
-            f"correct spelling"
+            f"Did not find one of the required keys in the configuration: {names}. Possibly Check the correct spelling"
         )
     return default
 
@@ -432,39 +430,6 @@ def round_timestamp(dt_value: datetime, interval: float = 1, ensure_tz: bool = T
     return datetime.fromtimestamp(rounded_timestamp, tz=timezone_store)
 
 
-def deprecated(message: str) -> Callable:
-    """
-    This is a decorator which can be used to mark functions
-    or classes as deprecated. It will result in a warning being emitted
-    when the function or class is used.
-
-    :param message: Message to be displayed when the function is called.
-    """
-
-    def decorator(func_or_class: Callable | type) -> Callable | type:
-        if isinstance(func_or_class, type):
-            # If applied to a class
-            orig_init = func_or_class.__init__  # type: ignore
-
-            @functools.wraps(orig_init)
-            def new_init(self: Any, *args: Any, **kwargs: Any) -> None:
-                warnings.warn(f"{func_or_class.__name__} is deprecated: {message}", DeprecationWarning, stacklevel=2)
-                orig_init(self, *args, **kwargs)
-
-            func_or_class.__init__ = new_init  # type: ignore
-            return func_or_class
-
-        # If applied to a function
-        @functools.wraps(func_or_class)
-        def new_func(*args: Any, **kwargs: Any) -> Any:
-            warnings.warn(f"{func_or_class.__name__} is deprecated: {message}", DeprecationWarning, stacklevel=2)
-            return func_or_class(*args, **kwargs)
-
-        return new_func
-
-    return decorator
-
-
 class KeyCertPair(ABC):
     """KeyCertPair is a wrapper for an RSA private key file and a corresponding x509 certificate. Implementations
     provide a contextmanager "tempfiles", which provides access to the certificate files and the
@@ -598,22 +563,19 @@ class SelfsignedKeyCertPair(KeyCertPair):
             )
         else:
             encryption = serialization.NoEncryption()
-
-        self._key_tempfile = NamedTemporaryFile("w+b", delete=False, suffix=".pem")
-        assert self._key_tempfile is not None
-        self._key_tempfile.write(
-            self.key.private_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.TraditionalOpenSSL,
-                encryption_algorithm=encryption,
+        with NamedTemporaryFile("w+b", delete=False, suffix=".pem") as key_tempfile:
+            key_tempfile.write(
+                self.key.private_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PrivateFormat.TraditionalOpenSSL,
+                    encryption_algorithm=encryption,
+                )
             )
-        )
-
+            self._key_tempfile = key_tempfile
         # store cert
-        self._cert_tempfile = NamedTemporaryFile("w+b", delete=False, suffix=".pem")
-        assert self._cert_tempfile is not None
-        self._cert_tempfile.write(self.cert.public_bytes(serialization.Encoding.PEM))
-
+        with NamedTemporaryFile("w+b", delete=False, suffix=".pem") as cert_tempfile:
+            cert_tempfile.write(self.cert.public_bytes(serialization.Encoding.PEM))
+            self._cert_tempfile = cert_tempfile
         return self.key_path, self.cert_path
 
     @contextmanager

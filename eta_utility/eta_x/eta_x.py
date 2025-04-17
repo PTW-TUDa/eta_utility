@@ -86,9 +86,9 @@ class ETAx:
             self.prepare_run(_series_name, _run_name, run_description)
 
         with self.prepare_environments(training):
-            assert (
-                self.environments is not None
-            ), "Initialized environments could not be found. Call prepare_environments first."
+            assert self.environments is not None, (
+                "Initialized environments could not be found. Call prepare_environments first."
+            )
 
             self.prepare_model(reset)
             yield
@@ -128,12 +128,11 @@ class ETAx:
         :param reset: Flag to determine whether an existing model should be reset.
         """
         assert self.config_run is not None, (
-            "Set the config_run attribute before trying to initialize the model "
-            "(for example by calling prepare_run)."
+            "Set the config_run attribute before trying to initialize the model (for example by calling prepare_run)."
         )
-        assert (
-            self.environments is not None
-        ), "Initialize the environments before trying to initialize the model(for example by calling prepare_run)."
+        assert self.environments is not None, (
+            "Initialize the environments before trying to initialize the model(for example by calling prepare_run)."
+        )
 
         path_model = self.config_run.path_run_model
         if path_model.is_file() and reset:
@@ -289,9 +288,9 @@ class ETAx:
         """
         with self.prepare_environments_models(series_name, run_name, run_description, reset, training=True):
             assert self.config_run is not None, "Run configuration could not be found. Call prepare_run first."
-            assert (
-                self.environments is not None
-            ), "Initialized environments could not be found. Call prepare_environments first."
+            assert self.environments is not None, (
+                "Initialized environments could not be found. Call prepare_environments first."
+            )
             assert self.model is not None, "Initialized model could not be found. Call prepare_model first."
 
             # Log some information about the model and configuration
@@ -373,9 +372,9 @@ class ETAx:
         """
         with self.prepare_environments_models(series_name, run_name, run_description, reset=False, training=False):
             assert self.config_run is not None, "Run configuration could not be found. Call prepare_run first."
-            assert (
-                self.environments is not None
-            ), "Initialized environments could not be found. Call prepare_environments first."
+            assert self.environments is not None, (
+                "Initialized environments could not be found. Call prepare_environments first."
+            )
             assert self.model is not None, "Initialized model could not be found. Call prepare_model first."
 
             if self.config.settings.n_episodes_play is None:
@@ -437,9 +436,9 @@ class ETAx:
             action *= _scale_actions
         # Some agents (i.e. MPC) can interact with an additional environment
         if self.config.settings.interact_with_env:
-            assert (
-                self.interaction_env is not None
-            ), "Initialized interaction environments could not be found. Call prepare_run first."
+            assert self.interaction_env is not None, (
+                "Initialized interaction environments could not be found. Call prepare_run first."
+            )
 
             # Perform a step  with the interaction environment and update the normal environment with
             # its observations
@@ -465,9 +464,9 @@ class ETAx:
 
         self.environments.seed(self.config.settings.seed)
         if self.config.settings.interact_with_env:
-            assert (
-                self.interaction_env is not None
-            ), "Initialized interaction environments could not be found. Call prepare_run first."
+            assert self.interaction_env is not None, (
+                "Initialized interaction environments could not be found. Call prepare_run first."
+            )
             self.interaction_env.seed(self.config.settings.seed)
             observations = self.interaction_env.reset()
             return self._reset_env_interaction(observations)

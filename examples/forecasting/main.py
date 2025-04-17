@@ -117,7 +117,7 @@ async def local_server() -> None:
     current_line = 0
 
     # initialize the server
-    nodes = [
+    nodes: list[NodeOpcUa] = [
         NodeOpcUa(
             name=name,
             url=f"opc.tcp://{Config.OPC_SERVER['ip']}:{Config.OPC_SERVER['port']}",
@@ -129,7 +129,7 @@ async def local_server() -> None:
     ]
     server = OpcUaServer(namespace=2, ip=str(Config.OPC_SERVER["ip"]), port=int(Config.OPC_SERVER["port"]))
     server.create_nodes(nodes)
-    node_map: dict[str, NodeOpcUa] = name_map_from_node_sequence(nodes)
+    node_map: dict[str, NodeOpcUa] = name_map_from_node_sequence(nodes)  # type: ignore
     while True:
         server.write({node_map[name]: value for name, value in data.iloc[current_line].items()})
         current_line = current_line + 1 if current_line < len(data) else 0
@@ -225,7 +225,7 @@ async def inference_loop(
         opc_id=publish_name,
     )
     with OpcUaServer(namespace=6, ip="localhost") as output_server:
-        output_server.create_nodes(output_node)
+        output_server.create_nodes({output_node})
 
         while True:
             data = await data_queue.get()

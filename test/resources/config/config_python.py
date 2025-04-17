@@ -25,7 +25,7 @@ config = {  # noqa: INP001
         "scenario_files": [
             {
                 "path": "electricity_price_test.csv",
-                "interpolation_method": "fillna",
+                "interpolation_method": "ffill",
                 "resample_method": "asfreq",
                 "time_conversion_str": "%d.%m.%Y %H:%M",
             }

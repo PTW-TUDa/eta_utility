@@ -1,12 +1,14 @@
 #!/bin/bash
 
+# NEEDS TO BE RUN IN THE ROOT DIRECTORY OF THE REPOSITORY
+
 RED="\033[0;31m"
 GREEN="\033[0;32m"
 NC="\033[0m" # No Color
 
 # Define the Python versions to build
 PYTHON_VERSIONS=("3.9" "3.10" "3.11")
-POETRY_VERSION="1.8.3"
+POETRY_VERSION="2.1.1"
 DOCKERFILE_PATH=".gitlab/docker/dockerfile"
 REGISTRY_URL="git-reg.ptw.maschinenbau.tu-darmstadt.de"
 IMAGE_PATH="/eta-fabrik/public/eta-utility/"

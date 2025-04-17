@@ -15,7 +15,7 @@ class RuleBasedController(RuleBased):
     :param env: Environment to be controlled.
     :param verbose: Logging verbosity.
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
-    :param kwargs: Additional arguments as specified in stable_baselins3.common.base_class.
+    :param kwargs: Additional arguments as specified in stable_baselines3.common.base_class.
     """
 
     def __init__(

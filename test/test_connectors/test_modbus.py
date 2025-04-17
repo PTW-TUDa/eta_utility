@@ -228,7 +228,7 @@ class TestConnectorOperations:
     @pytest.mark.parametrize(("index", "expected"), values)
     def test_read_node(self, server, connection, local_nodes, index, expected):
         server.write({local_nodes[index]: expected})
-        val = connection.read({local_nodes[index]})
+        val = connection.read(local_nodes[index])
 
         assert val.iloc[0, 0] == expected
         assert val.columns[0] == local_nodes[index].name
@@ -281,12 +281,12 @@ class TestConnectorOperationsLittleEndian:
     def test_write_node(self, server, connection, local_nodes, index, value):
         connection.write({local_nodes[index]: value})
 
-        assert server.read(local_nodes[index]).iloc[0, 0] == value
+        assert server.read([local_nodes[index]]).iloc[0, 0] == value
 
     @pytest.mark.parametrize(("index", "expected"), values)
     def test_read_node(self, server, connection, local_nodes, index, expected):
         server.write({local_nodes[index]: expected})
-        val = connection.read({local_nodes[index]})
+        val = connection.read(local_nodes[index])
 
         assert val.iloc[0, 0] == expected
         assert val.columns[0] == local_nodes[index].name
@@ -379,12 +379,14 @@ class TestConnectorSubscriptions:
 
         for node, values in self.values.items():
             # Check whether Dataframe contains NaN
-            assert pd.isna(handler.data[node]).any()
+            data = handler.data
+            assert pd.isna(data[node]).any()
 
             # Don't check floating point values in this case because it is hard to deal with precision problems here.
-            if handler.data[node].dtype == "float":
+            # if not pd.api.types.is_float_dtype(handler.data[node].dtype):
+            if data[node].dtype.kind == "f":
                 continue
-            assert set(handler.data[node].dropna()) <= set(values)
+            assert set(data[node].dropna()) <= set(values)
 
         # Check if connection was actually interrupted during the test.
         messages_found = 0

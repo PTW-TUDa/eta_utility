@@ -37,7 +37,9 @@ cumu_node2 = NodeCumulocity(
 conn = CumulocityConnection(url=URL, usr=USER, pwd=PASSWORD, tenant=TENANT)
 
 # 2. Example: Create connection by Node
-conn2 = CumulocityConnection.from_node([cumu_node, cumu_node2], usr=USER, pwd=PASSWORD, tenant=TENANT)
+conn2: CumulocityConnection = CumulocityConnection.from_node(
+    [cumu_node, cumu_node2], usr=USER, pwd=PASSWORD, tenant=TENANT
+)  # type: ignore
 # this way the nodes are directly saved in conn.selected_nodes
 
 ### Write Data ###
@@ -49,12 +51,12 @@ data = pd.DataFrame(data=[[1], [2], [3]], columns=["P"], index=index)
 # Write data
 # to write data you need to provide the additional parameters measurement_type and unit and pass the data as pd.Series
 # you can either provide the upload nodes manually
-conn.write(values=data["P"], measurement_type="Power", unit="W", nodes=cumu_node)
+conn.write(values=data["P"], measurement_type="Power", unit="W", nodes={cumu_node})
 
 ### Read Data ###
 # to read data you need to provide the nodes to read from and a timespan
 # again you can either provide the download nodes manually
-print(conn.read_series(from_time=t, to_time=t + timedelta(minutes=5), nodes=cumu_node))  # noqa
+print(conn.read_series(from_time=t, to_time=t + timedelta(minutes=5), nodes={cumu_node}))  # noqa
 
 ### Create Device ###
 # to create a device, additionally to your login information, you need to provide a device name

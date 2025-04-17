@@ -23,7 +23,7 @@ class PendulumControl(RuleBased):
         :param env: The environment to learn from.
         :param verbose: Logging verbosity.
         :param kwargs: Additional arguments as specified in
-            :py:class:`stable_baselins3.common.base_class.BaseAlgorithm`.
+            :py:class:`stable_baselines3.common.base_class.BaseAlgorithm`.
         """
 
         super().__init__(policy=policy, env=env, verbose=verbose, **kwargs)
@@ -55,6 +55,6 @@ class PendulumControl(RuleBased):
         else:
             torque *= -1.5
 
-        action: np.ndarray = np.fromiter([torque], dtype=np.floating)
+        action: np.ndarray = np.fromiter([torque], dtype=np.float64)
 
         return action
